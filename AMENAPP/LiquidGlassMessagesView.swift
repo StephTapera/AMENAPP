@@ -12,6 +12,8 @@
 
 import SwiftUI
 import FirebaseAuth
+import PhotosUI
+import AVFoundation
 
 // MARK: - Message Model
 
@@ -44,6 +46,8 @@ struct LiquidGlassMessagesView: View {
     let conversationTitle: String
     let conversationSubtitle: String
 
+    @Environment(\.dismiss) private var dismiss
+
     @State private var messages: [AMENMessage] = []
     @State private var messageText = ""
     @State private var isTyping = false
@@ -51,6 +55,12 @@ struct LiquidGlassMessagesView: View {
     @State private var quotedMessage: AMENMessage?
     @State private var scrollProxy: ScrollViewProxy?
     @State private var keyboardHeight: CGFloat = 0
+    @State private var keyboardObserverTokens: [NSObjectProtocol] = []
+    @State private var showConversationInfo = false
+    @State private var showVideoCallAlert = false
+    @State private var pendingMessageType: AMENMessage.MessageType = .standard
+    @State private var showPhotoPicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
 
     @Namespace private var reactionNamespace
     @Namespace private var sendButtonNamespace
@@ -78,7 +88,7 @@ struct LiquidGlassMessagesView: View {
                                         toggleReaction(messageId: message.id, emoji: emoji)
                                     },
                                     onLongPress: {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                             selectedMessageForReaction = message.id
                                         }
                                         UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.7)
@@ -100,7 +110,7 @@ struct LiquidGlassMessagesView: View {
                 }
                 .simultaneousGesture(
                     TapGesture().onEnded { _ in
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             selectedMessageForReaction = nil
                         }
                     }
@@ -113,7 +123,9 @@ struct LiquidGlassMessagesView: View {
                     quotedMessage: quotedMessage,
                     namespace: sendButtonNamespace,
                     onSend: sendMessage,
-                    onClearQuote: { quotedMessage = nil }
+                    onClearQuote: { quotedMessage = nil },
+                    onAttachmentRequested: handleAttachment,
+                    onSendVoice: handleVoiceMessage
                 )
                 .padding(.bottom, max(0, keyboardHeight - 34))
             }
@@ -121,6 +133,58 @@ struct LiquidGlassMessagesView: View {
         .onAppear {
             setupKeyboardObservers()
             loadMockMessages()
+        }
+        .onDisappear {
+            removeKeyboardObservers()
+        }
+        .alert("Video Calls Coming Soon", isPresented: $showVideoCallAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Video calling will be available in a future AMEN update.")
+        }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
+        .onChange(of: selectedPhotoItem) { _, item in
+            guard item != nil else { return }
+            let msg = AMENMessage(
+                id: UUID().uuidString,
+                text: "📸 Photo",
+                senderId: Auth.auth().currentUser?.uid ?? "",
+                senderName: Auth.auth().currentUser?.displayName ?? "You",
+                senderAvatar: nil,
+                timestamp: Date(),
+                type: .standard,
+                reactions: [:],
+                quotedMessageId: nil
+            )
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.72))) {
+                messages.append(msg)
+            }
+            selectedPhotoItem = nil
+        }
+        .sheet(isPresented: $showConversationInfo) {
+            NavigationStack {
+                VStack(spacing: 20) {
+                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.purple)
+                        .padding(.top, 32)
+                    VStack(spacing: 6) {
+                        Text(conversationTitle)
+                            .font(.title2.weight(.bold))
+                        Text(conversationSubtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .navigationTitle("Conversation Info")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { showConversationInfo = false }
+                    }
+                }
+            }
         }
     }
 
@@ -130,37 +194,40 @@ struct LiquidGlassMessagesView: View {
         VStack(spacing: 0) {
             HStack {
                 Button {
-                    // Back action
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    dismiss()
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.white)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(conversationTitle)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                     Text(conversationSubtitle)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.white.opacity(0.7))
                 }
 
                 Spacer()
 
                 Button {
-                    // Video call
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showVideoCallAlert = true
                 } label: {
                     Image(systemName: "video.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.white)
                 }
 
                 Button {
-                    // Info
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showConversationInfo = true
                 } label: {
                     Image(systemName: "info.circle")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.white)
                 }
             }
@@ -185,22 +252,56 @@ struct LiquidGlassMessagesView: View {
             senderName: Auth.auth().currentUser?.displayName ?? "You",
             senderAvatar: nil,
             timestamp: Date(),
-            type: .standard,
+            type: pendingMessageType,
             reactions: [:],
             quotedMessageId: quotedMessage?.id
         )
 
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.72))) {
             messages.append(newMessage)
         }
 
         messageText = ""
         quotedMessage = nil
+        pendingMessageType = .standard
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             withAnimation {
                 scrollProxy?.scrollTo(newMessage.id, anchor: .bottom)
             }
+        }
+    }
+
+    private func handleAttachment(_ type: MessageAttachmentType) {
+        switch type {
+        case .photoLibrary, .camera:
+            showPhotoPicker = true
+        case .prayerRequest:
+            pendingMessageType = .prayer
+        case .scripture:
+            pendingMessageType = .scripture
+        default:
+            break
+        }
+    }
+
+    private func handleVoiceMessage(_ url: URL) {
+        let msg = AMENMessage(
+            id: UUID().uuidString,
+            text: "🎙️ Voice message",
+            senderId: Auth.auth().currentUser?.uid ?? "",
+            senderName: Auth.auth().currentUser?.displayName ?? "You",
+            senderAvatar: nil,
+            timestamp: Date(),
+            type: .standard,
+            reactions: [:],
+            quotedMessageId: nil
+        )
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.72))) {
+            messages.append(msg)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation { scrollProxy?.scrollTo(msg.id, anchor: .bottom) }
         }
     }
 
@@ -223,7 +324,7 @@ struct LiquidGlassMessagesView: View {
             updatedMessage.reactions[emoji] = emojiReactions
         }
 
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             messages[index] = updatedMessage
         }
 
@@ -241,19 +342,24 @@ struct LiquidGlassMessagesView: View {
     }
 
     private func setupKeyboardObservers() {
-        NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
+        let showToken = NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
             if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
                 withAnimation(.easeOut(duration: 0.25)) {
                     keyboardHeight = frame.height
                 }
             }
         }
-
-        NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { _ in
+        let hideToken = NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { _ in
             withAnimation(.easeOut(duration: 0.25)) {
                 keyboardHeight = 0
             }
         }
+        keyboardObserverTokens.append(contentsOf: [showToken, hideToken])
+    }
+
+    private func removeKeyboardObservers() {
+        keyboardObserverTokens.forEach { NotificationCenter.default.removeObserver($0) }
+        keyboardObserverTokens.removeAll()
     }
 }
 
@@ -287,7 +393,7 @@ struct MessageBubbleView: View {
                     )
                     .overlay(
                         Image(systemName: "person.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.white.opacity(0.6))
                     )
                     .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
@@ -304,7 +410,7 @@ struct MessageBubbleView: View {
 
                 // Timestamp
                 Text(message.timestamp, style: .time)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.white.opacity(0.5))
                     .opacity(appeared ? 1.0 : 0)
 
@@ -332,7 +438,7 @@ struct MessageBubbleView: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.72).delay(0.05)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.72)).delay(0.05)) {
                 appeared = true
             }
         }
@@ -341,7 +447,7 @@ struct MessageBubbleView: View {
     @ViewBuilder
     private var messageBubbleContent: some View {
         let bubbleContent = Text(message.text)
-            .font(.system(size: 15))
+            .font(.systemScaled(15))
             .foregroundStyle(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -382,7 +488,7 @@ struct MessageBubbleView: View {
 
     private var bubbleBorder: some View {
         BubbleShape(isOutgoing: message.isFromCurrentUser)
-            .strokeBorder(
+            .stroke(
                 LinearGradient(
                     colors: [.white.opacity(0.4), .clear],
                     startPoint: .topLeading,
@@ -404,19 +510,19 @@ struct MessageBubbleView: View {
         content
             .overlay(alignment: .topTrailing) {
                 Image(systemName: "hands.and.sparkles.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.orange.opacity(0.8))
                     .padding(8)
             }
             .overlay {
                 BubbleShape(isOutgoing: message.isFromCurrentUser)
-                    .strokeBorder(
+                    .stroke(
                         Color.orange.opacity(0.4),
                         lineWidth: 1
                     )
                     .scaleEffect(appeared ? 1.0 : 0.95)
                     .opacity(appeared ? 1.0 : 0.5)
-                    .animation(.easeInOut(duration: 3).repeatForever(autoreverses: true), value: appeared)
+                    .animation(Animation.easeInOut(duration: 3).repeatForever(autoreverses: true), value: appeared)
             }
             .onLongPressGesture(minimumDuration: 0.3) {
                 onLongPress()
@@ -427,7 +533,7 @@ struct MessageBubbleView: View {
         content
             .overlay(alignment: .topTrailing) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.yellow, .orange],
@@ -439,7 +545,7 @@ struct MessageBubbleView: View {
             }
             .overlay {
                 BubbleShape(isOutgoing: message.isFromCurrentUser)
-                    .strokeBorder(
+                    .stroke(
                         LinearGradient(
                             colors: [.yellow.opacity(0.6), .orange.opacity(0.4)],
                             startPoint: .topLeading,
@@ -466,7 +572,7 @@ struct MessageBubbleView: View {
         }
         .background {
             Image(systemName: "cross.fill")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.white.opacity(0.05))
                 .offset(x: 20, y: 10)
         }
@@ -484,9 +590,9 @@ struct MessageBubbleView: View {
                     } label: {
                         HStack(spacing: 3) {
                             Text(emoji)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text("\(users.count)")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .foregroundStyle(.white.opacity(0.8))
                         }
                         .padding(.horizontal, 8)
@@ -522,7 +628,7 @@ struct ReactionBar: View {
                     onSelect(emoji)
                 } label: {
                     Text(emoji)
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .scaleEffect(appeared ? 1.0 : 0.3)
                         .opacity(appeared ? 1.0 : 0)
                 }
@@ -625,8 +731,14 @@ struct LiquidGlassInputBar: View {
     let namespace: Namespace.ID
     let onSend: () -> Void
     let onClearQuote: () -> Void
+    let onAttachmentRequested: (MessageAttachmentType) -> Void
+    let onSendVoice: (URL) -> Void
 
     @FocusState private var isFocused: Bool
+    @State private var showAttachmentOptions = false
+    @State private var isRecordingVoice = false
+    @State private var voiceRecorder: AVAudioRecorder? = nil
+    @State private var recordingURL: URL? = nil
 
     private let quickReplies = ["🙏 Praying for you", "❤️ Amen!", "✝️ This is powerful"]
 
@@ -643,7 +755,7 @@ struct LiquidGlassInputBar: View {
                                 isFocused = false
                             } label: {
                                 Text(reply)
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -674,10 +786,10 @@ struct LiquidGlassInputBar: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(quoted.senderName)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.8))
                         Text(quoted.text)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.white.opacity(0.6))
                             .lineLimit(2)
                     }
@@ -688,7 +800,7 @@ struct LiquidGlassInputBar: View {
                         onClearQuote()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.6))
                     }
                     .buttonStyle(.plain)
@@ -706,10 +818,11 @@ struct LiquidGlassInputBar: View {
             HStack(spacing: 12) {
                 // Attachment button
                 Button {
-                    // Attachment action
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showAttachmentOptions = true
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [.white.opacity(0.8), .white.opacity(0.5)],
@@ -722,7 +835,7 @@ struct LiquidGlassInputBar: View {
 
                 // Text field
                 TextField("Share, pray, encourage...", text: $text, axis: .vertical)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.white)
                     .lineLimit(1...5)
                     .focused($isFocused)
@@ -736,7 +849,7 @@ struct LiquidGlassInputBar: View {
                         onSend()
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [Color.purple, Color.orange],
@@ -750,18 +863,30 @@ struct LiquidGlassInputBar: View {
                     .transition(.scale.combined(with: .opacity))
                 } else {
                     Button {
-                        // Voice recording
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.7)
+                        if isRecordingVoice {
+                            stopVoiceRecording()
+                        } else {
+                            startVoiceRecording()
+                        }
                     } label: {
-                        Image(systemName: "mic.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.8), .white.opacity(0.5)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                        ZStack {
+                            if isRecordingVoice {
+                                Circle()
+                                    .fill(Color.red.opacity(0.2))
+                                    .frame(width: 36, height: 36)
+                                    .scaleEffect(isRecordingVoice ? 1.15 : 1.0)
+                                    .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: isRecordingVoice)
+                            }
+                            Image(systemName: isRecordingVoice ? "stop.circle.fill" : "mic.circle.fill")
+                                .font(.systemScaled(28))
+                                .foregroundStyle(
+                                    isRecordingVoice
+                                        ? LinearGradient(colors: [.red, .orange], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                        : LinearGradient(colors: [.white.opacity(0.8), .white.opacity(0.5)], startPoint: .topLeading, endPoint: .bottomTrailing)
                                 )
-                            )
-                            .matchedGeometryEffect(id: "sendButton", in: namespace)
+                                .matchedGeometryEffect(id: "sendButton", in: namespace)
+                        }
                     }
                     .buttonStyle(.plain)
                     .transition(.scale.combined(with: .opacity))
@@ -792,6 +917,44 @@ struct LiquidGlassInputBar: View {
             .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: -4)
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
+        }
+        .confirmationDialog("Add to Message", isPresented: $showAttachmentOptions, titleVisibility: .visible) {
+            Button("📸 Photo or Video") { onAttachmentRequested(.photoLibrary) }
+            Button("🙏 Mark as Prayer Request") { onAttachmentRequested(.prayerRequest) }
+            Button("✝️ Mark as Scripture") { onAttachmentRequested(.scripture) }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private func startVoiceRecording() {
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playAndRecord, mode: .default, options: .defaultToSpeaker)
+        try? session.setActive(true)
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".m4a")
+        let settings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: 12000,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+        ]
+        if let recorder = try? AVAudioRecorder(url: tempURL, settings: settings) {
+            recorder.record()
+            voiceRecorder = recorder
+            recordingURL = tempURL
+            withAnimation { isRecordingVoice = true }
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+        }
+    }
+
+    private func stopVoiceRecording() {
+        voiceRecorder?.stop()
+        withAnimation { isRecordingVoice = false }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.6)
+        if let url = recordingURL {
+            onSendVoice(url)
+            recordingURL = nil
+            voiceRecorder = nil
         }
     }
 }

@@ -18,7 +18,7 @@ struct ScrollBudget50Banner: View {
             if showBanner {
                 HStack(spacing: 12) {
                     Image(systemName: "clock")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.blue)
                     
                     Text("You've used \(Int(budgetManager.todayScrollMinutes)) of \(budgetManager.dailyBudgetMinutes) minutes today")
@@ -33,7 +33,7 @@ struct ScrollBudget50Banner: View {
                         }
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -44,7 +44,7 @@ struct ScrollBudget50Banner: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .scrollBudget50Reached)) { _ in
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                 showBanner = true
             }
             
@@ -67,7 +67,7 @@ struct ScrollBudget80Suggestion: View {
         VStack(spacing: 24) {
             // Icon
             Image(systemName: "hourglass.tophalf.filled")
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(.orange)
             
             // Title
@@ -132,7 +132,7 @@ struct ScrollBudgetSoftStopView: View {
         VStack(spacing: 24) {
             // Icon
             Image(systemName: "hourglass.bottomhalf.filled")
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(.orange)
             
             // Title
@@ -253,7 +253,7 @@ struct ScrollBudgetLockedView: View {
                     .frame(width: 100, height: 100)
                 
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 50))
+                    .font(.systemScaled(50))
                     .foregroundStyle(.red)
             }
             
@@ -345,7 +345,7 @@ struct CompulsiveReopenRedirectView: View {
             
             // Gentle hand icon
             Image(systemName: "hand.raised.fill")
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(.orange)
             
             // Title
@@ -411,7 +411,7 @@ struct SuggestionButton: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.blue)
                     .frame(width: 40)
                 
@@ -427,7 +427,7 @@ struct SuggestionButton: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(16)
@@ -447,7 +447,7 @@ struct RedirectChip: View {
         Button(action: action) {
             VStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.blue)
                 
                 Text(title)
@@ -473,7 +473,7 @@ struct ScrollBudgetFeatureButton: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.blue)
                     .frame(width: 32)
                 
@@ -489,7 +489,7 @@ struct ScrollBudgetFeatureButton: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
         }
@@ -505,7 +505,7 @@ struct RedirectOptionButton: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: option.icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.blue)
                     .frame(width: 32)
                 
@@ -521,7 +521,7 @@ struct RedirectOptionButton: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(16)

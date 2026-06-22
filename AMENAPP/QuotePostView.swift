@@ -28,7 +28,7 @@ struct QuotePostView: View {
     @FocusState private var composerFocused: Bool
 
     // MARK: PROMPT 1 — Shimmer + Reaction Tray
-    @State private var shimmerOffset: CGFloat = -UIScreen.main.bounds.width
+    @State private var shimmerOffset: CGFloat = -ScreenMetrics.bounds.width
     @State private var showReactionTray = false
     @State private var selectedReaction = ""
     @State private var cardScale: CGFloat = 1.0
@@ -91,7 +91,7 @@ struct QuotePostView: View {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         dismiss()
                     }
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .disabled(composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -111,12 +111,12 @@ struct QuotePostView: View {
                 .frame(width: 36, height: 36)
                 .overlay(
                     Image(systemName: "person.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.secondary)
                 )
 
             TextEditor(text: $composerText)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .frame(minHeight: 80, maxHeight: 160)
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
@@ -128,7 +128,7 @@ struct QuotePostView: View {
                 .overlay(alignment: .topLeading) {
                     if composerText.isEmpty {
                         Text("Add your thoughts…")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.tertiary)
                             .padding(.top, 8)
                             .padding(.leading, 4)
@@ -150,7 +150,7 @@ struct QuotePostView: View {
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: cardScale)
                 .onLongPressGesture(minimumDuration: 0.4) {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                         showReactionTray = true
                     }
                 }
@@ -185,12 +185,12 @@ struct QuotePostView: View {
                 .clipShape(Circle())
 
                 Text(quotedPost.authorName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 if !selectedReaction.isEmpty {
                     Text(selectedReaction)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .transition(.scale.combined(with: .opacity))
                 }
 
@@ -198,7 +198,7 @@ struct QuotePostView: View {
 
                 if let tag = quotedPost.topicTag, !tag.isEmpty {
                     Text("#\(tag)")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.orange)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -206,13 +206,13 @@ struct QuotePostView: View {
                 }
 
                 Text(quotedPost.timeAgo)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.tertiary)
             }
 
             // Content
             Text(quotedPost.content)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.primary)
                 .lineLimit(4)
         }
@@ -247,9 +247,9 @@ struct QuotePostView: View {
     }
 
     private func triggerShimmer() {
-        shimmerOffset = -UIScreen.main.bounds.width
+        shimmerOffset = -ScreenMetrics.bounds.width
         withAnimation(.easeInOut(duration: 0.65)) {
-            shimmerOffset = UIScreen.main.bounds.width
+            shimmerOffset = ScreenMetrics.bounds.width
         }
     }
 
@@ -260,25 +260,25 @@ struct QuotePostView: View {
         return HStack(spacing: 8) {
             ForEach(Array(emojis.enumerated()), id: \.offset) { index, emoji in
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.6))) {
                         selectedReaction = emoji
                         showReactionTray = false
                     }
                     // Card scale bounce
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.55)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.55))) {
                         cardScale = 1.05
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             cardScale = 1.0
                         }
                     }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } label: {
                     Text(emoji)
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .frame(width: 36, height: 36)
-                        .background(Circle().fill(Color.white))
+                        .background(Circle().fill(Color(.secondarySystemBackground)))
                         .clipShape(Circle())
                         .overlay(Circle().stroke(Color(.separator), lineWidth: 0.5))
                         .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
@@ -316,14 +316,14 @@ struct QuotePostView: View {
                             injectSuggestion(chip)
                             // Bounce the relevant toolbar icon
                             if trayType == .mention {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.5)) { atIconScale = 1.25 }
+                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.5))) { atIconScale = 1.25 }
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    withAnimation(.spring(response: 0.25)) { atIconScale = 1.0 }
+                                    withAnimation(Motion.adaptive(.spring(response: 0.25))) { atIconScale = 1.0 }
                                 }
                             } else {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.5)) { hashIconScale = 1.25 }
+                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.5))) { hashIconScale = 1.25 }
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    withAnimation(.spring(response: 0.25)) { hashIconScale = 1.0 }
+                                    withAnimation(Motion.adaptive(.spring(response: 0.25))) { hashIconScale = 1.0 }
                                 }
                             }
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -385,13 +385,13 @@ struct QuotePostView: View {
         } else if let hash = lastHash {
             triggerIdx = hash; type = .hashtag; triggerChar = "#"
         } else {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { trayVisible = false }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { trayVisible = false }
             trayChips = []
             return
         }
 
         guard let idx = triggerIdx else {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { trayVisible = false }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { trayVisible = false }
             return
         }
 
@@ -404,12 +404,12 @@ struct QuotePostView: View {
             let chips = Array(all.prefix(5))
             trayChips = chips
             trayType = type
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { trayVisible = !chips.isEmpty }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { trayVisible = !chips.isEmpty }
             return
         }
 
         if partial.contains(" ") {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { trayVisible = false }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { trayVisible = false }
             trayChips = []
             return
         }
@@ -422,7 +422,7 @@ struct QuotePostView: View {
         trayChips = chips
         trayType = type
 
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             trayVisible = !chips.isEmpty
         }
     }
@@ -434,7 +434,7 @@ struct QuotePostView: View {
         } else {
             composerText += suggestion + " "
         }
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             trayVisible = false
         }
         trayChips = []
@@ -452,7 +452,7 @@ struct QuotePostView: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
                 Image(systemName: "at")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.secondary)
                     .frame(width: 44, height: 44)
                     .scaleEffect(atIconScale)
@@ -467,7 +467,7 @@ struct QuotePostView: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
                 Image(systemName: "number")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.secondary)
                     .frame(width: 44, height: 44)
                     .scaleEffect(hashIconScale)

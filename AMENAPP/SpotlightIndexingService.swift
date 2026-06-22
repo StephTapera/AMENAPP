@@ -2,8 +2,13 @@
 //  SpotlightIndexingService.swift
 //  AMENAPP
 //
-//  CoreSpotlight indexing for posts, prayers, and church notes
-//  so they appear in iOS Spotlight search.
+//  CoreSpotlight indexing for posts and church notes so they appear
+//  in iOS Spotlight search.
+//
+//  PRIVACY INVARIANT: Prayer content is NEVER donated to Spotlight.
+//  Prayer posts are deeply personal and must not be readable by
+//  the OS indexing pipeline or Siri ML. Only public (non-prayer) posts
+//  are eligible for indexing.
 //
 
 import Foundation
@@ -16,11 +21,30 @@ import FirebaseFirestore
 class SpotlightIndexingService {
     static let shared = SpotlightIndexingService()
     private let searchableIndex = CSSearchableIndex.default()
-    private init() {}
+
+    // UserDefaults key used to run the one-time prayer-purge migration.
+    private static let prayerPurgeKey = "spotlight_prayer_purge_v1_complete"
+
+    private init() {
+        runPrayerPurgeMigrationIfNeeded()
+    }
+
+    // MARK: - One-time Migration: purge any previously indexed prayer items
+
+    /// Deletes the "com.amenapp.prayers" domain if it was ever populated by an
+    /// earlier build. Runs once per install; result is recorded in UserDefaults.
+    private func runPrayerPurgeMigrationIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: Self.prayerPurgeKey) else { return }
+        searchableIndex.deleteSearchableItems(withDomainIdentifiers: ["com.amenapp.prayers"]) { _ in }
+        UserDefaults.standard.set(true, forKey: Self.prayerPurgeKey)
+    }
 
     // MARK: - Index Posts
 
     func indexPost(_ post: Post) {
+        // PRIVACY: never donate prayer content to Spotlight.
+        guard post.category != .prayer else { return }
+
         let attributeSet = CSSearchableItemAttributeSet(contentType: .text)
         attributeSet.title = "\(post.authorName)'s \(post.category.rawValue.capitalized)"
         attributeSet.contentDescription = String(post.content.prefix(200))
@@ -39,7 +63,11 @@ class SpotlightIndexingService {
     }
 
     func indexPosts(_ posts: [Post]) {
-        let items = posts.map { post -> CSSearchableItem in
+        // PRIVACY: filter out prayer posts before any indexing occurs.
+        let eligible = posts.filter { $0.category != .prayer }
+        guard !eligible.isEmpty else { return }
+
+        let items = eligible.map { post -> CSSearchableItem in
             let attributeSet = CSSearchableItemAttributeSet(contentType: .text)
             attributeSet.title = "\(post.authorName)'s \(post.category.rawValue.capitalized)"
             attributeSet.contentDescription = String(post.content.prefix(200))
@@ -83,6 +111,9 @@ class SpotlightIndexingService {
     // MARK: - Index Saved Posts
 
     func indexSavedPost(_ post: Post) {
+        // PRIVACY: never donate prayer content to Spotlight, even when saved.
+        guard post.category != .prayer else { return }
+
         let attributeSet = CSSearchableItemAttributeSet(contentType: .text)
         attributeSet.title = "Saved: \(post.authorName)'s Post"
         attributeSet.contentDescription = String(post.content.prefix(200))

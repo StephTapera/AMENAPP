@@ -108,7 +108,7 @@ enum FileAttachmentService {
                 let downloadURL = try await storageRef.downloadURL()
 
                 let messageId = UUID().uuidString
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 let messageData: [String: Any] = [
                     "id": messageId,
                     "text": "",
@@ -194,18 +194,18 @@ struct FileMessageBubble: View {
                     .fill(iconBackground)
                     .frame(width: 44, height: 44)
                 Image(systemName: iconName)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(iconColor)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(message.mediaFileName ?? "File")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(isFromCurrentUser ? .white : Color(.label))
                     .lineLimit(1)
 
                 Text(formattedSize)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(isFromCurrentUser ? .white.opacity(0.75) : Color(.secondaryLabel))
             }
 
@@ -224,7 +224,7 @@ struct FileMessageBubble: View {
                     .frame(width: 24, height: 24)
             } else {
                 Image(systemName: downloadedURL == nil ? "arrow.down.circle" : "checkmark.circle.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isFromCurrentUser ? .white.opacity(0.85) : .blue)
             }
         }

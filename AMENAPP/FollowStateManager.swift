@@ -24,7 +24,7 @@ final class FollowStateManager: ObservableObject {
     private let cacheExpiry: TimeInterval = 60 // 1 minute cache
     private var cacheTimestamps: [String: Date] = [:]
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {
         dlog("🔰 FollowStateManager initialized")
@@ -38,6 +38,10 @@ final class FollowStateManager: ObservableObject {
         )
     }
     
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     // MARK: - Follow State Enum
     
     enum FollowState: Equatable {

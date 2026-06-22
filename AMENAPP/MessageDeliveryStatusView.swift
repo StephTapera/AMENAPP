@@ -25,36 +25,36 @@ struct MessageDeliveryStatusView: View {
         case .sending:
             HStack(spacing: 2) {
                 Image(systemName: "clock")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
             }
             
         case .sent:
             Image(systemName: "checkmark")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(.secondary)
             
         case .delivered:
             HStack(spacing: -3) {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
             }
             .foregroundStyle(.secondary)
             
         case .read:
             HStack(spacing: -3) {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
             }
             .foregroundStyle(.blue)
             
         case .failed:
             Image(systemName: "exclamationmark.circle.fill")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.red)
         }
     }
@@ -85,16 +85,16 @@ struct AnimatedDeliveryStatusView: View {
                 
             case .sent:
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .transition(.scale.combined(with: .opacity))
                 
             case .delivered:
                 HStack(spacing: -3) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                     Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                 }
                 .foregroundStyle(.secondary)
                 .transition(.scale.combined(with: .opacity))
@@ -102,9 +102,9 @@ struct AnimatedDeliveryStatusView: View {
             case .read:
                 HStack(spacing: -3) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                     Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                 }
                 .foregroundStyle(.blue)
                 .transition(.scale.combined(with: .opacity))
@@ -112,9 +112,9 @@ struct AnimatedDeliveryStatusView: View {
             case .failed:
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     Text("Failed")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                 }
                 .foregroundStyle(.red)
                 .transition(.scale.combined(with: .opacity))
@@ -135,13 +135,13 @@ struct DetailedDeliveryStatusView: View {
             
             if let timestamp = timestamp {
                 Text(timestamp, style: .time)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
             }
             
             if status != .sending && status != .failed {
                 Text(statusText)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
             }
         }

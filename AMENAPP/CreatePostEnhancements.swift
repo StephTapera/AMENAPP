@@ -22,7 +22,7 @@ struct AltTextEditorSheet: View {
     @FocusState private var isFocused: Bool
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Add a description for screen readers and users who can't see the image.")
                     .font(.custom("OpenSans-Regular", size: 14))
@@ -102,7 +102,7 @@ struct ImagePreviewWithAltText: View {
                 onRemove()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.white)
                     .background(
                         Circle()
@@ -121,7 +121,7 @@ struct ImagePreviewWithAltText: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: altText.isEmpty ? "text.bubble" : "checkmark.circle.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                         Text(altText.isEmpty ? "ALT" : "ALT ✓")
                             .font(.custom("OpenSans-Bold", size: 10))
                     }
@@ -147,7 +147,7 @@ struct EngagementPrivacyRow: View {
     
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 hideEngagementCounts.toggle()
             }
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -158,7 +158,7 @@ struct EngagementPrivacyRow: View {
                         .fill(Color.purple.opacity(0.12))
                         .frame(width: 40, height: 40)
                     Image(systemName: hideEngagementCounts ? "eye.slash.fill" : "eye.fill")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.purple)
                 }
                 
@@ -196,7 +196,7 @@ struct ContentWarningRow: View {
                 if hasSensitiveContent {
                     showReasonSheet = true
                 } else {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         hasSensitiveContent = true
                         showReasonSheet = true
                     }
@@ -209,7 +209,7 @@ struct ContentWarningRow: View {
                             .fill(Color.orange.opacity(0.12))
                             .frame(width: 40, height: 40)
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.orange)
                     }
                     
@@ -271,7 +271,7 @@ struct SensitiveContentReasonSheet: View {
     ]
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("This helps prepare readers for sensitive content")
                     .font(.custom("OpenSans-Regular", size: 14))
@@ -348,7 +348,7 @@ struct VoiceToTextButton: View {
                 }
                 
                 Image(systemName: isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isRecording ? .red : .secondary)
             }
         }
@@ -448,7 +448,7 @@ struct PostPreviewSheet: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Preview")

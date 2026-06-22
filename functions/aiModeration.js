@@ -145,10 +145,19 @@ When in doubt about borderline content, use severity "review" and set isApproved
     } catch (error) {
         console.error(`❌ [MODERATION] AI error:`, error.message);
 
-        // Fallback to basic moderation on error
-        const fallback = performBasicModeration(content);
-        console.log(`⚠️ [MODERATION] Using keyword fallback: ${fallback.severityLevel}`);
-        return fallback;
+        // ✅ SECURITY FIX: Fail closed on AI error — hold for human review.
+        // Previously fell back to keyword-only which could auto-approve harmful
+        // content that passes keyword filters. During an outage, all content
+        // would be approved — unacceptable for a faith-community platform.
+        // Now we always hold for human review when AI is unavailable.
+        console.warn(`⚠️ [MODERATION] AI unavailable — holding content for human review`);
+        return {
+            isApproved: false,
+            flaggedReasons: ["AI moderation temporarily unavailable — held for human review"],
+            severityLevel: "review",
+            suggestedAction: "human_review",
+            confidence: 0.0,
+        };
     }
 }
 
@@ -338,7 +347,8 @@ const moderationLexicon = {
     ],
 
     // ── SELF-HARM / SUICIDE ───────────────────────────────────────────────────
-    // High severity: hold for crisis review + surface crisis resources.
+    // Critical severity: hold for crisis review + set crisisAlert + urgentCrisisReview flags.
+    // These flags surface the item at the top of the admin queue (above standard human_review).
     selfHarm: [
         "kill myself", "killing myself",
         "end my life", "end it all",
@@ -480,7 +490,7 @@ const categoryToSeverity = {
     hate:        "severe",
     sexual:      "high",
     minorSafety: "severe",
-    selfHarm:    "high",
+    selfHarm:    "critical",
     trafficking: "severe",
     doxxing:     "severe",
     fraud:       "high",
@@ -562,7 +572,7 @@ function performBasicModeration(content) {
         }
 
         if (severity === "high") {
-            return {
+            const result = {
                 isApproved: false,
                 flaggedReasons: [label],
                 flaggedCategory: hit.category,
@@ -570,6 +580,13 @@ function performBasicModeration(content) {
                 suggestedAction: "human_review",
                 confidence: 0.75,
             };
+            // Escalate selfHarm to crisis path — surfaced at top of admin queue
+            if (hit.category === "selfHarm") {
+                result.crisisAlert = true;
+                result.urgentCrisisReview = true;
+                result.action = result.suggestedAction; // preserve human_review, never downgrade
+            }
+            return result;
         }
 
         if (severity === "medium") {
@@ -630,18 +647,21 @@ exports.detectCrisis = onDocumentCreated("crisisDetectionRequests/{requestId}", 
 
             console.log(`✅ [CRISIS] Request ${requestId}: ${crisisResult.urgencyLevel}`);
         } catch (error) {
-            console.error(`❌ [CRISIS] Error:`, error);
-
+            console.error('[detectCrisis] error — routing to human review:', error);
+            // C-14 SECURITY FIX: Errors must NOT write isCrisis:false (false-negative).
+            // An errored crisis check is routed to human review so that a genuine
+            // crisis is never silently cleared by a transient AI/DB failure.
             await db.collection("crisisDetectionResults").doc(requestId).set({
-                isCrisis: false,
+                isCrisis: null,
                 crisisTypes: [],
-                urgencyLevel: "none",
+                urgencyLevel: "error",
                 recommendedResources: [],
                 confidence: 0.0,
-                suggestedIntervention: "none",
+                suggestedIntervention: "human_review",
+                errorAt: admin.firestore.Timestamp.now(),
                 error: error.message,
                 processedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
+            }, { merge: true });
         }
     });
 
@@ -654,7 +674,15 @@ async function analyzeForCrisis(prayerText, userId) {
     let maxUrgency = "none";
 
     // Suicide patterns (CRITICAL)
-    const suicidePatterns = ["want to die", "kill myself", "end my life", "suicide"];
+    // C-14 FIX: Expanded keyword list to reduce false-negatives.
+    // Covers morphological variants ("suicid" matches suicidal/suicide),
+    // passive ideation phrases, and overdose/self-harm signals.
+    const suicidePatterns = [
+      "want to die", "kill myself", "end my life", "suicide", "suicid",
+      "killing myself", "end it all", "don't want to be here", "no reason to live",
+      "not worth living", "rather be dead", "wish i was dead", "overdose",
+      "take my own life", "take all my pills",
+    ];
     for (const pattern of suicidePatterns) {
         if (lowercased.includes(pattern)) {
             detectedCrises.push("suicide_ideation");
@@ -664,7 +692,8 @@ async function analyzeForCrisis(prayerText, userId) {
     }
 
     // Self-harm patterns (HIGH)
-    const selfHarmPatterns = ["hurt myself", "cut myself", "harm myself"];
+    // C-14 FIX: Added "cutting myself" and "self harm" variants.
+    const selfHarmPatterns = ["hurt myself", "cut myself", "cutting myself", "harm myself", "self harm", "self-harm"];
     for (const pattern of selfHarmPatterns) {
         if (lowercased.includes(pattern)) {
             detectedCrises.push("self_harm");
@@ -1074,17 +1103,19 @@ exports.findRelatedScripture = onDocumentCreated("scriptureReferenceRequests/{re
         const requestId = event.params.requestId;
         const snap = event.data;
         const data = snap.data();
-        const userId = data.userId || null;
+        const requestOwnerId = typeof data.userId === "string" && data.userId.trim()
+            ? data.userId.trim()
+            : null;
 
         console.log(`📖 [SCRIPTURE REF] Finding related verses for: ${data.verse}`);
 
         try {
             const references = await findRelatedVerses(data.verse);
 
-            // Store result — include userId so Firestore rules allow the client to poll
+            // Store result owner so Firestore rules allow the client to poll.
             await db.collection("scriptureReferenceResults").doc(requestId).set({
                 references: references,
-                userId: userId,
+                userId: requestOwnerId,
                 processedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
 
@@ -1092,10 +1123,10 @@ exports.findRelatedScripture = onDocumentCreated("scriptureReferenceRequests/{re
         } catch (error) {
             console.error(`❌ [SCRIPTURE REF] Error:`, error);
 
-            // Store error fallback — include userId so client can read the error doc
+            // Store error fallback with the same sanitized request owner.
             await db.collection("scriptureReferenceResults").doc(requestId).set({
                 references: [],
-                userId: userId,
+                userId: requestOwnerId,
                 error: error.message,
                 processedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
@@ -1159,7 +1190,9 @@ exports.recommendChurches = onDocumentCreated("churchRecommendationRequests/{req
         const requestId = event.params.requestId;
         const snap = event.data;
         const data = snap.data();
-        const userId = data.userId || null;
+        const requestOwnerId = typeof data.userId === "string" && data.userId.trim()
+            ? data.userId.trim()
+            : null;
 
         console.log(`⛪ [CHURCH RECS] Analyzing ${data.churches.length} churches for user`);
 
@@ -1170,10 +1203,10 @@ exports.recommendChurches = onDocumentCreated("churchRecommendationRequests/{req
                 data.userLocation,
             );
 
-            // Store result — include userId so Firestore rules allow the client to poll
+            // Store result owner so Firestore rules allow the client to poll.
             await db.collection("churchRecommendationResults").doc(requestId).set({
                 recommendations: recommendations,
-                userId: userId,
+                userId: requestOwnerId,
                 processedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
 
@@ -1181,10 +1214,10 @@ exports.recommendChurches = onDocumentCreated("churchRecommendationRequests/{req
         } catch (error) {
             console.error(`❌ [CHURCH RECS] Error:`, error);
 
-            // Store error fallback — include userId so client can read the error doc
+            // Store error fallback with the same sanitized request owner.
             await db.collection("churchRecommendationResults").doc(requestId).set({
                 recommendations: [],
-                userId: userId,
+                userId: requestOwnerId,
                 error: error.message,
                 processedAt: admin.firestore.FieldValue.serverTimestamp(),
             });

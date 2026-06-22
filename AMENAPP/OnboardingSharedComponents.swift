@@ -23,7 +23,7 @@ struct PhotoUploadStep: View {
                 
                 HStack(spacing: 4) {
                     Image(systemName: "info.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(gradientColors[0])
                     
                     Text("Add at least 1 photo. Profiles with photos get 5x more connections!")
@@ -46,14 +46,14 @@ struct PhotoUploadStep: View {
                             
                             // Remove button
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     var photos = selectedPhotos
                                     photos.remove(at: index)
                                     selectedPhotos = photos
                                 }
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 24))
+                                    .font(.systemScaled(24))
                                     .foregroundStyle(.white)
                                     .background(
                                         Circle()
@@ -86,7 +86,7 @@ struct PhotoUploadStep: View {
                         PhotosPicker(selection: $photosPickerItems, maxSelectionCount: maxPhotos - selectedPhotos.count, matching: .images) {
                             VStack(spacing: 12) {
                                 Image(systemName: index == 0 ? "camera.fill" : "photo.badge.plus")
-                                    .font(.system(size: 32))
+                                    .font(.systemScaled(32))
                                     .foregroundStyle(gradientColors[0].opacity(0.5))
                                 
                                 Text(index == 0 ? "Add Photo" : "Add More")
@@ -138,7 +138,7 @@ struct VerificationStep: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.shield.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(LinearGradient(colors: gradientColors, startPoint: .topLeading, endPoint: .bottomTrailing))
                     
                     Text("Verify Your Account")
@@ -311,7 +311,7 @@ struct VerificationStep: View {
         
         // Simulate verification
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 isEmailVerified = true
                 isPhoneVerified = !phoneNumber.isEmpty
                 showCodeInput = false
@@ -336,7 +336,7 @@ struct LocationServicesStep: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "location.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(LinearGradient(colors: gradientColors, startPoint: .topLeading, endPoint: .bottomTrailing))
                     
                     Text("Enable Location")
@@ -356,7 +356,7 @@ struct LocationServicesStep: View {
                 
                 VStack(spacing: 16) {
                     Image(systemName: "map.fill")
-                        .font(.system(size: 60))
+                        .font(.systemScaled(60))
                         .foregroundStyle(gradientColors[0].opacity(0.6))
                     
                     Text("Connect with believers nearby")
@@ -444,7 +444,7 @@ struct LocationServicesStep: View {
     private func requestLocationPermission() {
         // Request location permission
         // In production: Use CLLocationManager
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             locationPermissionGranted = true
         }
     }
@@ -470,7 +470,7 @@ struct PrivacySafetyStep: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "shield.checkered")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(LinearGradient(colors: gradientColors, startPoint: .topLeading, endPoint: .bottomTrailing))
                     
                     Text("Safety First")
@@ -487,7 +487,7 @@ struct PrivacySafetyStep: View {
                     ForEach(guidelines) { guideline in
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: guideline.icon)
-                                .font(.system(size: 24))
+                                .font(.systemScaled(24))
                                 .foregroundStyle(gradientColors[0])
                                 .frame(width: 40)
                             
@@ -513,13 +513,13 @@ struct PrivacySafetyStep: View {
             
             // Agreement checkbox
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     agreedToGuidelines.toggle()
                 }
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: agreedToGuidelines ? "checkmark.square.fill" : "square")
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(agreedToGuidelines ? gradientColors[0] : .secondary)
                     
                     Text("I agree to follow these safety guidelines and community standards")
@@ -565,7 +565,7 @@ struct IceBreakerQuestionsStep: View {
                 
                 HStack(spacing: 4) {
                     Image(systemName: "lightbulb.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(gradientColors[0])
                     
                     Text("Help others start conversations with you")

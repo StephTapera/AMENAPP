@@ -22,7 +22,7 @@ class RepostService: ObservableObject {
     @Published var error: String?
     
     private let firebaseManager = FirebaseManager.shared
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     nonisolated(unsafe) private var listeners: [ListenerRegistration] = []
     
     private init() {}

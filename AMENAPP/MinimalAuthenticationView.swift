@@ -9,11 +9,17 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFunctions
+import FirebaseFirestore
 import CryptoKit
 import AuthenticationServices
+import UIKit
 
 struct MinimalAuthenticationView: View {
     var initialMode: AppLaunchView.AuthMode = .login
+    var showsEmailFormOnAppear: Bool = false
+
+    @EnvironmentObject private var authViewModel: AuthenticationViewModel
 
     @State private var isLogin = true
     @State private var email = ""
@@ -41,7 +47,11 @@ struct MinimalAuthenticationView: View {
     @State private var appeared = false
 
     @Environment(\.dismiss) var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @Namespace private var namespace
+
+    // H14 FIX: Discard-confirmation alert when user has started sign-up and taps Back
+    @State private var showDiscardAlert = false
 
     // Forgot password flow
     @State private var showPasswordResetAlert = false
@@ -49,231 +59,594 @@ struct MinimalAuthenticationView: View {
     @State private var showResetConfirmation = false
     @State private var isResettingPassword = false
 
-    init(initialMode: AppLaunchView.AuthMode = .login) {
+    // Landing card → email form transition
+    @State private var showEmailForm = false
+    @State private var showPhoneAuth = false
+
+    private var rememberedIdentity: AmenIdentityHint? {
+        AmenIdentityHintStore.shared.primary()
+    }
+
+    init(
+        initialMode: AppLaunchView.AuthMode = .login,
+        showsEmailFormOnAppear: Bool = false
+    ) {
         self.initialMode = initialMode
+        self.showsEmailFormOnAppear = showsEmailFormOnAppear
         self._isLogin = State(initialValue: initialMode == .login)
+        self._showEmailForm = State(initialValue: showsEmailFormOnAppear)
+    }
+
+    private var cachedDisplayName: String? {
+        nonEmpty(UserDefaults.standard.string(forKey: "currentUserDisplayName"))
+            ?? nonEmpty(UserDefaults.standard.string(forKey: "cachedUsername"))
+            ?? nonEmpty(rememberedIdentity?.displayName)
+            ?? nonEmpty(rememberedIdentity?.username)
+    }
+
+    private var cachedProfileImageURL: URL? {
+        if let currentImageURL = nonEmpty(UserDefaults.standard.string(forKey: "currentUserProfileImageURL")) {
+            return URL(string: currentImageURL)
+        }
+        if let cachedPhotoURL = nonEmpty(UserDefaults.standard.string(forKey: "cachedPhotoURL")) {
+            return URL(string: cachedPhotoURL)
+        }
+        if let hintPhotoURL = nonEmpty(rememberedIdentity?.profilePhotoURL) {
+            return URL(string: hintPhotoURL)
+        }
+        return nil
+    }
+
+    private var cachedUsernameHandle: String? {
+        let username = nonEmpty(UserDefaults.standard.string(forKey: "currentUserUsername"))
+            ?? nonEmpty(rememberedIdentity?.username)
+            ?? nonEmpty(rememberedIdentity?.maskedIdentifier)
+        guard let username else { return nil }
+        return username.hasPrefix("@") || username.hasPrefix("•") ? username : "@\(username)"
+    }
+
+    private var cachedInitials: String {
+        if let initials = nonEmpty(UserDefaults.standard.string(forKey: "currentUserInitials")) {
+            return initials
+        }
+        let fallback = (cachedDisplayName ?? "AMEN")
+            .split(separator: " ")
+            .prefix(2)
+            .compactMap(\.first)
+        return fallback.isEmpty ? "A" : String(fallback).uppercased()
+    }
+
+    private var hasRememberedIdentity: Bool {
+        cachedDisplayName != nil || cachedProfileImageURL != nil || cachedUsernameHandle != nil
+    }
+
+    private var landingTitle: String {
+        isLogin ? "Welcome Back" : "Get Started"
+    }
+
+    private var landingSubtitle: String {
+        isLogin
+            ? "Pick up where you left off with the same calm, focused AMEN experience."
+            : "AMEN helps you connect, grow, and engage with faith-centered community at your highest level."
+    }
+
+    private var landingEmailCTA: String {
+        isLogin ? "Sign in with email" : "Sign up with email"
+    }
+
+    private var formTitle: String {
+        isLogin ? "Welcome\nback." : "Create your\naccount."
+    }
+
+    private var formSubtitle: String {
+        isLogin ? "Sign in to continue where you left off." : "Three quick steps and you're in."
+    }
+
+    private func nonEmpty(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
 
     // MARK: - Body
 
     var body: some View {
         ZStack {
-            // Off-white canvas — matches launch screen
-            Color(red: 0.976, green: 0.973, blue: 0.969)
-                .ignoresSafeArea()
+            Color(.systemBackground).ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // ── Navigation bar ─────────────────────────────────────
-                HStack {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .regular))
-                            .foregroundStyle(Color(white: 0.30))
-                            .frame(width: 40, height: 40)
-                            .background(
-                                Circle()
-                                    .fill(Color(white: 0.92))
-                            )
+            if showEmailForm {
+                emailFormContent
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .move(edge: .bottom).combined(with: .opacity)
+                    ))
+            } else {
+                landingContent
+                    .transition(.opacity)
+            }
+        }
+        .animation(Motion.adaptive(.amenSpringStandard), value: showEmailForm)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.60).delay(0.08)) {
+                appeared = true
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active && isLoading {
+                isLoading = false
+            }
+        }
+        .fullScreenCover(isPresented: $showPhoneAuth) {
+            AmenPhoneAuthView()
+        }
+        .alert("Reset Password", isPresented: $showPasswordResetAlert) {
+            TextField("Email address", text: $resetEmail)
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .disabled(isResettingPassword)
+            Button("Send Reset Link") {
+                guard !resetEmail.trimmingCharacters(in: .whitespaces).isEmpty,
+                      !isResettingPassword else { return }
+                handlePasswordReset()
+            }
+            .disabled(isResettingPassword)
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Enter your email address and we'll send you a link to reset your password.")
+        }
+        .alert("Email Sent", isPresented: $showResetConfirmation) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("A password reset link has been sent to \(resetEmail). Please check your inbox.")
+        }
+        // H14 FIX: Confirm discard when user taps Back mid-sign-up
+        .alert("Discard sign-up?", isPresented: $showDiscardAlert) {
+            Button("Discard", role: .destructive) {
+                if showsEmailFormOnAppear {
+                    dismiss()
+                } else {
+                    withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.88))) {
+                        showEmailForm = false
+                        errorMessage = nil
+                        signUpStep = 0
+                        fullName = ""
+                        email = ""
+                        password = ""
+                        confirmPassword = ""
+                        hasPickedBirthDate = false
                     }
-                    .accessibilityLabel("Close")
-                    Spacer()
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
-                .opacity(appeared ? 1 : 0)
+            }
+            Button("Keep editing", role: .cancel) { }
+        } message: {
+            Text("Your sign-up progress will be lost.")
+        }
+    }
 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        // ── Header ─────────────────────────────────────
-                        VStack(spacing: 0) {
-                            Spacer().frame(height: 32)
+    // MARK: - Landing Card
 
-                            // Small wordmark
-                            Text("AMEN")
-                                .font(.system(size: 20, weight: .light))
-                                .tracking(6)
-                                .foregroundStyle(Color(white: 0.62))
+    @ViewBuilder
+    private var landingContent: some View {
+        ScrollView(showsIndicators: false) {
+            VStack {
+                Spacer().frame(height: 72)
 
-                            Spacer().frame(height: 32)
+                VStack(alignment: .leading, spacing: 0) {
 
-                            // Headline
-                            Text(isLogin ? "Welcome\nback." : "Join the\ncommunity.")
-                                .font(.system(size: 40, weight: .light))
-                                .lineSpacing(2)
-                                .foregroundStyle(.black)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 32)
-                                .opacity(appeared ? 1 : 0)
-                                .offset(y: appeared ? 0 : 10)
-                                .animation(.easeOut(duration: 0.5).delay(0.08), value: isLogin)
+                    if let errorMessage {
+                        EditorialErrorBanner(message: errorMessage)
+                            .padding(.bottom, 20)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
 
-                            Spacer().frame(height: 8)
+                    // AMEN icon mark
+                    AMENIconMark()
 
-                            // Sub-headline
-                            Text(isLogin
-                                 ? "Sign in to continue your journey."
-                                 : "Create your free account below.")
-                                .font(.system(size: 15, weight: .regular))
-                                .foregroundStyle(Color(white: 0.48))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 32)
-                                .opacity(appeared ? 1 : 0)
+                    Spacer().frame(height: 22)
 
-                            Spacer().frame(height: 40)
+                    Text(landingTitle)
+                        .font(.systemScaled(30, weight: .bold))
+                        .foregroundStyle(Color(white: 0.06))
 
-                            // ── Mode toggle — underline tab style ──────
-                            HStack(spacing: 0) {
-                                modeTab(title: "Log In", selected: isLogin) {
-                                    withAnimation(.easeInOut(duration: 0.22)) {
-                                        isLogin = true; errorMessage = nil; signUpStep = 0
-                                    }
-                                }
-                                modeTab(title: "Sign Up", selected: !isLogin) {
-                                    withAnimation(.easeInOut(duration: 0.22)) {
-                                        isLogin = false; errorMessage = nil; signUpStep = 0
-                                    }
-                                }
-                                Spacer()
+                    Spacer().frame(height: 10)
+
+                    Text(landingSubtitle)
+                        .font(.systemScaled(14, weight: .regular))
+                        .foregroundStyle(Color(white: 0.50))
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer().frame(height: 20)
+
+                    if isLogin, hasRememberedIdentity {
+                        rememberedAccountCard
+                            .padding(.bottom, 24)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    } else if !isLogin {
+                        signUpJourneyCard
+                            .padding(.bottom, 24)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    } else {
+                        Spacer().frame(height: 30)
+                    }
+
+                    // ── Auth buttons ──────────────────────────────────
+                    VStack(spacing: 11) {
+
+                        // Continue with Apple
+                        Button { handleAppleSignIn() } label: {
+                            HStack(spacing: 9) {
+                                Image(systemName: "apple.logo")
+                                    .font(.systemScaled(16, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                Text("Continue with Apple")
+                                    .font(.systemScaled(15, weight: .semibold))
+                                    .foregroundStyle(.white)
                             }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(Capsule().fill(Color.black))
+                        }
+                        .buttonStyle(AuthPillButtonStyle())
+
+                        // Continue with Google
+                        Button { handleGoogleSignIn() } label: {
+                            HStack(spacing: 9) {
+                                Image(systemName: "g.circle.fill")
+                                    .font(.systemScaled(16, weight: .regular))
+                                    .foregroundStyle(Color(white: 0.15))
+                                Text("Continue with Google")
+                                    .font(.systemScaled(15, weight: .medium))
+                                    .foregroundStyle(Color(white: 0.10))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                Capsule()
+                                    .fill(Color.white)
+                                    .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+                            )
+                            .overlay(Capsule().stroke(Color(white: 0.86), lineWidth: 1))
+                        }
+                        .buttonStyle(AuthPillButtonStyle())
+
+                        // Phone auth
+                        Button {
+                            errorMessage = nil
+                            showPhoneAuth = true
+                        } label: {
+                            HStack(spacing: 9) {
+                                Image(systemName: "phone.fill")
+                                    .font(.systemScaled(15, weight: .regular))
+                                Text(isLogin ? "Sign in with phone" : "Sign up with phone")
+                                    .font(.systemScaled(15, weight: .medium))
+                            }
+                            .foregroundStyle(Color(white: 0.10))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .amenLiquidGlassCapsuleSurface(isSelected: true)
+                        }
+                        .buttonStyle(AuthPillButtonStyle())
+
+                        // Email auth
+                        Button {
+                            errorMessage = nil
+                            withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.88))) {
+                                showEmailForm = true
+                            }
+                        } label: {
+                            HStack(spacing: 9) {
+                                Image(systemName: isLogin ? "envelope.badge" : "envelope")
+                                    .font(.systemScaled(15, weight: .regular))
+                                Text(landingEmailCTA)
+                                    .font(.systemScaled(15, weight: .medium))
+                            }
+                            .foregroundStyle(Color(white: 0.10))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .amenLiquidGlassCapsuleSurface(isSelected: true)
+                        }
+                        .buttonStyle(AuthPillButtonStyle())
+                    }
+
+                    Spacer().frame(height: 28)
+
+                    HStack(spacing: 4) {
+                        Spacer()
+                        Text(isLogin ? "New to AMEN?" : "Already have an account?")
+                            .font(.systemScaled(13, weight: .regular))
+                            .foregroundStyle(Color(white: 0.52))
+                        Button {
+                            errorMessage = nil
+                            isLogin.toggle()
+                        } label: {
+                            Text(isLogin ? "Sign up" : "Sign in")
+                                .font(.systemScaled(13, weight: .semibold))
+                                .foregroundStyle(Color(white: 0.10))
+                                .underline()
+                        }
+                        Spacer()
+                    }
+                }
+                .padding(28)
+                .livingGlassMaterial(elevated: true)
+                .shadow(color: .black.opacity(0.09), radius: 28, x: 0, y: 14)
+                .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
+                .padding(.horizontal, 20)
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 18)
+                .animation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.05), value: appeared)
+
+                Spacer().frame(height: 60)
+            }
+        }
+    }
+
+    // MARK: - Email Auth Form
+
+    @ViewBuilder
+    private var emailFormContent: some View {
+        VStack(spacing: 0) {
+            // Nav bar with back arrow
+            HStack {
+                Button {
+                    // H14 FIX: Guard against accidental data loss mid-sign-up.
+                    // If the user is on a sign-up step beyond step 0 and has typed
+                    // into any field, confirm before discarding their progress.
+                    let hasProgress = !isLogin && (signUpStep > 0 || !fullName.isEmpty || !email.isEmpty)
+                    if hasProgress {
+                        showDiscardAlert = true
+                    } else if showsEmailFormOnAppear {
+                        dismiss()
+                    } else {
+                        withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.88))) {
+                            showEmailForm = false
+                            errorMessage = nil
+                            signUpStep = 0
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.left")
+                            .font(.systemScaled(15, weight: .regular))
+                        Text("Back")
+                            .font(.systemScaled(15, weight: .regular))
+                    }
+                    .foregroundStyle(Color(white: 0.30))
+                }
+                Spacer()
+
+#if DEBUG
+                // Debug-only skip — bypasses Firebase entirely
+                Button {
+                    authViewModel.bypassAuthForTesting()
+                } label: {
+                    Text("Skip")
+                        .font(.systemScaled(13, weight: .regular))
+                        .foregroundStyle(Color(white: 0.48))
+                }
+                .padding(.trailing, 10)
+#endif
+
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.systemScaled(14, weight: .regular))
+                        .foregroundStyle(Color(white: 0.40))
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color(white: 0.92)))
+                }
+                .accessibilityLabel("Close")
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    // ── Header ─────────────────────────────────────
+                    VStack(spacing: 0) {
+                        Spacer().frame(height: 32)
+
+                        Text("AMEN")
+                            .font(.systemScaled(20, weight: .light))
+                            .tracking(6)
+                            .foregroundStyle(Color(white: 0.62))
+
+                        Spacer().frame(height: 20)
+
+                        authModePill
                             .padding(.horizontal, 32)
-                            .opacity(appeared ? 1 : 0)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
-                            // Rule
-                            Rectangle()
-                                .fill(Color(white: 0.88))
-                                .frame(height: 1)
+                        Spacer().frame(height: 22)
+
+                        Text(formTitle)
+                            .font(.systemScaled(40, weight: .light))
+                            .lineSpacing(2)
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 32)
+                            .animation(.easeOut(duration: 0.5).delay(0.08), value: isLogin)
+
+                        Spacer().frame(height: 8)
+
+                        Text(formSubtitle)
+                            .font(.systemScaled(15, weight: .regular))
+                            .foregroundStyle(Color(white: 0.48))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 32)
+
+                        Spacer().frame(height: 24)
+
+                        if isLogin, hasRememberedIdentity {
+                            rememberedAccountCard
                                 .padding(.horizontal, 32)
-                                .opacity(appeared ? 1 : 0)
-
-                            Spacer().frame(height: 36)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            Spacer().frame(height: 24)
+                        } else if !isLogin {
+                            signUpJourneyCard
+                                .padding(.horizontal, 32)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            Spacer().frame(height: 24)
                         }
 
-                        // ── Form fields ────────────────────────────────
-                        VStack(spacing: 0) {
-                            // Error banner
-                            if let errorMessage {
-                                EditorialErrorBanner(message: errorMessage)
-                                    .padding(.horizontal, 32)
-                                    .padding(.bottom, 24)
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
-
-                            if isLogin {
-                                // ── Login: flat fields ──────────────────
-                                VStack(spacing: 16) {
-                                    EditorialInputField(
-                                        label: "Email",
-                                        placeholder: "you@example.com",
-                                        text: $email,
-                                        keyboardType: .emailAddress
-                                    )
-                                    EditorialInputField(
-                                        label: "Password",
-                                        placeholder: "Your password",
-                                        text: $password,
-                                        isSecure: !showPassword,
-                                        showPasswordToggle: true,
-                                        showPassword: $showPassword
-                                    )
+                        HStack(spacing: 0) {
+                            modeTab(title: "Sign In", selected: isLogin) {
+                                withAnimation(.amenEaseQuick) {
+                                    isLogin = true; errorMessage = nil; signUpStep = 0
                                 }
-                                .padding(.horizontal, 32)
-                            } else {
-                                // ── Sign-up: vertical stepper card ─────
-                                SignUpStepperCard(
-                                    step: $signUpStep,
-                                    fullName: $fullName,
-                                    email: $email,
-                                    password: $password,
-                                    confirmPassword: $confirmPassword,
-                                    showPassword: $showPassword,
-                                    birthDate: $birthDate,
-                                    showDatePicker: $showDatePicker,
-                                    hasPickedBirthDate: $hasPickedBirthDate
-                                )
-                                .padding(.horizontal, 24)
-                                .transition(.opacity.combined(with: .move(edge: .trailing)))
                             }
-
-                            // Forgot password (login only)
-                            if isLogin {
-                                Button {
-                                    resetEmail = email
-                                    showPasswordResetAlert = true
-                                } label: {
-                                    Text("Forgot password?")
-                                        .font(.system(size: 13, weight: .regular))
-                                        .foregroundStyle(Color(white: 0.48))
-                                        .underline()
+                            .accessibilityAddTraits(isLogin ? .isSelected : [])
+                            modeTab(title: "Sign Up", selected: !isLogin) {
+                                withAnimation(.amenEaseQuick) {
+                                    isLogin = false; errorMessage = nil; signUpStep = 0
                                 }
-                                .frame(maxWidth: .infinity, alignment: .trailing)
-                                .padding(.horizontal, 32)
-                                .padding(.top, 12)
-                                .transition(.opacity)
                             }
+                            .accessibilityAddTraits(!isLogin ? .isSelected : [])
+                            Spacer()
+                        }
+                        .accessibilityLabel("Authentication mode")
+                        .padding(.horizontal, 32)
 
-                            Spacer().frame(height: 28)
-
-                            // ── Primary CTA ────────────────────────────
-                            Button {
-                                if !isLogin && signUpStep < 2 {
-                                    // Advance stepper
-                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-                                        signUpStep += 1
-                                    }
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                } else {
-                                    handleAuthentication()
-                                }
-                            } label: {
-                                ZStack {
-                                    if isLoading {
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                            .scaleEffect(0.9)
-                                    } else {
-                                        HStack(spacing: 8) {
-                                            Text(ctaLabel)
-                                                .font(.system(size: 15, weight: .semibold))
-                                            Image(systemName: isLogin || signUpStep == 2 ? "arrow.right" : "chevron.right")
-                                                .font(.system(size: 13, weight: .semibold))
-                                        }
-                                        .foregroundStyle(.white)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 17)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .fill(isCurrentStepValid ? Color.black : Color(white: 0.72))
-                                )
-                                .animation(.easeInOut(duration: 0.2), value: isCurrentStepValid)
-                            }
-                            .disabled(isLoading || !isCurrentStepValid)
+                        Rectangle()
+                            .fill(Color(white: 0.88))
+                            .frame(height: 1)
                             .padding(.horizontal, 32)
 
-                            // Back button for sign-up steps 1 & 2
-                            if !isLogin && signUpStep > 0 {
-                                Button {
-                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-                                        signUpStep -= 1
-                                    }
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                } label: {
-                                    Text("Back")
-                                        .font(.system(size: 14, weight: .regular))
-                                        .foregroundStyle(Color(white: 0.48))
+                        Spacer().frame(height: 36)
+                    }
+
+                    // ── Form fields ────────────────────────────────
+                    VStack(spacing: 0) {
+                        if let errorMessage {
+                            EditorialErrorBanner(message: errorMessage)
+                                .padding(.horizontal, 32)
+                                .padding(.bottom, 24)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
+                        if isLogin {
+                            VStack(spacing: 16) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    EditorialInputField(
+                                        label: "Email or Username",
+                                        placeholder: "you@example.com or @username",
+                                        text: $email,
+                                        keyboardType: .emailAddress,
+                                        submitLabel: .next
+                                    )
+                                    .accessibilityHint("Accepts email address or @username")
+                                    Text("You can sign in with your username or email address")
+                                        .font(.systemScaled(11, weight: .regular))
+                                        .foregroundStyle(Color(white: 0.52))
+                                        .padding(.leading, 4)
+                                        .accessibilityHidden(true)
                                 }
-                                .padding(.top, 8)
-                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                                
+                                EditorialInputField(
+                                    label: "Password",
+                                    placeholder: "Your password",
+                                    text: $password,
+                                    isSecure: !showPassword,
+                                    showPasswordToggle: true,
+                                    showPassword: $showPassword
+                                )
                             }
+                            .padding(.horizontal, 32)
+                        } else {
+                            SignUpStepperCard(
+                                step: $signUpStep,
+                                fullName: $fullName,
+                                email: $email,
+                                password: $password,
+                                confirmPassword: $confirmPassword,
+                                showPassword: $showPassword,
+                                birthDate: $birthDate,
+                                showDatePicker: $showDatePicker,
+                                hasPickedBirthDate: $hasPickedBirthDate
+                            )
+                            .padding(.horizontal, 24)
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                        }
 
-                            Spacer().frame(height: 24)
+                        if isLogin {
+                            Button {
+                                resetEmail = email
+                                showPasswordResetAlert = true
+                            } label: {
+                                Text("Forgot password?")
+                                    .font(.systemScaled(13, weight: .regular))
+                                    .foregroundStyle(Color(white: 0.48))
+                                    .underline()
+                            }
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .padding(.horizontal, 32)
+                            .padding(.top, 12)
+                            .transition(.opacity)
+                        }
 
-                            // ── Divider ────────────────────────────────
+                        Spacer().frame(height: 28)
+
+                        Button {
+                            if !isLogin && signUpStep < 2 {
+                                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
+                                    signUpStep += 1
+                                }
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            } else {
+                                handleAuthentication()
+                            }
+                        } label: {
+                            ZStack {
+                                if isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .primary))
+                                        .scaleEffect(0.9)
+                                } else {
+                                    HStack(spacing: 8) {
+                                        Text(ctaLabel)
+                                            .font(.systemScaled(15, weight: .semibold))
+                                        Image(systemName: isLogin || signUpStep == 2 ? "arrow.right" : "chevron.right")
+                                            .font(.systemScaled(13, weight: .semibold))
+                                    }
+                                }
+                            }
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: 56)
+                            .amenLiquidGlassCapsuleSurface(isSelected: isCurrentStepValid)
+                            .opacity(isCurrentStepValid ? 1 : 0.55)
+                            .animation(.amenEaseQuick, value: isCurrentStepValid)
+                        }
+                        .disabled(isLoading || !isCurrentStepValid)
+                        .padding(.horizontal, 32)
+
+                        if !isLogin && signUpStep > 0 {
+                            Button {
+                                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
+                                    signUpStep -= 1
+                                }
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            } label: {
+                                Text("Back")
+                                    .font(.systemScaled(14, weight: .regular))
+                                    .foregroundStyle(Color(white: 0.48))
+                            }
+                            .padding(.top, 8)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
+
+                        Spacer().frame(height: 24)
+
+                        // Only show social sign-in alternatives on step 0 or in login mode.
+                        // Steps 1+ are mid-email-flow; showing Apple/Google there silently abandons form data.
+                        if isLogin || signUpStep == 0 {
                             HStack(spacing: 12) {
                                 Rectangle().fill(Color(white: 0.84)).frame(height: 1)
                                 Text("or")
-                                    .font(.system(size: 12, weight: .regular))
+                                    .font(.systemScaled(12, weight: .regular))
                                     .foregroundStyle(Color(white: 0.56))
                                 Rectangle().fill(Color(white: 0.84)).frame(height: 1)
                             }
@@ -281,7 +654,6 @@ struct MinimalAuthenticationView: View {
 
                             Spacer().frame(height: 20)
 
-                            // ── Social sign-in ─────────────────────────
                             VStack(spacing: 10) {
                                 EditorialSocialButton(
                                     systemIcon: "apple.logo",
@@ -294,48 +666,152 @@ struct MinimalAuthenticationView: View {
                                 ) { handleGoogleSignIn() }
                             }
                             .padding(.horizontal, 32)
-
-                            // Terms (sign-up only)
-                            if !isLogin {
-                                Text("By creating an account you agree to our\n**Terms of Service** and **Privacy Policy**.")
-                                    .font(.system(size: 11, weight: .regular))
-                                    .foregroundStyle(Color(white: 0.52))
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 40)
-                                    .padding(.top, 28)
-                                    .transition(.opacity)
-                            }
-
-                            Spacer().frame(height: 60)
                         }
+
+                        if !isLogin {
+                            Text("By creating an account you agree to our\n**Terms of Service** and **Privacy Policy**.")
+                                .font(.systemScaled(11, weight: .regular))
+                                .foregroundStyle(Color(white: 0.52))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 40)
+                                .padding(.top, 28)
+                                .transition(.opacity)
+                        }
+
+                        Spacer().frame(height: 60)
                     }
                 }
-                .scrollDismissesKeyboard(.interactively)
+            }
+            .scrollDismissesKeyboard(.interactively)
+        }
+    }
+
+    // MARK: - Mode-specific surfaces
+
+    private var authModePill: some View {
+        Text(isLogin ? "SIGN IN" : "CREATE ACCOUNT")
+            .font(.systemScaled(11, weight: .semibold))
+            .tracking(1.4)
+            .foregroundStyle(Color.black.opacity(0.64))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                Capsule()
+                    .fill(Color.white.opacity(0.92))
+                    .overlay(Capsule().stroke(Color.black.opacity(0.08), lineWidth: 1))
+            )
+    }
+
+    private var rememberedAccountCard: some View {
+        HStack(spacing: 14) {
+            Group {
+                if let imageURL = cachedProfileImageURL {
+                    AsyncImage(url: imageURL) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        default:
+                            rememberedAvatarFallback
+                        }
+                    }
+                } else {
+                    rememberedAvatarFallback
+                }
+            }
+            .frame(width: 54, height: 54)
+            .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(cachedDisplayName ?? "Welcome back")
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.88))
+
+                if let cachedUsernameHandle {
+                    Text(cachedUsernameHandle)
+                        .font(.systemScaled(13, weight: .medium))
+                        .foregroundStyle(Color.black.opacity(0.48))
+                }
+
+                Text("This device remembers your AMEN profile.")
+                    .font(.systemScaled(12, weight: .regular))
+                    .foregroundStyle(Color.black.opacity(0.42))
+            }
+
+            Spacer()
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white.opacity(0.88))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.black.opacity(0.07), lineWidth: 1)
+                )
+        )
+        .shadow(color: .black.opacity(0.05), radius: 16, x: 0, y: 6)
+    }
+
+    private var rememberedAvatarFallback: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.12), Color.black.opacity(0.04)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            Text(cachedInitials)
+                .font(.systemScaled(18, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.78))
+        }
+    }
+
+    private var signUpJourneyCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("A calm, three-step setup.")
+                .font(.systemScaled(15, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.82))
+
+            HStack(spacing: 10) {
+                authStepBadge(number: "01", title: "Profile")
+                authStepBadge(number: "02", title: "Security")
+                authStepBadge(number: "03", title: "Birthday")
             }
         }
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.60).delay(0.08)) {
-                appeared = true
-            }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white.opacity(0.88))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.black.opacity(0.07), lineWidth: 1)
+                )
+        )
+        .shadow(color: .black.opacity(0.05), radius: 16, x: 0, y: 6)
+    }
+
+    private func authStepBadge(number: String, title: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(number)
+                .font(.systemScaled(10, weight: .semibold))
+                .tracking(1.1)
+                .foregroundStyle(Color.black.opacity(0.42))
+
+            Text(title)
+                .font(.systemScaled(13, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.82))
         }
-        .alert("Reset Password", isPresented: $showPasswordResetAlert) {
-            TextField("Email address", text: $resetEmail)
-                .keyboardType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            Button("Send Reset Link") {
-                guard !resetEmail.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-                handlePasswordReset()
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Enter your email address and we'll send you a link to reset your password.")
-        }
-        .alert("Email Sent", isPresented: $showResetConfirmation) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("A password reset link has been sent to \(resetEmail). Please check your inbox.")
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.black.opacity(0.035))
+        )
     }
 
     // MARK: - Mode tab helper
@@ -345,7 +821,7 @@ struct MinimalAuthenticationView: View {
         Button(action: action) {
             VStack(spacing: 10) {
                 Text(title)
-                    .font(.system(size: 15, weight: selected ? .semibold : .regular))
+                    .font(.systemScaled(15, weight: selected ? .semibold : .regular))
                     .foregroundStyle(selected ? .black : Color(white: 0.58))
                     .padding(.horizontal, 4)
 
@@ -383,7 +859,7 @@ struct MinimalAuthenticationView: View {
 
     // Per-step CTA label
     private var ctaLabel: String {
-        if isLogin { return "Log In" }
+        if isLogin { return "Sign In" }
         switch signUpStep {
         case 0: return "Continue"
         case 1: return "Continue"
@@ -391,11 +867,17 @@ struct MinimalAuthenticationView: View {
         }
     }
 
+    private func isValidEmailFormat(_ input: String) -> Bool {
+        let trimmed = input.trimmingCharacters(in: .whitespaces)
+        let emailRegex = #"^[A-Z0-9a-z._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$"#
+        return trimmed.range(of: emailRegex, options: .regularExpression) != nil
+    }
+
     // Per-step validation so the CTA enables/disables per step
     private var isCurrentStepValid: Bool {
         if isLogin { return !email.isEmpty && !password.isEmpty }
         switch signUpStep {
-        case 0: return !fullName.trimmingCharacters(in: .whitespaces).isEmpty && !email.isEmpty
+        case 0: return !fullName.trimmingCharacters(in: .whitespaces).isEmpty && isValidEmailFormat(email)
         case 1: return !password.isEmpty && !confirmPassword.isEmpty && password == confirmPassword
         default: return hasPickedBirthDate
         }
@@ -414,10 +896,11 @@ struct MinimalAuthenticationView: View {
             return
         }
 
-        // Under-13 hard block (COPPA)
+        // COPPA: enforce 13+ minimum age
         if !isLogin {
-            if AgeAssuranceService.shouldBlockSignup(birthDate: birthDate) {
-                showError("You must be 13 or older to create an account.")
+            let age = Calendar.current.dateComponents([.year], from: birthDate, to: Date()).year ?? 0
+            if age < 13 {
+                showError("You must be 13 or older to join.")
                 return
             }
         }
@@ -428,10 +911,17 @@ struct MinimalAuthenticationView: View {
         Task {
             do {
                 if isLogin {
-                    _ = try await FirebaseManager.shared.signIn(
-                        email: email,
-                        password: password
-                    )
+                    let loginIdentifier = email.trimmingCharacters(in: .whitespaces).lowercased()
+                    if loginIdentifier.hasPrefix("@") || !loginIdentifier.contains("@") {
+                        try await signInWithUsername(loginIdentifier)
+                    } else {
+                        await authViewModel.signIn(email: loginIdentifier, password: password)
+                        if authViewModel.showError {
+                            throw NSError(domain: "Auth", code: -1, userInfo: [
+                                NSLocalizedDescriptionKey: authViewModel.errorMessage ?? "Sign in failed. Please try again."
+                            ])
+                        }
+                    }
                 } else {
                     _ = try await FirebaseManager.shared.signUp(
                         email: email,
@@ -453,6 +943,30 @@ struct MinimalAuthenticationView: View {
             }
         }
     }
+    
+    /// Signs in with a username without exposing the account email to the client.
+    /// The callable verifies username + password server-side and returns only a custom token.
+    private func signInWithUsername(_ usernameInput: String) async throws {
+        let cleanUsername = usernameInput
+            .trimmingCharacters(in: .whitespaces)
+            .lowercased()
+            .replacingOccurrences(of: "@", with: "")
+
+        let functions = Functions.functions()
+        let callable = functions.httpsCallable("signInWithUsername")
+        let result = try await callable.call([
+            "username": cleanUsername,
+            "password": password
+        ])
+        guard let data = result.data as? [String: Any],
+              let token = data["customToken"] as? String,
+              !token.isEmpty else {
+            throw NSError(domain: "Auth", code: 404, userInfo: [
+                NSLocalizedDescriptionKey: "Incorrect username or password"
+            ])
+        }
+        _ = try await Auth.auth().signIn(withCustomToken: token)
+    }
 
     private func getErrorMessage(for error: Error) -> String {
         if let authError = error as? AuthErrorCode {
@@ -463,16 +977,25 @@ struct MinimalAuthenticationView: View {
             case .userNotFound:         return "No account found with this email"
             case .wrongPassword:        return "Incorrect password"
             case .networkError:         return "Network error — please check your connection"
-            default:                    return error.localizedDescription
+            case .keychainError:        return "Sign in failed. Please try again."
+            default:                    break
             }
         }
-        return error.localizedDescription
+        let nsError = error as NSError
+        // Suppress raw OS keychain / system strings — they're never user-actionable
+        let desc = nsError.localizedDescription
+        if desc.contains("keychain") || desc.contains("SecItem") || desc.contains("NSLocalizedFailureReasonErrorKey") {
+            return "Sign in failed. Please try again."
+        }
+        return desc
     }
 
     private func showError(_ message: String) {
-        withAnimation(.easeInOut(duration: 0.22)) {
+        withAnimation(.amenEaseQuick) {
             errorMessage = message
         }
+        // Accessibility: announce error for VoiceOver users who won't see the banner
+        UIAccessibility.post(notification: .announcement, argument: message)
     }
 
     // MARK: - Password Reset
@@ -483,7 +1006,7 @@ struct MinimalAuthenticationView: View {
         isResettingPassword = true
         Task {
             do {
-                try await Auth.auth().sendPasswordReset(withEmail: trimmedEmail)
+                try await authViewModel.sendPasswordReset(email: trimmedEmail)
                 await MainActor.run {
                     isResettingPassword = false
                     showResetConfirmation = true
@@ -560,7 +1083,9 @@ struct MinimalAuthenticationView: View {
                 }
             case .failure(let error):
                 let nsError = error as NSError
-                if nsError.code != 1001 { showError(error.localizedDescription) }
+                // 1000 = unknown (simulator / no Apple ID), 1001 = user cancelled — both silent
+                let silentCodes = [1000, 1001]
+                if !silentCodes.contains(nsError.code) { showError(error.localizedDescription) }
             }
         }
         appleSignInCoordinator = coordinator
@@ -631,6 +1156,8 @@ private struct EditorialInputField: View {
     var keyboardType: UIKeyboardType = .default
     var showPasswordToggle: Bool = false
     @Binding var showPassword: Bool
+    var submitLabel: SubmitLabel = .done
+    var onSubmit: (() -> Void)? = nil
 
     @FocusState private var isFocused: Bool
 
@@ -641,7 +1168,9 @@ private struct EditorialInputField: View {
         isSecure: Bool = false,
         keyboardType: UIKeyboardType = .default,
         showPasswordToggle: Bool = false,
-        showPassword: Binding<Bool> = .constant(false)
+        showPassword: Binding<Bool> = .constant(false),
+        submitLabel: SubmitLabel = .done,
+        onSubmit: (() -> Void)? = nil
     ) {
         self.label = label
         self.placeholder = placeholder
@@ -650,13 +1179,15 @@ private struct EditorialInputField: View {
         self.keyboardType = keyboardType
         self.showPasswordToggle = showPasswordToggle
         self._showPassword = showPassword
+        self.submitLabel = submitLabel
+        self.onSubmit = onSubmit
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             // Label
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(Color(white: 0.42))
                 .tracking(0.5)
 
@@ -666,15 +1197,19 @@ private struct EditorialInputField: View {
                     if isSecure {
                         SecureField(placeholder, text: $text)
                             .focused($isFocused)
+                            .submitLabel(submitLabel)
+                            .onSubmit { onSubmit?() }
                     } else {
                         TextField(placeholder, text: $text)
                             .keyboardType(keyboardType)
                             .textInputAutocapitalization(keyboardType == .emailAddress ? .never : .words)
                             .focused($isFocused)
+                            .submitLabel(submitLabel)
+                            .onSubmit { onSubmit?() }
                     }
                 }
-                .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(.black)
+                .font(.systemScaled(16, weight: .regular))
+                .foregroundStyle(.primary)
                 .autocorrectionDisabled()
 
                 if showPasswordToggle {
@@ -682,9 +1217,11 @@ private struct EditorialInputField: View {
                         showPassword.toggle()
                     } label: {
                         Image(systemName: showPassword ? "eye.slash" : "eye")
-                            .font(.system(size: 15, weight: .light))
+                            .font(.systemScaled(15, weight: .light))
                             .foregroundStyle(Color(white: 0.50))
+                            .accessibilityHidden(true)
                     }
+                    .accessibilityLabel(showPassword ? "Hide password" : "Show password")
                     .padding(.leading, 8)
                 }
             }
@@ -727,14 +1264,14 @@ private struct EditorialDateField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Date of Birth")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(Color(white: 0.42))
                 .tracking(0.5)
 
             VStack(spacing: 0) {
                 // Tap row
                 Button {
-                    withAnimation(.easeInOut(duration: 0.22)) {
+                    withAnimation(.amenEaseQuick) {
                         showPicker.toggle()
                     }
                 } label: {
@@ -742,13 +1279,13 @@ private struct EditorialDateField: View {
                         Text(hasPicked
                              ? Self.formatter.string(from: birthDate)
                              : "Select your date of birth")
-                            .font(.system(size: 16, weight: .regular))
+                            .font(.systemScaled(16, weight: .regular))
                             .foregroundStyle(hasPicked ? .black : Color(white: 0.56))
 
                         Spacer()
 
                         Image(systemName: showPicker ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 12, weight: .light))
+                            .font(.systemScaled(12, weight: .light))
                             .foregroundStyle(Color(white: 0.50))
                     }
                     .padding(.vertical, 14)
@@ -788,7 +1325,7 @@ private struct EditorialDateField: View {
 
             // Age compliance note
             Text("You must be 13 or older to join.")
-                .font(.system(size: 11, weight: .regular))
+                .font(.systemScaled(11, weight: .regular))
                 .foregroundStyle(Color(white: 0.56))
                 .padding(.top, 2)
         }
@@ -806,12 +1343,12 @@ private struct EditorialSocialButton: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: systemIcon)
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(16, weight: .regular))
+                    .foregroundStyle(.primary)
 
                 Text(title)
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(14, weight: .regular))
+                    .foregroundStyle(.primary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
@@ -835,10 +1372,10 @@ private struct EditorialErrorBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
 
             Text(message)
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
                 .multilineTextAlignment(.leading)
         }
         .foregroundStyle(Color(red: 0.78, green: 0.18, blue: 0.18))
@@ -922,19 +1459,20 @@ private struct SignUpStepperCard: View {
 
                     if isComplete {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.white)
                     } else {
                         Image(systemName: steps[index].icon)
-                            .font(.system(size: 15, weight: isActive ? .semibold : .regular))
+                            .font(.systemScaled(15, weight: isActive ? .semibold : .regular))
                             .foregroundStyle(isActive ? .white : Color(white: 0.62))
                     }
                 }
+                .accessibilityLabel("\(steps[index].label)\(isComplete ? ", completed" : isActive ? ", current step" : ", upcoming")")
                 .animation(.spring(response: 0.28, dampingFraction: 0.76), value: step)
 
                 // Step label
                 Text(steps[index].label)
-                    .font(.system(size: isActive ? 20 : 16,
+                    .font(.systemScaled(isActive ? 20 : 16,
                                   weight: isActive ? .semibold : .regular))
                     .foregroundStyle(isActive ? Color.black : Color(white: 0.56))
                     .animation(.easeInOut(duration: 0.2), value: step)
@@ -988,13 +1526,15 @@ private struct SignUpStepperCard: View {
                 EditorialInputField(
                     label: "Full Name",
                     placeholder: "Your name",
-                    text: $fullName
+                    text: $fullName,
+                    submitLabel: .next
                 )
                 EditorialInputField(
                     label: "Email",
                     placeholder: "you@example.com",
                     text: $email,
-                    keyboardType: .emailAddress
+                    keyboardType: .emailAddress,
+                    submitLabel: .continue
                 )
             }
         case 1:
@@ -1005,26 +1545,35 @@ private struct SignUpStepperCard: View {
                     text: $password,
                     isSecure: !showPassword,
                     showPasswordToggle: true,
-                    showPassword: $showPassword
+                    showPassword: $showPassword,
+                    submitLabel: .next
                 )
                 EditorialInputField(
                     label: "Confirm Password",
                     placeholder: "Re-enter password",
                     text: $confirmPassword,
-                    isSecure: !showPassword
+                    isSecure: !showPassword,
+                    showPasswordToggle: true,
+                    showPassword: $showPassword,
+                    submitLabel: .done
                 )
                 // Inline password match indicator
                 if !password.isEmpty && !confirmPassword.isEmpty {
                     HStack(spacing: 5) {
                         Image(systemName: password == confirmPassword ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(password == confirmPassword ? Color.green : Color.red)
+                            .accessibilityHidden(true)
                         Text(password == confirmPassword ? "Passwords match" : "Passwords don't match")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(password == confirmPassword ? Color.green : Color.red)
                     }
                     .transition(.opacity)
                     .animation(.easeInOut(duration: 0.18), value: password == confirmPassword)
+                    .onChange(of: password == confirmPassword) { _, isMatch in
+                        UIAccessibility.post(notification: .announcement,
+                                             argument: isMatch ? "Passwords match" : "Passwords don't match")
+                    }
                 }
             }
         default:
@@ -1036,6 +1585,40 @@ private struct SignUpStepperCard: View {
                 )
             }
         }
+    }
+}
+
+// MARK: - AMEN Icon Mark
+
+private struct AMENIconMark: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(white: 0.07), Color(white: 0.20)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 52, height: 52)
+                .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
+
+            Text("A")
+                .font(.systemScaled(26, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+        }
+    }
+}
+
+// MARK: - Auth Pill Button Style
+
+private struct AuthPillButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
+            .opacity(configuration.isPressed ? 0.85 : 1.0)
+            .animation(.spring(response: 0.20, dampingFraction: 0.70), value: configuration.isPressed)
     }
 }
 

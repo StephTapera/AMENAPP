@@ -91,12 +91,12 @@ struct PrayerTimerView: View {
                                 
                                 VStack(spacing: 8) {
                                     Image(systemName: currentPhase.icon)
-                                        .font(.system(size: 40))
+                                        .font(.systemScaled(40))
                                         .foregroundStyle(currentPhase.color)
                                         .symbolEffect(.pulse, options: isRunning ? .repeating : .default, value: isRunning)
                                     
                                     Text(String(format: "%d:%02d", timeRemaining / 60, timeRemaining % 60))
-                                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                                        .font(.systemScaled(48, weight: .bold, design: .rounded))
                                         .foregroundStyle(.primary)
                                 }
                             }
@@ -119,9 +119,7 @@ struct PrayerTimerView: View {
                         }
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .glassEffect(
-                            Glass.regular.tint(currentPhase.color.opacity(0.18)),
-                            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                         )
                         .padding(.horizontal)
                         
@@ -133,7 +131,7 @@ struct PrayerTimerView: View {
                             } label: {
                                 HStack {
                                     Image(systemName: isRunning ? "pause.fill" : "play.fill")
-                                        .font(.system(size: 20, weight: .bold))
+                                        .font(.systemScaled(20, weight: .bold))
                                     
                                     Text(isRunning ? "Pause" : "Start")
                                         .font(.custom("OpenSans-Bold", size: 18))
@@ -225,7 +223,7 @@ struct PrayerTimerView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -304,11 +302,11 @@ struct PhaseIndicator: View {
                 
                 if isCompleted {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                         .foregroundStyle(.white)
                 } else {
                     Image(systemName: phase.icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(isActive ? .white : .secondary)
                 }
             }

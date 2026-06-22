@@ -84,7 +84,7 @@ final class AMENTrustScoreService: ObservableObject {
 
     @Published private(set) var isLoaded = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var cachedRecords: [String: AMENTrustRecord] = [:]
 
     // MARK: - Load Trust Record
@@ -101,7 +101,9 @@ final class AMENTrustScoreService: ObservableObject {
                 cachedRecords[uid] = record
                 return record
             }
-        } catch {}
+        } catch {
+            dlog("⚠️ [TrustScore] fetchRecord failed for \(uid): \(error.localizedDescription)")
+        }
 
         // Default for new / unknown accounts
         return AMENTrustRecord(

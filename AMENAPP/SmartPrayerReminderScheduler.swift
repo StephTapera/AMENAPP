@@ -10,14 +10,14 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
     static let shared = SmartPrayerReminderScheduler()
     
     // MARK: - Published Properties
-    @Published var activeReminders: [PrayerReminder] = []
+    @Published var activeReminders: [SmartPrayerReminder] = []
     @Published var locationPermissionGranted = false
     @Published var notificationPermissionGranted = false
     
     // MARK: - Services
     private let locationManager = CLLocationManager()
     private let notificationCenter = UNUserNotificationCenter.current()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - User Defaults Keys
     private let remindersKey = "smartPrayerReminders"
@@ -72,7 +72,7 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
         
         let reminderId = UUID().uuidString
         
-        let reminder = PrayerReminder(
+        let reminder = SmartPrayerReminder(
             id: reminderId,
             userId: userId,
             title: title,
@@ -101,7 +101,7 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
         dlog("✅ Prayer reminder created: \(title)")
     }
     
-    func updateReminder(_ reminder: PrayerReminder) async throws {
+    func updateReminder(_ reminder: SmartPrayerReminder) async throws {
         guard let index = activeReminders.firstIndex(where: { $0.id == reminder.id }) else {
             throw ReminderError.reminderNotFound
         }
@@ -153,7 +153,7 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
     
     // MARK: - Notification Scheduling
     
-    private func scheduleReminder(_ reminder: PrayerReminder) async throws {
+    private func scheduleReminder(_ reminder: SmartPrayerReminder) async throws {
         guard notificationPermissionGranted else {
             throw ReminderError.permissionDenied
         }
@@ -421,8 +421,8 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
                     .whereField("userId", isEqualTo: userId)
                     .getDocuments()
                 
-                let reminders = snapshot.documents.compactMap { doc -> PrayerReminder? in
-                    try? PrayerReminder.fromDictionary(doc.data())
+                let reminders = snapshot.documents.compactMap { doc -> SmartPrayerReminder? in
+                    try? SmartPrayerReminder.fromDictionary(doc.data())
                 }
                 
                 await MainActor.run {
@@ -482,7 +482,7 @@ extension SmartPrayerReminderScheduler: CLLocationManagerDelegate {
 
 // MARK: - Models
 
-struct PrayerReminder: Identifiable, Codable {
+struct SmartPrayerReminder: Identifiable, Codable {
     let id: String
     let userId: String
     let title: String
@@ -515,7 +515,7 @@ struct PrayerReminder: Identifiable, Codable {
         return dict
     }
     
-    static func fromDictionary(_ dict: [String: Any]) throws -> PrayerReminder {
+    static func fromDictionary(_ dict: [String: Any]) throws -> SmartPrayerReminder {
         guard let id = dict["id"] as? String,
               let userId = dict["userId"] as? String,
               let title = dict["title"] as? String,
@@ -531,7 +531,7 @@ struct PrayerReminder: Identifiable, Codable {
         let time = (dict["time"] as? Timestamp)?.dateValue()
         let location = (dict["location"] as? [String: Any]).flatMap { try? PrayerLocation.fromDictionary($0) }
         
-        return PrayerReminder(
+        return SmartPrayerReminder(
             id: id,
             userId: userId,
             title: title,

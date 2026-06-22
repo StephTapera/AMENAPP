@@ -8,6 +8,7 @@
 import SwiftUI
 import Combine
 import FirebaseFirestore
+import FirebaseDatabase
 import FirebaseAuth
 import UserNotifications
 
@@ -72,7 +73,7 @@ struct ScriptureAnchorCard: View {
         if !service.suggestions.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Label("Scripture Anchor", systemImage: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.orange)
 
                 ForEach(service.suggestions) { s in
@@ -80,10 +81,10 @@ struct ScriptureAnchorCard: View {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(s.reference)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                     .foregroundStyle(.primary)
                                 Text(s.text)
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                                     .lineLimit(2)
                             }
@@ -112,42 +113,66 @@ struct ScriptureAnchorCard: View {
 class PrayerEchoService {
     static let shared = PrayerEchoService()
 
+    // ── RTDB reference for prayer echo state ─────────────────────────────────
+    // Replaces in-document `intercessorUids` array which was unbounded and
+    // caused hotspot writes + 1MB document limit risk on popular prayers.
+    // New path: prayerActivity/{postId}/prayingUsers/{uid} = true|null
+    private lazy var rtdb: DatabaseReference = Database.database().reference()
+
     func hasEchoed(post: Post) -> Bool {
         guard let uid = Auth.auth().currentUser?.uid else { return false }
+        // Prefer the legacy in-document array if present (backwards compat for old posts),
+        // but new writes always go to RTDB so this will naturally drain over time.
         return post.intercessorUids?.contains(uid) ?? false
+    }
+
+    /// Check echo state from RTDB (async, always current).
+    func hasEchoedAsync(postId: String) async -> Bool {
+        guard let uid = Auth.auth().currentUser?.uid else { return false }
+        guard let snapshot = try? await rtdb
+            .child("prayerActivity").child(postId).child("prayingUsers").child(uid)
+            .getData() else { return false }
+        return snapshot.exists()
     }
 
     func toggleEcho(post: Post) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let postId = post.firestoreId
         guard !postId.isEmpty else { return }
-        let db = Firestore.firestore()
-        let ref = db.collection("posts").document(postId)
-        let alreadyEchoed = hasEchoed(post: post)
 
+        let alreadyEchoed = await hasEchoedAsync(postId: postId)
+        let prayerRef = rtdb.child("prayerActivity").child(postId).child("prayingUsers").child(uid)
+
+        // Update RTDB echo state — no unbounded array on the Firestore document.
         if alreadyEchoed {
-            try? await ref.updateData([
-                "intercessorUids": FieldValue.arrayRemove([uid]),
-                "stoneCount": FieldValue.increment(Int64(-1))
-            ])
+            _ = try? await prayerRef.removeValue()
         } else {
-            try? await ref.updateData([
-                "intercessorUids": FieldValue.arrayUnion([uid]),
-                "stoneCount": FieldValue.increment(Int64(1))
+            _ = try? await prayerRef.setValue(true)
+        }
+
+        // Keep the Firestore stoneCount counter (a simple Int field, not an array).
+        lazy var db = Firestore.firestore()
+        let ref = db.collection("posts").document(postId)
+        let delta = alreadyEchoed ? Int64(-1) : Int64(1)
+        try? await ref.updateData(["stoneCount": FieldValue.increment(delta)])
+
+        // Notify author on new echo.
+        if !alreadyEchoed && post.authorId != uid {
+            let notifRef = db
+                .collection("users")
+                .document(post.authorId)
+                .collection("notifications")
+                .document()
+            try? await notifRef.setData([
+                "type": "prayerEcho",
+                "userId": post.authorId,
+                "toUserId": post.authorId,
+                "fromUserId": uid,
+                "postId": postId,
+                "message": "Someone is echoing your prayer 🙏",
+                "createdAt": FieldValue.serverTimestamp(),
+                "read": false
             ])
-            // Notify the author
-            if post.authorId != uid {
-                let notifRef = db.collection("notifications").document()
-                try? await notifRef.setData([
-                    "type": "prayerEcho",
-                    "toUserId": post.authorId,
-                    "fromUserId": uid,
-                    "postId": postId,
-                    "message": "Someone is echoing your prayer 🙏",
-                    "createdAt": FieldValue.serverTimestamp(),
-                    "read": false
-                ])
-            }
         }
     }
 }
@@ -168,18 +193,18 @@ struct EchoButton: View {
         Button {
             isEchoed.toggle()
             echoCount += isEchoed ? 1 : -1
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) { isAnimating = true }
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) { isAnimating = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { isAnimating = false }
             Task { await PrayerEchoService.shared.toggleEcho(post: post) }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: isEchoed ? "hands.and.sparkles.fill" : "hands.and.sparkles")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .scaleEffect(isAnimating ? 1.3 : 1.0)
                     .foregroundStyle(isEchoed ? .purple : .secondary)
                 if echoCount > 0 {
                     Text("\(echoCount)")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(isEchoed ? .purple : .secondary)
                 }
             }
@@ -195,7 +220,7 @@ class TestimonyTimelineService {
 
     func markAnswered(prayerPostId: String, testimonyContent: String) async {
         guard Auth.auth().currentUser?.uid != nil else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         // Update original prayer to answered status
         try? await db.collection("posts").document(prayerPostId).updateData([
             "topicTag": "Answered Prayer",
@@ -221,7 +246,7 @@ struct TestimonyArcView: View {
         if let linkedId = testimony.linkedPrayerRequestId {
             VStack(alignment: .leading, spacing: 10) {
                 Label("Prayer → Testimony Journey", systemImage: "arrow.triangle.path.badge.chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.purple)
 
                 HStack(spacing: 12) {
@@ -232,10 +257,10 @@ struct TestimonyArcView: View {
                     if journeyDays > 0 {
                         VStack(spacing: 2) {
                             Text("\(journeyDays)")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.systemScaled(16, weight: .bold))
                                 .foregroundStyle(.purple)
                             Text("days")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(.secondary)
                         }
                         Rectangle().frame(width: 24, height: 1).foregroundStyle(.purple.opacity(0.3))
@@ -247,7 +272,7 @@ struct TestimonyArcView: View {
 
                 if let prayer = originalPrayer {
                     Text("\"\(prayer.content.prefix(80))…\"")
-                        .font(.system(size: 12, design: .serif).italic())
+                        .font(.systemScaled(12, design: .serif).italic())
                         .foregroundStyle(.secondary)
                         .padding(8)
                         .background(Color.purple.opacity(0.06))
@@ -271,10 +296,10 @@ struct TestimonyArcView: View {
 
     private func arcStep(icon: String, label: String, color: Color, date: Date?) -> some View {
         VStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 18)).foregroundStyle(color)
-            Text(label).font(.system(size: 10)).foregroundStyle(.secondary)
+            Image(systemName: icon).font(.systemScaled(18)).foregroundStyle(color)
+            Text(label).font(.systemScaled(10)).foregroundStyle(.secondary)
             if let date {
-                Text(date, style: .date).font(.system(size: 9)).foregroundStyle(.tertiary)
+                Text(date, style: .date).font(.systemScaled(9)).foregroundStyle(.tertiary)
             }
         }
     }
@@ -282,14 +307,14 @@ struct TestimonyArcView: View {
 
 // MARK: - Feature 4: Church Pulse
 
-class ChurchPulseService: ObservableObject {
+class ChurchPrayerActivityService: ObservableObject {
     @Published var activePrayerCount = 0
     @Published var recentTestimonies: [Post] = []
     @Published var isLoading = false
 
     func load(churchId: String) {
         isLoading = true
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // Active prayers for this church
         db.collection("posts")
@@ -319,12 +344,12 @@ class ChurchPulseService: ObservableObject {
 
 struct ChurchPulseSection: View {
     let churchId: String
-    @StateObject private var service = ChurchPulseService()
+    @StateObject private var service = ChurchPrayerActivityService()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Church Pulse", systemImage: "waveform.path.ecg")
-                .font(.custom("OpenSans-Bold", size: 16))
+                .font(AMENFont.bold(16))
 
             if service.isLoading {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 8)
@@ -337,13 +362,13 @@ struct ChurchPulseSection: View {
                 if !service.recentTestimonies.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Recent Testimonies")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(.secondary)
                         ForEach(service.recentTestimonies) { post in
                             HStack(spacing: 8) {
                                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).font(.caption)
                                 Text(post.content.prefix(60) + (post.content.count > 60 ? "…" : ""))
-                                    .font(.custom("OpenSans-Regular", size: 12))
+                                    .font(AMENFont.regular(12))
                                     .foregroundStyle(.primary)
                                     .lineLimit(1)
                             }
@@ -361,8 +386,8 @@ struct ChurchPulseSection: View {
     private func pulseStat(value: String, label: String, icon: String, color: Color) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.title2).foregroundStyle(color)
-            Text(value).font(.custom("OpenSans-Bold", size: 22))
-            Text(label).font(.custom("OpenSans-Regular", size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Text(value).font(AMENFont.bold(22))
+            Text(label).font(AMENFont.regular(11)).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -417,6 +442,9 @@ class SermonConnectService: ObservableObject {
 struct SermonConnectBanner: View {
     @ObservedObject var service = SermonConnectService.shared
     var onTapNote: (String) -> Void  // called with noteId
+    /// Padding applied only when the banner has content — prevents blank space when no match exists.
+    var paddingLeading: CGFloat = 0
+    var paddingTop: CGFloat = 0
 
     var body: some View {
         if let title = service.matchedNoteTitle, !service.isDismissed {
@@ -424,23 +452,25 @@ struct SermonConnectBanner: View {
                 Image(systemName: "note.text").foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Your pastor spoke on this")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text(title).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                        .font(.systemScaled(12, weight: .semibold))
+                    Text(title).font(.systemScaled(11)).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
                 Button { onTapNote(service.matchedNoteId ?? "") } label: {
-                    Text("Read").font(.system(size: 11, weight: .semibold))
+                    Text("Read").font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.white).padding(.horizontal, 10).padding(.vertical, 4)
                         .background(Capsule().fill(Color.orange))
                 }
                 Button { service.isDismissed = true } label: {
-                    Image(systemName: "xmark").font(.system(size: 10)).foregroundStyle(.secondary)
+                    Image(systemName: "xmark").font(.systemScaled(10)).foregroundStyle(.secondary)
                 }
             }
             .padding(10)
             .background(Color.orange.opacity(0.08))
             .cornerRadius(10)
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.orange.opacity(0.2), lineWidth: 0.5))
+            .padding(.horizontal, paddingLeading)
+            .padding(.top, paddingTop)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
@@ -492,7 +522,7 @@ class PrayerRoomService: ObservableObject {
 
     func create(title: String, scheduledAt: Date, durationMinutes: Int, churchId: String?, linkedPostIds: [String]) async {
         guard let uid = Auth.auth().currentUser?.uid,
-              let name = LegacyUserService.shared.currentUser?.displayName else { return }
+              let name = await LegacyUserService.shared.currentUser?.displayName else { return }
         let room: [String: Any] = [
             "title": title,
             "hostId": uid,
@@ -506,7 +536,7 @@ class PrayerRoomService: ObservableObject {
             "participantCount": 0,
             "createdAt": FieldValue.serverTimestamp()
         ]
-        try? await Firestore.firestore().collection("prayerRooms").addDocument(data: room)
+        _ = try? await Firestore.firestore().collection("prayerRooms").addDocument(data: room)
     }
 }
 
@@ -518,20 +548,20 @@ struct PrayerRoomCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label("Prayer Room", systemImage: "person.3.fill")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.purple)
                 Spacer()
                 Text(room.scheduledAt, style: .relative)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
             Text(room.title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
 
             HStack {
                 Label("\(room.rsvpUserIds.count) joining", systemImage: "person.badge.plus")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button {
@@ -539,7 +569,7 @@ struct PrayerRoomCard: View {
                     Task { await PrayerRoomService.shared.rsvp(roomId: room.id ?? "") }
                 } label: {
                     Text(hasRSVPd ? "Joined ✓" : "Join")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(hasRSVPd ? .secondary : Color.white)
                         .padding(.horizontal, 16).padding(.vertical, 6)
                         .background(hasRSVPd ? Color.clear : Color.purple)
@@ -569,7 +599,7 @@ struct PrayerRoomsSection: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Label("Prayer Rooms", systemImage: "person.3.sequence.fill")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     Spacer()
                     Button { showCreateRoom = true } label: {
                         Image(systemName: "plus.circle").foregroundStyle(.purple)
@@ -599,7 +629,7 @@ struct CreatePrayerRoomView: View {
     @State private var isSaving = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section("Room Details") {
                     TextField("Prayer room title", text: $title)
@@ -640,7 +670,7 @@ class BurdenMatchService: ObservableObject {
 
     func checkForMatches() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // Get current user's recent prayer topics
         db.collection("posts")
@@ -650,8 +680,7 @@ class BurdenMatchService: ObservableObject {
             .limit(to: 5)
             .getDocuments { [weak self] snap, _ in
                 let tags = snap?.documents.compactMap { $0["topicTag"] as? String } ?? []
-                guard !tags.isEmpty else { return }
-                let primaryTag = tags.first!
+                guard let primaryTag = tags.first else { return }
 
                 // Find others with same tag
                 db.collection("posts")
@@ -681,7 +710,7 @@ class BurdenMatchService: ObservableObject {
 
     func acceptMatch(with userId: String) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         // Record match
         db.collection("burdenMatches").addDocument(data: [
             "users": [uid, userId],
@@ -703,12 +732,12 @@ struct BurdenMatchPrompt: View {
     var body: some View {
         if service.showMatchPrompt {
             VStack(spacing: 12) {
-                Image(systemName: "heart.circle.fill").font(.system(size: 36)).foregroundStyle(.purple)
+                Image(systemName: "heart.circle.fill").font(.systemScaled(36)).foregroundStyle(.purple)
                 Text("Someone nearby is walking through something similar.")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .multilineTextAlignment(.center)
                 Text("Want to connect?")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                 HStack(spacing: 12) {
                     Button("Not now") { service.declineMatch() }
@@ -767,7 +796,7 @@ class FastingChainService: ObservableObject {
             "duration": duration,
             "startedAt": FieldValue.serverTimestamp()
         ]
-        try? await Firestore.firestore()
+        _ = try? await Firestore.firestore()
             .collection("posts").document(postId)
             .collection("fasts").addDocument(data: entry)
 
@@ -797,7 +826,7 @@ struct FastingChainView: View {
                     Text(service.totalFastingDays > 0
                          ? "\(service.totalFastingDays) days fasted collectively"
                          : "Start a fast for this prayer")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(service.totalFastingDays > 0 ? .primary : .secondary)
                 }
                 Spacer()
@@ -805,14 +834,14 @@ struct FastingChainView: View {
                     Button("Fast") {
                         showJoinSheet = true
                     }
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12).padding(.vertical, 4)
                     .background(Capsule().fill(Color.orange))
                     .buttonStyle(.plain)
                 } else {
                     Label("Fasting", systemImage: "checkmark.circle.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.orange)
                 }
             }

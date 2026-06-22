@@ -18,7 +18,7 @@ struct QuickMigrationButton: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "wrench.and.screwdriver.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text("Migrate")
                     .font(.custom("OpenSans-Bold", size: 13))
             }

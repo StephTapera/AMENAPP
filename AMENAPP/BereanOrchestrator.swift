@@ -321,7 +321,7 @@ struct OrchestratorResponse {
 final class BereanOrchestrator {
     static let shared = BereanOrchestrator()
 
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private let circuitBreaker = CircuitBreaker()
     private var responseCache: [String: (response: OrchestratorResponse, expiry: Date)] = [:]
     private let cacheExpirySeconds: TimeInterval = 300  // 5 min

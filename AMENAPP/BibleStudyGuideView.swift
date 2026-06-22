@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 struct BibleStudyGuideView: View {
     @Environment(\.dismiss) var dismiss
@@ -73,7 +75,7 @@ struct BibleStudyGuideView: View {
                                 .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
                             
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(.primary)
                         }
                     }
@@ -117,7 +119,7 @@ struct BibleStudyGuideView: View {
                                 .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
                             
                             Image(systemName: "chart.bar.fill")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(.primary)
                         }
                     }
@@ -162,7 +164,7 @@ struct BibleStudyGuideView: View {
                 HStack(spacing: 8) {
                     ForEach(StudyPlan.allCases, id: \.self) { plan in
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 selectedPlan = plan
                                 let haptic = UIImpactFeedbackGenerator(style: .light)
                                 haptic.impactOccurred()
@@ -170,7 +172,7 @@ struct BibleStudyGuideView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: plan.iconName)
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                 
                                 Text(plan.rawValue)
                                     .font(.custom("OpenSans-SemiBold", size: 14))
@@ -256,7 +258,7 @@ struct SearchResultsHeader: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass.circle.fill")
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(.blue)
             
             VStack(alignment: .leading, spacing: 4) {
@@ -332,7 +334,7 @@ struct StudyInsightsCard: View {
                     .frame(width: 48, height: 48)
                 
                 Image(systemName: insightIcon)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.white)
             }
             
@@ -376,7 +378,7 @@ struct BibleStudyEmptyStateView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "book.closed")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(.secondary)
             
             Text("No Plans Found")
@@ -396,6 +398,58 @@ struct EnhancedBibleStudyPlanCard: View {
     let plan: BibleStudyPlan
     @State private var isEnrolled = false
     @State private var isExpanded = false
+    @State private var currentDay: Int = 0
+    @State private var enrolledAt: Date? = nil
+
+    // MARK: Firestore helpers
+
+    private func progressDoc() -> DocumentReference? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        return Firestore.firestore()
+            .collection("users").document(uid)
+            .collection("studyPlanProgress").document(plan.id.uuidString)
+    }
+
+    private func loadProgress() async {
+        guard let ref = progressDoc(),
+              let snap = try? await ref.getDocument(),
+              snap.exists,
+              let data = snap.data() else { return }
+        await MainActor.run {
+            isEnrolled  = data["isEnrolled"] as? Bool ?? false
+            currentDay  = data["currentDay"] as? Int ?? 0
+            if let ts = data["enrolledAt"] as? Timestamp {
+                enrolledAt = ts.dateValue()
+            }
+        }
+    }
+
+    private func saveEnrollment(enrolled: Bool) {
+        guard let ref = progressDoc() else { return }
+        Task {
+            try? await ref.setData([
+                "planId":      plan.id.uuidString,
+                "planTitle":   plan.title,
+                "isEnrolled":  enrolled,
+                "currentDay":  enrolled ? currentDay : 0,
+                "totalDays":   plan.duration,
+                "enrolledAt":  enrolled ? FieldValue.serverTimestamp() : FieldValue.delete(),
+                "updatedAt":   FieldValue.serverTimestamp(),
+            ], merge: true)
+        }
+    }
+
+    private func advanceDay() {
+        guard isEnrolled, currentDay < plan.duration else { return }
+        currentDay += 1
+        guard let ref = progressDoc() else { return }
+        Task {
+            try? await ref.updateData([
+                "currentDay": currentDay,
+                "updatedAt":  FieldValue.serverTimestamp(),
+            ])
+        }
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -413,7 +467,7 @@ struct EnhancedBibleStudyPlanCard: View {
                     Spacer()
                     HStack {
                         Image(systemName: plan.icon)
-                            .font(.system(size: 40))
+                            .font(.systemScaled(40))
                             .foregroundStyle(.white.opacity(0.3))
                         Spacer()
                     }
@@ -423,7 +477,7 @@ struct EnhancedBibleStudyPlanCard: View {
                 // Badge
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     Text(plan.level)
                         .font(.custom("OpenSans-Bold", size: 11))
                 }
@@ -449,14 +503,14 @@ struct EnhancedBibleStudyPlanCard: View {
                     HStack(spacing: 16) {
                         HStack(spacing: 6) {
                             Image(systemName: "calendar")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text("\(plan.duration) days")
                                 .font(.custom("OpenSans-SemiBold", size: 13))
                         }
                         
                         HStack(spacing: 6) {
                             Image(systemName: "clock")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text("\(plan.dailyTime) min/day")
                                 .font(.custom("OpenSans-SemiBold", size: 13))
                         }
@@ -474,7 +528,7 @@ struct EnhancedBibleStudyPlanCard: View {
                     ForEach(plan.topics.prefix(4), id: \.self) { topic in
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.green)
                             
                             Text(topic)
@@ -495,16 +549,17 @@ struct EnhancedBibleStudyPlanCard: View {
                 // Action buttons
                 HStack(spacing: 12) {
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             isEnrolled.toggle()
                             let haptic = UIImpactFeedbackGenerator(style: .medium)
                             haptic.impactOccurred()
                         }
+                        saveEnrollment(enrolled: isEnrolled)
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: isEnrolled ? "checkmark.circle.fill" : "play.circle.fill")
-                                .font(.system(size: 18))
-                            
+                                .font(.systemScaled(18))
+
                             Text(isEnrolled ? "Enrolled" : "Start Plan")
                                 .font(.custom("OpenSans-Bold", size: 16))
                         }
@@ -540,7 +595,7 @@ struct EnhancedBibleStudyPlanCard: View {
                         haptic.impactOccurred()
                     } label: {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(.primary)
                             .frame(width: 50, height: 50)
                             .background(
@@ -558,6 +613,7 @@ struct EnhancedBibleStudyPlanCard: View {
                 .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
         )
         .padding(.horizontal, 20)
+        .task { await loadProgress() }
     }
 }
 

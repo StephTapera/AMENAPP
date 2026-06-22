@@ -61,7 +61,7 @@ struct StudioShopView: View {
     private var emptyShopState: some View {
         VStack(spacing: 16) {
             Image(systemName: "bag.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
             Text(isOwnProfile ? "Add digital products" : "No products yet")
                 .font(.custom("OpenSans-SemiBold", size: 16))
@@ -95,14 +95,14 @@ struct StudioProductCard: View {
                         img.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         Image(systemName: product.category.icon)
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(product.category.color)
                     }
                     .frame(width: 64, height: 64)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 } else {
                     Image(systemName: product.category.icon)
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(product.category.color)
                 }
             }
@@ -152,10 +152,10 @@ struct StudioProductCard: View {
     private func productMeta(icon: String, label: String) -> some View {
         HStack(spacing: 3) {
             Image(systemName: icon)
-                .font(.system(size: 9))
+                .font(.systemScaled(9))
                 .foregroundStyle(.secondary)
             Text(label)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
         }
     }
@@ -223,22 +223,22 @@ struct StudioProductDetailView: View {
                             Text("License")
                                 .font(.custom("OpenSans-Bold", size: 15))
                             Text(product.licenseType.label)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.90))
                             Text(product.licenseType.description)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
 
                         // Version
                         HStack {
                             Text("Version \(product.version)")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                             Spacer()
                             if product.downloadCount > 0 {
                                 Text("\(product.downloadCount) downloads")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -268,7 +268,7 @@ struct StudioProductDetailView: View {
         ZStack {
             product.category.color.opacity(0.15)
             Image(systemName: product.category.icon)
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(product.category.color)
         }
     }
@@ -281,7 +281,7 @@ struct StudioProductDetailView: View {
                     .font(.custom("OpenSans-Bold", size: 28))
                     .foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
                 Text("— no cost to download")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             }
         } else {
@@ -289,7 +289,7 @@ struct StudioProductDetailView: View {
                 Text(product.price.formatted(.currency(code: product.currency)))
                     .font(.custom("OpenSans-Bold", size: 28))
                 Text("One-time purchase • Instant download")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
         }
@@ -299,9 +299,9 @@ struct StudioProductDetailView: View {
     private func fileTypeBadge(_ type: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "doc.fill")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
             Text(type)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
         }
         .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.90))
         .padding(.horizontal, 8)
@@ -315,14 +315,14 @@ struct StudioProductDetailView: View {
             let fee = AMENFeeConfig.calculateFee(amount: product.price, type: .productSale)
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "info.circle.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("AMEN Platform Fee")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                     Text("A \(Int(AMENFeeConfig.productSaleFeePercent * 100))% platform fee applies (\(fee.fee.formatted(.currency(code: product.currency)))). The creator receives \(fee.net.formatted(.currency(code: product.currency))).")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -360,7 +360,7 @@ struct StudioProductDetailView: View {
             .disabled(isPurchasing)
 
             Text(product.refundPolicy.isEmpty ? "All sales final" : product.refundPolicy)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }

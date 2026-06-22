@@ -94,7 +94,7 @@ struct WLBookDetailView: View {
 
                             // Affiliate disclosure
                             Text(AffiliateConfig.disclosure)
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(BDToken.textTertiary)
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity)
@@ -114,7 +114,7 @@ struct WLBookDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(BDToken.accent)
                 }
             }
@@ -215,17 +215,17 @@ private struct BDMetadataSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(book.title)
-                .font(.system(size: 26, weight: .bold))
+                .font(.systemScaled(26, weight: .bold))
                 .foregroundStyle(BDToken.textPrimary)
 
             if let subtitle = book.subtitle {
                 Text(subtitle)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(BDToken.textSecondary)
             }
 
             Text(book.authorDisplayString)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(BDToken.accent)
                 .padding(.top, 2)
 
@@ -234,12 +234,12 @@ private struct BDMetadataSection: View {
                 HStack(spacing: 4) {
                     ForEach(0..<5) { i in
                         Image(systemName: Double(i) < rating ? "star.fill" : (Double(i) < rating + 0.5 ? "star.leadinghalf.filled" : "star"))
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(Color(red: 1.0, green: 0.78, blue: 0.2))
                     }
                     if let count = book.ratingsCount {
                         Text("(\(count.formatted()))")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(BDToken.textTertiary)
                     }
                 }
@@ -261,7 +261,7 @@ private struct BDTagsRow: View {
             HStack(spacing: 7) {
                 ForEach(tags.prefix(6), id: \.self) { tag in
                     Text(tag)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(BDToken.accent)
                         .padding(.horizontal, 11)
                         .padding(.vertical, 5)
@@ -282,16 +282,16 @@ private struct BDRecommendsBanner: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "hands.sparkles.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(BDToken.accent)
                 Text("WHY AMEN RECOMMENDS")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(BDToken.accent)
                     .tracking(0.8)
             }
 
             Text(reason)
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
                 .foregroundStyle(BDToken.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -321,24 +321,24 @@ private struct BDDescriptionSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("About this book")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(BDToken.textTertiary)
                 .textCase(.uppercase)
                 .tracking(0.6)
 
             Text(text)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(BDToken.textPrimary)
                 .lineLimit(expanded ? nil : previewLineLimit)
                 .fixedSize(horizontal: false, vertical: true)
 
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     expanded.toggle()
                 }
             } label: {
                 Text(expanded ? "Show less" : "Read more")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(BDToken.accent)
             }
             .buttonStyle(.plain)
@@ -382,7 +382,7 @@ private struct BDActionButtons: View {
             HStack(spacing: 10) {
                 Button {
                     if !reduceMotion {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             vm.toggleSave(book: book)
                             savedPulse = true
                         }
@@ -394,7 +394,7 @@ private struct BDActionButtons: View {
                     }
                 } label: {
                     Label(isSaved ? "Saved" : "Save", systemImage: isSaved ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(isSaved ? .white : BDToken.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
@@ -409,7 +409,7 @@ private struct BDActionButtons: View {
 
                 Button { showBerean = true } label: {
                     Label("Ask Berean", systemImage: "sparkles")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(BDToken.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
@@ -435,9 +435,9 @@ private struct BDPrimaryButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
@@ -452,7 +452,7 @@ private struct BDPrimaryButton: View {
                     if !isPressed { withAnimation(.easeOut(duration: 0.1)) { isPressed = true } }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { isPressed = false }
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) { isPressed = false }
                 }
         )
     }
@@ -478,7 +478,7 @@ private struct BDPublisherSection: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Publication Details")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(BDToken.textTertiary)
                         .textCase(.uppercase)
                         .tracking(0.6)
@@ -511,11 +511,11 @@ private struct BDInfoRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(BDToken.textSecondary)
                 .frame(width: 80, alignment: .leading)
             Text(value)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(BDToken.textPrimary)
         }
     }
@@ -554,11 +554,11 @@ struct WLBereanBookPromptView: View {
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(book.title)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                                 .foregroundStyle(BDToken.textPrimary)
                                 .lineLimit(2)
                             Text(book.authorDisplayString)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(BDToken.textSecondary)
                         }
                     }
@@ -571,10 +571,10 @@ struct WLBereanBookPromptView: View {
                     // Header
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Ask Berean")
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.systemScaled(22, weight: .bold))
                             .foregroundStyle(BDToken.textPrimary)
                         Text("Explore this book's themes, theological depth, and scripture connections — grounded in the Word.")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(BDToken.textSecondary)
                     }
                     .padding(.horizontal, 20)
@@ -594,16 +594,16 @@ struct WLBereanBookPromptView: View {
                             } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: icon)
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                         .foregroundStyle(.indigo)
                                         .frame(width: 20)
                                     Text(suggestion)
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(BDToken.textPrimary)
                                         .multilineTextAlignment(.leading)
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .font(.systemScaled(11, weight: .semibold))
                                         .foregroundStyle(BDToken.textTertiary)
                                 }
                                 .padding(14)
@@ -618,10 +618,10 @@ struct WLBereanBookPromptView: View {
                     // Premium note
                     HStack(spacing: 10) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.indigo)
                         Text("AI book summaries, scripture cross-references, and discussion prompts are AMEN Premium features.")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(BDToken.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -638,7 +638,7 @@ struct WLBereanBookPromptView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(BDToken.accent)
                 }
             }

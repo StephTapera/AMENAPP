@@ -17,7 +17,7 @@ import Combine
 class NestedCommentService: ObservableObject {
     static let shared = NestedCommentService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Comment Model with Nesting
     
@@ -63,9 +63,39 @@ class NestedCommentService: ObservableObject {
         
         // Extract @mentions from content
         let mentions = extractMentions(from: content)
-        
-        // Create comment document
+
+        // ── COMMENT QUALITY + SAFETY GATE ────────────────────────────────────
+        // Generate the idempotency ID first so it can be passed to the gateway.
         let commentId = UUID().uuidString
+
+        let gatewayOutcome = await CommentQualityGateway.shared.check(
+            text: content,
+            postId: postId,
+            clientCommentId: commentId
+        )
+        switch gatewayOutcome {
+        case .serverError(let message):
+            throw NSError(domain: "NestedCommentService", code: -20,
+                          userInfo: [NSLocalizedDescriptionKey: message])
+        case .decided(let response):
+            switch response.decision {
+            case .block:
+                throw NSError(domain: "NestedCommentService", code: -21,
+                              userInfo: [NSLocalizedDescriptionKey: "This comment was blocked by our safety system."])
+            case .nudge:
+                // NestedCommentService is a legacy path — surface nudges as an error.
+                // The primary compose flow goes through CommentService + PostDetailView
+                // which shows the proper nudge sheet. Log the nudges and throw so
+                // callers surface an appropriate message to the user.
+                let nudgeText = response.nudges.first ?? "Please review your comment before posting."
+                throw NSError(domain: "NestedCommentService", code: -22,
+                              userInfo: [NSLocalizedDescriptionKey: nudgeText])
+            case .publish:
+                break // Continue to write
+            }
+        }
+        // ── END GATE ────────────────────────────────────────────────────────
+
         let comment = NestedComment(
             id: commentId,
             postId: postId,
@@ -80,7 +110,7 @@ class NestedCommentService: ObservableObject {
             likeCount: 0,
             isLikedByCurrentUser: false
         )
-        
+
         // Save to Firestore
         let commentData: [String: Any] = [
             "id": comment.id,
@@ -95,7 +125,7 @@ class NestedCommentService: ObservableObject {
             "replyCount": 0,
             "likeCount": 0
         ]
-        
+
         try await db.collection("comments").document(commentId).setData(commentData)
         
         // If this is a reply, update parent comment's reply count
@@ -140,6 +170,7 @@ class NestedCommentService: ObservableObject {
         let snapshot = try await db.collection("comments")
             .whereField("postId", isEqualTo: postId)
             .order(by: "timestamp", descending: false)
+            .limit(to: 100)
             .getDocuments()
         
         var comments: [NestedComment] = []
@@ -174,6 +205,7 @@ class NestedCommentService: ObservableObject {
         let snapshot = try await db.collection("comments")
             .whereField("parentCommentId", isEqualTo: parentCommentId)
             .order(by: "timestamp", descending: false)
+            .limit(to: 50)
             .getDocuments()
         
         var replies: [NestedComment] = []
@@ -275,7 +307,11 @@ class NestedCommentService: ObservableObject {
         ]
         
         do {
-            try await db.collection("notifications").addDocument(data: notificationData)
+            try await db
+                .collection("users")
+                .document(userId)
+                .collection("notifications")
+                .addDocument(data: notificationData)
         } catch {
             dlog("❌ Failed to send mention notification: \(error)")
         }
@@ -306,7 +342,11 @@ class NestedCommentService: ObservableObject {
                 "read": false
             ]
             
-            try await db.collection("notifications").addDocument(data: notificationData)
+            try await db
+                .collection("users")
+                .document(parentAuthorId)
+                .collection("notifications")
+                .addDocument(data: notificationData)
         } catch {
             dlog("❌ Failed to send reply notification: \(error)")
         }

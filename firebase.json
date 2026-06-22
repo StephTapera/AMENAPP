@@ -1,15 +1,18 @@
 {
+  "remoteconfig": {
+    "template": "remoteconfig.template.json"
+  },
   "database": {
     "rules": "AMENAPP/database.rules.json"
   },
   "firestore": {
     "database": "(default)",
     "location": "nam5",
-    "rules": "AMENAPP/firestore 18.rules",
+    "rules": "AMENAPP/firestore.deploy.rules",
     "indexes": "firestore.indexes.json"
   },
   "storage": {
-    "rules": "AMENAPP/storage.rules",
+    "rules": "storage.rules",
     "bucket": "amen-5e359.firebasestorage.app",
     "location": "us-west1"
   },
@@ -23,11 +26,66 @@
         "firebase-debug.*.log",
         "*.local"
       ],
-      "predeploy": [],
+      "predeploy": [
+        "PATH=/usr/local/bin:$PATH npm --prefix \"$RESOURCE_DIR\" run build:context",
+        "PATH=/usr/local/bin:$PATH npm --prefix \"$RESOURCE_DIR\" run build:sanctuary",
+        "PATH=/usr/local/bin:$PATH npm --prefix \"$RESOURCE_DIR\" run build:moment",
+        "PATH=/usr/local/bin:$PATH npm --prefix \"$RESOURCE_DIR\" run build:church",
+        "cd \"$RESOURCE_DIR/berean\" && npx tsc"
+      ],
       "source": "functions"
+    },
+    {
+      "codebase": "v2triggers",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [],
+      "source": "functions/v2triggers"
+    },
+    {
+      "codebase": "creator",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "PATH=/usr/local/bin:$PATH npm --prefix \"$RESOURCE_DIR\" run build"
+      ],
+      "source": "Backend/functions"
     }
   ],
   "extensions": {
     "firestore-send-email": "firebase/firestore-send-email@0.2.5"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8080,
+      "host": "127.0.0.1"
+    },
+    "auth": {
+      "port": 9099,
+      "host": "127.0.0.1"
+    },
+    "functions": {
+      "port": 5001,
+      "host": "127.0.0.1"
+    },
+    "storage": {
+      "port": 9199,
+      "host": "127.0.0.1"
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
   }
 }

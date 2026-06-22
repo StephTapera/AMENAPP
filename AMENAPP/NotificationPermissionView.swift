@@ -65,16 +65,28 @@ struct NotificationPermissionView: View {
                             .frame(width: 120, height: 120)
                         
                         // Bell icon
-                        Image(systemName: "bell.badge.fill")
-                            .font(.system(size: 50))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.blue, .purple],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                        if #available(iOS 18.0, *) {
+                            Image(systemName: "bell.badge.fill")
+                                .font(.systemScaled(50))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.blue, .purple],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
-                            .symbolEffect(.bounce, options: .repeating.speed(0.5))
+                                .symbolEffect(.bounce, options: .repeating.speed(0.5))
+                        } else {
+                            Image(systemName: "bell.badge.fill")
+                                .font(.systemScaled(50))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.blue, .purple],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
                     }
                     .padding(.bottom, 8)
                     
@@ -82,7 +94,7 @@ struct NotificationPermissionView: View {
                     VStack(spacing: 12) {
                         Text("Stay Connected")
                             .font(.custom("OpenSans-Bold", size: 32))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                         
                         Text("Get notified about what matters to you")
                             .font(.custom("OpenSans-Regular", size: 16))
@@ -140,6 +152,8 @@ struct NotificationPermissionView: View {
                                 } else {
                                     Text("Enable Notifications")
                                         .font(.custom("OpenSans-Bold", size: 16))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.85)
                                 }
                             }
                             .foregroundStyle(.white)
@@ -216,6 +230,7 @@ struct NotificationPermissionView: View {
                     
                     // Mark as completed
                     UserDefaults.standard.set(true, forKey: "hasCompletedNotificationPermission")
+                    PushNotificationManager.shared.setupFCMToken()
                     
                     // Dismiss
                     dismiss()
@@ -254,7 +269,7 @@ struct NotificationBenefitRow: View {
                     .frame(width: 48, height: 48)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(iconColor)
             }
             
@@ -262,7 +277,7 @@ struct NotificationBenefitRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Text(description)
                     .font(.custom("OpenSans-Regular", size: 13))

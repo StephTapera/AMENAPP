@@ -25,6 +25,9 @@ class MessagingCoordinator: ObservableObject {
     /// Published property to trigger opening message requests tab
     @Published var shouldOpenMessageRequests = false
     
+    /// Published property to trigger opening a group join link flow
+    @Published var groupJoinToken: String?
+    
     private var cancellables = Set<AnyCancellable>()
     
     private init() {
@@ -39,6 +42,16 @@ class MessagingCoordinator: ObservableObject {
                 
                 if let conversationId = notification.userInfo?["conversationId"] as? String {
                     self.openConversation(conversationId)
+                }
+            }
+            .store(in: &cancellables)
+        
+        NotificationCenter.default.publisher(for: .openGroupJoinLink)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                
+                if let token = notification.userInfo?["token"] as? String {
+                    self.openGroupJoinLink(token: token)
                 }
             }
             .store(in: &cancellables)
@@ -75,6 +88,18 @@ class MessagingCoordinator: ObservableObject {
         Task {
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
             shouldOpenMessageRequests = false
+            shouldOpenMessagesTab = false
+        }
+    }
+    
+    /// Open a group join link flow
+    func openGroupJoinLink(token: String) {
+        groupJoinToken = token
+        shouldOpenMessagesTab = true
+        
+        Task {
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            groupJoinToken = nil
             shouldOpenMessagesTab = false
         }
     }

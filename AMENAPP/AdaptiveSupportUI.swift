@@ -27,14 +27,14 @@ import SwiftUI
 struct AdaptiveSupportOverlay: ViewModifier {
     @ObservedObject private var orchestrator = SafetyOrchestrator.shared
     @State private var isPresented = false
-    @State private var currentSurface: SupportSurface?
+    @State private var currentSurface: SafetySupportSurface?
 
     func body(content: Content) -> some View {
         content
             .onChange(of: orchestrator.pendingSupportSurface) { _, surface in
                 if let surface {
                     currentSurface = surface
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.82))) {
                         isPresented = true
                     }
                 }
@@ -52,7 +52,7 @@ struct AdaptiveSupportOverlay: ViewModifier {
     }
 
     @ViewBuilder
-    private func surfaceView(for surface: SupportSurface) -> some View {
+    private func surfaceView(for surface: SafetySupportSurface) -> some View {
         switch surface {
         case .gentleCheckIn:
             GentleCheckInCard(onDismiss: { isPresented = false })
@@ -69,7 +69,7 @@ struct AdaptiveSupportOverlay: ViewModifier {
         }
     }
 
-    private func detentsFor(_ surface: SupportSurface) -> Set<PresentationDetent> {
+    private func detentsFor(_ surface: SafetySupportSurface) -> Set<PresentationDetent> {
         switch surface {
         case .gentleCheckIn:   return [.height(320)]
         case .pauseAndBreathe: return [.height(440)]
@@ -99,7 +99,7 @@ private struct SupportHeaderView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 48, weight: .medium))
+                .font(.systemScaled(48, weight: .medium))
                 .foregroundStyle(iconColor)
 
             Text(title)
@@ -128,7 +128,7 @@ private struct SupportActionButton: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.systemScaled(17, weight: .medium))
                     .foregroundStyle(color)
                     .frame(width: 32)
                     .accessibilityHidden(true)
@@ -140,7 +140,7 @@ private struct SupportActionButton: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
             }
@@ -195,7 +195,7 @@ struct GentleCheckInCard: View {
             HStack(spacing: 10) {
                 ForEach(CheckInMood.allCases, id: \.self) { mood in
                     Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                             selectedMood = mood
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
@@ -204,7 +204,7 @@ struct GentleCheckInCard: View {
                     } label: {
                         VStack(spacing: 4) {
                             Text(mood.emoji)
-                                .font(.system(size: 28))
+                                .font(.systemScaled(28))
                             Text(mood.label)
                                 .font(.custom("OpenSans-Regular", size: 9))
                                 .foregroundStyle(.secondary)
@@ -494,7 +494,7 @@ struct CrisisHelpCard: View {
                 } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "phone.fill")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
 
                         VStack(alignment: .leading, spacing: 2) {
@@ -649,7 +649,7 @@ struct FullCrisisUrgentView: View {
             // Warm top banner
             VStack(spacing: 16) {
                 Image(systemName: "heart.circle.fill")
-                    .font(.system(size: 64, weight: .medium))
+                    .font(.systemScaled(64, weight: .medium))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [Color(red: 0.90, green: 0.40, blue: 0.40),
@@ -684,7 +684,7 @@ struct FullCrisisUrgentView: View {
                     } label: {
                         HStack(spacing: 14) {
                             Image(systemName: "phone.fill")
-                                .font(.system(size: 22, weight: .bold))
+                                .font(.systemScaled(22, weight: .bold))
                                 .foregroundStyle(.white)
 
                             VStack(alignment: .leading, spacing: 3) {
@@ -699,7 +699,7 @@ struct FullCrisisUrgentView: View {
                             Spacer()
 
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.white.opacity(0.7))
                         }
                         .padding(.horizontal, 22)

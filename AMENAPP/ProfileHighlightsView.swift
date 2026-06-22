@@ -42,10 +42,10 @@ struct ProfileHighlightsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
@@ -68,17 +68,17 @@ private struct HighlightCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(post.content)
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
                 .foregroundStyle(.primary)
                 .lineLimit(3)
                 .lineSpacing(2)
 
             HStack(spacing: 12) {
                 Label("\(post.amenCount)", systemImage: "hands.sparkles.fill")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.secondary)
                 Label("\(post.commentCount)", systemImage: "bubble")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.secondary)
             }
         }

@@ -59,7 +59,7 @@ struct DrawerCommunity: Identifiable {
 
 // MARK: - Sample Data (replace with Firestore-backed viewmodel later)
 
-private extension DrawerCommunity {
+extension DrawerCommunity {
     static let sampleOwned: [DrawerCommunity] = [
         DrawerCommunity(id: "pc-1", name: "Morning Prayer Circle", subtitle: "Daily intercession at 6 AM",
                         icon: "hands.sparkles.fill", memberCount: 24, recentActivity: 3, role: .leader, isSuggested: false),
@@ -92,9 +92,7 @@ final class FeedDrawerState: ObservableObject {
     @Published var activeFeedMode: DrawerFeedMode = .forYou
 
     static var drawerWidth: CGFloat {
-        let screen = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }.first?.screen ?? UIScreen.main
-        return screen.bounds.width * 0.82
+        return ScreenMetrics.bounds.width * 0.82
     }
 
     /// Progress 0→1 as drawer opens (used for parallax / dimming)
@@ -107,7 +105,7 @@ final class FeedDrawerState: ObservableObject {
 
     func open(animated: Bool = true) {
         if animated {
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.82))) {
                 isOpen = true
                 dragOffset = 0
             }
@@ -119,7 +117,7 @@ final class FeedDrawerState: ObservableObject {
 
     func close(animated: Bool = true) {
         if animated {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.88))) {
                 isOpen = false
                 dragOffset = 0
             }
@@ -135,6 +133,9 @@ final class FeedDrawerState: ObservableObject {
 struct FeedUtilityDrawerView: View {
     @ObservedObject var state: FeedDrawerState
     let onClose: () -> Void
+
+    @State private var showBrowseCommunities = false
+    @State private var showJoinCovenant = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -181,6 +182,16 @@ struct FeedUtilityDrawerView: View {
         .background(drawerBackground)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: Color.black.opacity(0.18), radius: 28, x: -4, y: 0)
+        .sheet(isPresented: $showBrowseCommunities) {
+            NavigationStack {
+                BrowseCommunitiesView()
+            }
+        }
+        .sheet(isPresented: $showJoinCovenant) {
+            CommunityCovenantView {
+                showJoinCovenant = false
+            }
+        }
     }
 
     // MARK: - Header
@@ -198,7 +209,7 @@ struct FeedUtilityDrawerView: View {
             Spacer()
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(8)
                     .background(.ultraThinMaterial, in: Circle())
@@ -231,14 +242,14 @@ struct FeedUtilityDrawerView: View {
     private func feedModeRow(_ mode: DrawerFeedMode) -> some View {
         let isActive = state.activeFeedMode == mode
         return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                 state.activeFeedMode = mode
             }
             HapticManager.impact(style: .light)
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(isActive ? Color.white : Color.primary)
                     .frame(width: 32, height: 32)
                     .background(isActive ? Color.accentColor : Color.clear, in: Circle())
@@ -256,7 +267,7 @@ struct FeedUtilityDrawerView: View {
 
                 if isActive {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundStyle(Color.accentColor)
                 }
             }
@@ -291,7 +302,8 @@ struct FeedUtilityDrawerView: View {
     private func communityRow(_ community: DrawerCommunity) -> some View {
         Button {
             HapticManager.impact(style: .light)
-            // TODO: Navigate to community feed
+            onClose()
+            showBrowseCommunities = true
         } label: {
             HStack(spacing: 12) {
                 // Community icon circle
@@ -300,7 +312,7 @@ struct FeedUtilityDrawerView: View {
                         .fill(.ultraThinMaterial)
                         .frame(width: 36, height: 36)
                     Image(systemName: community.icon)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.primary.opacity(0.8))
                 }
 
@@ -320,14 +332,14 @@ struct FeedUtilityDrawerView: View {
                 // Activity badge
                 if community.recentActivity > 0 {
                     Text("\(community.recentActivity)")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.systemScaled(11, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color.accentColor, in: Capsule())
                 } else {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary.opacity(0.5))
                 }
             }
@@ -366,7 +378,7 @@ struct FeedUtilityDrawerView: View {
                     .fill(.ultraThinMaterial)
                     .frame(width: 36, height: 36)
                 Image(systemName: community.icon)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.secondary)
             }
 
@@ -384,7 +396,7 @@ struct FeedUtilityDrawerView: View {
 
             Button {
                 HapticManager.impact(style: .light)
-                // TODO: Join community
+                showJoinCovenant = true
             } label: {
                 Text("Join")
                     .font(.custom("OpenSans-SemiBold", size: 12))

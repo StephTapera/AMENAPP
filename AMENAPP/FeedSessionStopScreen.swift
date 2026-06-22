@@ -58,7 +58,7 @@ struct FeedSessionStopScreen: View {
                 // Header
                 VStack(spacing: 12) {
                     Image(systemName: "pause.circle.fill")
-                        .font(.system(size: 52))
+                        .font(.systemScaled(52))
                         .foregroundStyle(.secondary)
                         .opacity(appeared ? 1 : 0)
                         .scaleEffect(appeared ? 1 : 0.7)
@@ -117,7 +117,7 @@ struct FeedSessionStopScreen: View {
                     }) {
                         HStack {
                             Image(systemName: "xmark.circle")
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.systemScaled(18, weight: .medium))
                             Text("Close for now")
                                 .font(.custom("OpenSans-SemiBold", size: 16))
                             Spacer()
@@ -152,7 +152,7 @@ struct FeedSessionStopScreen: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.75))) {
                 appeared = true
             }
         }
@@ -211,7 +211,7 @@ struct FeedSessionStopScreen: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .frame(width: 24)
                 
                 VStack(alignment: .leading, spacing: 2) {
@@ -225,7 +225,7 @@ struct FeedSessionStopScreen: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 20)
@@ -250,7 +250,7 @@ struct ReflectionPromptSheet: View {
     @FocusState private var isTextFocused: Bool
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Reflect", systemImage: "lightbulb")
@@ -357,11 +357,11 @@ struct GuidedPrayerSheet: View {
             .offset(y: appeared ? 0 : 12)
             .id(currentStep) // Re-animate on step change
             .onAppear {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { appeared = true }
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) { appeared = true }
             }
             .onChange(of: currentStep) { _, _ in
                 appeared = false
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75).delay(0.05)) { appeared = true }
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)).delay(0.05)) { appeared = true }
             }
             
             Spacer()
@@ -371,7 +371,7 @@ struct GuidedPrayerSheet: View {
                 if currentStep > 0 {
                     Button(action: { currentStep -= 1 }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                             .padding(14)
                             .background(Color(.secondarySystemBackground))
                             .clipShape(Circle())

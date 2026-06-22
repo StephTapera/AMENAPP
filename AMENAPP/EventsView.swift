@@ -91,7 +91,7 @@ final class EventsStore: ObservableObject {
     @Published var myHostedEvents: [FaithEvent] = []
     @Published var isLoaded = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     private init() {}
@@ -112,10 +112,12 @@ final class EventsStore: ObservableObject {
                 self.isLoaded = true
             }
 
-        // Load user's RSVPs
+        // Load user's RSVPs from user-scoped subcollection (avoids rsvpUIDs arrayContains
+        // which required the unbounded array on the event document).
         if let uid = Auth.auth().currentUser?.uid {
-            db.collection("faithEvents")
-                .whereField("rsvpUIDs", arrayContains: uid)
+            db.collection("users").document(uid)
+                .collection("eventRsvps")
+                .limit(to: 100)
                 .getDocuments { [weak self] snap, _ in
                     let ids = snap?.documents.compactMap { $0.documentID } ?? []
                     Task { @MainActor [weak self] in
@@ -132,8 +134,14 @@ final class EventsStore: ObservableObject {
 
     func rsvp(to eventID: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
+        let ts: [String: Any] = ["rsvpedAt": FieldValue.serverTimestamp()]
+        // Store RSVP in event subcollection and in user subcollection (for fast lookup).
+        async let eventWrite: () = try db.collection("faithEvents").document(eventID)
+            .collection("rsvps").document(uid).setData(ts, merge: true)
+        async let userWrite: () = try db.collection("users").document(uid)
+            .collection("eventRsvps").document(eventID).setData(ts, merge: true)
+        _ = try await (eventWrite, userWrite)
         try await db.collection("faithEvents").document(eventID).updateData([
-            "rsvpUIDs": FieldValue.arrayUnion([uid]),
             "rsvpCount": FieldValue.increment(Int64(1))
         ])
         myRSVPs.append(eventID)
@@ -141,8 +149,11 @@ final class EventsStore: ObservableObject {
 
     func cancelRSVP(for eventID: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
+        try await db.collection("faithEvents").document(eventID)
+            .collection("rsvps").document(uid).delete()
+        try await db.collection("users").document(uid)
+            .collection("eventRsvps").document(eventID).delete()
         try await db.collection("faithEvents").document(eventID).updateData([
-            "rsvpUIDs": FieldValue.arrayRemove([uid]),
             "rsvpCount": FieldValue.increment(Int64(-1))
         ])
         myRSVPs.removeAll { $0 == eventID }
@@ -166,6 +177,7 @@ struct EventsView: View {
     @State private var showCreateEvent = false
     @State private var selectedEvent: FaithEvent?
     @State private var appeared = false
+    @State private var plannerViewModel = AmenLifePlannerViewModel()
 
     private var filteredEvents: [FaithEvent] {
         guard let cat = selectedCategory else { return store.upcomingEvents }
@@ -177,6 +189,12 @@ struct EventsView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     heroHeader
+
+                    // Spiritual OS — Life Planner (Agent C, gated by master + planner flags)
+                    AmenLifePlannerSectionView(
+                        viewModel: plannerViewModel,
+                        userId: Auth.auth().currentUser?.uid ?? ""
+                    )
 
                     // Category filter
                     categoryPills
@@ -231,15 +249,15 @@ struct EventsView: View {
             // Content
             VStack(alignment: .leading, spacing: 8) {
                 Text("EVENTS")
-                    .font(.system(size: 10, weight: .semibold)).kerning(3)
+                    .font(.systemScaled(10, weight: .semibold)).kerning(3)
                     .foregroundStyle(Color.white.opacity(0.55))
 
                 HStack(alignment: .top, spacing: 0) {
                     Text("Gather")
-                        .font(.system(size: 28, weight: .black))
+                        .font(.systemScaled(28, weight: .black))
                         .foregroundStyle(.white)
                     Text(" Together")
-                        .font(.system(size: 28, weight: .black))
+                        .font(.systemScaled(28, weight: .black))
                         .foregroundStyle(
                             LinearGradient(colors: [Color(red: 0.78, green: 0.65, blue: 1.0), .white],
                                            startPoint: .leading, endPoint: .trailing)
@@ -257,9 +275,9 @@ struct EventsView: View {
                 Button { showCreateEvent = true } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.systemScaled(11, weight: .bold))
                         Text("Host an Event")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                     }
                     .foregroundStyle(Color(red: 0.35, green: 0.12, blue: 0.65))
                     .padding(.horizontal, 14).padding(.vertical, 9)
@@ -283,7 +301,7 @@ struct EventsView: View {
             HStack(spacing: 8) {
                 // All pill
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) { selectedCategory = nil }
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) { selectedCategory = nil }
                 } label: {
                     Text("All")
                         .font(.custom(selectedCategory == nil ? "OpenSans-Bold" : "OpenSans-Regular", size: 13))
@@ -296,13 +314,13 @@ struct EventsView: View {
 
                 ForEach(EventCategory.allCases, id: \.self) { cat in
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                             selectedCategory = selectedCategory == cat ? nil : cat
                         }
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: cat.icon)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                             Text(cat.rawValue)
                                 .font(.custom(selectedCategory == cat ? "OpenSans-Bold" : "OpenSans-Regular", size: 13))
                         }
@@ -389,7 +407,7 @@ struct EventsView: View {
             if displayEvents.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "calendar.badge.exclamationmark")
-                        .font(.system(size: 44)).foregroundStyle(.secondary.opacity(0.4))
+                        .font(.systemScaled(44)).foregroundStyle(.secondary.opacity(0.4))
                         .padding(.top, 40)
                     Text("No events found")
                         .font(.custom("OpenSans-Bold", size: 18)).foregroundStyle(.primary)
@@ -423,14 +441,14 @@ struct FeaturedEventCard: View {
 
                 // Icon watermark
                 Image(systemName: event.category.icon)
-                    .font(.system(size: 70, weight: .ultraLight))
+                    .font(.systemScaled(70, weight: .ultraLight))
                     .foregroundStyle(Color.white.opacity(0.08))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, 12).padding(.trailing, 16)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(event.category.rawValue.uppercased())
-                        .font(.system(size: 9, weight: .semibold)).kerning(1.5)
+                        .font(.systemScaled(9, weight: .semibold)).kerning(1.5)
                         .foregroundStyle(Color.white.opacity(0.7))
                     Text(event.title)
                         .font(.custom("OpenSans-Bold", size: 15))
@@ -442,7 +460,7 @@ struct FeaturedEventCard: View {
                     if !event.location.isEmpty {
                         HStack(spacing: 3) {
                             Image(systemName: event.isOnline ? "video.fill" : "mappin")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                             Text(event.location)
                                 .font(.custom("OpenSans-Regular", size: 11))
                         }
@@ -457,7 +475,7 @@ struct FeaturedEventCard: View {
         .scaleEffect(appeared ? 1 : 0.92)
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75).delay(Double.random(in: 0...0.12))) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)).delay(Double.random(in: 0...0.12))) {
                 appeared = true
             }
         }
@@ -494,10 +512,10 @@ struct EventListCard: View {
                 // Date block
                 VStack(spacing: 1) {
                     Text(monthAbbrev)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(event.category.color)
                     Text(dayNumber)
-                        .font(.system(size: 22, weight: .black))
+                        .font(.systemScaled(22, weight: .black))
                         .foregroundStyle(.primary)
                 }
                 .frame(width: 44)
@@ -516,7 +534,7 @@ struct EventListCard: View {
                     HStack(spacing: 8) {
                         // Time
                         HStack(spacing: 4) {
-                            Image(systemName: "clock").font(.system(size: 11))
+                            Image(systemName: "clock").font(.systemScaled(11))
                             Text(timeString).font(.custom("OpenSans-Regular", size: 12))
                         }
                         .foregroundStyle(.secondary)
@@ -524,7 +542,7 @@ struct EventListCard: View {
                         if !event.location.isEmpty {
                             HStack(spacing: 3) {
                                 Image(systemName: event.isOnline ? "video" : "mappin")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                 Text(event.location)
                                     .font(.custom("OpenSans-Regular", size: 12))
                                     .lineLimit(1)
@@ -552,7 +570,7 @@ struct EventListCard: View {
                                 ProgressView().scaleEffect(0.7)
                             } else {
                                 Image(systemName: isRSVPed ? "checkmark.circle.fill" : "plus.circle")
-                                    .font(.system(size: 22, weight: .medium))
+                                    .font(.systemScaled(22, weight: .medium))
                                     .foregroundStyle(isRSVPed ? event.category.color : Color(.secondaryLabel))
                             }
                         }
@@ -610,17 +628,17 @@ struct EventDetailSheet: View {
                         .frame(height: 180)
 
                         Image(systemName: event.category.icon)
-                            .font(.system(size: 90, weight: .ultraLight))
+                            .font(.systemScaled(90, weight: .ultraLight))
                             .foregroundStyle(Color.white.opacity(0.07))
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                             .padding(.top, 20).padding(.trailing, 20)
 
                         VStack(alignment: .leading, spacing: 6) {
                             Text(event.category.rawValue.uppercased())
-                                .font(.system(size: 10, weight: .semibold)).kerning(2)
+                                .font(.systemScaled(10, weight: .semibold)).kerning(2)
                                 .foregroundStyle(Color.white.opacity(0.6))
                             Text(event.title)
-                                .font(.system(size: 22, weight: .black))
+                                .font(.systemScaled(22, weight: .black))
                                 .foregroundStyle(.white)
                             Text("Hosted by \(event.hostName.isEmpty ? event.churchName : event.hostName)")
                                 .font(.custom("OpenSans-Regular", size: 13))
@@ -715,7 +733,7 @@ struct EventDetailSheet: View {
                             } else {
                                 HStack(spacing: 8) {
                                     Image(systemName: isRSVPed ? "checkmark.circle.fill" : "calendar.badge.plus")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                     Text(isRSVPed ? "You're Going!" : "RSVP to Attend")
                                         .font(.custom("OpenSans-Bold", size: 16))
                                 }
@@ -745,7 +763,7 @@ struct EventDetailSheet: View {
     private func infoBlock(icon: String, label: String, value: String, color: Color) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(color)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 1) {

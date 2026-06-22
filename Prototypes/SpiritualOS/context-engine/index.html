@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AMEN Context Engine Prototype</title>
+  <style>
+    :root {
+      --cream: #fff8f0;
+      --paper: #f4eadb;
+      --ink: #1a1a2e;
+      --muted: #626877;
+      --gold: #d4af37;
+      --purple: #6b5bff;
+      --blue: #4a90d9;
+      --green: #4d8b6f;
+      --line: rgba(26, 26, 46, 0.12);
+      --glass: rgba(255, 255, 255, 0.58);
+      --shadow: rgba(74, 49, 18, 0.18);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(212, 175, 55, 0.22), transparent 28%),
+        linear-gradient(145deg, #fffaf2 0%, #f3eadf 55%, #eef3f8 100%);
+    }
+
+    .phone {
+      width: min(390px, calc(100vw - 28px));
+      min-height: 844px;
+      overflow: hidden;
+      border-radius: 42px;
+      background: var(--cream);
+      box-shadow: 0 30px 90px rgba(46, 36, 24, 0.28);
+      position: relative;
+    }
+
+    .status {
+      height: 46px;
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      padding: 0 26px 8px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .screen {
+      padding: 10px 18px 24px;
+    }
+
+    .glass {
+      background: var(--glass);
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      box-shadow: 0 18px 45px var(--shadow);
+      backdrop-filter: blur(22px) saturate(1.2);
+      -webkit-backdrop-filter: blur(22px) saturate(1.2);
+    }
+
+    .hero {
+      padding: 18px;
+      border-radius: 26px;
+      background:
+        linear-gradient(135deg, rgba(26, 26, 46, 0.94), rgba(64, 46, 84, 0.9)),
+        radial-gradient(circle at top right, rgba(212, 175, 55, 0.32), transparent 38%);
+      color: #fff8f0;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #f1cb65;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 29px;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      margin: 12px 0 0;
+      color: rgba(255, 248, 240, 0.74);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .source-flow {
+      display: grid;
+      gap: 10px;
+      margin: 14px 0 0;
+    }
+
+    .node {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 11px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      font-size: 13px;
+    }
+
+    .node strong { display: block; font-size: 13px; }
+    .node span { color: rgba(255, 248, 240, 0.68); font-size: 12px; }
+
+    .dot {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: rgba(212, 175, 55, 0.2);
+      color: #f1cb65;
+      font-weight: 900;
+    }
+
+    .section-title {
+      margin: 22px 2px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .mode {
+      padding: 13px;
+      min-height: 112px;
+      border-radius: 20px;
+      background: #fffdfa;
+      border: 1px solid var(--line);
+    }
+
+    .mode.active {
+      border-color: rgba(212, 175, 55, 0.7);
+      box-shadow: 0 12px 28px rgba(212, 175, 55, 0.14);
+    }
+
+    .mode .icon {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      background: rgba(74, 144, 217, 0.12);
+      color: var(--blue);
+      margin-bottom: 10px;
+    }
+
+    .mode.active .icon {
+      background: rgba(212, 175, 55, 0.18);
+      color: #a87612;
+    }
+
+    .mode h3 {
+      margin: 0 0 4px;
+      font-size: 14px;
+    }
+
+    .mode p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .projection {
+      padding: 14px;
+      border-radius: 22px;
+      background: #fffdfa;
+      border: 1px solid var(--line);
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(26, 26, 46, 0.08);
+      font-size: 13px;
+    }
+
+    .row:last-child { border-bottom: 0; }
+    .row span { color: var(--muted); }
+    .row strong { text-align: right; }
+
+    .permissions {
+      display: grid;
+      gap: 9px;
+    }
+
+    .permission {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 13px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .permission div {
+      display: grid;
+      gap: 3px;
+    }
+
+    .permission strong { font-size: 13px; }
+    .permission span { color: var(--muted); font-size: 12px; }
+
+    .switch {
+      width: 44px;
+      height: 26px;
+      padding: 3px;
+      border-radius: 999px;
+      background: var(--green);
+    }
+
+    .switch::after {
+      content: "";
+      display: block;
+      width: 20px;
+      height: 20px;
+      margin-left: 18px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    }
+
+    .switch.off {
+      background: rgba(98, 104, 119, 0.28);
+    }
+
+    .switch.off::after { margin-left: 0; }
+
+    .audit {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 18px;
+      color: #4d3a10;
+      background: rgba(212, 175, 55, 0.16);
+      border: 1px solid rgba(212, 175, 55, 0.28);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .tabbar {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 16px;
+      display: flex;
+      justify-content: space-around;
+      padding: 11px 12px;
+      border-radius: 999px;
+    }
+
+    .tab {
+      display: grid;
+      place-items: center;
+      gap: 3px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .tab.active { color: var(--purple); font-weight: 800; }
+    .tab b { font-size: 15px; }
+
+    @media (max-width: 430px) {
+      body { padding: 0; }
+      .phone { width: 100vw; min-height: 100vh; border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="phone">
+    <div class="status"><span>9:41</span><span>5G 100%</span></div>
+    <section class="screen">
+      <header class="hero">
+        <p class="eyebrow">Agent H · Context Engine</p>
+        <h1>ContextStore Projection</h1>
+        <p>Spiritual OS reads one context truth and projects only the safe state each surface needs.</p>
+        <div class="source-flow">
+          <div class="node"><div class="dot">1</div><div><strong>ContextStore</strong><span>Authoritative state, permissions, and validated signals.</span></div></div>
+          <div class="node"><div class="dot">2</div><div><strong>Ambient OS Callables</strong><span>Upstream enrichment into ContextStore only.</span></div></div>
+          <div class="node"><div class="dot">3</div><div><strong>spiritualOS_context</strong><span>Derived projection for UI personalization, not raw sensing.</span></div></div>
+        </div>
+      </header>
+
+      <div class="section-title">
+        <h2>Current Modes</h2>
+        <span>subscriber view</span>
+      </div>
+      <section class="mode-grid">
+        <article class="mode active"><div class="icon">☀</div><h3>Morning</h3><p>Daily Pulse surfaces first, then the normal Home feed continues.</p></article>
+        <article class="mode"><div class="icon">⛪</div><h3>Worship</h3><p>Sunday + church opt-in quiets feeds and raises notes.</p></article>
+        <article class="mode"><div class="icon">◉</div><h3>Driving</h3><p>Text prompts hide; Berean switches to voice and audio Bible.</p></article>
+        <article class="mode"><div class="icon">⌁</div><h3>Travel</h3><p>Nearby churches and groups appear only when location is allowed.</p></article>
+      </section>
+
+      <div class="section-title">
+        <h2>Projected State</h2>
+        <span>no raw sensors</span>
+      </div>
+      <section class="projection">
+        <div class="row"><span>mode</span><strong>morning</strong></div>
+        <div class="row"><span>contextStoreSnapshotId</span><strong>ctx_8f42</strong></div>
+        <div class="row"><span>isNearChurch</span><strong>false</strong></div>
+        <div class="row"><span>isDriving</span><strong>false</strong></div>
+        <div class="row"><span>aegisAuditRef</span><strong>aegis_214</strong></div>
+      </section>
+
+      <div class="section-title">
+        <h2>Controls</h2>
+        <span>user-owned</span>
+      </div>
+      <section class="permissions">
+        <div class="permission"><div><strong>Location</strong><span>Needed for Worship and Travel modes.</span></div><i class="switch"></i></div>
+        <div class="permission"><div><strong>Geofence Opt-In</strong><span>Church proximity never inferred silently.</span></div><i class="switch off"></i></div>
+        <div class="permission"><div><strong>Motion</strong><span>Driving mode requires explicit permission.</span></div><i class="switch"></i></div>
+      </section>
+
+      <p class="audit">Aegis audit: permission changes and vulnerable context are logged through the existing safety path. Spiritual OS does not create a parallel sensing pipeline.</p>
+    </section>
+
+    <nav class="tabbar glass" aria-label="Preview tab bar">
+      <span class="tab active"><b>⌂</b>Home</span>
+      <span class="tab"><b>✦</b>Hub</span>
+      <span class="tab"><b>◷</b>Plan</span>
+      <span class="tab"><b>◌</b>Profile</span>
+    </nav>
+  </main>
+</body>
+</html>

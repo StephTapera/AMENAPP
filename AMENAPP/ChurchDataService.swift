@@ -16,7 +16,7 @@ import MapKit
 class ChurchDataService {
     static let shared = ChurchDataService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private init() {}
     
     // MARK: - Church Lookup
@@ -127,7 +127,7 @@ class ChurchDataService {
         
         return response.mapItems.compactMap { item -> ChurchSearchResult? in
             guard let name = item.name else { return nil }
-            let coord = item.location.coordinate
+            let coord = item.placemark.coordinate
             let itemLocation = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
             let distanceMiles = location.distance(from: itemLocation) / 1609.34
             guard distanceMiles <= radius else { return nil }
@@ -165,7 +165,7 @@ class ChurchDataService {
     /// Get or create a ChurchEntity from an Apple Maps MKMapItem (used when user taps a Maps result)
     func getOrCreateChurch(fromMapItem item: MKMapItem) async throws -> ChurchEntity {
         let name = item.name ?? "Unknown Church"
-        let coord = item.location.coordinate
+        let coord = item.placemark.coordinate
         
         // Check Firestore for existing church with same name + approximate location
         let snapshot = try await db.collection("churches")
@@ -474,6 +474,26 @@ class ChurchDataService {
             upcomingServices: upcomingServices,
             isMyChurch: relation?.relation == .member,
             havePlannedVisit: relation?.relation == .interested
+        )
+    }
+
+    /// Load the enriched detail payload for ChurchDetailExperience.
+    func loadChurchDetailPayload(for church: Church) async throws -> ChurchDetailPayload {
+        return ChurchDetailPayload(
+            entity: nil,
+            heroImageURL: nil,
+            logoURL: nil,
+            about: nil,
+            typeLabel: "Church",
+            city: nil,
+            state: nil,
+            verified: false,
+            livestreamURL: nil,
+            denomination: church.denomination,
+            accessibilityTags: [],
+            media: [],
+            liveState: nil,
+            experienceSummary: nil
         )
     }
 }

@@ -20,9 +20,9 @@ import FirebaseAuth
 import FirebaseFirestore
 
 @MainActor
-final class BereanUserContext: ObservableObject {
+final class BereanUserContextProvider: ObservableObject {
 
-    static let shared = BereanUserContext()
+    static let shared = BereanUserContextProvider()
 
     // MARK: - Cached Context
 
@@ -32,7 +32,7 @@ final class BereanUserContext: ObservableObject {
     private var lastFetchTime: Date?
     private let cacheTTL: TimeInterval = 600 // 10 minutes
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 
@@ -114,7 +114,21 @@ final class BereanUserContext: ObservableObject {
         }
     }
 
+    /// Fetches recent prayer text for Berean context **only** when the user has
+    /// explicitly opted in via the "Use prayers to personalise Berean" toggle
+    /// (UserDefaults key: "consentPrayerAI", default = false).
+    ///
+    /// Without consent this returns an empty array so that no prayer content
+    /// ever reaches Anthropic / Google AI providers.
     private func fetchRecentPrayers(uid: String) async -> [String] {
+        // PRIVACY GATE — default is false (opt-in, not opt-out).
+        // Mirrors the Firestore field checked server-side in bereanFeaturesFunctions.
+        let consentPrayerAI = UserDefaults.standard.bool(forKey: "consentPrayerAI")
+        guard consentPrayerAI else {
+            dlog("🔒 [BereanUserContext] Prayer context skipped — consentPrayerAI is false")
+            return []
+        }
+
         do {
             // Prayer posts are stored in the main posts collection with category "prayer"
             let snapshot = try await db.collection("posts")

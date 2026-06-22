@@ -37,7 +37,7 @@ struct SavedSearchesView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -86,7 +86,7 @@ struct SavedSearchesView: View {
                     .frame(width: 120, height: 120)
                 
                 Image(systemName: "bookmark.fill")
-                    .font(.system(size: 50, weight: .medium))
+                    .font(.systemScaled(50, weight: .medium))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.blue, .purple],
@@ -190,7 +190,7 @@ struct SavedSearchesView: View {
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: "bell.badge.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.white)
                 }
                 
@@ -207,7 +207,7 @@ struct SavedSearchesView: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(16)
@@ -265,7 +265,7 @@ struct SavedSearchCard: View {
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: categoryIcon)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [.blue, .purple],
@@ -295,7 +295,7 @@ struct SavedSearchCard: View {
                 // Notification badge
                 if search.notificationsEnabled {
                     Image(systemName: "bell.badge.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.orange)
                 }
             }
@@ -335,7 +335,7 @@ struct SavedSearchCard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: search.notificationsEnabled ? "bell.slash.fill" : "bell.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                         Text(search.notificationsEnabled ? "Mute" : "Notify")
                             .font(.custom("OpenSans-Bold", size: 13))
                     }
@@ -356,7 +356,7 @@ struct SavedSearchCard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                         Text("Check Now")
                             .font(.custom("OpenSans-Bold", size: 13))
                     }
@@ -378,7 +378,7 @@ struct SavedSearchCard: View {
                     onDelete()
                 } label: {
                     Image(systemName: "trash.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.red)
                         .padding(8)
                         .background(
@@ -426,7 +426,7 @@ private struct SearchStatItem: View {
         VStack(spacing: 4) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                 Text(value)
                     .font(.custom("OpenSans-Bold", size: 14))
@@ -447,7 +447,7 @@ private struct SavedSearchTipRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.blue)
                 .frame(width: 24)
             
@@ -488,7 +488,7 @@ struct SearchAlertsView: View {
     private var emptyAlertsView: some View {
         VStack(spacing: 24) {
             Image(systemName: "bell.slash.fill")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary.opacity(0.5))
                 .padding(.top, 60)
             

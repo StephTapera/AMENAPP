@@ -11,7 +11,7 @@ import FirebaseFirestore
 class PostProfileImageMigration {
     static let shared = PostProfileImageMigration()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     

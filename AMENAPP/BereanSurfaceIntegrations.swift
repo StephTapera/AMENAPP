@@ -151,9 +151,9 @@ struct BereanAssistChip: View {
         Button(action: onTap) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                 Text(label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .lineLimit(1)
             }
             .foregroundStyle(color)
@@ -168,7 +168,7 @@ struct BereanAssistChip: View {
         }
         .buttonStyle(.plain)
         ._onButtonGesture { pressing in
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.70)) { pressed = pressing }
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.70))) { pressed = pressing }
         } perform: {}
     }
 }
@@ -204,17 +204,17 @@ struct BereanDMSafetyOverlay: View {
                             .fill(Color(red: 0.88, green: 0.58, blue: 0.18).opacity(0.15))
                             .frame(width: 56, height: 56)
                         Image(systemName: "hand.raised.fill")
-                            .font(.system(size: 22, weight: .medium))
+                            .font(.systemScaled(22, weight: .medium))
                             .foregroundStyle(Color(red: 0.88, green: 0.58, blue: 0.18))
                     }
                     .padding(.bottom, 14)
 
                     Text("Pause a moment")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(Color(white: 0.10))
 
                     Text(prompt)
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(Color(white: 0.40))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
@@ -226,7 +226,7 @@ struct BereanDMSafetyOverlay: View {
                     VStack(spacing: 8) {
                         Button(action: onRevise) {
                             Text("Review & Edit")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -240,7 +240,7 @@ struct BereanDMSafetyOverlay: View {
                         if screening.canSend {
                             Button(action: onSendAnyway) {
                                 Text("Send Anyway")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.systemScaled(14, weight: .medium))
                                     .foregroundStyle(Color(white: 0.45))
                             }
                             .buttonStyle(.plain)
@@ -279,7 +279,7 @@ struct BereanNoteIntelligenceCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Trigger button
             Button {
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.82))) {
                     isExpanded.toggle()
                 }
                 if !hasAnalyzed { analyzeNote() }
@@ -291,16 +291,16 @@ struct BereanNoteIntelligenceCard: View {
                             .tint(Color(red: 0.88, green: 0.38, blue: 0.28))
                     } else {
                         Image(systemName: isExpanded ? "chevron.up" : "sparkles")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(Color(red: 0.88, green: 0.38, blue: 0.28))
                     }
                     Text(isLoading ? "Analyzing note..." : "Berean Note Intelligence")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color(white: 0.30))
                     Spacer()
                     if let intel = intelligence {
                         Text("\(intel.extractedVerses.count) verses · \(intel.actionPoints.count) actions")
-                            .font(.system(size: 11, weight: .regular))
+                            .font(.systemScaled(11, weight: .regular))
                             .foregroundStyle(Color(white: 0.55))
                     }
                 }
@@ -324,10 +324,10 @@ struct BereanNoteIntelligenceCard: View {
                     if !intel.summary.isEmpty {
                         VStack(alignment: .leading, spacing: 5) {
                             Label("Summary", systemImage: "text.alignleft")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(Color(white: 0.45))
                             Text(intel.summary)
-                                .font(.system(size: 13, weight: .regular))
+                                .font(.systemScaled(13, weight: .regular))
                                 .foregroundStyle(Color(white: 0.18))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -337,16 +337,16 @@ struct BereanNoteIntelligenceCard: View {
                     if !intel.actionPoints.isEmpty {
                         VStack(alignment: .leading, spacing: 5) {
                             Label("Action Points", systemImage: "checkmark.circle")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(Color(white: 0.45))
                             ForEach(intel.actionPoints, id: \.self) { point in
                                 HStack(alignment: .top, spacing: 7) {
                                     Image(systemName: "arrow.right")
-                                        .font(.system(size: 9, weight: .medium))
+                                        .font(.systemScaled(9, weight: .medium))
                                         .foregroundStyle(Color(red: 0.88, green: 0.38, blue: 0.28))
                                         .padding(.top, 3)
                                     Text(point)
-                                        .font(.system(size: 12, weight: .regular))
+                                        .font(.systemScaled(12, weight: .regular))
                                         .foregroundStyle(Color(white: 0.20))
                                 }
                             }
@@ -357,7 +357,7 @@ struct BereanNoteIntelligenceCard: View {
                     if !intel.extractedVerses.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Label("Scripture", systemImage: "book.closed.fill")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(Color(white: 0.45))
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 7) {
@@ -377,11 +377,11 @@ struct BereanNoteIntelligenceCard: View {
                     if !intel.prayerPrompts.isEmpty {
                         VStack(alignment: .leading, spacing: 5) {
                             Label("Prayer", systemImage: "hands.sparkles.fill")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(Color(white: 0.45))
                             ForEach(intel.prayerPrompts, id: \.self) { prayer in
                                 Text(prayer)
-                                    .font(.system(size: 12, weight: .regular, design: .serif))
+                                    .font(.systemScaled(12, weight: .regular, design: .serif))
                                     .foregroundStyle(Color(white: 0.28))
                                     .italic()
                             }
@@ -497,16 +497,16 @@ struct BereanCrisisSupportCard: View {
                         .fill(Color(red: 0.20, green: 0.60, blue: 0.90).opacity(0.15))
                         .frame(width: 40, height: 40)
                     Image(systemName: "heart.fill")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(Color(red: 0.20, green: 0.60, blue: 0.90))
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(res.description)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color(white: 0.14))
                     Text("\(res.hotline)  ·  \(res.textLine)")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(Color(white: 0.45))
                 }
 
@@ -542,9 +542,9 @@ struct BereanCommentToneHint: View {
                 Button(action: onTap) {
                     HStack(spacing: 4) {
                         Image(systemName: "lightbulb.fill")
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.systemScaled(9, weight: .medium))
                         Text("Soften tone?")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                     }
                     .foregroundStyle(Color(red: 0.88, green: 0.55, blue: 0.20))
                     .padding(.horizontal, 9)
@@ -603,7 +603,7 @@ struct BereanContextualEntryPoint: View {
                             withAnimation { isExpanded = false }
                         } label: {
                             Text(prompt)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color(white: 0.18))
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 9)
@@ -622,16 +622,16 @@ struct BereanContextualEntryPoint: View {
 
             // Trigger button
             Button {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
                     isExpanded.toggle()
                 }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: isExpanded ? "xmark" : "sparkles")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                     if !isExpanded {
                         Text("Berean")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                     }
                 }
                 .foregroundStyle(.white)

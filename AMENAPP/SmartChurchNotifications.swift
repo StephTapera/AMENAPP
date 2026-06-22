@@ -163,17 +163,17 @@ struct SmartNotificationBanner: View {
                     .frame(width: 48, height: 48)
                 
                 Image(systemName: notification.type.icon)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundStyle(notification.type.color)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(notification.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
                 
                 Text(notification.message)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
                     .lineLimit(2)
             }
@@ -188,7 +188,7 @@ struct SmartNotificationBanner: View {
                     }
                 }) {
                     Text(notification.actionTitle ?? "View")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(notification.type.color)
                 }
             }
@@ -349,11 +349,15 @@ struct NotificationPreferences: Codable {
  - Action: "View Details"
  - Trigger: Smart algorithm
  
- #### Streak Notification
- - Title: "3 Weeks in a Row! 🔥"
- - Body: "You're building a great habit"
- - Action: "See Progress"
- - Trigger: Consistent attendance
+ // REMOVED: Streak notification template per product integrity rules (C-029).
+ // Streak-based notifications ("3 Weeks in a Row", "building a great habit") were removed
+ // to avoid gamification pressure. Use a content-triggered alternative instead:
+ //
+ // #### New Sermon Content Notification
+ // - Title: "New message from [Church Name]"
+ // - Body: "A new sermon has been posted. Catch up when you're ready."
+ // - Action: "Listen Now"
+ // - Trigger: Church posts new sermon content
  
  ### 4. **Community & Social Notifications**
  
@@ -653,7 +657,8 @@ extension ChurchNotificationManager {
             type: .reminder,
             title: "Service Starting Soon",
             message: "Grace Community Church service begins in 1 hour",
-            actionTitle: "Get Directions"
+            actionTitle: "Get Directions",
+            action: nil
         ),
         isPresented: .constant(true)
     )

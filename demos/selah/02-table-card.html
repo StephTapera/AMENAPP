@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SELAH — Table Card</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --breath-enter: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --breath-duration-enter: 450ms;
+    --breath-duration-settle: 700ms;
+    --glass-bg: rgba(255,255,255,0.12);
+    --glass-filter: blur(20px) saturate(180%);
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6B6B;
+    --warm-sand: #C4A882;
+    --deep-olive: #4A5240;
+    --selah-dim: 0.85;
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', sans-serif;
+    background: linear-gradient(160deg, #D4C4B0 0%, #B8C4A0 50%, #C0B8D4 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 20px;
+    color: var(--text-primary);
+  }
+
+  @keyframes cardEnter {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes ambientPulse {
+    from { opacity: 0.7; }
+    to { opacity: 1.0; }
+  }
+
+  @keyframes sunsetFade {
+    from { opacity: 0; transform: scaleX(0.8); }
+    to { opacity: 1; transform: scaleX(1); }
+  }
+
+  .card-wrapper {
+    width: 100%;
+    max-width: 390px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .page-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: rgba(26,26,26,0.6);
+    margin-bottom: 4px;
+  }
+
+  /* Main Table Card */
+  .table-card {
+    background: rgba(255,255,255,0.88);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 4px 28px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.04);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+  }
+
+  .table-header {
+    padding: 24px 24px 0;
+  }
+
+  .anchor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(74, 82, 64, 0.10);
+    border-radius: 20px;
+    padding: 5px 12px;
+    margin-bottom: 14px;
+  }
+
+  .anchor-chip span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--deep-olive);
+    letter-spacing: 0.2px;
+  }
+
+  .table-name {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+
+  .table-desc {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  /* Sunset countdown */
+  .sunset-bar {
+    margin: 0 24px 20px;
+    animation: sunsetFade 600ms var(--breath-enter) 200ms both;
+  }
+
+  .sunset-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .sunset-icon {
+    font-size: 15px;
+  }
+
+  .sunset-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .sunset-days {
+    font-weight: 600;
+    color: #8B5E3C;
+  }
+
+  .progress-track {
+    height: 4px;
+    background: rgba(139, 94, 60, 0.12);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 54%;
+    background: linear-gradient(90deg, #C4A882, #8B5E3C);
+    border-radius: 2px;
+    animation: ambientPulse 4s ease-in-out infinite alternate;
+  }
+
+  .sunset-note {
+    font-size: 12px;
+    color: rgba(107,107,107,0.8);
+    margin-top: 6px;
+  }
+
+  /* Members section */
+  .members-section {
+    padding: 0 24px 20px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+    margin-top: 4px;
+    padding-top: 20px;
+  }
+
+  .members-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+  }
+
+  .members-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .member-avatar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .avatar-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.8);
+  }
+
+  .avatar-name {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .member-colors {
+    --c1: #6B7A8D; --c2: #8D6B7A; --c3: #7A8D6B;
+    --c4: #6B8D7A; --c5: #8D7A6B; --c6: #7A6B8D;
+    --c7: #8D8D6B; --c8: #6B6B8D;
+  }
+
+  /* Cap enforcement */
+  .cap-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(196, 168, 130, 0.10);
+    border-radius: 12px;
+    padding: 10px 14px;
+  }
+
+  .cap-seats {
+    font-size: 14px;
+    color: var(--deep-olive);
+    font-weight: 500;
+  }
+
+  .cap-detail {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  /* Join section */
+  .join-section {
+    padding: 16px 24px 24px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .btn-join {
+    width: 100%;
+    background: var(--deep-olive);
+    color: #fff;
+    border: none;
+    border-radius: 16px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity var(--breath-duration-enter) var(--breath-enter), transform var(--breath-duration-enter) var(--breath-enter);
+    margin-bottom: 10px;
+  }
+
+  .btn-join:hover {
+    opacity: 0.9;
+    transform: scale(0.99);
+  }
+
+  .join-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* Last seat state */
+  .last-seat-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .last-seat-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #8B5E3C;
+    animation: ambientPulse 4s ease-in-out infinite alternate;
+  }
+
+  .last-seat-text {
+    font-size: 13px;
+    color: #8B5E3C;
+    font-weight: 500;
+  }
+
+  /* Second demo state — cap full */
+  .table-card-full {
+    background: rgba(255,255,255,0.70);
+    border-radius: 28px;
+    padding: 20px 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 200ms both;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .full-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(74,82,64,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .full-text h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+  }
+
+  .full-text p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<div class="card-wrapper">
+  <p class="page-title">Tables · Selah</p>
+
+  <!-- Main Table Card -->
+  <div class="table-card" role="article" aria-label="Sunday Morning Table — studying Romans">
+    <div class="table-header">
+      <div class="anchor-chip" role="note" aria-label="Anchor study: Romans">
+        <span>&#x1F4D6;</span>
+        <span>Studying Romans</span>
+      </div>
+      <h2 class="table-name">Sunday Morning Table</h2>
+      <p class="table-desc">A small group reading through Romans together. Discussion, questions, and shared reflection — no expertise required.</p>
+    </div>
+
+    <!-- Sunset countdown -->
+    <div class="sunset-bar" role="region" aria-label="Table sunset countdown">
+      <div class="sunset-label">
+        <span class="sunset-icon" aria-hidden="true">&#x1F307;</span>
+        <span class="sunset-text">This Table draws to a close in <span class="sunset-days">14 days</span></span>
+      </div>
+      <div class="progress-track" role="progressbar" aria-valuenow="54" aria-valuemin="0" aria-valuemax="100" aria-label="54% of Table duration elapsed">
+        <div class="progress-fill"></div>
+      </div>
+      <p class="sunset-note">Tables have a natural end — a gift, not a loss.</p>
+    </div>
+
+    <!-- Members (capped at 8) -->
+    <div class="members-section" role="region" aria-label="Table members — 7 of 8 seats filled">
+      <p class="members-label">Members · 7 of 8</p>
+      <div class="members-grid" aria-label="Member avatars">
+        <div class="member-avatar">
+          <div class="avatar-circle" style="background: #6B7A8D;" aria-label="Sarah K">SK</div>
+          <span class="avatar-name">Sarah</span>
+        </div>
+        <div class="member-avatar">
+          <div class="avatar-circle" style="background: #8D6B7A;" aria-label="Marcus C">MC</div>
+          <span class="avatar-name">Marcus</span>
+        </div>
+        <div class="member-avatar">
+          <div class="avatar-circle" style="background: #7A8D6B;" aria-label="James O">JO</div>
+          <span class="avatar-name">James</span>
+        </div>
+        <div class="member-avatar">
+          <div class="avatar-circle" style="background: #6B8D7A;" aria-label="Amara N">AN</div>
+          <span class="avatar-name">Amara</span>
+        </div>
+        <div class="member-avatar">
+          <div class="avatar-circle" style="background: #8D7A6B;" aria-label="David L">DL</div>
+          <span class="avatar-name">David</span>
+        </div>
+        <div class="member-avatar">
+          <div class="avatar-circle" style="background: #7A6B8D;" aria-label="Priya S">PS</div>
+          <span class="avatar-name">Priya</span>
+        </div>
+        <div class="member-avatar">
+          <div class="avatar-circle" style="background: #8D8D6B;" aria-label="Thomas R">TR</div>
+          <span class="avatar-name">Thomas</span>
+        </div>
+      </div>
+
+      <div class="cap-row" role="status" aria-label="1 seat remaining">
+        <span class="cap-seats">1 seat remaining</span>
+        <span class="cap-detail">Tables hold up to 8</span>
+      </div>
+    </div>
+
+    <!-- Join section -->
+    <div class="join-section">
+      <div class="last-seat-note" aria-hidden="true">
+        <div class="last-seat-dot"></div>
+        <span class="last-seat-text">This is the last open seat</span>
+      </div>
+      <button class="btn-join" aria-label="Request to join Sunday Morning Table — 1 seat remaining">
+        Request to Join
+      </button>
+      <p class="join-note">The host will welcome you. Tables are small by design — space for real conversation.</p>
+    </div>
+  </div>
+
+  <!-- A Table that is full (cap enforced, no urgency) -->
+  <div class="table-card-full" role="article" aria-label="Wednesday Evening Table — full">
+    <div class="full-icon" aria-hidden="true">&#x1F4CB;</div>
+    <div class="full-text">
+      <h4>Wednesday Evening Table</h4>
+      <p>This Table is full and whole. A new one may open — there is always room somewhere.</p>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent F — Command Center</title>
+  <style>
+    /* ─── Design System Tokens ─── */
+    :root {
+      --amenGold:   #C9A84C;
+      --amenPurple: #6B4FA2;
+      --amenBlue:   #2E6DA4;
+      --amenBlack:  #1A1A1E;
+      --amenCream:  #F8F4EC;
+      --amenSlate:  #4A4A55;
+
+      /* Derived surface tokens — light mode */
+      --bg-page:         #EDEAD8;
+      --bg-matte:        #F8F4EC;
+      --bg-glass:        rgba(255,255,255,0.55);
+      --glass-border:    rgba(255,255,255,0.72);
+      --glass-shadow:    rgba(0,0,0,0.07);
+      --text-primary:    #1A1A1E;
+      --text-secondary:  #4A4A55;
+      --text-hint:       #8A8A96;
+      --divider:         rgba(74,74,85,0.12);
+
+      --gold-fill:       #C9A84C;
+      --gold-track:      rgba(201,168,76,0.15);
+
+      --chip-bg:         rgba(255,255,255,0.60);
+      --chip-border:     rgba(201,168,76,0.28);
+
+      --space-leader-tint: rgba(201,168,76,0.12);
+      --space-member-tint: rgba(107,79,162,0.09);
+      --space-study-tint:  rgba(46,109,164,0.09);
+
+      --nav-bg:          rgba(248,244,236,0.72);
+
+      --unread-dot:      #C9A84C;
+    }
+
+    /* ─── Dark mode ─── */
+    [data-theme="dark"] {
+      --bg-page:         #0F0E12;
+      --bg-matte:        #1C1A22;
+      --bg-glass:        rgba(40,36,52,0.62);
+      --glass-border:    rgba(255,255,255,0.10);
+      --glass-shadow:    rgba(0,0,0,0.30);
+      --text-primary:    #F0EDE6;
+      --text-secondary:  #A8A4B8;
+      --text-hint:       #6A6678;
+      --divider:         rgba(255,255,255,0.08);
+
+      --chip-bg:         rgba(255,255,255,0.07);
+      --chip-border:     rgba(201,168,76,0.22);
+
+      --space-leader-tint: rgba(201,168,76,0.10);
+      --space-member-tint: rgba(107,79,162,0.12);
+      --space-study-tint:  rgba(46,109,164,0.10);
+
+      --nav-bg:          rgba(15,14,18,0.80);
+
+      --gold-track:      rgba(201,168,76,0.12);
+    }
+
+    /* ─── Reset & base ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 32px 16px 64px;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* ─── Agent label ─── */
+    .agent-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--amenSlate);
+      opacity: 0.6;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+
+    /* ─── Phone frame ─── */
+    .phone-frame {
+      width: 390px;
+      min-height: 844px;
+      background: var(--bg-page);
+      border-radius: 48px;
+      overflow: hidden;
+      position: relative;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.12),
+        0 24px 64px rgba(0,0,0,0.18),
+        inset 0 1px 0 rgba(255,255,255,0.4);
+    }
+
+    /* ─── Dark mode toggle ─── */
+    .theme-toggle {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      z-index: 20;
+      background: var(--bg-glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: all 0.2s;
+    }
+    .theme-toggle:hover { opacity: 0.85; }
+
+    /* ─── Scrollable content area ─── */
+    .scroll-area {
+      height: 844px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      scrollbar-width: none;
+    }
+    .scroll-area::-webkit-scrollbar { display: none; }
+
+    /* ─── Navigation bar (glass) ─── */
+    .nav-bar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--nav-bg);
+      backdrop-filter: blur(20px) saturate(1.6);
+      -webkit-backdrop-filter: blur(20px) saturate(1.6);
+      border-bottom: 1px solid var(--divider);
+      padding: 52px 20px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-back {
+      font-size: 16px;
+      color: var(--amenGold);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+    }
+    .nav-back svg { width: 10px; height: 16px; fill: none; stroke: var(--amenGold); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      flex: 1;
+      text-align: center;
+      padding-right: 24px; /* balance back button */
+    }
+
+    /* ─── Content padding ─── */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding-bottom: 40px;
+    }
+
+    /* ─── Section spacing ─── */
+    .section {
+      padding: 0 16px;
+      margin-top: 20px;
+    }
+    .section-first { margin-top: 0; }
+
+    /* ─── Matte card ─── */
+    .matte-card {
+      background: var(--bg-matte);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 1px 3px var(--glass-shadow);
+    }
+
+    /* ─── Glass card ─── */
+    .glass-card {
+      background: var(--bg-glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 18px;
+      backdrop-filter: blur(18px) saturate(1.4);
+      -webkit-backdrop-filter: blur(18px) saturate(1.4);
+      box-shadow: 0 2px 8px var(--glass-shadow);
+      padding: 20px;
+    }
+
+    /* ─── User header (matte, full-bleed top) ─── */
+    .user-header {
+      background: var(--bg-matte);
+      padding: 24px 20px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid var(--divider);
+    }
+    .avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--amenGold) 0%, #A07830 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: -0.02em;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(201,168,76,0.28);
+    }
+    .user-info { display: flex; flex-direction: column; gap: 4px; }
+    .user-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+    .user-role {
+      font-size: 13px;
+      color: var(--amenSlate);
+      opacity: 0.85;
+    }
+    .user-role strong {
+      color: var(--amenGold);
+      font-weight: 500;
+    }
+
+    /* ─── Section header ─── */
+    .section-header {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-hint);
+      margin-bottom: 10px;
+    }
+
+    /* ─── Chip rail (glass) ─── */
+    .chip-rail-wrapper {
+      background: var(--bg-glass);
+      border-bottom: 1px solid var(--divider);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding: 14px 16px;
+    }
+    .chip-rail {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .chip-rail::-webkit-scrollbar { display: none; }
+
+    /* ─── GlassChip ─── */
+    .glass-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 13px;
+      background: var(--chip-bg);
+      border: 1px solid var(--chip-border);
+      border-radius: 999px;
+      backdrop-filter: blur(12px) saturate(1.3);
+      -webkit-backdrop-filter: blur(12px) saturate(1.3);
+      white-space: nowrap;
+      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .glass-chip-label {
+      font-size: 13px;
+      font-weight: 400; /* gentle, NOT bold headline */
+      color: var(--amenGold);
+      line-height: 1.2;
+    }
+    .glass-chip-label.slate {
+      color: var(--text-secondary);
+    }
+    .glass-chip-emoji {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    /* ─── Reading progress (matte) ─── */
+    .reading-section { }
+    .reading-label-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .reading-book {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .reading-chapter {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+    /* Progress bar — muted gold, no percentage */
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      background: var(--gold-track);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 50%;
+      background: var(--gold-fill);
+      border-radius: 999px;
+      opacity: 0.7; /* muted, not harsh */
+      transition: width 0.5s ease;
+    }
+    .reading-note {
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-style: italic;
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+    .reading-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--amenGold);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .reading-link svg { width: 12px; height: 12px; fill: none; stroke: var(--amenGold); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ─── Space cards ─── */
+    .spaces-list { display: flex; flex-direction: column; gap: 10px; }
+    .space-card {
+      border-radius: 16px;
+      padding: 15px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      background: var(--bg-glass);
+      box-shadow: 0 1px 4px var(--glass-shadow);
+      position: relative;
+    }
+    .space-card.leader { background: color-mix(in srgb, var(--amenGold) 8%, var(--bg-glass)); border-color: rgba(201,168,76,0.22); }
+    .space-card.member-purple { background: color-mix(in srgb, var(--amenPurple) 6%, var(--bg-glass)); border-color: rgba(107,79,162,0.18); }
+    .space-card.member-blue { background: color-mix(in srgb, var(--amenBlue) 6%, var(--bg-glass)); border-color: rgba(46,109,164,0.18); }
+    /* Fallback for browsers without color-mix */
+    @supports not (color: color-mix(in srgb, red, blue)) {
+      .space-card.leader { background: var(--space-leader-tint); }
+      .space-card.member-purple { background: var(--space-member-tint); }
+      .space-card.member-blue { background: var(--space-study-tint); }
+    }
+    .space-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .space-icon.gold { background: rgba(201,168,76,0.18); }
+    .space-icon.purple { background: rgba(107,79,162,0.14); }
+    .space-icon.blue { background: rgba(46,109,164,0.12); }
+    .space-info { flex: 1; min-width: 0; }
+    .space-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+    .space-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .role-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    .role-chip.leader { background: rgba(201,168,76,0.16); color: var(--amenGold); }
+    .role-chip.member { background: rgba(74,74,85,0.10); color: var(--text-secondary); }
+    .space-next {
+      font-size: 11px;
+      color: var(--text-hint);
+    }
+    /* Unread dot */
+    .unread-dot {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amenGold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .unread-dot span {
+      font-size: 9px;
+      font-weight: 700;
+      color: white;
+      line-height: 1;
+    }
+
+    /* ─── Berean sessions ─── */
+    .berean-list { display: flex; flex-direction: column; }
+    .berean-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .berean-row:last-of-type { border-bottom: none; margin-bottom: 4px; }
+    .berean-left { display: flex; align-items: center; gap: 10px; }
+    .berean-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amenPurple);
+      opacity: 0.6;
+      flex-shrink: 0;
+    }
+    .berean-title {
+      font-size: 14px;
+      color: var(--text-primary);
+      font-weight: 400;
+    }
+    .berean-time {
+      font-size: 12px;
+      color: var(--text-hint);
+    }
+    .berean-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--amenPurple);
+      text-decoration: none;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+    .berean-cta svg { width: 12px; height: 12px; fill: none; stroke: var(--amenPurple); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ─── Events ─── */
+    .events-list { display: flex; flex-direction: column; }
+    .event-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .event-row:last-of-type { border-bottom: none; }
+    .event-icon-wrap {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: rgba(46,109,164,0.10);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+    .event-info { flex: 1; }
+    .event-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .event-when {
+      font-size: 12px;
+      color: var(--amenBlue);
+      font-weight: 400;
+    }
+    .event-badge {
+      font-size: 11px;
+      color: var(--amenBlue);
+      background: rgba(46,109,164,0.10);
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-weight: 500;
+    }
+
+    /* ─── Footer ─── */
+    .footer {
+      padding: 20px 20px 32px;
+      text-align: center;
+    }
+    .footer-text {
+      font-size: 12px;
+      color: var(--text-hint);
+      line-height: 1.6;
+    }
+    .opt-out-link {
+      color: var(--amenSlate);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.75;
+    }
+    .opt-out-link:hover { opacity: 1; }
+
+    /* ─── Responsive outer shell ─── */
+    @media (max-width: 420px) {
+      body { padding: 0; }
+      .phone-frame { border-radius: 0; width: 100%; min-height: 100vh; box-shadow: none; }
+      .agent-label { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="agent-label">Agent F — Command Center</div>
+
+  <div class="phone-frame" id="phoneFrame">
+
+    <!-- Dark mode toggle -->
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">
+      <span id="themeIcon">🌙</span>
+    </button>
+
+    <div class="scroll-area" role="main" aria-label="Command Center">
+
+      <!-- ── Navigation bar (glass) ── -->
+      <nav class="nav-bar" aria-label="Command Center navigation">
+        <a class="nav-back" role="button" tabindex="0" aria-label="Back to Profile">
+          <svg viewBox="0 0 10 16" aria-hidden="true"><polyline points="8,1 2,8 8,15"/></svg>
+          Profile
+        </a>
+        <h1 class="nav-title">Command Center</h1>
+      </nav>
+
+      <!-- ── User header (matte) ── -->
+      <header class="user-header" aria-label="Your profile">
+        <div class="avatar" role="img" aria-label="Steph Tapera avatar">ST</div>
+        <div class="user-info">
+          <div class="user-name">Steph Tapera</div>
+          <div class="user-role">Leader · <strong>Covenant Men's Study</strong></div>
+        </div>
+      </header>
+
+      <!-- ── Formation at a glance (glass chip rail) ── -->
+      <section class="chip-rail-wrapper" aria-label="Formation at a glance">
+        <div class="chip-rail" role="list">
+
+          <div class="glass-chip" role="listitem" aria-label="Reading — Day 14">
+            <span class="glass-chip-emoji" aria-hidden="true">📖</span>
+            <span class="glass-chip-label">Reading — Day 14</span>
+          </div>
+
+          <div class="glass-chip" role="listitem" aria-label="4 Berean sessions this week">
+            <span class="glass-chip-emoji" aria-hidden="true">✨</span>
+            <span class="glass-chip-label">4 Berean sessions</span>
+          </div>
+
+          <div class="glass-chip" role="listitem" aria-label="Prayed with 3 people this week">
+            <span class="glass-chip-emoji" aria-hidden="true">🙏</span>
+            <span class="glass-chip-label slate">Prayed with 3 this week</span>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── Reading Progress (matte) ── -->
+      <div class="section section-first" style="margin-top: 20px;">
+        <div class="matte-card reading-section" role="region" aria-label="Reading progress">
+          <div class="reading-label-row">
+            <span class="reading-book">Romans</span>
+          </div>
+          <div class="reading-chapter">Chapter 8 of 16</div>
+          <!-- Progress bar: muted gold, no percentage shown -->
+          <div class="progress-track" role="progressbar" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100" aria-label="Reading progress, roughly halfway through Romans">
+            <div class="progress-fill"></div>
+          </div>
+          <p class="reading-note">"You're moving through Romans at a gentle pace."</p>
+          <a class="reading-link" role="button" tabindex="0" aria-label="View reading plan">
+            View Reading Plan
+            <svg viewBox="0 0 12 12" aria-hidden="true"><polyline points="4,2 9,6 4,10"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- ── My Spaces ── -->
+      <div class="section">
+        <div class="section-header" id="spaces-heading">My Spaces</div>
+        <div class="spaces-list" role="list" aria-labelledby="spaces-heading">
+
+          <!-- Space 1: Covenant Men's Study (Leader, gold tint) -->
+          <div class="space-card leader" role="listitem" aria-label="Covenant Men's Study — Leader — Next event tonight — 2 unread items">
+            <div class="space-icon gold" aria-hidden="true">🕊️</div>
+            <div class="space-info">
+              <div class="space-name">Covenant Men's Study</div>
+              <div class="space-meta">
+                <span class="role-chip leader">Leader</span>
+                <span class="space-next">Tonight 7:00 PM</span>
+              </div>
+            </div>
+            <!-- Unread dot with count -->
+            <div class="unread-dot" aria-label="2 unread items">
+              <span aria-hidden="true">2</span>
+            </div>
+          </div>
+
+          <!-- Space 2: Women's Prayer Circle (Member, purple tint) -->
+          <div class="space-card member-purple" role="listitem" aria-label="Women's Prayer Circle — Member — Next event Thursday 6:30 PM">
+            <div class="space-icon purple" aria-hidden="true">🙏</div>
+            <div class="space-info">
+              <div class="space-name">Women's Prayer Circle</div>
+              <div class="space-meta">
+                <span class="role-chip member">Member</span>
+                <span class="space-next">Thu 6:30 PM</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Space 3: Sunday Bible Study (Member, blue tint) -->
+          <div class="space-card member-blue" role="listitem" aria-label="Sunday Bible Study — Member — No upcoming events">
+            <div class="space-icon blue" aria-hidden="true">📖</div>
+            <div class="space-info">
+              <div class="space-name">Sunday Bible Study</div>
+              <div class="space-meta">
+                <span class="role-chip member">Member</span>
+                <span class="space-next">No upcoming events</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── Recent Berean Sessions (matte) ── -->
+      <div class="section">
+        <div class="section-header" id="berean-heading">Recent Berean Sessions</div>
+        <div class="matte-card" role="region" aria-labelledby="berean-heading">
+          <div class="berean-list">
+
+            <div class="berean-row" role="listitem">
+              <div class="berean-left">
+                <div class="berean-dot" aria-hidden="true"></div>
+                <span class="berean-title">Walking in the Spirit</span>
+              </div>
+              <span class="berean-time" aria-label="2 hours ago">2h ago</span>
+            </div>
+
+            <div class="berean-row" role="listitem">
+              <div class="berean-left">
+                <div class="berean-dot" aria-hidden="true"></div>
+                <span class="berean-title">Romans 8 deep dive</span>
+              </div>
+              <span class="berean-time">Yesterday</span>
+            </div>
+
+            <div class="berean-row" role="listitem">
+              <div class="berean-left">
+                <div class="berean-dot" aria-hidden="true"></div>
+                <span class="berean-title">Prayer for anxiety</span>
+              </div>
+              <span class="berean-time" aria-label="3 days ago">3d ago</span>
+            </div>
+
+          </div>
+          <a class="berean-cta" role="button" tabindex="0" aria-label="Open Berean AI sessions">
+            Open Berean
+            <svg viewBox="0 0 12 12" aria-hidden="true"><polyline points="4,2 9,6 4,10"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- ── Upcoming Events (matte) ── -->
+      <div class="section">
+        <div class="section-header" id="events-heading">Upcoming Events</div>
+        <div class="matte-card" role="region" aria-labelledby="events-heading">
+          <div class="events-list">
+
+            <div class="event-row" role="listitem" aria-label="Men's Study, tonight at 7:00 PM">
+              <div class="event-icon-wrap" aria-hidden="true">📅</div>
+              <div class="event-info">
+                <div class="event-name">Men's Study</div>
+                <div class="event-when">Tonight · 7:00 PM</div>
+              </div>
+              <span class="event-badge">Tonight</span>
+            </div>
+
+            <div class="event-row" role="listitem" aria-label="Women's Group, Thursday at 6:30 PM">
+              <div class="event-icon-wrap" aria-hidden="true">📅</div>
+              <div class="event-info">
+                <div class="event-name">Women's Group</div>
+                <div class="event-when">Thursday · 6:30 PM</div>
+              </div>
+              <span class="event-badge">Thu</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Footer — opt-out link (non-prominent, amenSlate) ── -->
+      <footer class="footer">
+        <p class="footer-text">
+          Streak tracking is private and opt-in.&nbsp;
+          <a class="opt-out-link" role="button" tabindex="0" aria-label="Opt out of streak tracking">Opt out</a>
+        </p>
+      </footer>
+
+    </div><!-- end scroll-area -->
+  </div><!-- end phone-frame -->
+
+  <script>
+    function toggleTheme() {
+      const frame = document.getElementById('phoneFrame');
+      const icon = document.getElementById('themeIcon');
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        document.documentElement.removeAttribute('data-theme');
+        icon.textContent = '🌙';
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        icon.textContent = '☀️';
+      }
+    }
+
+    // Keyboard accessibility for clickable non-button elements
+    document.querySelectorAll('[role="button"]').forEach(el => {
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          el.click();
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>

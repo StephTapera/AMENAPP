@@ -56,7 +56,7 @@ final class ChurchTeachingStyleService: ObservableObject {
     @Published var isLoading = false
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     // MARK: - Load
 
@@ -90,7 +90,9 @@ final class ChurchTeachingStyleService: ObservableObject {
             if let style = (result.data as? [String: Any])?["style"] as? String {
                 return LearnerStyle(rawValue: style) ?? .unknown
             }
-        } catch {}
+        } catch {
+            dlog("⚠️ [ChurchTeachingStyle] inferUserLearningStyle call failed: \(error.localizedDescription)")
+        }
         return .unknown
     }
 
@@ -106,7 +108,9 @@ final class ChurchTeachingStyleService: ObservableObject {
             if let style = (result.data as? [String: Any])?["style"] as? String {
                 return PastorStyle(rawValue: style) ?? .unknown
             }
-        } catch {}
+        } catch {
+            dlog("⚠️ [ChurchTeachingStyle] inferPastorStyle call failed: \(error.localizedDescription)")
+        }
         return .unknown
     }
 }
@@ -124,13 +128,13 @@ struct TeachingCompatibilityView: View {
             } else if let pct = service.compatibilityPct {
                 HStack(spacing: 6) {
                     Image(systemName: "waveform")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(.secondaryLabel))
                     Text("Teaching style match: ")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(.secondaryLabel))
                     + Text("\(pct)%")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color(.label))
                 }
             }

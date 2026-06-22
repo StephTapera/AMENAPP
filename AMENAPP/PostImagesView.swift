@@ -138,7 +138,7 @@ struct FullScreenPostImageView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .onChange(of: currentIndex) {
                 // Reset zoom when switching pages
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                     scale = 1.0
                     lastScale = 1.0
                     offset = .zero
@@ -163,7 +163,7 @@ struct FullScreenPostImageView: View {
                         if dragDismissOffset > 100 || value.velocity.height > 600 {
                             dismiss()
                         } else {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 dragDismissOffset = 0
                             }
                         }
@@ -181,7 +181,7 @@ struct FullScreenPostImageView: View {
                                     .fill(Color.black.opacity(0.55))
                                     .frame(width: 36, height: 36)
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 13, weight: .bold))
+                                    .font(.systemScaled(13, weight: .bold))
                                     .foregroundStyle(.white)
                             }
                         }
@@ -234,7 +234,7 @@ struct FullScreenPostImageView: View {
         }
         .onTapGesture(count: 2) {
             // Double tap: zoom in or reset
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 if scale > 1.05 {
                     scale = 1.0; lastScale = 1.0
                     offset = .zero; lastOffset = .zero
@@ -284,7 +284,7 @@ private struct ZoomableImageCell: View {
             .onEnded { _ in
                 lastScale = 1.0
                 if scale < 1.0 {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         scale = 1.0; offset = .zero; lastOffset = .zero
                     }
                 }

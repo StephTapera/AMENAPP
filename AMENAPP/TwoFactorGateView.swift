@@ -34,7 +34,7 @@ struct TwoFactorGateView: View {
                 // Header
                 VStack(spacing: 12) {
                     Image(systemName: "lock.shield.fill")
-                        .font(.system(size: 60))
+                        .font(.systemScaled(60))
                         .foregroundStyle(.blue)
                     
                     Text("Two-Factor Authentication")
@@ -54,7 +54,7 @@ struct TwoFactorGateView: View {
                         TextField("6-Digit Code", text: $verificationCode)
                             .keyboardType(.numberPad)
                             .textContentType(.oneTimeCode)
-                            .font(.system(size: 32, weight: .medium, design: .monospaced))
+                            .font(.systemScaled(32, weight: .medium, design: .monospaced))
                             .multilineTextAlignment(.center)
                             .padding()
                             .background(
@@ -130,7 +130,7 @@ struct TwoFactorGateView: View {
                         
                         TextField("0000-0000", text: $backupCode)
                             .keyboardType(.numberPad)
-                            .font(.system(size: 24, weight: .medium, design: .monospaced))
+                            .font(.systemScaled(24, weight: .medium, design: .monospaced))
                             .multilineTextAlignment(.center)
                             .padding()
                             .background(

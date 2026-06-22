@@ -145,7 +145,7 @@ struct SafetyDecisionRecord {
 final class UnifiedSafetyGate {
     static let shared = UnifiedSafetyGate()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let guardrails = ThinkFirstGuardrailsService.shared
 
     /// In-memory deduplication: content SHA-256 → decision, to avoid re-checking identical text.
@@ -765,7 +765,7 @@ final class UnifiedSafetyGate {
         }
     }
 
-    private func mapSurfaceToContentCategory(_ surface: SafetySurface) -> ContentCategory {
+    private func mapSurfaceToContentCategory(_ surface: SafetySurface) -> ContentModerationClass {
         switch surface {
         case .post, .testimony, .prayerRequest, .churchNote, .eventDescription: return .post
         case .comment:                   return .comment

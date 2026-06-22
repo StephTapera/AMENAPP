@@ -42,7 +42,7 @@ final class StudioDataService: ObservableObject {
     // Unread inquiry count (for badge)
     @Published var unreadInquiryCount: Int = 0
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
     private var isListening = false
 
@@ -333,7 +333,7 @@ final class StudioDataService: ObservableObject {
     func fetchFeaturedCreators(limit: Int = 10) async -> [StudioProfile] {
         guard let snap = try? await db.collection("studioProfiles")
             .whereField("isPublished", isEqualTo: true)
-            .whereField("moderationState", isEqualTo: ModerationState.active.rawValue)
+            .whereField("moderationState", isEqualTo: StudioModerationState.active.rawValue)
             .order(by: "featuredOrder")
             .limit(to: limit)
             .getDocuments() else { return [] }
@@ -361,7 +361,7 @@ final class StudioDataService: ObservableObject {
     func searchCreators(query: String, category: StudioCategory? = nil) async -> [StudioProfile] {
         var ref: Query = db.collection("studioProfiles")
             .whereField("isPublished", isEqualTo: true)
-            .whereField("moderationState", isEqualTo: ModerationState.active.rawValue)
+            .whereField("moderationState", isEqualTo: StudioModerationState.active.rawValue)
 
         if let category = category {
             ref = ref.whereField("categories", arrayContains: category.rawValue)
@@ -385,7 +385,11 @@ final class StudioDataService: ObservableObject {
         Task {
             let docId = UUID().uuidString
             guard let encoded = try? Firestore.Encoder().encode(event) else { return }
-            try? await db.collection("studioAnalyticsEvents").document(docId).setData(encoded)
+            do {
+                try await db.collection("studioAnalyticsEvents").document(docId).setData(encoded)
+            } catch {
+                print("StudioService: failed to log analytics event — \(error.localizedDescription)")
+            }
         }
     }
 
@@ -445,7 +449,11 @@ final class StudioDataService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ]
         if let relatedId = relatedId { data["relatedId"] = relatedId }
-        _ = try? await db.collection("studioNotifications").addDocument(data: data)
+        do {
+            try await db.collection("studioNotifications").addDocument(data: data)
+        } catch {
+            print("StudioService: failed to send studio notification — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Earnings
@@ -491,7 +499,7 @@ struct StudioService_: Identifiable, Codable {
     var availabilityNote: String?
     var requiresDeposit: Bool
     var depositPercent: Int
-    var moderationState: ModerationState
+    var moderationState: StudioModerationState
     var inquiryCount: Int
     var completionCount: Int
     var responseRatePercent: Int

@@ -1,5 +1,5 @@
 //
-//  HeyFeedModels.swift
+//  HeyHeyFeedModels.swift
 //  AMENAPP
 //
 //  Hey Feed: User controls for OpenTable feed personalization
@@ -11,7 +11,7 @@ import FirebaseFirestore
 
 // MARK: - Feed Mode
 
-enum FeedMode: String, Codable, CaseIterable {
+enum HeyFeedMode: String, Codable, CaseIterable {
     case balanced = "balanced"
     case friendsFirst = "friends_first"
     case localCommunity = "local_community"
@@ -204,7 +204,7 @@ enum RefreshPacing: String, Codable, CaseIterable {
 // MARK: - Hey Feed Preferences
 
 struct HeyFeedPreferences: Codable {
-    var mode: FeedMode
+    var mode: HeyFeedMode
     var pinnedTopics: Set<FeedTopic>
     var blockedTopics: Set<FeedTopic>
     var debateLevel: DebateLevel
@@ -256,7 +256,7 @@ struct HeyFeedPreferences: Codable {
         var prefs = HeyFeedPreferences()
         
         if let modeStr = dict["mode"] as? String,
-           let mode = FeedMode(rawValue: modeStr) {
+           let mode = HeyFeedMode(rawValue: modeStr) {
             prefs.mode = mode
         }
         

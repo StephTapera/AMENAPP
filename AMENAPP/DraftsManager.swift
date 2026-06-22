@@ -18,6 +18,7 @@ struct PostDraft: Identifiable, Codable {
     let linkURL: String?
     let visibility: String
     let savedAt: Date
+    let scriptureAttachment: ScriptureAttachment?
     
     var isExpired: Bool {
         let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
@@ -87,7 +88,7 @@ class DraftsManager: ObservableObject {
     
     // MARK: - Save Draft
     
-    func saveDraft(content: String, category: String, topicTag: String?, linkURL: String?, visibility: String) {
+    func saveDraft(content: String, category: String, topicTag: String?, linkURL: String?, visibility: String, scriptureAttachment: ScriptureAttachment? = nil) {
         let draft = PostDraft(
             id: UUID(),
             content: content,
@@ -95,7 +96,8 @@ class DraftsManager: ObservableObject {
             topicTag: topicTag,
             linkURL: linkURL,
             visibility: visibility,
-            savedAt: Date()
+            savedAt: Date(),
+            scriptureAttachment: scriptureAttachment
         )
         
         drafts.insert(draft, at: 0)

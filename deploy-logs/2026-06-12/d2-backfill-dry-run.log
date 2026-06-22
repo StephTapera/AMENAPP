@@ -1,0 +1,27 @@
+
+╔══════════════════════════════════════════════════════════════╗
+║  backfillPrivacyLevel — C-3 migration                        ║
+║  Project: amen-5e359                                       ║
+║  Mode: DRY RUN (no writes)                                  ║
+╚══════════════════════════════════════════════════════════════╝
+
+Phase 1: scanning posts collection...
+  Scanned: 4 posts…
+
+Phase 1 complete:
+  Total scanned:          4
+  Already has privacyLevel: 0 (will skip)
+  To migrate:             4
+  UNKNOWN visibility values: 0 (SKIPPED — require manual review)
+
+Mapping breakdown:
+       2  Everyone → public
+       2  everyone → public
+
+20-row sample of docs to migrate:
+  5613578C-553F-44… visibility="Everyone" → privacyLevel="public"
+  oBlE7QRgMYmV34dv… visibility="everyone" → privacyLevel="public"
+  XlswwduAC2ku5Ubf… visibility="everyone" → privacyLevel="public"
+  7C03E126-8053-4C… visibility="Everyone" → privacyLevel="public"
+
+🔵 DRY RUN — no writes performed. Re-run without --dry-run to apply.

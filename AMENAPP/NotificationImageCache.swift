@@ -107,7 +107,9 @@ final class NotificationImageCache: ObservableObject {
         }
         
         await Task.detached {
-            try? data.write(to: path)
+            // NG-3: protect cached profile imagery at rest (unless-open so any
+            // background refresh path can still read it).
+            try? data.write(to: path, options: [.completeFileProtectionUnlessOpen])
         }.value
     }
     
@@ -285,7 +287,7 @@ struct CachedNotificationProfileImage: View {
                     .frame(width: size, height: size)
                     .overlay(
                         Text(initials)
-                            .font(.system(size: size * 0.4, weight: .semibold))
+                            .font(.systemScaled(size * 0.4, weight: .semibold))
                             .foregroundColor(.white)
                     )
             }

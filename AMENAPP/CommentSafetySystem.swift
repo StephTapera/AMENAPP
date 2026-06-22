@@ -17,7 +17,7 @@ import FirebaseAuth
 class CommentSafetySystem {
     static let shared = CommentSafetySystem()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let moderationService = ContentModerationService.self
     
     // MARK: - Safety Check Result

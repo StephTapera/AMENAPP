@@ -18,6 +18,7 @@ import Combine
 
 // MARK: - CommentServiceProtocol
 
+@MainActor
 protocol CommentServiceProtocol: AnyObject, ObservableObject {
     var comments: [String: [Comment]] { get }
     var commentReplies: [String: [Comment]] { get }
@@ -40,6 +41,7 @@ protocol CommentServiceProtocol: AnyObject, ObservableObject {
 
 // MARK: - PostInteractionsServiceProtocol
 
+@MainActor
 protocol PostInteractionsServiceProtocol: AnyObject, ObservableObject {
     var userAmenedPosts: Set<String> { get }
     var userLightbulbedPosts: Set<String> { get }
@@ -68,6 +70,7 @@ protocol PostInteractionsServiceProtocol: AnyObject, ObservableObject {
 
 // MARK: - FollowServiceProtocol
 
+@MainActor
 protocol FollowServiceProtocol: AnyObject, ObservableObject {
     var following: Set<String> { get }
     var followers: Set<String> { get }
@@ -97,6 +100,7 @@ protocol FollowServiceProtocol: AnyObject, ObservableObject {
 
 // MARK: - NotificationServiceProtocol
 
+@MainActor
 protocol NotificationServiceProtocol: AnyObject, ObservableObject {
     var notifications: [AppNotification] { get }
     var unreadCount: Int { get }
@@ -120,3 +124,37 @@ extension CommentService: CommentServiceProtocol {}
 extension PostInteractionsService: PostInteractionsServiceProtocol {}
 extension FollowService: FollowServiceProtocol {}
 extension NotificationService: NotificationServiceProtocol {}
+
+// MARK: - P2 FIX: Additional protocol abstractions for SearchService, FollowStateManager, Analytics
+
+/// Minimal testable interface for SearchService.
+protocol SearchServiceProtocol: AnyObject, ObservableObject {
+    var isSearching: Bool { get }
+    var searchResults: [AppSearchResult] { get }
+    var recentSearches: [String] { get }
+    var hasMoreResults: Bool { get }
+
+    func search(query: String, filter: SearchFilter, loadMore: Bool) async throws -> [AppSearchResult]
+    func loadMoreResults() async throws -> [AppSearchResult]
+    func clearRecentSearches()
+}
+extension SearchService: SearchServiceProtocol {}
+
+/// Minimal testable interface for FollowStateManager.
+protocol FollowStateManagerProtocol: AnyObject, ObservableObject {
+    var followStates: [String: FollowStateManager.FollowState] { get }
+    func getState(for userId: String) async -> FollowStateManager.FollowState
+    func updateState(for userId: String, state: FollowStateManager.FollowState)
+    func invalidateCache(for userId: String)
+    func clearAllCaches()
+}
+extension FollowStateManager: FollowStateManagerProtocol {}
+
+/// Minimal testable interface for AMENAnalyticsService.
+protocol AnalyticsServiceProtocol: AnyObject {
+    var sessionId: String { get }
+    func track(_ event: AMENAnalyticsEvent)
+    func startNewSession()
+    func recordLatency(operation: String, milliseconds: Double)
+}
+extension AMENAnalyticsService: AnalyticsServiceProtocol {}

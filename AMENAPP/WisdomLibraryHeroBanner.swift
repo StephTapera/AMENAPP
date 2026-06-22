@@ -60,9 +60,9 @@ private enum WLBannerTokens {
     static let bookCorner: CGFloat    = 6
 
     // Typography
-    static let titleFont   = Font.system(size: 20, weight: .bold, design: .default)
-    static let badgeFont   = Font.system(size: 10, weight: .medium, design: .default)
-    static let sectionFont = Font.system(size: 9, weight: .semibold, design: .default)
+    static let titleFont   = Font.systemScaled(20, weight: .bold, design: .default)
+    static let badgeFont   = Font.systemScaled(10, weight: .medium, design: .default)
+    static let sectionFont = Font.systemScaled(9, weight: .semibold, design: .default)
 }
 
 // MARK: - Environment Key for press state
@@ -229,7 +229,7 @@ struct WisdomLibraryHeroBanner: View {
         .offset(y: isPressed ? 1 : 0)
         .onAppear {
             guard !reduceMotion else { appeared = true; return }
-            withAnimation(.spring(response: 0.70, dampingFraction: 0.80).delay(0.10)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.70, dampingFraction: 0.80)).delay(0.10)) {
                 appeared = true
             }
         }
@@ -389,14 +389,14 @@ struct WLBannerBookCard: View {
                 // Book title lines — actual text, small
                 VStack(alignment: .leading, spacing: 3) {
                     Text(book.title)
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.systemScaled(8, weight: .bold))
                         .foregroundStyle(.white.opacity(0.92))
                         .lineLimit(4)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(book.author)
-                        .font(.system(size: 6.5, weight: .regular))
+                        .font(.systemScaled(6.5, weight: .regular))
                         .foregroundStyle(.white.opacity(0.62))
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -407,7 +407,7 @@ struct WLBannerBookCard: View {
             .overlay(alignment: .bottomLeading) {
                 // Category chip at spine foot
                 Text(book.category.uppercased())
-                    .font(.system(size: 5.5, weight: .semibold))
+                    .font(.systemScaled(5.5, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.55))
                     .tracking(0.5)
                     .padding(.horizontal, 5)
@@ -440,7 +440,7 @@ struct WLFrostedTile: View {
                     .foregroundStyle(WLBannerTokens.subtitleInk.opacity(0.65))
                     .tracking(0.6)
                 Text("Books for every season of faith")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(WLBannerTokens.subtitleInk)
                     .lineLimit(1)
             }
@@ -455,7 +455,7 @@ struct WLFrostedTile: View {
                     .frame(width: 26, height: 26)
                     .shadow(color: .black.opacity(0.20), radius: 6, x: 0, y: 3)
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(WLBannerTokens.arrowIcon)
             }
             .scaleEffect(isPressed ? 0.92 : 1.0)

@@ -167,7 +167,7 @@ private func iconPill(
                 .scaleEffect(0.65)
         } else {
             Image(systemName: symbol)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(
                     isActive
                         ? Color(red: 0.88, green: 0.38, blue: 0.28)

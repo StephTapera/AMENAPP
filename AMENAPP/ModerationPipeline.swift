@@ -19,6 +19,7 @@ import Foundation
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 import Combine
 
 // MARK: - Moderation Context
@@ -157,7 +158,7 @@ final class ModerationPipeline: ObservableObject {
     static let shared = ModerationPipeline()
 
     private let riskAnalyzer = ContentRiskAnalyzer.shared
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let flags = AMENFeatureFlags.shared
 
     @Published private(set) var totalEvaluated: Int = 0
@@ -444,7 +445,11 @@ final class ModerationPipeline: ObservableObject {
             "riskScore": riskScore, "action": action,
             "timestamp": FieldValue.serverTimestamp()
         ]
-        _ = try? await db.collection("safetyAuditLog").document(uid).collection("events").addDocument(data: data)
+        do {
+            try await db.collection("safetyAuditLog").document(uid).collection("events").addDocument(data: data)
+        } catch {
+            print("ModerationPipeline: failed to write safety audit log — \(error.localizedDescription)")
+        }
     }
 
     private func queueForHumanReview(
@@ -456,7 +461,11 @@ final class ModerationPipeline: ObservableObject {
             "signals": signals, "reportedUserId": userId ?? "",
             "status": "pending", "timestamp": FieldValue.serverTimestamp()
         ]
-        _ = try? await db.collection("moderationQueue").addDocument(data: data)
+        do {
+            try await db.collection("moderationQueue").addDocument(data: data)
+        } catch {
+            print("ModerationPipeline: failed to enqueue human review — \(error.localizedDescription)")
+        }
     }
 }
 
@@ -466,7 +475,8 @@ final class ModerationPipeline: ObservableObject {
 final class UserReportService {
 
     static let shared = UserReportService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
 
     enum ReportCategory: String, CaseIterable, Identifiable {
         case spam = "spam"
@@ -506,7 +516,9 @@ final class UserReportService {
             "additionalDetails": details ?? "", "status": "pending",
             "timestamp": FieldValue.serverTimestamp()
         ]
-        try await db.collection("userReports").addDocument(data: data)
+        _ = try await functions
+            .httpsCallable("submitTrustSafetyReport")
+            .call(data)
     }
 
     func reportUser(reportedUserId: String, category: ReportCategory,
@@ -516,7 +528,9 @@ final class UserReportService {
             "reporterId": reporterId, "additionalDetails": details ?? "",
             "status": "pending", "timestamp": FieldValue.serverTimestamp()
         ]
-        try await db.collection("userReports").addDocument(data: data)
+        _ = try await functions
+            .httpsCallable("submitTrustSafetyReport")
+            .call(data)
     }
 
     func submitAppeal(contentId: String, userId: String, reason: String) async throws {
@@ -534,7 +548,7 @@ final class UserReportService {
 final class TrustScoreService {
 
     static let shared = TrustScoreService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let flags = AMENFeatureFlags.shared
 
     enum UserTrustLevel: String {
@@ -590,7 +604,11 @@ final class TrustScoreService {
     func updateTrustEvent(userId: String, event: TrustEvent) async {
         guard flags.trustScoringEnabled else { return }
         let data: [String: Any] = ["event": event.rawValue, "timestamp": FieldValue.serverTimestamp()]
-        _ = try? await db.collection("userTrustScores").document(userId).collection("events").addDocument(data: data)
+        do {
+            try await db.collection("userTrustScores").document(userId).collection("events").addDocument(data: data)
+        } catch {
+            print("ModerationPipeline: failed to write trust event — \(error.localizedDescription)")
+        }
         cachedLevel.removeValue(forKey: userId)
     }
 }

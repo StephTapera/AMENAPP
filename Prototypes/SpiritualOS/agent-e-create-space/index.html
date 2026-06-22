@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent E — Create Space Flow</title>
+  <style>
+    /* ─── Design Tokens ─────────────────────────────────────────── */
+    :root {
+      --gold:    #C9A84C;
+      --gold-light: rgba(201,168,76,0.15);
+      --gold-glow: rgba(201,168,76,0.35);
+      --purple:  #6B4FA2;
+      --purple-light: rgba(107,79,162,0.08);
+      --purple-glow:  rgba(107,79,162,0.25);
+      --blue:    #2E6DA4;
+      --black:   #1A1A1E;
+      --cream:   #F8F4EC;
+      --cream-solid: #F3EDE0;
+      --slate:   #4A4A55;
+      --surface: rgba(255,255,255,0.72);
+      --glass-border: rgba(255,255,255,0.55);
+      --field-bg: rgba(248,244,236,0.95);
+      --field-border: rgba(0,0,0,0.08);
+      --page-bg: #EEEBE4;
+      --sheet-bg: rgba(250,248,245,0.88);
+      --header-glass: rgba(255,255,255,0.78);
+      --cta-glass: rgba(255,255,255,0.82);
+      --text-primary: #1A1A1E;
+      --text-secondary: #4A4A55;
+      --text-tertiary: #7A7A85;
+      --toggle-off: #D1D1D6;
+      --divider: rgba(0,0,0,0.07);
+      --shadow-sheet: 0 -2px 40px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.06);
+    }
+
+    [data-theme="dark"] {
+      --page-bg: #0F0F12;
+      --sheet-bg: rgba(28,28,35,0.92);
+      --header-glass: rgba(30,30,40,0.82);
+      --cta-glass: rgba(30,30,40,0.86);
+      --field-bg: rgba(38,36,30,0.95);
+      --field-border: rgba(255,255,255,0.09);
+      --surface: rgba(40,40,52,0.72);
+      --glass-border: rgba(255,255,255,0.12);
+      --text-primary: #F2EFE8;
+      --text-secondary: #A8A8B3;
+      --text-tertiary: #68686F;
+      --toggle-off: #48484E;
+      --divider: rgba(255,255,255,0.06);
+      --cream: #2A2820;
+      --cream-solid: #252320;
+      --gold-light: rgba(201,168,76,0.18);
+      --purple-light: rgba(107,79,162,0.14);
+      --shadow-sheet: 0 -2px 40px rgba(0,0,0,0.45), 0 0 0 0.5px rgba(255,255,255,0.05);
+    }
+
+    /* ─── Reset ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--page-bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 80px;
+      transition: background 0.3s ease;
+    }
+
+    /* ─── Page Header ────────────────────────────────────────────── */
+    .page-header {
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+
+    .agent-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+    }
+
+    .dark-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .dark-toggle:hover { opacity: 0.8; }
+
+    /* ─── Phone Frame ────────────────────────────────────────────── */
+    .phone-frame {
+      width: 390px;
+      background: var(--page-bg);
+      border-radius: 50px;
+      box-shadow:
+        0 0 0 8px #2A2A30,
+        0 0 0 10px #3A3A42,
+        0 40px 80px rgba(0,0,0,0.35),
+        0 8px 24px rgba(0,0,0,0.18);
+      overflow: hidden;
+      position: relative;
+      margin-bottom: 48px;
+    }
+
+    .phone-notch {
+      width: 120px;
+      height: 34px;
+      background: #1A1A1E;
+      border-radius: 0 0 20px 20px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* ─── Sheet Container ────────────────────────────────────────── */
+    .sheet {
+      background: var(--sheet-bg);
+      min-height: 780px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* ─── Glass Header ───────────────────────────────────────────── */
+    .sheet-header {
+      background: var(--header-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--divider);
+      padding: 8px 20px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .drag-handle {
+      width: 36px;
+      height: 5px;
+      background: rgba(0,0,0,0.18);
+      border-radius: 3px;
+      margin: 0 auto 14px;
+    }
+
+    [data-theme="dark"] .drag-handle {
+      background: rgba(255,255,255,0.18);
+    }
+
+    /* Step indicator */
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.15);
+      transition: all 0.25s ease;
+    }
+
+    [data-theme="dark"] .step-dot {
+      background: rgba(255,255,255,0.18);
+    }
+
+    .step-dot.active {
+      background: var(--gold);
+      width: 22px;
+      border-radius: 4px;
+    }
+
+    .step-dot.completed {
+      background: var(--gold);
+      opacity: 0.5;
+    }
+
+    .step-label {
+      margin-left: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      letter-spacing: 0.02em;
+    }
+
+    .sheet-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    /* ─── Scroll Body ────────────────────────────────────────────── */
+    .sheet-body {
+      flex: 1;
+      padding: 24px 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    /* ─── Form Field ─────────────────────────────────────────────── */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.01em;
+    }
+
+    .field-input {
+      background: var(--field-bg);
+      border: 1px solid var(--field-border);
+      border-radius: 14px;
+      padding: 13px 16px;
+      font-size: 16px;
+      font-family: inherit;
+      color: var(--text-primary);
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      -webkit-appearance: none;
+    }
+
+    .field-input:focus {
+      border-color: rgba(201,168,76,0.4);
+      box-shadow: 0 0 0 3px rgba(201,168,76,0.12);
+    }
+
+    .field-input.multiline {
+      min-height: 90px;
+      resize: none;
+      line-height: 1.5;
+    }
+
+    .field-input::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    /* ─── Tint Picker ────────────────────────────────────────────── */
+    .tint-picker {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .tint-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px 8px 8px;
+      border-radius: 20px;
+      background: var(--surface);
+      border: 1.5px solid var(--glass-border);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      position: relative;
+    }
+
+    .tint-chip.selected {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px var(--gold-glow);
+      color: var(--text-primary);
+    }
+
+    .tint-circle {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .tint-circle.gold { background: var(--gold); }
+    .tint-circle.purple { background: var(--purple); }
+    .tint-circle.blue { background: var(--blue); }
+
+    .tint-check {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: white;
+      font-weight: 700;
+    }
+
+    /* ─── Liturgical Tags ────────────────────────────────────────── */
+    .tags-scroll {
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+
+    .tags-scroll::-webkit-scrollbar { display: none; }
+
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .tag-chip.selected {
+      background: var(--gold-light);
+      border: 1px solid rgba(201,168,76,0.4);
+      color: var(--text-primary);
+    }
+
+    .tag-chip.unselected {
+      background: var(--field-bg);
+      border: 1px solid var(--field-border);
+      color: var(--text-secondary);
+    }
+
+    .tag-chip.add-tag {
+      background: transparent;
+      border: 1.5px dashed rgba(0,0,0,0.18);
+      color: var(--text-tertiary);
+    }
+
+    [data-theme="dark"] .tag-chip.add-tag {
+      border-color: rgba(255,255,255,0.18);
+    }
+
+    .tag-remove {
+      font-size: 11px;
+      opacity: 0.6;
+      font-weight: 700;
+    }
+
+    /* ─── CTA Bar ────────────────────────────────────────────────── */
+    .cta-bar {
+      background: var(--cta-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid var(--divider);
+      padding: 14px 20px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      position: sticky;
+      bottom: 0;
+      z-index: 20;
+    }
+
+    .btn-back {
+      background: transparent;
+      border: 1.5px solid var(--field-border);
+      border-radius: 14px;
+      padding: 13px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .btn-back:hover { border-color: var(--gold); color: var(--gold); }
+
+    .cta-center {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-align: center;
+      flex: 1;
+    }
+
+    .btn-next {
+      background: var(--gold);
+      border: none;
+      border-radius: 14px;
+      padding: 13px 22px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px rgba(201,168,76,0.35);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-next:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(201,168,76,0.45);
+    }
+
+    /* ─── Section Label (between frames) ────────────────────────── */
+    .frame-label {
+      width: 390px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 12px;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .frame-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--divider);
+    }
+
+    /* ─── Settings View (Step 3) ─────────────────────────────────── */
+    .settings-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      padding: 0 20px;
+      margin-bottom: 6px;
+    }
+
+    .settings-group {
+      background: var(--field-bg);
+      border: 1px solid var(--field-border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin: 0 20px;
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      padding: 14px 16px;
+      gap: 12px;
+      position: relative;
+    }
+
+    .settings-row + .settings-row {
+      border-top: 1px solid var(--divider);
+    }
+
+    .settings-row-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .settings-row-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .settings-row-desc {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      line-height: 1.4;
+    }
+
+    /* iOS Toggle */
+    .toggle {
+      position: relative;
+      width: 51px;
+      height: 31px;
+      flex-shrink: 0;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 31px;
+      background: var(--toggle-off);
+      transition: background 0.25s ease;
+      cursor: pointer;
+    }
+
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 27px;
+      height: 27px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .toggle input:checked + .toggle-track {
+      background: var(--gold);
+    }
+
+    .toggle input:checked + .toggle-track::after {
+      transform: translateX(20px);
+    }
+
+    /* Privacy radio buttons */
+    .privacy-options {
+      display: flex;
+      gap: 10px;
+      padding: 16px;
+      flex-wrap: wrap;
+    }
+
+    .privacy-option {
+      flex: 1;
+      min-width: 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 8px;
+      border-radius: 14px;
+      border: 1.5px solid var(--field-border);
+      background: var(--surface);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .privacy-option.selected {
+      border-color: var(--gold);
+      background: var(--gold-light);
+    }
+
+    .privacy-icon {
+      font-size: 20px;
+    }
+
+    .privacy-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .privacy-option.selected .privacy-label {
+      color: var(--text-primary);
+    }
+
+    .privacy-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 2px solid var(--field-border);
+      transition: all 0.2s ease;
+    }
+
+    .privacy-option.selected .privacy-dot {
+      border-color: var(--gold);
+      background: var(--gold);
+    }
+
+    /* ─── Berean Card ────────────────────────────────────────────── */
+    .berean-card {
+      background: var(--purple-light);
+      border: 1px solid var(--field-border);
+      border-left: 3px solid var(--purple);
+      border-radius: 16px;
+      margin: 0 20px;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(107,79,162,0.12);
+    }
+
+    .berean-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .berean-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .berean-info {
+      flex: 1;
+    }
+
+    .berean-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--purple);
+      margin-bottom: 4px;
+    }
+
+    .berean-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .berean-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px 14px;
+    }
+
+    .berean-toggle-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .berean-toggle .toggle input:checked + .toggle-track {
+      background: var(--purple);
+    }
+
+    /* ─── Confirm Card (Step 4 summary) ──────────────────────────── */
+    .hero-card {
+      background: var(--field-bg);
+      border: 1px solid var(--field-border);
+      border-radius: 20px;
+      overflow: hidden;
+      margin: 0 20px;
+    }
+
+    .hero-card-banner {
+      height: 80px;
+      background: linear-gradient(135deg, var(--gold) 0%, #A8863C 100%);
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 16px 14px;
+    }
+
+    .hero-card-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.25);
+      border: 2px solid rgba(255,255,255,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      position: absolute;
+      bottom: -20px;
+      left: 16px;
+    }
+
+    .hero-card-body {
+      padding: 28px 16px 16px;
+    }
+
+    .hero-space-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 3px;
+    }
+
+    .hero-space-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      margin-bottom: 14px;
+    }
+
+    .summary-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .summary-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      color: var(--text-secondary);
+    }
+
+    .summary-pill.gold-pill {
+      background: var(--gold-light);
+      border-color: rgba(201,168,76,0.3);
+      color: var(--text-primary);
+    }
+
+    .summary-pill.purple-pill {
+      background: var(--purple-light);
+      border-color: rgba(107,79,162,0.25);
+      color: var(--purple);
+    }
+
+    .summary-settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .summary-setting {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .summary-setting-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4CAF50;
+      flex-shrink: 0;
+    }
+
+    .btn-create {
+      width: 100%;
+      background: var(--gold);
+      border: none;
+      border-radius: 14px;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 4px 20px rgba(201,168,76,0.4);
+      transition: all 0.2s ease;
+      letter-spacing: -0.01em;
+    }
+
+    .btn-create:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(201,168,76,0.5);
+    }
+
+    /* ─── Step 2 Member Row ──────────────────────────────────────── */
+    .member-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+    }
+
+    .member-row + .member-row {
+      border-top: 1px solid var(--divider);
+    }
+
+    .member-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #8B6DB5, #5A3F8C);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .member-avatar.gold-av {
+      background: linear-gradient(135deg, var(--gold), #A8863C);
+    }
+
+    .member-avatar.blue-av {
+      background: linear-gradient(135deg, var(--blue), #1E4F7A);
+    }
+
+    .member-name {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .role-chip {
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border-radius: 10px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .role-chip.leader {
+      background: var(--gold-light);
+      border-color: rgba(201,168,76,0.3);
+      color: var(--text-primary);
+    }
+
+    /* ─── Utility ────────────────────────────────────────────────── */
+    .spacer { height: 8px; }
+    .spacer-sm { height: 4px; }
+
+    .separator {
+      height: 1px;
+      background: var(--divider);
+      margin: 4px 20px;
+    }
+
+    /* ─── Step indicator in settings/confirm frames ──────────────── */
+    .step-pills {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .step-pip {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.12);
+    }
+
+    [data-theme="dark"] .step-pip {
+      background: rgba(255,255,255,0.15);
+    }
+
+    .step-pip.done { background: var(--gold); opacity: 0.55; }
+    .step-pip.now {
+      background: var(--gold);
+      width: 20px;
+      border-radius: 4px;
+    }
+
+    /* ─── Encryption callout ─────────────────────────────────────── */
+    .encryption-callout {
+      background: rgba(46,109,164,0.08);
+      border: 1px solid rgba(46,109,164,0.18);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin: 0 16px 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .encryption-icon {
+      font-size: 14px;
+      margin-top: 1px;
+    }
+
+    .encryption-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    /* ─── Confirm frame church badge ─────────────────────────────── */
+    .church-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 4px 10px;
+      margin-bottom: 12px;
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- Page Header                                                   -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <div class="page-header">
+    <span class="agent-label">Agent E — Create Space Flow</span>
+    <button class="dark-toggle" onclick="toggleTheme()" id="theme-btn">
+      ☽ Dark Mode
+    </button>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- FRAME 1: Step 1 — Identity                                    -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <div class="frame-label">Step 1 · Identity (primary view)</div>
+
+  <div class="phone-frame">
+    <div class="phone-notch"></div>
+    <div class="sheet">
+
+      <!-- Glass Header -->
+      <div class="sheet-header">
+        <div class="drag-handle"></div>
+        <div class="step-indicator">
+          <div class="step-dot active"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+          <span class="step-label">Step 1 of 4 · Identity</span>
+        </div>
+        <div class="sheet-title">Create a Space</div>
+      </div>
+
+      <!-- Scroll Body -->
+      <div class="sheet-body">
+
+        <!-- Space Name -->
+        <div class="field-group">
+          <label class="field-label">Space Name</label>
+          <input
+            class="field-input"
+            type="text"
+            value="Covenant Men's Study"
+            readonly
+          />
+        </div>
+
+        <!-- Description -->
+        <div class="field-group">
+          <label class="field-label">Description</label>
+          <textarea
+            class="field-input multiline"
+            readonly
+          >A space for men to study scripture, pray together, and walk in community.</textarea>
+        </div>
+
+        <!-- Space Tint -->
+        <div class="field-group">
+          <label class="field-label">Space Tint</label>
+          <div class="tint-picker">
+
+            <!-- Gold — selected -->
+            <div class="tint-chip selected">
+              <div class="tint-circle gold">
+                <div class="tint-check">✓</div>
+              </div>
+              Gold
+            </div>
+
+            <!-- Purple -->
+            <div class="tint-chip">
+              <div class="tint-circle purple"></div>
+              Purple
+            </div>
+
+            <!-- Blue -->
+            <div class="tint-chip">
+              <div class="tint-circle blue"></div>
+              Blue
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Church Affiliation -->
+        <div class="field-group">
+          <label class="field-label">Church Affiliation</label>
+          <input
+            class="field-input"
+            type="text"
+            value="First Baptist Church"
+            readonly
+          />
+        </div>
+
+        <!-- Liturgical Tags -->
+        <div class="field-group">
+          <label class="field-label">Liturgical Tags</label>
+          <div class="tags-scroll">
+            <div class="tag-chip selected">Advent <span class="tag-remove">✕</span></div>
+            <div class="tag-chip selected">Bible Study <span class="tag-remove">✕</span></div>
+            <div class="tag-chip unselected">Lent</div>
+            <div class="tag-chip unselected">Men's Ministry</div>
+            <div class="tag-chip unselected">Prayer</div>
+            <div class="tag-chip add-tag">+ Add</div>
+          </div>
+        </div>
+
+      </div><!-- /sheet-body -->
+
+      <!-- CTA Bar -->
+      <div class="cta-bar">
+        <button class="btn-back">← Back</button>
+        <div class="cta-center">Step 1 of 4</div>
+        <button class="btn-next">Next →</button>
+      </div>
+
+    </div><!-- /sheet -->
+  </div><!-- /phone-frame -->
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- FRAME 2: Step 2 — Members Preview                             -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <div class="frame-label">Step 2 · Members (preview)</div>
+
+  <div class="phone-frame">
+    <div class="phone-notch"></div>
+    <div class="sheet">
+
+      <div class="sheet-header">
+        <div class="drag-handle"></div>
+        <div class="step-indicator">
+          <div class="step-dot completed"></div>
+          <div class="step-dot active"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+          <span class="step-label">Step 2 of 4 · Members</span>
+        </div>
+        <div class="sheet-title">Invite Members</div>
+      </div>
+
+      <div class="sheet-body" style="gap:16px;">
+
+        <!-- Search field -->
+        <div class="field-group">
+          <label class="field-label">Search People</label>
+          <input class="field-input" type="text" placeholder="Name or @username" readonly />
+        </div>
+
+        <!-- Member list -->
+        <div class="field-group">
+          <label class="field-label">Invited (3)</label>
+          <div class="settings-group" style="margin:0;">
+            <div class="member-row">
+              <div class="member-avatar gold-av">ST</div>
+              <span class="member-name">Steph Tapera</span>
+              <div class="role-chip leader">Leader ▾</div>
+            </div>
+            <div class="member-row">
+              <div class="member-avatar">MJ</div>
+              <span class="member-name">Marcus Johnson</span>
+              <div class="role-chip">Pastor ▾</div>
+            </div>
+            <div class="member-row">
+              <div class="member-avatar blue-av">DW</div>
+              <span class="member-name">David Williams</span>
+              <div class="role-chip">Member ▾</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Role legend -->
+        <div class="field-group">
+          <label class="field-label">Roles</label>
+          <div class="settings-group" style="margin:0;">
+            <div class="settings-row" style="padding:12px 16px;">
+              <div class="settings-row-info">
+                <div class="settings-row-title" style="font-size:14px;">Leader</div>
+                <div class="settings-row-desc">Full admin access, manages all settings</div>
+              </div>
+            </div>
+            <div class="settings-row" style="padding:12px 16px;">
+              <div class="settings-row-info">
+                <div class="settings-row-title" style="font-size:14px;">Pastor</div>
+                <div class="settings-row-desc">Spiritual oversight, can pin &amp; moderate</div>
+              </div>
+            </div>
+            <div class="settings-row" style="padding:12px 16px;">
+              <div class="settings-row-info">
+                <div class="settings-row-title" style="font-size:14px;">Moderator</div>
+                <div class="settings-row-desc">Can review and remove flagged content</div>
+              </div>
+            </div>
+            <div class="settings-row" style="padding:12px 16px;">
+              <div class="settings-row-info">
+                <div class="settings-row-title" style="font-size:14px;">Member</div>
+                <div class="settings-row-desc">Standard participation in the Space</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="cta-bar">
+        <button class="btn-back">← Back</button>
+        <div class="cta-center">Step 2 of 4</div>
+        <button class="btn-next">Next →</button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- FRAME 3: Step 3 — Settings Preview                           -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <div class="frame-label">Step 3 · Settings (preview)</div>
+
+  <div class="phone-frame">
+    <div class="phone-notch"></div>
+    <div class="sheet">
+
+      <div class="sheet-header">
+        <div class="drag-handle"></div>
+        <div class="step-indicator">
+          <div class="step-dot completed"></div>
+          <div class="step-dot completed"></div>
+          <div class="step-dot active"></div>
+          <div class="step-dot"></div>
+          <span class="step-label">Step 3 of 4 · Settings</span>
+        </div>
+        <div class="sheet-title">Space Settings</div>
+      </div>
+
+      <div class="sheet-body" style="gap:0; padding-left:0; padding-right:0;">
+
+        <!-- Privacy -->
+        <div class="spacer"></div>
+        <div class="settings-section-title">Privacy</div>
+        <div class="spacer-sm"></div>
+        <div style="padding: 0 20px;">
+          <div class="settings-group" style="margin:0;">
+            <div class="privacy-options">
+              <div class="privacy-option">
+                <span class="privacy-icon">🌐</span>
+                <span class="privacy-label">Public</span>
+                <div class="privacy-dot"></div>
+              </div>
+              <div class="privacy-option selected">
+                <span class="privacy-icon">🔒</span>
+                <span class="privacy-label">Private</span>
+                <div class="privacy-dot"></div>
+              </div>
+              <div class="privacy-option">
+                <span class="privacy-icon">🫙</span>
+                <span class="privacy-label">Secret</span>
+                <div class="privacy-dot"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="spacer"></div>
+
+        <!-- Core toggles -->
+        <div class="settings-section-title">Protection</div>
+        <div class="spacer-sm"></div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-title">Encrypted Prayer</div>
+              <div class="settings-row-desc">Prayer conversations in this Space are encrypted — only members can read them</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" checked />
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-title">Content Moderation</div>
+              <div class="settings-row-desc">Flag harmful content for leader review</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" checked />
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+        </div>
+        <div class="spacer"></div>
+
+        <!-- Berean member card — special treatment -->
+        <div class="settings-section-title">Berean AI</div>
+        <div class="spacer-sm"></div>
+        <div class="berean-card">
+          <div class="berean-card-header">
+            <div class="berean-icon">✨</div>
+            <div class="berean-info">
+              <div class="berean-title">Berean as a Member</div>
+              <div class="berean-desc">Berean joins as a member and can respond to prayer requests, answer questions, and suggest scripture — always with care and discernment.</div>
+            </div>
+          </div>
+          <div class="berean-toggle-row">
+            <span class="berean-toggle-label">Add Berean to this Space</span>
+            <label class="toggle berean-toggle">
+              <input type="checkbox" checked />
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+        </div>
+        <div class="spacer"></div>
+
+        <!-- Feature toggles -->
+        <div class="settings-section-title">Features</div>
+        <div class="spacer-sm"></div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-title">Church Notes</div>
+              <div class="settings-row-desc">Shared note-taking during sermons</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" checked />
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-title">Events</div>
+              <div class="settings-row-desc">Calendar &amp; RSVP for group gatherings</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" checked />
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-title">Resources</div>
+              <div class="settings-row-desc">Study materials &amp; shared documents</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" checked />
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-info">
+              <div class="settings-row-title">Prayer Wall</div>
+              <div class="settings-row-desc">Persistent board for prayer requests</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" checked />
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+        </div>
+        <div class="spacer"></div>
+
+      </div><!-- /sheet-body -->
+
+      <div class="cta-bar">
+        <button class="btn-back">← Back</button>
+        <div class="cta-center">Step 3 of 4</div>
+        <button class="btn-next">Next →</button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- FRAME 4: Step 4 — Confirm & Create                           -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <div class="frame-label">Step 4 · Confirm &amp; Create</div>
+
+  <div class="phone-frame">
+    <div class="phone-notch"></div>
+    <div class="sheet">
+
+      <div class="sheet-header">
+        <div class="drag-handle"></div>
+        <div class="step-indicator">
+          <div class="step-dot completed"></div>
+          <div class="step-dot completed"></div>
+          <div class="step-dot completed"></div>
+          <div class="step-dot active"></div>
+          <span class="step-label">Step 4 of 4 · Confirm</span>
+        </div>
+        <div class="sheet-title">Review &amp; Create</div>
+      </div>
+
+      <div class="sheet-body" style="gap:18px;">
+
+        <!-- Hero summary card -->
+        <div class="hero-card">
+          <div class="hero-card-banner">
+            <div class="hero-card-avatar">⛪</div>
+          </div>
+          <div class="hero-card-body">
+            <div class="hero-space-name">Covenant Men's Study</div>
+            <div class="church-badge">⛪ First Baptist Church</div>
+            <div class="hero-space-desc">A space for men to study scripture, pray together, and walk in community.</div>
+
+            <!-- Tag pills -->
+            <div class="summary-pills">
+              <div class="summary-pill gold-pill">🟡 Gold Tint</div>
+              <div class="summary-pill">📌 Advent</div>
+              <div class="summary-pill">📌 Bible Study</div>
+              <div class="summary-pill">🔒 Private</div>
+              <div class="summary-pill purple-pill">✨ Berean</div>
+              <div class="summary-pill">👥 3 Members</div>
+            </div>
+
+            <!-- Settings summary grid -->
+            <div style="font-size:12px; font-weight:700; color:var(--text-tertiary); letter-spacing:0.06em; text-transform:uppercase; margin-bottom:8px;">Features Enabled</div>
+            <div class="summary-settings-grid">
+              <div class="summary-setting">
+                <div class="summary-setting-dot"></div>
+                Encrypted Prayer
+              </div>
+              <div class="summary-setting">
+                <div class="summary-setting-dot"></div>
+                Moderation
+              </div>
+              <div class="summary-setting">
+                <div class="summary-setting-dot"></div>
+                Church Notes
+              </div>
+              <div class="summary-setting">
+                <div class="summary-setting-dot"></div>
+                Prayer Wall
+              </div>
+              <div class="summary-setting">
+                <div class="summary-setting-dot"></div>
+                Events
+              </div>
+              <div class="summary-setting">
+                <div class="summary-setting-dot"></div>
+                Resources
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Gentle faith note -->
+        <div class="encryption-callout" style="margin:0;">
+          <span class="encryption-icon">🕊️</span>
+          <div class="encryption-text">
+            This Space is a sacred place. You're building something that can help people grow in faith, find community, and encounter God together.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Final CTA bar -->
+      <div class="cta-bar">
+        <button class="btn-back">← Back</button>
+        <div style="flex:1;">
+          <button class="btn-create">Create Space</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- Dark mode script                                              -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <script>
+    let dark = false;
+
+    function toggleTheme() {
+      dark = !dark;
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+      const btn = document.getElementById('theme-btn');
+      btn.textContent = dark ? '☀️ Light Mode' : '☽ Dark Mode';
+    }
+  </script>
+
+</body>
+</html>

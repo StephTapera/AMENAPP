@@ -12,7 +12,7 @@ struct BlockedUsersView: View {
     @ObservedObject private var blockService = BlockService.shared
     @State private var showUnblockConfirmation = false
     @State private var userToUnblock: BlockedUserProfile?
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -32,7 +32,7 @@ struct BlockedUsersView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .confirmationDialog(
@@ -56,86 +56,117 @@ struct BlockedUsersView: View {
             }
         }
     }
-    
+
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: "hand.raised.slash")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
-            
+
             Text("No Blocked Users")
-                .font(.custom("OpenSans-Bold", size: 20))
-            
+                .font(AMENFont.bold(20))
+
             Text("Users you block will appear here.\nBlocked users can't follow you or see your posts.")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }
         .padding(.vertical, 60)
     }
-    
+
     private var blockedUsersList: some View {
-        List {
-            ForEach(blockService.blockedUsersList) { user in
-                HStack(spacing: 12) {
-                    // Avatar
-                    if let profileImageURL = user.profileImageURL, !profileImageURL.isEmpty {
-                        AsyncImage(url: URL(string: profileImageURL)) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 40, height: 40)
-                                    .clipShape(Circle())
-                            default:
+        ScrollView {
+            VStack(spacing: 0) {
+
+                Text("BLOCKED ACCOUNTS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(blockService.blockedUsersList.enumerated()), id: \.element.id) { index, user in
+                        HStack(spacing: 12) {
+                            // Avatar
+                            if let profileImageURL = user.profileImageURL, !profileImageURL.isEmpty {
+                                AsyncImage(url: URL(string: profileImageURL)) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 40, height: 40)
+                                            .clipShape(Circle())
+                                    default:
+                                        Circle()
+                                            .fill(Color.gray)
+                                            .frame(width: 40, height: 40)
+                                            .overlay(
+                                                Text(user.initials)
+                                                    .font(AMENFont.bold(16))
+                                                    .foregroundStyle(.white)
+                                            )
+                                    }
+                                }
+                            } else {
                                 Circle()
                                     .fill(Color.gray)
                                     .frame(width: 40, height: 40)
                                     .overlay(
                                         Text(user.initials)
-                                            .font(.custom("OpenSans-Bold", size: 16))
+                                            .font(AMENFont.bold(16))
                                             .foregroundStyle(.white)
                                     )
                             }
+
+                            // User info
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(user.displayName)
+                                    .font(AMENFont.semiBold(15))
+                                Text("@\(user.username)")
+                                    .font(AMENFont.regular(13))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            // Unblock button
+                            Button("Unblock") {
+                                userToUnblock = user
+                                showUnblockConfirmation = true
+                            }
+                            .font(AMENFont.semiBold(14))
+                            .foregroundStyle(.blue)
                         }
-                    } else {
-                        Circle()
-                            .fill(Color.gray)
-                            .frame(width: 40, height: 40)
-                            .overlay(
-                                Text(user.initials)
-                                    .font(.custom("OpenSans-Bold", size: 16))
-                                    .foregroundStyle(.white)
-                            )
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        if index < blockService.blockedUsersList.count - 1 {
+                            Divider().padding(.leading, 16)
+                        }
                     }
-                    
-                    // User info
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(user.displayName)
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("@\(user.username)")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    // Unblock button
-                    Button("Unblock") {
-                        userToUnblock = user
-                        showUnblockConfirmation = true
-                    }
-                    .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(.blue)
                 }
-                .padding(.vertical, 4)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Blocked users cannot see your posts, follow you, or send you messages.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 40)
             }
         }
-        .listStyle(.plain)
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
-    
+
     private func unblockUser(_ user: BlockedUserProfile) {
         Task {
             do {

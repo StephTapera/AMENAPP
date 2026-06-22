@@ -47,13 +47,13 @@ struct SundayChurchFocusGateView: View {
                     //   "02  rest"  — matches "01  messages" pattern in AMENInbox
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Text("02")
-                            .font(.system(size: 18, weight: .light))
+                            .font(.systemScaled(18, weight: .light))
                             .foregroundStyle(Color(.tertiaryLabel))
                             .kerning(1)
                             .padding(.trailing, 10)
 
                         Text("rest")
-                            .font(.system(size: 48, weight: .light))
+                            .font(.systemScaled(48, weight: .light))
                             .foregroundStyle(Color(.label))
                             .kerning(-1.5)
                     }
@@ -65,7 +65,7 @@ struct SundayChurchFocusGateView: View {
 
                     // ── Scripture verse ───────────────────────────────────
                     Text("Remember the Sabbath day, to keep it holy.")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .italic()
                         .foregroundStyle(amber)
                         .kerning(0.2)
@@ -75,7 +75,7 @@ struct SundayChurchFocusGateView: View {
                         .offset(y: appeared ? 0 : 8)
 
                     Text("Exodus 20:8")
-                        .font(.system(size: 11, weight: .light))
+                        .font(.systemScaled(11, weight: .light))
                         .foregroundStyle(Color(.tertiaryLabel))
                         .kerning(0.5)
                         .padding(.horizontal, 24)
@@ -132,7 +132,7 @@ struct SundayChurchFocusGateView: View {
                                 .opacity(glowPulse ? 0.35 : 0.55)
 
                             Image(systemName: "book.closed.fill")
-                                .font(.system(size: 44, weight: .light))
+                                .font(.systemScaled(44, weight: .light))
                                 .foregroundStyle(
                                     LinearGradient(
                                         colors: [amber, amber.opacity(0.65)],
@@ -149,20 +149,20 @@ struct SundayChurchFocusGateView: View {
                     // ── Description block ─────────────────────────────────
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Shabbat Mode")
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.systemScaled(22, weight: .semibold))
                             .foregroundStyle(Color(.label))
 
                         Text("A dedicated space for worship and spiritual growth. The feed is paused so you can be fully present.")
-                            .font(.system(size: 15, weight: .regular))
+                            .font(.systemScaled(15, weight: .regular))
                             .foregroundStyle(Color(.secondaryLabel))
                             .lineSpacing(3)
 
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                                 .foregroundStyle(Color(.tertiaryLabel))
                             Text("Active \(focusManager.windowDescription)")
-                                .font(.system(size: 13, weight: .light))
+                                .font(.systemScaled(13, weight: .light))
                                 .foregroundStyle(Color(.tertiaryLabel))
                         }
                         .padding(.top, 4)
@@ -176,7 +176,7 @@ struct SundayChurchFocusGateView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         // Section label (matches InboxSectionLabel pattern)
                         Text("AVAILABLE NOW")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(Color(.tertiaryLabel))
                             .kerning(0.8)
                             .padding(.horizontal, 20)
@@ -238,9 +238,9 @@ struct SundayChurchFocusGateView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "gearshape")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                             Text("Manage Shabbat Mode")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                         }
                         .foregroundStyle(Color(.secondaryLabel))
                         .padding(.horizontal, 18)
@@ -272,7 +272,7 @@ struct SundayChurchFocusGateView: View {
                 glowPulse = true
             }
             // Staggered entrance
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.08)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.82)).delay(0.08)) {
                 appeared = true
             }
         }
@@ -305,7 +305,7 @@ struct FeatureButton: View {
                         .frame(width: 40, height: 40)
 
                     Image(systemName: icon)
-                        .font(.system(size: 19, weight: .light))
+                        .font(.systemScaled(19, weight: .light))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: iconGradient,
@@ -317,17 +317,17 @@ struct FeatureButton: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(Color(.label))
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(Color(.secondaryLabel))
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(.tertiaryLabel))
             }
             .padding(.horizontal, 16)
@@ -356,15 +356,15 @@ struct LiquidGlassToggleButton: View {
 
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 action()
             }
         }) {
             HStack(spacing: 6) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text("Exit")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
             }
             .foregroundStyle(.primary.opacity(0.8))
             .padding(.horizontal, 16)

@@ -29,7 +29,7 @@ final class BookDiscoveryViewModel: ObservableObject {
     // MARK: - Private
 
     private let booksService = GoogleBooksService.shared
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var searchTask: Task<Void, Never>?
     private var statsListener: ListenerRegistration?
 

@@ -28,7 +28,7 @@ struct EmailVerificationGateView: View {
                 
                 // Icon
                 Image(systemName: "envelope.badge.shield.half.filled")
-                    .font(.system(size: 80))
+                    .font(.systemScaled(80))
                     .foregroundStyle(.white.opacity(0.9))
                 
                 // Title
@@ -77,7 +77,7 @@ struct EmailVerificationGateView: View {
                                     .scaleEffect(0.8)
                             } else {
                                 Image(systemName: "checkmark.circle")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                             }
                             
                             Text(isCheckingVerification ? "Checking..." : "Check Verification Status")
@@ -99,7 +99,7 @@ struct EmailVerificationGateView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "envelope.arrow.triangle.branch")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                             
                             if resendCooldown > 0 {
                                 Text("Resend in \(resendCooldown)s")

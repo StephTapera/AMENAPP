@@ -49,7 +49,7 @@ struct ExpandableText: View {
 
             if isTruncated {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         isExpanded.toggle()
                     }
                 } label: {

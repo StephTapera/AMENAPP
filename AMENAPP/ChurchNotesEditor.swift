@@ -84,6 +84,27 @@ struct EnhancedChurchNoteEditor: View {
     // Feature 08: Scripture Reminders
     @StateObject private var reminderManager = ScriptureReminderManager()
 
+    // MARK: — Smart Feature ViewModels (8 features)
+    @StateObject private var aiInsightsVM    = AIInsightsViewModel()
+    @StateObject private var scriptureDNAVM  = ScriptureDNAViewModel()
+    @StateObject private var churchRadarVM   = ChurchRadarViewModel()
+    @StateObject private var voiceWisdomVM   = VoiceToWisdomViewModel()
+    @StateObject private var communityDuetVM = CommunityDuetViewModel()
+    @StateObject private var quoteForgeVM    = QuoteForgeViewModel()
+    @StateObject private var growthArcVM     = GrowthArcViewModel()
+
+    // MARK: — Smart Feature Visibility Toggles
+    // Inline panels
+    @State private var showVoicePanel      = false
+    @State private var showAIInsightsPanel = false
+    @State private var showScriptureDNA    = false
+    @State private var showRadarPanel      = false
+    // Sheet presentations
+    @State private var showCommunityDuet   = false
+    @State private var showQuoteForge      = false
+    @State private var showGrowthArc       = false
+    @State private var showReelComposer    = false
+
     // Feature 1: Claude auto-tagging
     @State private var detectedTags: [String] = []
     @State private var visibleTagCount: Int = 0
@@ -119,6 +140,7 @@ struct EnhancedChurchNoteEditor: View {
 
     // Animation 3: Focus Mode + Word Momentum
     @State private var focusMode = false
+    @State private var titleSectionAppeared = false
     @State private var wordCount = 0
     @State private var lastMilestone = 0
     @State private var milestoneRingScale: CGFloat = 0.3
@@ -175,15 +197,16 @@ struct EnhancedChurchNoteEditor: View {
     
     var body: some View {
         ZStack {
-            Color(red: 0.96, green: 0.96, blue: 0.96)
+            Color(.systemGroupedBackground)
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
                 // Header with auto-save indicator
                 headerView
-                
-                Divider()
-                    .background(Color.black.opacity(0.1))
+
+                Rectangle()
+                    .fill(Color.black.opacity(0.06))
+                    .frame(height: 0.5)
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
@@ -194,6 +217,9 @@ struct EnhancedChurchNoteEditor: View {
                             scriptureSection
                         }
                         .opacity(focusMode ? 0.2 : 1.0)
+                        .offset(y: titleSectionAppeared ? 0 : 12)
+                        .opacity(titleSectionAppeared ? 1 : 0)
+                        .animation(.spring(response: 0.52, dampingFraction: 0.84).delay(0.05), value: titleSectionAppeared)
                         .allowsHitTesting(!focusMode)
                         .animation(.easeInOut(duration: 0.35), value: focusMode)
 
@@ -212,7 +238,41 @@ struct EnhancedChurchNoteEditor: View {
 
                         // Tags section
                         tagsSection
+
+                        // Smart feature chip bar (always visible)
+                        smartFeatureChipBar
+                            .padding(.top, 4)
+
+                        // Inline feature panels (toggled by chips above)
+                        if showVoicePanel {
+                            VoiceToWisdomView(viewModel: voiceWisdomVM, noteBody: $content)
+                                .padding(.horizontal, 16)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                        if showAIInsightsPanel {
+                            AIInsightsPanelView(viewModel: aiInsightsVM, bodyText: $content)
+                                .padding(.horizontal, 16)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                        if showScriptureDNA {
+                            ScriptureDNAView(viewModel: scriptureDNAVM, reference: $scripture)
+                                .padding(.horizontal, 16)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                        if showRadarPanel {
+                            ChurchRadarView(viewModel: churchRadarVM) { church in
+                                churchName   = church.name
+                                pastor       = church.pastorName
+                                if sermonTitle.isEmpty { sermonTitle = church.sermonTitle }
+                            }
+                            .padding(.horizontal, 16)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
                     }
+                    .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: showVoicePanel)
+                    .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: showAIInsightsPanel)
+                    .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: showScriptureDNA)
+                    .animation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78)), value: showRadarPanel)
                     .padding(.bottom, 40)
                 }
             }
@@ -239,9 +299,14 @@ struct EnhancedChurchNoteEditor: View {
         }
         .onChange(of: isContentFocused) { _, focused in
             guard focused else { return }
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.75))) {
                 // Auto-expand if any metadata is missing; collapse if all filled
                 metaExpanded = anyMetaEmpty
+            }
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                withAnimation { titleSectionAppeared = true }
             }
         }
         .sheet(isPresented: $showSongSearch) {
@@ -261,6 +326,18 @@ struct EnhancedChurchNoteEditor: View {
                 trackUnsavedChanges()
             }
         }
+        .sheet(isPresented: $showCommunityDuet) {
+            CommunityDuetSheet(viewModel: communityDuetVM, noteBody: $content)
+        }
+        .sheet(isPresented: $showQuoteForge) {
+            QuoteForgeSheet(viewModel: quoteForgeVM, noteBody: $content)
+        }
+        .sheet(isPresented: $showGrowthArc) {
+            GrowthArcSheet(viewModel: growthArcVM)
+        }
+        .sheet(isPresented: $showReelComposer) {
+            ReelComposerView(viewModel: quoteForgeVM, quote: quoteForgeVM.detectedQuote)
+        }
     }
     
     // MARK: - Header View
@@ -270,24 +347,24 @@ struct EnhancedChurchNoteEditor: View {
             Button("Cancel") {
                 handleCancel()
             }
-            .font(.system(size: 17, weight: .regular))
+            .font(.systemScaled(17, weight: .regular))
             .foregroundStyle(.black.opacity(0.6))
             
             Spacer()
             
             VStack(spacing: 2) {
                 Text(isEditMode ? "Edit Note" : "New Note")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(17, weight: .medium))
+                    .foregroundStyle(.primary)
                 
                 // UX-2: Auto-save indicator
                 if showAutoSaveIndicator {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.green)
                         Text("Auto-saved")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.black.opacity(0.5))
                     }
                     .transition(.opacity)
@@ -304,7 +381,7 @@ struct EnhancedChurchNoteEditor: View {
                         .tint(contextAllFilled ? Color.purple : .black)
                 } else {
                     Text("Save")
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.systemScaled(17, weight: .medium))
                         .foregroundStyle(contextAllFilled ? Color.purple : (canSave ? .black : .black.opacity(0.3)))
                 }
             }
@@ -327,7 +404,7 @@ struct EnhancedChurchNoteEditor: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .background(Color(red: 0.96, green: 0.96, blue: 0.96))
+        .background(.thinMaterial)
     }
 
     // MARK: - Title Field (with Ghost Autocomplete)
@@ -336,17 +413,21 @@ struct EnhancedChurchNoteEditor: View {
         ZStack(alignment: .topLeading) {
             // Ghost text overlay — drawn behind, non-interactive
             if !ghostSuggestion.isEmpty {
-                (Text(title).foregroundColor(.clear) +
-                 Text(ghostSuggestion).foregroundColor(Color(.tertiaryLabel)))
-                    .font(.system(size: 32, weight: .medium))
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                    .allowsHitTesting(false)
+                HStack(spacing: 0) {
+                    Text(title)
+                        .foregroundStyle(.clear)
+                    Text(ghostSuggestion)
+                        .foregroundStyle(Color(.tertiaryLabel))
+                }
+                .font(.systemScaled(32, weight: .medium))
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .allowsHitTesting(false)
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 TextField("Note Title", text: $title)
-                    .font(.system(size: 32, weight: .medium))
+                    .font(.systemScaled(32, weight: .medium))
                     .foregroundStyle(titleColor)
                     .tint(.black)
                     .padding(.horizontal, 20)
@@ -360,7 +441,7 @@ struct EnhancedChurchNoteEditor: View {
                 if showAcceptHint {
                     Button { acceptSuggestion() } label: {
                         Text("tab to accept →")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -383,21 +464,21 @@ struct EnhancedChurchNoteEditor: View {
             // ── Collapsed pill summary ──────────────────────────────────
             if !metaExpanded {
                 Button {
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.75))) {
                         metaExpanded = true
                     }
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.black.opacity(0.35))
                         if metaSummary.isEmpty {
                             Text("Add sermon details…")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.black.opacity(0.35))
                         } else {
                             Text(metaSummary)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.black.opacity(0.65))
                                 .lineLimit(1)
                         }
@@ -415,7 +496,7 @@ struct EnhancedChurchNoteEditor: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         Text("Sermon Context")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.black.opacity(0.5))
                             .textCase(.uppercase)
                             .tracking(1)
@@ -428,15 +509,15 @@ struct EnhancedChurchNoteEditor: View {
                         // Only show collapse button when there is summary data
                         if !metaSummary.isEmpty {
                             Button {
-                                withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.75))) {
                                     metaExpanded = false
                                 }
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "chevron.up")
-                                        .font(.system(size: 11, weight: .medium))
+                                        .font(.systemScaled(11, weight: .medium))
                                     Text("Collapse")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                 }
                                 .foregroundStyle(.black.opacity(0.4))
                                 .padding(.horizontal, 8)
@@ -463,7 +544,7 @@ struct EnhancedChurchNoteEditor: View {
 
                         HStack {
                             Image(systemName: "calendar")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.black.opacity(0.4))
                                 .frame(width: 24)
                             DatePicker("", selection: $selectedDate, displayedComponents: .date)
@@ -477,9 +558,13 @@ struct EnhancedChurchNoteEditor: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
-                        .background(Color.white)
-                        .cornerRadius(8)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.1), lineWidth: 1))
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(.thinMaterial)
+                                .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.68)))
+                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
+                        )
+                        .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
                         .padding(.horizontal, 20)
                     }
                 }
@@ -493,7 +578,7 @@ struct EnhancedChurchNoteEditor: View {
     private var scriptureSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Scripture Reference")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.black.opacity(0.5))
                 .textCase(.uppercase)
                 .tracking(1)
@@ -502,19 +587,19 @@ struct EnhancedChurchNoteEditor: View {
             // Scripture field with inline "Look up" button
             HStack {
                 Image(systemName: "book")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.black.opacity(0.4))
                     .frame(width: 24)
 
                 TextField("e.g., John 3:16", text: $scripture)
-                    .font(.system(size: 16))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(16))
+                    .foregroundStyle(.primary)
                     .tint(.black)
                     .onChange(of: scripture) { _, _ in
                         trackUnsavedChanges()
                         // Clear old verse preview when the reference changes
                         if showVersePreview {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                 showVersePreview = false
                                 verseText = nil
                             }
@@ -529,7 +614,7 @@ struct EnhancedChurchNoteEditor: View {
                             .frame(width: 52, height: 20)
                     } else {
                         Text("Look up")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(
                                 scripture.trimmingCharacters(in: .whitespaces).isEmpty
                                     ? Color.black.opacity(0.3)
@@ -549,17 +634,21 @@ struct EnhancedChurchNoteEditor: View {
                 .disabled(scripture.trimmingCharacters(in: .whitespaces).isEmpty || isLookingUpVerse)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(Color.white)
-            .cornerRadius(8)
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.1), lineWidth: 1))
+            .padding(.vertical, 13)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.thinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.68)))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
+            )
+            .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
             .padding(.horizontal, 20)
 
             // Verse preview — slides in below the field
             if showVersePreview, let verse = verseText {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(verse)
-                        .font(.system(size: 12, design: .serif).italic())
+                        .font(.systemScaled(12, design: .serif).italic())
                         .foregroundStyle(.black.opacity(0.75))
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -584,7 +673,7 @@ struct EnhancedChurchNoteEditor: View {
             if !detectedScriptures.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Detected in notes:")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.black.opacity(0.5))
                         .padding(.horizontal, 20)
 
@@ -610,7 +699,7 @@ struct EnhancedChurchNoteEditor: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Your Notes")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.black.opacity(0.5))
                     .textCase(.uppercase)
                     .tracking(1)
@@ -625,12 +714,12 @@ struct EnhancedChurchNoteEditor: View {
 
                 // Character count (debounced)
                 Text("\(characterCount) characters")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.black.opacity(0.4))
 
                 // Formatting toolbar toggle
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         showingToolbar.toggle()
                     }
                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -638,9 +727,9 @@ struct EnhancedChurchNoteEditor: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "textformat")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                         Text(showingToolbar ? "Hide" : "Format")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
@@ -670,22 +759,27 @@ struct EnhancedChurchNoteEditor: View {
             // Text editor with focus glow + milestone ring overlay
             ZStack {
                 TextEditor(text: $content)
-                    .font(.system(size: 16))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(16))
+                    .foregroundStyle(.primary)
                     .frame(minHeight: 300)
                     .padding(16)
-                    .background(Color.white)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(
-                                focusMode
-                                    ? Color.purple.opacity(0.45)
-                                    : (isContentFocused ? Color.black.opacity(0.2) : Color.black.opacity(0.1)),
-                                lineWidth: focusMode ? 1.5 : 1
+                    .scrollContentBackground(.hidden)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.thinMaterial)
+                            .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.70)))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(
+                                        focusMode
+                                            ? Color.purple.opacity(0.35)
+                                            : (isContentFocused ? Color.black.opacity(0.14) : Color.black.opacity(0.07)),
+                                        lineWidth: focusMode ? 1.5 : 1
+                                    )
+                                    .animation(.easeInOut(duration: 0.22), value: focusMode)
                             )
-                            .animation(.easeInOut(duration: 0.3), value: focusMode)
                     )
+                    .shadow(color: .black.opacity(isContentFocused ? 0.06 : 0.03), radius: 8, y: 2)
                     .focused($isContentFocused)
 
                 // Animation 3: Milestone ring + floating label
@@ -716,7 +810,7 @@ struct EnhancedChurchNoteEditor: View {
     private var quickInsertToolbar: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Insert")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.black.opacity(0.5))
                 .textCase(.uppercase)
                 .tracking(1)
@@ -772,7 +866,7 @@ struct EnhancedChurchNoteEditor: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Worship Songs")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.black.opacity(0.5))
                     .textCase(.uppercase)
                     .tracking(1)
@@ -784,9 +878,9 @@ struct EnhancedChurchNoteEditor: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                         Text("Add")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -809,13 +903,13 @@ struct EnhancedChurchNoteEditor: View {
 
                         // Remove button
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                 worshipSongs.removeAll { $0.id == song.id }
                                 trackUnsavedChanges()
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(Color(.systemGray3))
                         }
                         .buttonStyle(.plain)
@@ -827,13 +921,120 @@ struct EnhancedChurchNoteEditor: View {
         }
     }
 
+    // MARK: - Smart Feature Chip Bar
+
+    private var smartFeatureChipBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                // ── Inline panel chips ─────────────────────────────────────
+                CNFeatureChip(
+                    icon: "mic.fill",
+                    label: "Voice",
+                    isActive: showVoicePanel,
+                    accentColor: Color(hex: "16A34A")
+                ) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
+                        showVoicePanel.toggle()
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "sparkles",
+                    label: "AI Insights",
+                    isActive: showAIInsightsPanel,
+                    accentColor: .amenPurple
+                ) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
+                        showAIInsightsPanel.toggle()
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "book.closed.fill",
+                    label: "Scripture",
+                    isActive: showScriptureDNA,
+                    accentColor: .amenBlue
+                ) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
+                        showScriptureDNA.toggle()
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "antenna.radiowaves.left.and.right",
+                    label: "Radar",
+                    isActive: showRadarPanel,
+                    accentColor: .amenCyan
+                ) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
+                        showRadarPanel.toggle()
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                // Divider pip
+                Capsule()
+                    .fill(Color.primary.opacity(0.1))
+                    .frame(width: 1, height: 24)
+
+                // ── Sheet chips ────────────────────────────────────────────
+                CNFeatureChip(
+                    icon: "quote.bubble.fill",
+                    label: "Quote",
+                    isActive: false,
+                    accentColor: .cnGold
+                ) {
+                    quoteForgeVM.detectBestQuote(from: content)
+                    showQuoteForge = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "film.fill",
+                    label: "Reel",
+                    isActive: false,
+                    accentColor: .cnGold
+                ) {
+                    quoteForgeVM.detectBestQuote(from: content)
+                    showReelComposer = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "person.2.fill",
+                    label: "Duet",
+                    isActive: false,
+                    accentColor: .amenRose
+                ) {
+                    showCommunityDuet = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+
+                CNFeatureChip(
+                    icon: "chart.line.uptrend.xyaxis",
+                    label: "Growth",
+                    isActive: false,
+                    accentColor: .amenEmerald
+                ) {
+                    showGrowthArc = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 4)
+        }
+    }
+
     // MARK: - AI Tags Section
 
     private var tagsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text("AI Tags")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.black.opacity(0.5))
                     .textCase(.uppercase)
                     .tracking(1)
@@ -847,7 +1048,7 @@ struct EnhancedChurchNoteEditor: View {
                 NoteTagFlowLayout(tags: detectedTags, visibleCount: visibleTagCount)
             } else if !isAnalyzing && content.count > 50 {
                 Text("Tags appear after you write a few sentences")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.black.opacity(0.35))
                     .padding(.horizontal, 20)
             }
@@ -1032,7 +1233,7 @@ struct EnhancedChurchNoteEditor: View {
             visibleTagCount = 0
             for i in 0..<tags.count {
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.15) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6))) {
                         self.visibleTagCount = i + 1
                     }
                 }
@@ -1053,7 +1254,7 @@ struct EnhancedChurchNoteEditor: View {
                 let text = try await NoteTagService.lookupVerse(reference: ref)
                 await MainActor.run {
                     verseText = text.isEmpty ? nil : text
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
                         showVersePreview = verseText != nil
                     }
                     isLookingUpVerse = false
@@ -1150,13 +1351,13 @@ struct EnhancedChurchNoteEditor: View {
 
             if contextAllFilled {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.green)
                     .scaleEffect(contextAllFilled ? 1 : 0)
                     .animation(.spring(response: 0.4, dampingFraction: 0.6), value: contextAllFilled)
             } else {
                 Text("\(contextFilledCount)/4")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.purple)
                     .opacity(contextAllFilled ? 0 : 1)
             }
@@ -1174,7 +1375,7 @@ struct EnhancedChurchNoteEditor: View {
                 )
             if filled {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.systemScaled(7, weight: .bold))
                     .foregroundStyle(.white)
             }
         }
@@ -1230,19 +1431,19 @@ struct QuickInsertButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text(label)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(Color.white)
-            .foregroundStyle(.black.opacity(0.8))
-            .cornerRadius(8)
-            .overlay(
+            .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                    .fill(.thinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.68)))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
             )
+            .foregroundStyle(.primary)
         }
     }
 }
@@ -1341,11 +1542,11 @@ struct SongSearchSheet: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(song.title)
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .font(.systemScaled(15, weight: .semibold))
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
                                     Text(song.artist)
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
                                 }
@@ -1353,7 +1554,7 @@ struct SongSearchSheet: View {
                                 Spacer()
 
                                 Image(systemName: "plus.circle")
-                                    .font(.system(size: 20))
+                                    .font(.systemScaled(20))
                                     .foregroundStyle(Color.purple)
                             }
                             .contentShape(Rectangle())
@@ -1444,27 +1645,28 @@ private struct EditorMinimalTextField: View {
     let icon: String
     let placeholder: String
     @Binding var text: String
-    
+
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundStyle(.black.opacity(0.4))
-                .frame(width: 24)
-            
+                .font(.systemScaled(15))
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+
             TextField(placeholder, text: $text)
-                .font(.system(size: 16))
-                .foregroundStyle(.black)
-                .tint(.black)
+                .font(.systemScaled(16))
+                .foregroundStyle(.primary)
+                .tint(.primary)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(Color.white)
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.black.opacity(0.1), lineWidth: 1)
+        .padding(.vertical, 13)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.thinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.68)))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
         )
+        .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
         .padding(.horizontal, 20)
     }
 }
@@ -1505,7 +1707,7 @@ struct NoteTagFlowLayout: View {
         TagWrapLayout(spacing: 8) {
             ForEach(Array(tags.prefix(visibleCount).enumerated()), id: \.element) { idx, tag in
                 Text(tag)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.9))
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
@@ -1586,7 +1788,7 @@ class SermonTranscriptionManager: NSObject, ObservableObject {
 
     func requestPermissions() {
         SFSpeechRecognizer.requestAuthorization { _ in }
-        AVAudioSession.sharedInstance().requestRecordPermission { _ in }
+        AVAudioApplication.requestRecordPermission { _ in }
     }
 
     func start() {
@@ -1661,7 +1863,7 @@ struct SermonTranscriptionView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Control bar
                 HStack(spacing: 14) {
@@ -1763,7 +1965,7 @@ struct PhotoNotesScanSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 if mgr.isProcessing {
                     ProgressView("Reading content…").padding(40)
@@ -1784,7 +1986,7 @@ struct PhotoNotesScanSheet: View {
                 } else {
                     VStack(spacing: 16) {
                         Image(systemName: "camera.viewfinder")
-                            .font(.system(size: 64))
+                            .font(.systemScaled(64))
                             .foregroundStyle(.secondary)
                         Text("Scan a bulletin, slide, or whiteboard\nto extract text into your notes.")
                             .font(.subheadline)
@@ -1886,7 +2088,7 @@ struct BibleVerseChip: View {
                     Text(reference)
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
                 }
-                .font(.system(size: 12, design: .serif))
+                .font(.systemScaled(12, design: .serif))
                 .foregroundStyle(.orange)
                 .padding(.horizontal, 10).padding(.vertical, 5)
                 .background(Color.orange.opacity(0.1))
@@ -1899,7 +2101,7 @@ struct BibleVerseChip: View {
                     ProgressView().scaleEffect(0.7).padding(.leading, 8)
                 } else if let text = manager.verses[reference] {
                     Text("\"\(text)\"")
-                        .font(.system(size: 12, design: .serif).italic())
+                        .font(.systemScaled(12, design: .serif).italic())
                         .foregroundStyle(.primary.opacity(0.8))
                         .padding(8)
                         .background(Color.orange.opacity(0.06))
@@ -2015,11 +2217,70 @@ struct ScriptureReminderView: View {
                 mgr.isScheduled ? "Reminders On ✓" : "Memorize This Verse",
                 systemImage: mgr.isScheduled ? "bell.fill" : "bell.badge"
             )
-            .font(.system(size: 12, weight: .medium))
+            .font(.systemScaled(12, weight: .medium))
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
         .tint(mgr.isScheduled ? .green : .orange)
         .controlSize(.small)
+    }
+}
+
+// MARK: - CNFeatureChip
+// Liquid glass pill button used in the smart feature chip bar.
+// Active state glows with the chip's accent colour.
+
+struct CNFeatureChip: View {
+    let icon: String
+    let label: String
+    let isActive: Bool
+    let accentColor: Color
+    let action: () -> Void
+
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.systemScaled(12, weight: .semibold))
+                Text(label)
+                    .font(.systemScaled(12, weight: .semibold))
+            }
+            .foregroundStyle(isActive ? accentColor : Color.primary.opacity(0.65))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background {
+                Capsule()
+                    .fill(.thinMaterial)
+                    .overlay {
+                        Capsule()
+                            .fill(isActive
+                                  ? accentColor.opacity(0.12)
+                                  : Color.primary.opacity(0.03))
+                    }
+                    .overlay {
+                        Capsule()
+                            .strokeBorder(
+                                isActive
+                                    ? accentColor.opacity(0.45)
+                                    : Color.primary.opacity(0.08),
+                                lineWidth: isActive ? 1.5 : 1
+                            )
+                    }
+                    .shadow(
+                        color: isActive ? accentColor.opacity(0.25) : .clear,
+                        radius: 8, y: 3
+                    )
+            }
+            .scaleEffect(isPressed ? 0.95 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .animation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.7)), value: isActive)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded   { _ in isPressed = false }
+        )
     }
 }

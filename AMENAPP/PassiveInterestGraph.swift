@@ -83,7 +83,7 @@ class PassiveInterestGraph {
     /// Apply weekly decay to all interests (call once per session start).
     func applyDecay() {
         for key in interestWeights.keys {
-            interestWeights[key]! *= decayFactor
+            interestWeights[key] = (interestWeights[key] ?? 0) * decayFactor
         }
         // Remove near-zero entries
         interestWeights = interestWeights.filter { $0.value > 0.01 }

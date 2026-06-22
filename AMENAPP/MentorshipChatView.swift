@@ -14,10 +14,10 @@ struct MentorshipChatView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showCheckIn = false
+    @State private var showBookingAlert = false
 
     /// Build a ChatConversation suitable for UnifiedChatView
     private var conversation: ChatConversation {
-        let uid = Auth.auth().currentUser?.uid ?? ""
         return ChatConversation(
             id: chatId,
             name: mentorName,
@@ -46,11 +46,11 @@ struct MentorshipChatView: View {
                     Image(systemName: "checklist")
                         .foregroundStyle(Color(red: 0.49, green: 0.23, blue: 0.93))
                     Text("Check-in due: \"\(String(checkIn.prompt.prefix(40)))...\"")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .lineLimit(1)
                     Spacer()
                     Button("Respond") { showCheckIn = true }
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color(red: 0.49, green: 0.23, blue: 0.93))
                 }
                 .padding(.horizontal, 16)
@@ -71,13 +71,27 @@ struct MentorshipChatView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    // Book session — placeholder for calendly/in-app scheduler
-                    dlog("📅 Book session tapped")
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showBookingAlert = true
                 } label: {
                     Label("Book", systemImage: "calendar.badge.plus")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                 }
             }
+        }
+        .alert("Book a Session", isPresented: $showBookingAlert) {
+            Button("Send Request in Chat") {
+                // Insert a booking request message into the conversation
+                NotificationCenter.default.post(
+                    name: Notification.Name("MentorshipBookingRequest"),
+                    object: nil,
+                    userInfo: ["chatId": chatId, "mentorName": mentorName,
+                               "message": "Hi \(mentorName), I'd like to book a mentorship session. When are you available?"]
+                )
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Send a scheduling request to \(mentorName) through the chat.")
         }
     }
 }

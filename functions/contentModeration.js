@@ -13,6 +13,38 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 
+// Shared decision persistence. Lazy-require to avoid circular dep at load time.
+function getGateway() {
+  return require('./moderationGateway');
+}
+
+/**
+ * Write a record to moderationDecisions/ for every callable moderation result.
+ * Non-fatal: errors are logged but do not fail the submission pipeline.
+ */
+async function writeDecisionRecord(uid, contentId, contentType, decision, reasons) {
+  try {
+    const { persistDecision } = getGateway();
+    return await persistDecision({
+      uid,
+      contentType,
+      contextId: contentId || null,
+      decision: decision === 'allow' ? 'allow'
+              : decision === 'reject' ? 'block'
+              : decision === 'hold_for_review' ? 'review'
+              : 'warn',
+      reason: reasons?.join('; ') || null,
+      detectedCategories: [],
+      crisisEscalated: false,
+      contentLength: 0,
+      source: 'contentModeration_callable',
+    });
+  } catch (err) {
+    console.error('[contentModeration] writeDecisionRecord failed:', err.message);
+    return null;
+  }
+}
+
 // Lazy-initialize Language client to avoid blocking module load (causes deploy timeout)
 const {LanguageServiceClient} = require('@google-cloud/language');
 let _languageClient = null;
@@ -117,6 +149,9 @@ exports.moderateContent = functions.https.onCall(async (data, context) => {
       await storeContentFingerprint(userId, contentText, contentType);
     }
 
+    // 8. Write canonical moderationDecisions/ record (hard rule: every decision persisted)
+    const decisionId = await writeDecisionRecord(userId, contentId, contentType, decision.action, decision.reasons);
+
     return {
       decision: decision.action,
       confidence: decision.confidence,
@@ -125,6 +160,7 @@ exports.moderateContent = functions.https.onCall(async (data, context) => {
       reviewRequired: decision.reviewRequired,
       appealable: decision.appealable,
       userMessage: decision.userMessage,
+      decisionId: decisionId || null,
       // Don't return scores to client (internal only)
     };
 
@@ -647,11 +683,6 @@ async function logModerationError(userId, contentType, error) {
  * Runs toxicity + spam checks on post text from a Firestore trigger.
  * Returns { shouldRemove, action, reasons } so the caller can decide.
  * Fails open on error (post remains visible; flagged for review).
- *
- * @param {string} postId
- * @param {string} userId
- * @param {string} text
- * @returns {Promise<{shouldRemove: boolean, action: string, reasons: string[]}>}
  */
 exports.moderatePostText = async function moderatePostText(postId, userId, text) {
   try {
@@ -712,87 +743,12 @@ exports.moderatePostText = async function moderatePostText(postId, userId, text)
     return { shouldRemove: action === 'remove', action, reasons };
   } catch (error) {
     console.error(`[onPostCreate moderation] Error for post ${postId}:`, error);
-    // Fail open: post stays visible, flagged for async review
-    return { shouldRemove: false, action: 'error_allow', reasons: [] };
+    // SECURITY FIX: Fail CLOSED — on error, post is hidden and queued for human review.
+    // Previously this returned 'error_allow' (fail open) which published unmoderated content.
+    // On a platform with minor users, fail open is never acceptable.
+    return { shouldRemove: false, action: 'pending_review', reasons: ['moderation_error'] };
   }
 };
 
-// ============================================================================
-// SERVER-SIDE POST MODERATION TRIGGER (Firestore onWrite)
-// Runs moderation whenever a new post is created or its text changes.
-// Bypasses client-side moderation for direct Firestore writes.
-// ============================================================================
-
-const {onDocumentWritten} = require('firebase-functions/v2/firestore');
-
-exports.serverSidePostModeration = onDocumentWritten(
-  {document: 'posts/{postId}', region: 'us-central1'},
-  async (event) => {
-    const postId = event.params.postId;
-    const afterData = event.data.after.data();
-
-    // Skip deletes
-    if (!afterData) return null;
-
-    // Skip if already moderated server-side (avoid infinite loops)
-    if (afterData.serverModerated === true) return null;
-
-    // Skip if post is already removed or flagged (no need to re-run)
-    if (afterData.removed === true) return null;
-
-    const userId = afterData.userId || afterData.authorId;
-    const text = afterData.content || '';
-
-    if (!text || text.length < 3) return null;
-
-    console.log(`🛡️ [serverSidePostModeration] Running on post ${postId}`);
-
-    try {
-      const result = await exports.moderatePostText(postId, userId, text);
-      const db = admin.firestore();
-
-      // Write unified moderation_jobs record (non-fatal)
-      await writeModerationJob({
-        contentId: postId,
-        contentType: 'post',
-        authorId: userId,
-        contentSnapshot: text.substring(0, 4000),
-        scores: {
-          toxicity: result.toxicityScore || 0,
-          spam: result.spamScore || 0,
-        },
-        decision: { action: result.action, reasons: result.reasons, confidence: result.confidence || 0 },
-        signals: result.reasons || [],
-      });
-
-      if (result.action === 'remove') {
-        await db.collection('posts').doc(postId).update({
-          removed: true,
-          moderationStatus: 'rejected',
-          moderationReasons: result.reasons,
-          serverModerated: true,
-          serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        console.log(`🚫 [serverSidePostModeration] Post ${postId} removed`);
-      } else if (result.action === 'flag_for_review') {
-        await db.collection('posts').doc(postId).update({
-          flaggedForReview: true,
-          moderationReasons: result.reasons,
-          serverModerated: true,
-          serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        console.log(`⚠️ [serverSidePostModeration] Post ${postId} flagged`);
-      } else {
-        // Mark as server-moderated so we don't re-run
-        await db.collection('posts').doc(postId).update({
-          serverModerated: true,
-          serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      }
-    } catch (err) {
-      console.error(`[serverSidePostModeration] Error:`, err);
-    }
-
-    return null;
-  }
-);
+// serverSidePostModeration (v2 Firestore trigger) lives in contentModerationTriggers.js
+// to avoid mixing gen1 and gen2 in the same file.

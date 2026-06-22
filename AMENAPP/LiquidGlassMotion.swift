@@ -109,9 +109,7 @@ struct GlassExpandableCard<Header: View, Detail: View>: View {
         }
         .padding(16)
         // Liquid Glass background — morphs shape on expand/collapse
-        .glassEffect(
-            Glass.regular,
-            in: RoundedRectangle(cornerRadius: isExpanded ? cornerRadius + 4 : cornerRadius,
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: isExpanded ? cornerRadius + 4 : cornerRadius,
                                  style: .continuous)
         )
         .glassEffectID(glassId, in: namespace)
@@ -143,13 +141,15 @@ struct GlassExpandableCard<Header: View, Detail: View>: View {
         if expanded {
             // Layer 1 is the header itself — already visible
             // Layer 2: short delay after container expansion
-            DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0 : 0.12)) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(reduceMotion ? 0 : 120))
                 withAnimation(AmenMotion.cardAnimation(reduceMotion)) {
                     showLayer2 = true
                 }
             }
             // Layer 3: secondary details follow
-            DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0 : 0.22)) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(reduceMotion ? 0 : 220))
                 withAnimation(AmenMotion.cardAnimation(reduceMotion)) {
                     showLayer3 = true
                 }
@@ -177,6 +177,7 @@ struct BackgroundRefocusModifier: ViewModifier {
         content
             .blur(radius: (isActive && !reduceMotion) ? 2.5 : 0)
             .opacity(isActive ? 0.55 : 1.0)
+            .saturation(isActive ? 0.88 : 1.0)
             .allowsHitTesting(!isActive)
             .animation(AmenMotion.refocus, value: isActive)
     }
@@ -281,20 +282,19 @@ private struct GlassSheetContainer<C: View>: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Animated backdrop overlay
+            // Animated backdrop overlay — constant material, only opacity animates
             Color.black
                 .opacity(isVisible ? 0.65 : 0)
-                .background(isVisible ? .ultraThinMaterial : .regularMaterial)
+                .background(.ultraThinMaterial)
                 .animation(.easeOut(duration: 0.35), value: isVisible)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            // Glass surface with spring entrance
+            // Glass surface with spring entrance — blur removed (forces software rasterization)
             content()
                 .opacity(showPrimary ? 1 : 0)
                 .offset(y: showPrimary ? 0 : 24)
                 .scaleEffect(isVisible ? 1.0 : 0.82)
-                .blur(radius: isVisible ? 0 : 12)
                 .opacity(isVisible ? 1 : 0)
                 .animation(.spring(response: 0.45, dampingFraction: 0.65), value: isVisible)
         }
@@ -305,7 +305,12 @@ private struct GlassSheetContainer<C: View>: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(32)
-        .presentationBackground(.regularMaterial)
+        .presentationBackground(.clear)
+        // HIGH FIX: The custom ZStack backdrop overlay can allow VoiceOver to
+        // navigate behind the sheet surface to dimmed content. Adding the .isModal
+        // trait constrains VoiceOver focus to this view's subtree, equivalent to
+        // setting accessibilityViewIsModal = true in UIKit.
+        .accessibilityAddTraits(.isModal)
     }
 
     private func stageIn() {
@@ -314,7 +319,8 @@ private struct GlassSheetContainer<C: View>: View {
             showPrimary = true
         }
         // Stage 2: supporting actions/options
-        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0 : 0.14)) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(reduceMotion ? 0 : 140))
             withAnimation(AmenMotion.sheetAnimation(reduceMotion)) {
                 showActions = true
             }

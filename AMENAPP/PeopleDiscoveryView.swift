@@ -9,6 +9,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 import Combine
 import CoreLocation
 
@@ -70,7 +71,7 @@ class DiscoveryViewModel: ObservableObject {
     private var lastDocument: DocumentSnapshot?
     private let pageSize = 30
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var searchTask: Task<Void, Never>?
     private var connectionsCache: (following: Set<String>, followers: Set<String>)?
     // Fix #5: subscription to FollowService
@@ -139,7 +140,7 @@ class DiscoveryViewModel: ObservableObject {
     func loadTrendingFromFirestore() async {
         // Static is already loaded in init(); Firestore results replace when ready.
         defer { isLoadingTrending = false }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // 1. Try the curated `trending` collection (managed by Cloud Functions)
         do {
@@ -189,6 +190,7 @@ class DiscoveryViewModel: ObservableObject {
                     do {
                         let snap = try await db.collection("posts")
                             .whereField("topicTag", isEqualTo: topic.title)
+                            .whereField("visibility", isEqualTo: "everyone")
                             .count
                             .getAggregation(source: .server)
                         count = snap.count.intValue
@@ -396,7 +398,9 @@ class DiscoveryViewModel: ObservableObject {
                     .map { $0.toUserModel() }
                 return
             }
-        } catch {}
+        } catch {
+            dlog("⚠️ [PeopleDiscovery] Algolia search failed, falling back to Firestore: \(error.localizedDescription)")
+        }
 
         // Firestore prefix fallback (only if Algolia returned nothing)
         do {
@@ -546,11 +550,15 @@ struct PeopleDiscoveryViewNew: View {
     @State private var selectedTopic: TrendingTopic? = nil
     // scopeHaptic replaced by HapticManager
 
+    // Vibe Match: AI reason why each suggested user connects with current user
+    @State private var vibeMatchReasons: [String: String] = [:]
+    @State private var vibeMatchLoading: Set<String> = []
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
                 // Background
-                Color(uiColor: .systemBackground)
+                Color(.systemGroupedBackground)
                     .ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
@@ -612,7 +620,7 @@ struct PeopleDiscoveryViewNew: View {
             )
             .sheet(item: $showProfileSheet) { user in
                 if let uid = user.id, !uid.isEmpty {
-                    NavigationView { SafeUserProfileWrapper(userId: uid) }
+                    NavigationStack { SafeUserProfileWrapper(userId: uid) }
                 }
             }
             .task {
@@ -689,7 +697,8 @@ struct PeopleDiscoveryViewNew: View {
             },
             onClose: {
                 searchText = ""
-            }
+            },
+            scrollProgress: max(0, min(1, -scrollOffset / 80))
         )
     }
 
@@ -728,7 +737,7 @@ struct PeopleDiscoveryViewNew: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Recent Searches")
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                     .foregroundStyle(.primary)
                 Spacer()
                 Button("Clear") {
@@ -737,7 +746,7 @@ struct PeopleDiscoveryViewNew: View {
                     }
                     HapticManager.impact(style: .light)
                 }
-                .font(.custom("OpenSans-Medium", size: 14))
+                .font(AMENFont.medium(14))
                 .foregroundStyle(.blue)
             }
             .padding(.horizontal, 20)
@@ -751,18 +760,18 @@ struct PeopleDiscoveryViewNew: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "clock.arrow.circlepath")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 22)
 
                             Text(term)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.primary)
 
                             Spacer()
 
                             Image(systemName: "arrow.up.left")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(.horizontal, 20)
@@ -777,10 +786,12 @@ struct PeopleDiscoveryViewNew: View {
                     }
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemBackground))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
             )
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
             .padding(.horizontal, 16)
         }
         .padding(.bottom, 28)
@@ -791,7 +802,7 @@ struct PeopleDiscoveryViewNew: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Trending Topics")
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                     .foregroundStyle(.primary)
                 Spacer()
             }
@@ -805,10 +816,12 @@ struct PeopleDiscoveryViewNew: View {
                         if i < 3 { Divider().padding(.leading, 70) }
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
             } else if vm.trendingTopics.isEmpty {
                 // P2: Proper empty state for no trending topics
@@ -816,10 +829,10 @@ struct PeopleDiscoveryViewNew: View {
                     Spacer()
                     VStack(spacing: 8) {
                         Image(systemName: "chart.line.uptrend.xyaxis")
-                            .font(.system(size: 28, weight: .light))
+                            .font(.systemScaled(28, weight: .light))
                             .foregroundStyle(.tertiary)
                         Text("No trending topics yet")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 28)
@@ -840,25 +853,25 @@ struct PeopleDiscoveryViewNew: View {
                                         .fill(topic.iconColor.opacity(0.12))
                                         .frame(width: 40, height: 40)
                                     Image(systemName: topic.icon)
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.systemScaled(16, weight: .medium))
                                         .foregroundStyle(topic.iconColor)
                                 }
                                 .accessibilityHidden(true)
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(topic.title)
-                                        .font(.custom("OpenSans-SemiBold", size: 15))
+                                        .font(AMENFont.semiBold(15))
                                         .foregroundStyle(.primary)
                                     // P1: Fixed post count format — correct K rounding
                                     Text(formattedPostCount(topic.postsCount))
-                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .font(AMENFont.regular(13))
                                         .foregroundStyle(.secondary)
                                 }
 
                                 Spacer()
 
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.tertiary)
                             }
                             .padding(.horizontal, 16)
@@ -874,10 +887,12 @@ struct PeopleDiscoveryViewNew: View {
                         }
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
             }
         }
@@ -900,7 +915,7 @@ struct PeopleDiscoveryViewNew: View {
     private var suggestedPeopleSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Suggested People")
-                .font(.custom("OpenSans-SemiBold", size: 16))
+                .font(AMENFont.semiBold(16))
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 20)
 
@@ -912,10 +927,12 @@ struct PeopleDiscoveryViewNew: View {
                         if i < 4 { Divider().padding(.leading, 74) }
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
             } else if !vm.isLoadingSuggestions && vm.suggestedPeople.isEmpty {
                 // P1: Genuine empty state (not a loading state)
@@ -923,13 +940,13 @@ struct PeopleDiscoveryViewNew: View {
                     Spacer()
                     VStack(spacing: 10) {
                         Image(systemName: "person.2.slash")
-                            .font(.system(size: 32, weight: .light))
+                            .font(.systemScaled(32, weight: .light))
                             .foregroundStyle(.tertiary)
                         Text("No suggestions right now")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                             .foregroundStyle(.primary)
                         Text("Check back soon as your community grows.")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
@@ -940,19 +957,33 @@ struct PeopleDiscoveryViewNew: View {
             } else {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(vm.suggestedPeople.enumerated()), id: \.element.id) { idx, user in
-                        DiscoveryPersonRow(
-                            user: user,
-                            isFollowing: vm.followingUserIds.contains(user.id ?? ""),
-                            cardIndex: idx,
-                            onTap: { showProfileSheet = user },
-                            onFollow: {
-                                if let uid = user.id { vm.toggleFollow(userId: uid) }
+                        VStack(spacing: 0) {
+                            DiscoveryPersonRow(
+                                user: user,
+                                isFollowing: vm.followingUserIds.contains(user.id ?? ""),
+                                cardIndex: idx,
+                                onTap: { showProfileSheet = user },
+                                onFollow: {
+                                    if let uid = user.id { vm.toggleFollow(userId: uid) }
+                                }
+                            )
+                            .onAppear {
+                                let threshold = Int(Double(vm.suggestedPeople.count) * 0.8)
+                                if idx >= threshold && vm.hasMore {
+                                    Task { await vm.loadMoreSuggested() }
+                                }
+                                if let uid = user.id { fetchVibeMatch(for: uid) }
                             }
-                        )
-                        .onAppear {
-                            let threshold = Int(Double(vm.suggestedPeople.count) * 0.8)
-                            if idx >= threshold && vm.hasMore {
-                                Task { await vm.loadMoreSuggested() }
+
+                            // Vibe Match: AI connection reason line
+                            if let uid = user.id {
+                                VibeMatchRow(
+                                    reason: vibeMatchReasons[uid],
+                                    isLoading: vibeMatchLoading.contains(uid)
+                                )
+                                .padding(.leading, 74)
+                                .padding(.trailing, 16)
+                                .padding(.bottom, 10)
                             }
                         }
 
@@ -970,10 +1001,12 @@ struct PeopleDiscoveryViewNew: View {
                         .padding(.vertical, 16)
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
             }
         }
@@ -990,7 +1023,7 @@ struct PeopleDiscoveryViewNew: View {
                 VStack(spacing: 12) {
                     AMENLoadingIndicator()
                     Text("Searching...")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -1001,13 +1034,13 @@ struct PeopleDiscoveryViewNew: View {
             // Fix #11: visible error state with retry
             VStack(spacing: 16) {
                 Image(systemName: "wifi.exclamationmark")
-                    .font(.system(size: 40, weight: .light))
+                    .font(.systemScaled(40, weight: .light))
                     .foregroundStyle(.orange)
                 Text("Search unavailable")
-                    .font(.custom("OpenSans-SemiBold", size: 17))
+                    .font(AMENFont.semiBold(17))
                     .foregroundStyle(.primary)
                 Text(errorMsg)
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                 Button {
@@ -1015,7 +1048,7 @@ struct PeopleDiscoveryViewNew: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Text("Retry")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 10)
@@ -1029,13 +1062,13 @@ struct PeopleDiscoveryViewNew: View {
         } else if vm.userResults.isEmpty && vm.postResults.isEmpty && vm.churchResults.isEmpty {
             VStack(spacing: 16) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 44, weight: .light))
+                    .font(.systemScaled(44, weight: .light))
                     .foregroundStyle(.tertiary)
                 Text("No results for \"\(searchText)\"")
-                    .font(.custom("OpenSans-SemiBold", size: 17))
+                    .font(AMENFont.semiBold(17))
                     .foregroundStyle(.primary)
                 Text("Try a different search term")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
             }
             .padding(.top, 80)
@@ -1092,24 +1125,101 @@ struct PeopleDiscoveryViewNew: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                     .foregroundStyle(.primary)
                 Text("(\(count))")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                 Spacer()
             }
             .padding(.horizontal, 20)
 
             VStack(spacing: 0) { content() }
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
         }
         .padding(.bottom, 24)
         .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    // MARK: - Vibe Match
+
+    private func fetchVibeMatch(for targetUserId: String) {
+        guard vibeMatchReasons[targetUserId] == nil,
+              !vibeMatchLoading.contains(targetUserId),
+              let currentUserId = FirebaseAuth.Auth.auth().currentUser?.uid,
+              currentUserId != targetUserId else { return }
+        vibeMatchLoading.insert(targetUserId)
+        Task {
+            do {
+                let functions = Functions.functions()
+                let result = try await functions.httpsCallable("vibeMatch").call([
+                    "currentUserId": currentUserId,
+                    "targetUserId": targetUserId,
+                ])
+                if let data = result.data as? [String: Any],
+                   let reason = data["reason"] as? String,
+                   !reason.isEmpty {
+                    await MainActor.run {
+                        vibeMatchReasons[targetUserId] = reason
+                        _ = vibeMatchLoading.remove(targetUserId)
+                    }
+                } else {
+                    await MainActor.run { _ = vibeMatchLoading.remove(targetUserId) }
+                }
+            } catch {
+                await MainActor.run { _ = vibeMatchLoading.remove(targetUserId) }
+            }
+        }
+    }
+}
+
+// MARK: - Vibe Match Row
+
+struct VibeMatchRow: View {
+    let reason: String?
+    let isLoading: Bool
+
+    @State private var isExpanded = false
+
+    var body: some View {
+        if isLoading {
+            HStack(spacing: 5) {
+                Image(systemName: "sparkles")
+                    .font(.systemScaled(10))
+                    .foregroundStyle(Color.indigo.opacity(0.5))
+                Capsule()
+                    .fill(Color(.systemGray5))
+                    .frame(width: 120, height: 10)
+            }
+            .transition(.opacity)
+        } else if let reason = reason {
+            Button {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.72))) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(alignment: .top, spacing: 5) {
+                    Image(systemName: "sparkles")
+                        .font(.systemScaled(10, weight: .semibold))
+                        .foregroundStyle(Color.indigo)
+                        .padding(.top, 1)
+                    Text(reason)
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(isExpanded ? 2 : 1)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
+                }
+            }
+            .buttonStyle(.plain)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
     }
 }
 
@@ -1124,9 +1234,9 @@ struct ScopeTabButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: scope.icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                 Text(scope.rawValue)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
             }
             .foregroundStyle(isSelected ? Color(uiColor: .systemBackground) : .primary)
             .padding(.horizontal, 14)
@@ -1176,12 +1286,12 @@ struct DiscoveryPersonRow: View {
                                 .clipShape(Circle())
                         } placeholder: {
                             Text(user.initials)
-                                .font(.custom("OpenSans-Bold", size: 17))
+                                .font(AMENFont.bold(17))
                                 .foregroundStyle(.secondary)
                         }
                     } else {
                         Text(user.initials)
-                            .font(.custom("OpenSans-Bold", size: 17))
+                            .font(AMENFont.bold(17))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1196,13 +1306,13 @@ struct DiscoveryPersonRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 5) {
                         Text(user.displayName)
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
 
                         if localIsFollowing {
                             Text("Following")
-                                .font(.custom("OpenSans-Medium", size: 11))
+                                .font(AMENFont.medium(11))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
@@ -1214,26 +1324,26 @@ struct DiscoveryPersonRow: View {
 
                     HStack(spacing: 5) {
                         Text("@\(user.username)")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
 
                         if user.followersCount > 0 {
                             Text("•").foregroundStyle(.tertiary).accessibilityHidden(true)
                             Image(systemName: "person.2.fill")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                                 .foregroundStyle(.tertiary)
                                 .accessibilityHidden(true)
                             // P2: format large follower counts
                             Text(formatFollowerCount(user.followersCount))
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .foregroundStyle(.secondary)
                         }
                     }
 
                     if let bio = user.bio, !bio.isEmpty {
                         Text(bio)
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -1250,7 +1360,7 @@ struct DiscoveryPersonRow: View {
                 HapticManager.impact(style: .light)
                 // Toggle local state immediately so button reflects new state
                 // even before the parent ForEach re-renders via FollowService.
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                     if !localIsFollowing { showCheckmark = true }
                     localIsFollowing.toggle()
                 }
@@ -1265,7 +1375,7 @@ struct DiscoveryPersonRow: View {
                         Capsule()
                             .fill(Color.accentColor)
                         Image(systemName: "checkmark")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(.white)
                             .transition(.scale.combined(with: .opacity))
                     } else if localIsFollowing {
@@ -1273,7 +1383,7 @@ struct DiscoveryPersonRow: View {
                         Capsule()
                             .strokeBorder(Color.secondary.opacity(0.4), lineWidth: 1.5)
                         Text("Following")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(.secondary)
                             .transition(.scale.combined(with: .opacity))
                     } else {
@@ -1282,7 +1392,7 @@ struct DiscoveryPersonRow: View {
                             .fill(Color.primary)
                             .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
                         Text("Follow")
-                            .font(.custom("OpenSans-Bold", size: 13))
+                            .font(AMENFont.bold(13))
                             .foregroundStyle(Color(uiColor: .systemBackground))
                             .transition(.scale.combined(with: .opacity))
                     }
@@ -1308,7 +1418,7 @@ struct DiscoveryPersonRow: View {
             // P1: Cap stagger at 6 items (0.04 * 6 = 0.24s max) — beyond that no delay
             // Avoids long "waterfall" when a large list is scrolled into view.
             let delay = cardIndex < 8 ? Double(cardIndex) * 0.04 : 0
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8).delay(delay)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8)).delay(delay)) {
                 appeared = true
             }
         }
@@ -1316,7 +1426,7 @@ struct DiscoveryPersonRow: View {
         // after the optimistic toggle (e.g. server revert on error).
         .onChange(of: isFollowing) { _, newValue in
             if newValue != localIsFollowing {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     localIsFollowing = newValue
                 }
             }
@@ -1359,32 +1469,32 @@ struct DiscoveryPostRow: View {
                         .fill(categoryColor(post.category).opacity(0.1))
                         .frame(width: 36, height: 36)
                     Image(systemName: categoryIcon(post.category))
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(categoryColor(post.category))
                 }
                 .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(post.content)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
 
                     HStack(spacing: 6) {
                         Text("by \(post.authorName)")
-                            .font(.custom("OpenSans-Medium", size: 12))
+                            .font(AMENFont.medium(12))
                             .foregroundStyle(.secondary)
 
                         Text("•").foregroundStyle(.tertiary).accessibilityHidden(true)
 
                         Text(post.category.capitalized)
-                            .font(.custom("OpenSans-Medium", size: 12))
+                            .font(AMENFont.medium(12))
                             .foregroundStyle(categoryColor(post.category))
 
                         if let count = post.amenCount, count > 0 {
                             Text("•").foregroundStyle(.tertiary).accessibilityHidden(true)
                             Text("\(count) Amens")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -1393,7 +1503,7 @@ struct DiscoveryPostRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
@@ -1407,7 +1517,7 @@ struct DiscoveryPostRow: View {
         .sheet(isPresented: $navigateToPost) {
             // Navigate to post detail — sheet is safe here since we're inside a list
             if let postId = Optional(post.objectID), !postId.isEmpty {
-                NavigationView {
+                NavigationStack {
                     PostDetailViewWrapper(postId: postId)
                 }
             }
@@ -1449,19 +1559,19 @@ private struct PostDetailViewWrapper: View {
                 VStack(spacing: 14) {
                     AMENLoadingIndicator()
                     Text("Loading post…")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if loadFailed || post == nil {
                 VStack(spacing: 16) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 40, weight: .light))
+                        .font(.systemScaled(40, weight: .light))
                         .foregroundStyle(.orange)
                     Text("Post unavailable")
-                        .font(.custom("OpenSans-SemiBold", size: 17))
+                        .font(AMENFont.semiBold(17))
                     Button("Close") { dismiss() }
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                 }
             } else if let p = post {
                 PostDetailView(post: p)
@@ -1471,7 +1581,7 @@ private struct PostDetailViewWrapper: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Done") { dismiss() }
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
             }
         }
         .task {
@@ -1518,12 +1628,12 @@ struct DiscoveryChurchRow: View {
                                 .clipShape(Circle())
                         } placeholder: {
                             Image(systemName: "building.columns.fill")
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.systemScaled(18, weight: .medium))
                                 .foregroundStyle(.secondary)
                         }
                     } else {
                         Image(systemName: "building.columns.fill")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1531,20 +1641,20 @@ struct DiscoveryChurchRow: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(church.name)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
                     if !church.address.isEmpty {
                         Text(church.address)
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
 
                     if let denom = church.denomination, !denom.isEmpty {
                         Text(denom)
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                     }
@@ -1553,7 +1663,7 @@ struct DiscoveryChurchRow: View {
                 Spacer(minLength: 8)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
@@ -1565,12 +1675,12 @@ struct DiscoveryChurchRow: View {
         .accessibilityLabel("\(church.name)\(church.denomination.map { ", \($0)" } ?? "")")
         .accessibilityHint("Tap to view church profile")
         .sheet(isPresented: $showProfile) {
-            NavigationView {
+            NavigationStack {
                 ChurchProfileView(churchId: church.id)
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button("Done") { showProfile = false }
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                         }
                     }
             }
@@ -1628,25 +1738,25 @@ struct TrendingTopicFeedView: View {
                 VStack(spacing: 14) {
                     AMENLoadingIndicator()
                     Text("Loading posts…")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                 }
             } else if let err = loadError {
                 VStack(spacing: 16) {
                     Image(systemName: "wifi.exclamationmark")
-                        .font(.system(size: 42, weight: .light))
+                        .font(.systemScaled(42, weight: .light))
                         .foregroundStyle(.orange)
                     Text("Couldn't load posts")
-                        .font(.custom("OpenSans-SemiBold", size: 17))
+                        .font(AMENFont.semiBold(17))
                     Text(err)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                     Button("Retry") {
                         Task { await loadPosts() }
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .padding(.horizontal, 24).padding(.vertical, 10)
                     .background(Capsule().fill(Color.primary))
                     .foregroundStyle(Color(uiColor: .systemBackground))
@@ -1659,14 +1769,14 @@ struct TrendingTopicFeedView: View {
                             .fill(topic.backgroundColor)
                             .frame(width: 72, height: 72)
                         Image(systemName: topic.icon)
-                            .font(.system(size: 32, weight: .medium))
+                            .font(.systemScaled(32, weight: .medium))
                             .foregroundStyle(topic.iconColor)
                     }
                     Text("No posts yet for \"\(topic.title)\"")
-                        .font(.custom("OpenSans-SemiBold", size: 17))
+                        .font(AMENFont.semiBold(17))
                         .foregroundStyle(.primary)
                     Text("Be the first to share your thoughts!")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                 }
             } else {
@@ -1691,7 +1801,7 @@ struct TrendingTopicFeedView: View {
                         .fill(topic.backgroundColor)
                         .frame(width: 34, height: 34)
                     Image(systemName: topic.icon)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(topic.iconColor)
                 }
             }

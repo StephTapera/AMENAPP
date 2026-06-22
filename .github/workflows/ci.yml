@@ -2,9 +2,9 @@ name: AMEN CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, audit/platform-os, integration]
   push:
-    branches: [main]
+    branches: [main, audit/platform-os, integration]
 
 concurrency:
   group: ci-${{ github.ref }}

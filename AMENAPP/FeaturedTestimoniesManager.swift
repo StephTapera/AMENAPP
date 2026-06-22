@@ -109,11 +109,11 @@ struct FeaturedBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "star.fill")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundColor(.yellow)
             
             Text("FEATURED")
-                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .font(.systemScaled(10, weight: .bold, design: .rounded))
                 .tracking(0.5)
                 .foregroundColor(.white)
         }
@@ -140,16 +140,16 @@ struct RotationCountdownView: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundColor(.white.opacity(0.6))
             
             VStack(alignment: .leading, spacing: 2) {
                 Text("Featured This Week")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundColor(.white.opacity(0.8))
                 
                 Text("Rotates in \(rotationInfo.daysUntilRotation) days • \(rotationInfo.formattedNextRotation)")
-                    .font(.system(size: 10, weight: .regular))
+                    .font(.systemScaled(10, weight: .regular))
                     .foregroundColor(.white.opacity(0.5))
             }
         }
@@ -288,7 +288,7 @@ class SeasonalFeaturedManager: ObservableObject {
                      showQuickTestimony = true
                  } label: {
                      Image(systemName: "plus.circle.fill")
-                         .font(.system(size: 28))
+                         .font(.systemScaled(28))
                          .foregroundStyle(
                              LinearGradient(
                                  colors: [.pink, .purple],

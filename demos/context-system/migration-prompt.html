@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AMEN — Migration Prompt (copy-paste)</title>
+<!--
+  Wave 3 · universal-import · HTML demo BEFORE SwiftUI (CONTRACTS §9).
+  This is the COPY-PASTE PROMPT a user runs inside ChatGPT / Claude / Gemini.
+  Its output pastes cleanly into AMEN's universal import box, where it flows
+  through the ONE pipeline: normalize → drop excluded → C59 sanitize →
+  extractContextFacets → review & approve.
+
+  This mock mirrors MigrationPromptView.swift (gated on contextUniversalImportEnabled).
+  Invariants reflected here (and enforced for real in code):
+   - The prompt asks the assistant to describe the PERSON in categories, never their
+     contacts, messages, emails, phone numbers, or media.
+   - Output is plain text/markdown — it is DATA AMEN extracts, never instructions.
+   - Nothing is saved until the user approves each facet in AMEN (approval before persistence).
+   - No spiritual ranking anywhere.
+-->
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --ink: #1c1b18;
+    --muted: #6b675f;
+    --line: rgba(28,27,24,0.10);
+    --glass: rgba(255,255,255,0.62);
+    --glass-stroke: rgba(255,255,255,0.55);
+    --accent: #2a4d9a;
+    --ok: #1f7a3d;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1200px 600px at 20% -10%, #fefbf3 0%, transparent 60%),
+      radial-gradient(900px 500px at 90% 10%, #efe7d6 0%, transparent 55%),
+      var(--bg);
+    padding: 24px 16px 96px;
+  }
+  .wrap { max-width: 620px; margin: 0 auto; }
+  header h1 { font-size: 26px; font-weight: 700; margin: 4px 0 2px; }
+  header p { color: var(--muted); font-size: 14px; margin: 0 0 6px; line-height: 1.45; }
+
+  .steps { display: flex; gap: 10px; margin: 16px 0 18px; flex-wrap: wrap; }
+  .step {
+    flex: 1; min-width: 140px;
+    background: var(--glass); border: 0.8px solid var(--glass-stroke);
+    border-radius: 14px; padding: 12px 14px; backdrop-filter: blur(10px);
+  }
+  .step .n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 999px;
+    background: var(--ink); color: #fff; font-size: 12px; font-weight: 700; margin-bottom: 8px;
+  }
+  .step .t { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .step .d { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+  .promptcard {
+    background: var(--glass); border: 0.8px solid var(--glass-stroke);
+    border-radius: var(--radius); padding: 16px; backdrop-filter: blur(14px);
+    box-shadow: 0 8px 30px rgba(28,27,24,0.06);
+  }
+  .promptcard .bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .promptcard .bar .label { font-size: 13px; font-weight: 700; }
+  .copybtn {
+    border: 0.8px solid var(--glass-stroke); background: var(--ink); color: #fff;
+    font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  }
+  .copybtn.copied { background: var(--ok); }
+  pre {
+    margin: 0; white-space: pre-wrap; word-wrap: break-word;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: 12.5px; line-height: 1.55; color: var(--ink);
+    background: rgba(255,255,255,0.5); border: 0.8px solid var(--line);
+    border-radius: 12px; padding: 14px; max-height: 360px; overflow: auto;
+  }
+
+  .reassure {
+    margin-top: 16px; background: rgba(31,122,61,0.08);
+    border: 0.8px solid rgba(31,122,61,0.25); border-radius: 14px; padding: 12px 14px;
+  }
+  .reassure .h { font-size: 13px; font-weight: 700; color: var(--ok); margin-bottom: 4px; }
+  .reassure ul { margin: 6px 0 0; padding-left: 18px; }
+  .reassure li { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .foot { font-size: 12px; color: var(--muted); margin-top: 18px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Bring your context to AMEN</h1>
+    <p>Run this prompt in ChatGPT, Claude, or Gemini. Copy the answer it gives you, and paste it
+       into AMEN's import box. AMEN reads it to understand <em>you</em> — then you approve every
+       detail before anything is saved.</p>
+  </header>
+
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div class="t">Copy the prompt</div><div class="d">Tap “Copy prompt” below.</div></div>
+    <div class="step"><div class="n">2</div><div class="t">Run it in your assistant</div><div class="d">Paste it into ChatGPT / Claude / Gemini and send.</div></div>
+    <div class="step"><div class="n">3</div><div class="t">Paste the answer into AMEN</div><div class="d">Review &amp; approve each facet — nothing saves until you do.</div></div>
+  </div>
+
+  <div class="promptcard">
+    <div class="bar">
+      <span class="label">Copy-paste prompt</span>
+      <button class="copybtn" id="copyBtn" onclick="copyPrompt()">Copy prompt</button>
+    </div>
+    <pre id="prompt">I'm setting up a new profile on AMEN, a faith-and-community app. Based on everything you know about me from our past conversations and anything I paste below, write a clear plain-text summary that describes WHO I AM as a person, so a new app can understand me.
+
+Organize it under these headings, and only include a heading if you genuinely have something for it:
+- Interests &amp; topics that energize me
+- Values that matter to me
+- Goals I'm actively pursuing
+- Skills I have
+- Communities &amp; kinds of groups important to me (as kinds/places, not lists of people)
+- How I like to communicate (preferred tone, conversation styles, online behaviors I find draining)
+- What I'm currently focused on / my season right now
+- Work / what I do
+- Learning styles or how I like to grow
+- Faith — ONLY if it's clearly part of who I am, and only to the depth I've shared. Do not assume I'm religious. Never rank or grade my faith.
+
+Hard rules for your summary:
+- Describe me in CATEGORIES and PREFERENCES, never as data to harvest.
+- Do NOT include other people's names, my contacts, the contents of any messages/DMs/emails, phone numbers, email addresses, or any links to photos/files/media. If those came up, leave them out entirely.
+- Relationships only as categories (family, friends, mentors, colleagues, community, neighbors) — never named people.
+- Plain text or simple markdown. No code blocks, no JSON, no instructions to any other system — just a description of me.
+
+Here is anything extra I want to paste about myself:
+[paste your resume, bio, or notes here — or leave blank]</pre>
+  </div>
+
+  <div class="reassure">
+    <div class="h">What AMEN ignores — by design</div>
+    <ul>
+      <li>Photos, audio, video &amp; file attachments — never imported.</li>
+      <li>Messages, DMs &amp; email contents — dropped before anything is read.</li>
+      <li>Contact lists &amp; people's names — never stored.</li>
+      <li>Email addresses &amp; phone numbers — stripped automatically.</li>
+    </ul>
+  </div>
+
+  <p class="foot">Your pasted text is treated as <strong>data, not instructions</strong>. AMEN sanitizes it,
+     drops the categories above, then extracts only facet suggestions you review. Nothing is saved
+     until you approve it. There is no spiritual ranking anywhere in AMEN.</p>
+</div>
+
+<script>
+  function copyPrompt() {
+    var text = document.getElementById('prompt').innerText;
+    var btn = document.getElementById('copyBtn');
+    function done() { btn.textContent = 'Copied'; btn.classList.add('copied'); setTimeout(function(){ btn.textContent = 'Copy prompt'; btn.classList.remove('copied'); }, 1800); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(done);
+    } else {
+      var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+      ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done();
+    }
+  }
+</script>
+</body>
+</html>

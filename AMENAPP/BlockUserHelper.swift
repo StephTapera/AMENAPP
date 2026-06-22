@@ -10,6 +10,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Block User Button
 
@@ -235,8 +236,6 @@ struct ReportAndBlockSheet: View {
     }
     
     private func submitReportToFirestore() async throws {
-        let db = Firestore.firestore()
-        
         guard let currentUserId = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "ReportError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
@@ -251,7 +250,9 @@ struct ReportAndBlockSheet: View {
             "status": "pending"
         ]
         
-        try await db.collection("reports").addDocument(data: report)
+        _ = try await Functions.functions()
+            .httpsCallable("submitTrustSafetyReport")
+            .call(report)
         
         dlog("✅ Report submitted successfully")
     }
@@ -384,7 +385,7 @@ struct BlockCheckModifier: ViewModifier {
                 // Show blocked state
                 VStack(spacing: 12) {
                     Image(systemName: "hand.raised.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.secondary)
                     Text("User Unavailable")
                         .font(.custom("OpenSans-Bold", size: 16))

@@ -102,18 +102,24 @@ actor WhisperVoiceService {
     private var isCurrentlyRecording = false
     private var recordingStartTime: Date?
 
-    private let functions = Functions.functions()
-    private let db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
+
+    /// Set the transcription language code from outside the actor's isolation.
+    func setLanguageCode(_ code: String) async {
+        languageCode = code
+    }
 
     // MARK: - Public API
 
     /// Whether voice features are enabled for this user.
     var isVoiceEnabled: Bool {
-        UserDefaults.standard.bool(forKey: "isVoiceEnabled_\(Auth.auth().currentUser?.uid ?? "")") != false
-        && UserDefaults.standard.object(forKey: "isVoiceEnabled_\(Auth.auth().currentUser?.uid ?? "")") != nil
-        || UserDefaults.standard.object(forKey: "isVoiceEnabled_\(Auth.auth().currentUser?.uid ?? "")") == nil // default true for new users
+        let key = UserDefaultsKeys.isVoiceEnabled(uid: Auth.auth().currentUser?.uid ?? "")
+        return UserDefaults.standard.bool(forKey: key) != false
+        && UserDefaults.standard.object(forKey: key) != nil
+        || UserDefaults.standard.object(forKey: key) == nil // default true for new users
     }
 
     /// Whether the user has accepted the voice recording consent.
@@ -367,13 +373,17 @@ actor WhisperVoiceService {
         let today = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
         let docId = "\(uid)_\(Int(today))"
 
-        try? await db.collection("whisperUsage").document(docId).setData([
-            "userId": uid,
-            "date": today,
-            "totalSeconds": FieldValue.increment(seconds),
-            "requestCount": FieldValue.increment(Int64(1)),
-            "updatedAt": FieldValue.serverTimestamp(),
-        ], merge: true)
+        do {
+            try await db.collection("whisperUsage").document(docId).setData([
+                "userId": uid,
+                "date": today,
+                "totalSeconds": FieldValue.increment(seconds),
+                "requestCount": FieldValue.increment(Int64(1)),
+                "updatedAt": FieldValue.serverTimestamp(),
+            ], merge: true)
+        } catch {
+            dlog("⚠️ WhisperVoiceService: failed to track audio usage — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Content Moderation
@@ -392,7 +402,7 @@ actor WhisperVoiceService {
         let businessRatio = wordCount > 0 ? Double(businessTermHits) / Double(wordCount) : 0
         let threshold = businessRatio > 0.15 ? 0.95 : 0.90
 
-        let result = ContentRiskAnalyzer.shared.analyze(text: text, context: .post)
+        let result = await MainActor.run { ContentRiskAnalyzer.shared.analyze(text: text, context: .post) }
 
         if result.totalScore > threshold {
             return "[Voice message flagged for review]"

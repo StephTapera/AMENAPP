@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ONE — Three Zone Navigation</title>
+<style>
+  /* ── Reset & Base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --gold:        #D4AE38;
+    --gold-dim:    rgba(212,174,56,0.15);
+    --glass-warm:  rgba(255,240,200,0.22);
+    --glass-blur:  20px;
+    --bg:          #0F0F10;
+    --bg2:         #1A1A1C;
+    --text:        #F5F0E8;
+    --text2:       rgba(245,240,232,0.55);
+    --radius-pill: 24px;
+    --radius-card: 16px;
+    --spring:      cubic-bezier(0.34,1.56,0.64,1);
+  }
+  body {
+    font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Status bar ───────────────────────────────────────────── */
+  .status-bar {
+    height: 52px;
+    padding: 16px 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+    color: var(--text2);
+  }
+
+  /* ── Zone content area ────────────────────────────────────── */
+  .zone-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding-bottom: 120px;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+  }
+  .zone-content.hidden { opacity: 0; transform: translateY(8px); pointer-events: none; }
+  .zone-icon {
+    font-size: 56px;
+    opacity: 0.4;
+  }
+  .zone-title {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .zone-subtitle {
+    font-size: 15px;
+    color: var(--text2);
+    text-align: center;
+    max-width: 280px;
+    line-height: 1.5;
+  }
+  .zone-pill {
+    margin-top: 8px;
+    padding: 8px 20px;
+    border-radius: 50px;
+    border: 1px solid rgba(212,174,56,0.3);
+    font-size: 13px;
+    color: var(--gold);
+    background: rgba(212,174,56,0.08);
+  }
+
+  /* ── Background gradient per zone ────────────────────────── */
+  .zone-bg {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    opacity: 0;
+    z-index: -1;
+  }
+  .zone-bg.people  { background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(75,94,198,0.18) 0%, transparent 70%); }
+  .zone-bg.moments { background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(212,174,56,0.14) 0%, transparent 70%); }
+  .zone-bg.world   { background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(40,180,120,0.14) 0%, transparent 70%); }
+  .zone-bg.active  { opacity: 1; }
+
+  /* ── Glass Dock ───────────────────────────────────────────── */
+  .dock-wrapper {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    padding: 0 20px 28px;
+    display: flex;
+    justify-content: center;
+    z-index: 100;
+  }
+  .dock {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    border-radius: 32px;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    border: 0.5px solid rgba(255,255,255,0.14);
+    box-shadow:
+      0 1px 0 0 rgba(255,255,255,0.22) inset,
+      0 20px 60px -10px rgba(0,0,0,0.60),
+      0 4px 16px -4px rgba(0,0,0,0.40);
+    max-width: 360px;
+    width: 100%;
+  }
+
+  /* ── Dock Buttons ─────────────────────────────────────────── */
+  .dock-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 22px;
+    transition: background 0.18s ease, color 0.18s ease, transform 0.18s var(--spring);
+    color: var(--text2);
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dock-btn:active { transform: scale(0.92); }
+  .dock-btn.active {
+    background: var(--glass-warm);
+    color: var(--gold);
+  }
+  .dock-btn.active::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 22px;
+    border: 0.5px solid rgba(212,174,56,0.25);
+  }
+  .dock-icon { font-size: 22px; line-height: 1; transition: transform 0.22s var(--spring); }
+  .dock-btn.active .dock-icon { transform: scale(1.12); }
+  .dock-label { font-size: 10px; font-weight: 600; letter-spacing: 0.2px; }
+
+  /* ── Privacy answer badge (always visible in dock) ────────── */
+  .dock-answer {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 50px;
+    background: rgba(212,174,56,0.18);
+    border: 0.5px solid rgba(212,174,56,0.35);
+    color: var(--gold);
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  /* Show the "Where am I?" answer on hover of dock */
+  .dock:hover .dock-answer { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- Zone backgrounds -->
+<div class="zone-bg people"  id="bg-people"></div>
+<div class="zone-bg moments active" id="bg-moments"></div>
+<div class="zone-bg world"   id="bg-world"></div>
+
+<!-- Status bar -->
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="color:var(--gold);font-size:11px;letter-spacing:1px;font-weight:700;">ONE</span>
+  <span>●●●</span>
+</div>
+
+<!-- Zone: People -->
+<div class="zone-content hidden" id="zone-people">
+  <div class="zone-icon">👥</div>
+  <div class="zone-title">People</div>
+  <div class="zone-subtitle">Private messages, groups, and close connections. E2E encrypted by default.</div>
+  <div class="zone-pill">🔒 End-to-End Encrypted · P1</div>
+</div>
+
+<!-- Zone: Moments (default) -->
+<div class="zone-content" id="zone-moments">
+  <div class="zone-icon">📷</div>
+  <div class="zone-title">Moments</div>
+  <div class="zone-subtitle">Capture and share. Every moment carries a privacy contract — your choices, always visible.</div>
+  <div class="zone-pill">🔐 Privacy Contract Required · P2</div>
+</div>
+
+<!-- Zone: World -->
+<div class="zone-content hidden" id="zone-world">
+  <div class="zone-icon">🌍</div>
+  <div class="zone-title">World</div>
+  <div class="zone-subtitle">Discover communities and public content. No infinite scroll. Five intentional feed modes.</div>
+  <div class="zone-pill">🌿 Finite Sessions · P3</div>
+</div>
+
+<!-- Glass Dock -->
+<div class="dock-wrapper">
+  <nav class="dock" role="tablist" aria-label="Zone navigation">
+    <button class="dock-btn" id="btn-people" role="tab" aria-selected="false" aria-label="People zone — private messages and groups" onclick="selectZone('people')">
+      <span class="dock-answer">People Zone</span>
+      <span class="dock-icon">👤</span>
+      <span class="dock-label">People</span>
+    </button>
+    <button class="dock-btn active" id="btn-moments" role="tab" aria-selected="true" aria-label="Moments zone — capture and share" onclick="selectZone('moments')">
+      <span class="dock-answer">Moments Zone</span>
+      <span class="dock-icon">📷</span>
+      <span class="dock-label">Moments</span>
+    </button>
+    <button class="dock-btn" id="btn-world" role="tab" aria-selected="false" aria-label="World zone — discovery" onclick="selectZone('world')">
+      <span class="dock-answer">World Zone</span>
+      <span class="dock-icon">🌍</span>
+      <span class="dock-label">World</span>
+    </button>
+  </nav>
+</div>
+
+<script>
+  const zones = ['people', 'moments', 'world'];
+  let current = 'moments';
+
+  function selectZone(zone) {
+    if (zone === current) return;
+
+    // Hide old content
+    document.getElementById('zone-' + current).classList.add('hidden');
+    document.getElementById('btn-' + current).classList.remove('active');
+    document.getElementById('btn-' + current).setAttribute('aria-selected', 'false');
+    document.getElementById('bg-' + current).classList.remove('active');
+
+    // Show new content
+    current = zone;
+    document.getElementById('zone-' + current).classList.remove('hidden');
+    document.getElementById('btn-' + current).classList.add('active');
+    document.getElementById('btn-' + current).setAttribute('aria-selected', 'true');
+    document.getElementById('bg-' + current).classList.add('active');
+  }
+
+  // Keyboard support
+  document.addEventListener('keydown', e => {
+    const idx = zones.indexOf(current);
+    if (e.key === 'ArrowRight') selectZone(zones[(idx + 1) % 3]);
+    if (e.key === 'ArrowLeft')  selectZone(zones[(idx + 2) % 3]);
+  });
+</script>
+</body>
+</html>

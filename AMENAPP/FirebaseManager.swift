@@ -12,25 +12,28 @@ import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
+import FirebaseFunctions
 import GoogleSignIn
 import AuthenticationServices
 import CryptoKit
+import Security
 
 /// Centralized Firebase manager for handling all Firebase operations
 class FirebaseManager {
     static let shared = FirebaseManager()
     
-    let auth: Auth
-    let firestore: Firestore
-    let storage: Storage
+    // Lazy so Firebase is not accessed until first use. This prevents a crash
+    // when the test host accesses FirebaseManager.shared before FirebaseApp.configure().
+    lazy var auth: Auth = Auth.auth()
+    lazy var firestore: Firestore = Firestore.firestore()
+    lazy var storage: Storage = Storage.storage()
+    private let bootstrapLock = NSLock()
+    private var bootstrapTasks: [String: Task<[String: Any], Error>] = [:]
     
     private init() {
-        self.auth = Auth.auth()
-        self.firestore = Firestore.firestore()
-        self.storage = Storage.storage()
-        
         // ✅ Firestore settings are configured in AppDelegate.swift
         // (must be set ONCE, immediately after FirebaseApp.configure())
+        // NOTE: Auth/Firestore/Storage are lazy — accessed only on first use.
         dlog("✅ FirebaseManager initialized")
     }
     
@@ -149,7 +152,8 @@ class FirebaseManager {
             "tosVersion": "1.0",
             "privacyPolicyVersion": "1.0",
             "tosAcceptedAt": now,
-            "privacyPolicyAcceptedAt": now
+            "privacyPolicyAcceptedAt": now,
+            "schemaVersion": 1
         ]
 
         // Merge birthYear if provided — the onUserDocCreated Cloud Function reads this
@@ -160,23 +164,43 @@ class FirebaseManager {
         }
         
         do {
-            try await firestore.collection(CollectionPath.users)
-                .document(user.uid)
-                .setData(finalUserData)
+            // Issue 6 FIX: Claim the username atomically using a Firestore transaction.
+            // The pre-flight uniqueness check (query /users where username == x) is NOT
+            // transactional — two devices can both pass the check and race to write the
+            // same username. The transaction below makes the claim atomic:
+            //   1. Inside the transaction, read /usernameLookup/{username}.
+            //   2. If it already exists (and belongs to a different uid), abort — the
+            //      username is taken.
+            //   3. Otherwise write both /users/{uid} and /usernameLookup/{username} in
+            //      the same transaction commit, so they succeed or fail together.
+            let userDoc = firestore.collection(CollectionPath.users).document(user.uid)
+            let lookupDoc = firestore.collection("usernameLookup").document(finalUsername)
 
-            dlog("✅ FirebaseManager: User profile created successfully!")
-
-            // ── Username lookup index — public read, enables username availability checks ──
-            // SECURITY FIX: Store only uid (not email) to prevent unauthenticated email enumeration.
-            // Username-based sign-in must be handled server-side via a Cloud Function.
-            do {
-                try await firestore.collection("usernameLookup")
-                    .document(finalUsername)
-                    .setData(["uid": user.uid])
-                dlog("✅ FirebaseManager: Username lookup index written")
-            } catch {
-                dlog("⚠️ FirebaseManager: Username lookup index write failed (non-critical): \(error)")
+            _ = try await firestore.runTransaction { transaction, errorPointer in
+                do {
+                    let lookupSnap = try transaction.getDocument(lookupDoc)
+                    if lookupSnap.exists,
+                       let existingUid = lookupSnap.data()?["uid"] as? String,
+                       existingUid != user.uid {
+                        // Username already claimed by another user — abort.
+                        let error = NSError(
+                            domain: "FirebaseManager",
+                            code: 409,
+                            userInfo: [NSLocalizedDescriptionKey: "Username '\(finalUsername)' is already taken."]
+                        )
+                        errorPointer?.pointee = error
+                        return nil
+                    }
+                    // Username is available — write both documents atomically.
+                    transaction.setData(finalUserData, forDocument: userDoc)
+                    transaction.setData(["uid": user.uid], forDocument: lookupDoc)
+                } catch let fetchError as NSError {
+                    errorPointer?.pointee = fetchError
+                }
+                return nil
             }
+
+            dlog("✅ FirebaseManager: User profile + username claim committed atomically")
 
             // ⭐️ Sync to Algolia for instant search
             do {
@@ -427,6 +451,10 @@ class FirebaseManager {
             "allowTagging": true,
             "hasCompletedOnboarding": false,
             "authProvider": "google",
+            // COPPA: age must be verified before the user can access the app.
+            // AgeGateView presents when this is true; validateUserAge CF clears it.
+            "ageVerificationRequired": true,
+            "ageVerified": false,
             // ToS + Privacy Policy acceptance stamped at account creation.
             // Google/Apple IdP accounts implicitly accept by completing sign-in.
             "tosVersion": "1.0",
@@ -463,6 +491,47 @@ class FirebaseManager {
 
     // MARK: - Apple Sign-In
     
+    // MARK: - B-002 Keychain cache for Apple display name
+    //
+    // Apple provides fullName ONLY on the very first sign-in. Subsequent sign-ins
+    // from any device receive nil. Caching to Keychain ensures the name survives
+    // re-installs and second-device sign-ins on the same physical device.
+
+    private let appleNameKeychainService = "com.amen.app"
+    private let appleNameKeychainAccount = "appleDisplayName"
+
+    private func cacheAppleDisplayName(_ name: String) {
+        guard let data = name.data(using: .utf8) else { return }
+        let deleteQuery: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: appleNameKeychainService,
+            kSecAttrAccount: appleNameKeychainAccount
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+        let addQuery: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: appleNameKeychainService,
+            kSecAttrAccount: appleNameKeychainAccount,
+            kSecValueData: data,
+            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+        SecItemAdd(addQuery as CFDictionary, nil)
+    }
+
+    private func loadCachedAppleDisplayName() -> String? {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: appleNameKeychainService,
+            kSecAttrAccount: appleNameKeychainAccount,
+            kSecReturnData: true,
+            kSecMatchLimit: kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
     /// Sign in with Apple
     func signInWithApple(idToken: String, nonce: String, fullName: PersonNameComponents?) async throws -> FirebaseAuth.User {
         let credential = OAuthProvider.appleCredential(
@@ -470,22 +539,39 @@ class FirebaseManager {
             rawNonce: nonce,
             fullName: fullName
         )
-        
+
+        // Cache fullName to Keychain whenever Apple provides it (first sign-in on any device).
+        if let fullName = fullName, let givenName = fullName.givenName, !givenName.isEmpty {
+            let cachedName = [givenName, fullName.familyName].compactMap { $0 }.joined(separator: " ")
+            cacheAppleDisplayName(cachedName)
+        }
+
         let authResult = try await auth.signIn(with: credential)
-        
+
         // Check if this is a new user and create profile if needed
         if authResult.additionalUserInfo?.isNewUser == true {
             try await createAppleUserProfile(user: authResult.user, fullName: fullName)
         }
-        
+
         return authResult.user
     }
-    
+
     /// Create user profile for Apple Sign-In
     private func createAppleUserProfile(user: FirebaseAuth.User, fullName: PersonNameComponents?) async throws {
-        // Apple provides full name only on first sign-in
-        let firstName = fullName?.givenName ?? "User"
-        let lastName = fullName?.familyName ?? ""
+        // Apple provides full name only on first sign-in; fall back to Keychain cache (B-002).
+        let firstName: String
+        let lastName: String
+        if let fullName = fullName, let givenName = fullName.givenName, !givenName.isEmpty {
+            firstName = givenName
+            lastName = fullName.familyName ?? ""
+        } else if let cached = loadCachedAppleDisplayName() {
+            let parts = cached.split(separator: " ", maxSplits: 1).map(String.init)
+            firstName = parts.first ?? "User"
+            lastName = parts.count > 1 ? parts[1] : ""
+        } else {
+            firstName = "User"
+            lastName = ""
+        }
         let displayName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
         let email = user.email ?? "user@privaterelay.appleid.com"
         
@@ -528,6 +614,10 @@ class FirebaseManager {
             "allowTagging": true,
             "hasCompletedOnboarding": false,
             "authProvider": "apple",
+            // COPPA: age must be verified before the user can access the app.
+            // AgeGateView presents when this is true; validateUserAge CF clears it.
+            "ageVerificationRequired": true,
+            "ageVerified": false,
             // ToS + Privacy Policy acceptance stamped at account creation.
             "tosVersion": "1.0",
             "privacyPolicyVersion": "1.0",
@@ -561,8 +651,37 @@ class FirebaseManager {
         try? await AlgoliaSyncService.shared.syncUser(userId: user.uid, userData: userData)
     }
 
+    // MARK: - Profile Moderation (C-5)
+
+    /// Screens username, displayName, and bio through the server-side moderation pipeline.
+    /// Returns nil when all fields are allowed; returns a user-facing error string when flagged.
+    /// Fail-safe: on network error, returns nil (allow) so a backend glitch cannot lock users out.
+    func moderateProfileFields(username: String? = nil, displayName: String? = nil, bio: String? = nil) async -> String? {
+        var payload: [String: Any] = [:]
+        if let username { payload["username"] = username }
+        if let displayName { payload["displayName"] = displayName }
+        if let bio { payload["bio"] = bio }
+        guard !payload.isEmpty else { return nil }
+
+        let functions = Functions.functions(region: "us-east1")
+        do {
+            let result = try await functions.httpsCallable("moderateProfileFields").call(payload)
+            guard let data = result.data as? [String: Any],
+                  let allowed = data["allowed"] as? Bool,
+                  !allowed,
+                  let reason = data["reason"] as? String else {
+                return nil
+            }
+            return reason
+        } catch {
+            // Fail-safe: allow on service error
+            dlog("⚠️ FirebaseManager: moderateProfileFields error (allowing): \(error)")
+            return nil
+        }
+    }
+
     // MARK: - Firestore Operations
-    
+
     /// Reference to a collection
     func collection(_ path: String) -> CollectionReference {
         firestore.collection(path)
@@ -761,6 +880,112 @@ enum FirebaseError: LocalizedError {
 // MARK: - FirebaseManager Extensions
 
 extension FirebaseManager {
+    private func bootstrapUsername(for user: FirebaseAuth.User) -> String {
+        "amen-\(user.uid.lowercased().prefix(8))"
+    }
+
+    private func isReturningUser(_ user: FirebaseAuth.User) -> Bool {
+        guard let createdAt = user.metadata.creationDate,
+              let lastSignInAt = user.metadata.lastSignInDate else {
+            return false
+        }
+
+        return lastSignInAt.timeIntervalSince(createdAt) > 10
+    }
+
+    private func bootstrapMissingCurrentUserDocument(for user: FirebaseAuth.User) async throws -> [String: Any] {
+        let trimmedDisplayName = user.displayName?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let emailName = user.email?
+            .components(separatedBy: "@")
+            .first?
+            .replacingOccurrences(of: ".", with: " ")
+            .capitalized ?? ""
+        let displayName = !trimmedDisplayName.isEmpty ? trimmedDisplayName : (!emailName.isEmpty ? emailName : "AMEN User")
+        let hasCompletedOnboarding = isReturningUser(user)
+
+        let names = displayName.components(separatedBy: " ").filter { !$0.isEmpty }
+        let firstName = names.first ?? displayName
+        let lastName = names.count > 1 ? (names.last ?? "") : ""
+        let initials = "\(firstName.prefix(1))\(lastName.prefix(1))".uppercased()
+        let username = bootstrapUsername(for: user)
+        let now = Timestamp(date: Date())
+
+        let userData: [String: Any] = [
+            "uid": user.uid,
+            "email": user.email ?? "",
+            "displayName": displayName,
+            "displayNameLowercase": displayName.lowercased(),
+            "username": username,
+            "usernameLowercase": username,
+            "initials": initials.isEmpty ? "A" : initials,
+            "bio": "",
+            "profileImageURL": user.photoURL?.absoluteString ?? NSNull(),
+            "nameKeywords": createNameKeywords(from: displayName),
+            "createdAt": now,
+            "updatedAt": now,
+            "followersCount": 0,
+            "followingCount": 0,
+            "postsCount": 0,
+            "isPrivate": false,
+            "notificationsEnabled": true,
+            "pushNotificationsEnabled": true,
+            "emailNotificationsEnabled": true,
+            "notifyOnLikes": true,
+            "notifyOnComments": true,
+            "notifyOnFollows": true,
+            "notifyOnMentions": true,
+            "notifyOnPrayerRequests": true,
+            "allowMessagesFromEveryone": true,
+            "showActivityStatus": true,
+            "allowTagging": true,
+            "hasCompletedOnboarding": hasCompletedOnboarding,
+            "profileBootstrapVersion": 1,
+            "profileBootstrapSource": "auth_self_heal"
+        ]
+
+        try await firestore.collection(CollectionPath.users)
+            .document(user.uid)
+            .setData(userData, merge: true)
+
+        do {
+            try await firestore.collection("usernameLookup")
+                .document(username)
+                .setData(["uid": user.uid], merge: true)
+        } catch {
+            dlog("⚠️ FirebaseManager: Username lookup bootstrap failed (non-critical): \(error)")
+        }
+
+        dlog("⚠️ FirebaseManager: Missing user document repaired for authenticated user \(user.uid) (returning=\(hasCompletedOnboarding))")
+        return userData
+    }
+
+    private func bootstrapTask(for user: FirebaseAuth.User) -> Task<[String: Any], Error> {
+        bootstrapLock.lock()
+        defer { bootstrapLock.unlock() }
+
+        if let existingTask = bootstrapTasks[user.uid] {
+            return existingTask
+        }
+
+        let newTask = Task { try await self.bootstrapMissingCurrentUserDocument(for: user) }
+        bootstrapTasks[user.uid] = newTask
+        return newTask
+    }
+
+    private func clearBootstrapTask(for userId: String) {
+        bootstrapLock.lock()
+        defer { bootstrapLock.unlock() }
+        bootstrapTasks.removeValue(forKey: userId)
+    }
+
+    private func bootstrapMissingCurrentUserDocumentIfNeeded(for user: FirebaseAuth.User) async throws -> [String: Any] {
+        let task = bootstrapTask(for: user)
+        defer { clearBootstrapTask(for: user.uid) }
+
+        return try await task.value
+    }
+
     /// Fetch user document as dictionary (for checking onboarding status)
     func fetchUserDocument(userId: String) async throws -> [String: Any] {
         let snapshot = try await firestore
@@ -768,11 +993,41 @@ extension FirebaseManager {
             .document(userId)
             .getDocument()
         
-        guard snapshot.exists, let data = snapshot.data() else {
-            throw FirebaseError.documentNotFound
+        if snapshot.exists, var data = snapshot.data() {
+            if let currentUser = auth.currentUser,
+               currentUser.uid == userId,
+               isReturningUser(currentUser),
+               (data["hasCompletedOnboarding"] as? Bool ?? false) == false {
+                let username = data["username"] as? String
+                let bootstrapUsername = bootstrapUsername(for: currentUser)
+                let bootstrapVersion = data["profileBootstrapVersion"] as? Int
+                let shouldPromoteRecoveredUser = bootstrapVersion == 1 || username == bootstrapUsername
+
+                if shouldPromoteRecoveredUser {
+                    try await firestore.collection(CollectionPath.users)
+                        .document(userId)
+                        .setData([
+                            "hasCompletedOnboarding": true,
+                            "profileBootstrapVersion": 1,
+                            "profileBootstrapSource": "auth_self_heal",
+                            "onboardingRecoveredAt": Timestamp(date: Date()),
+                            "updatedAt": Timestamp(date: Date())
+                        ], merge: true)
+                    data["hasCompletedOnboarding"] = true
+                    data["profileBootstrapVersion"] = 1
+                    data["profileBootstrapSource"] = "auth_self_heal"
+                    dlog("⚠️ FirebaseManager: Promoted repaired returning user \(userId) out of onboarding")
+                }
+            }
+
+            return data
         }
-        
-        return data
+
+        if let currentUser = auth.currentUser, currentUser.uid == userId {
+            return try await bootstrapMissingCurrentUserDocumentIfNeeded(for: currentUser)
+        }
+
+        throw FirebaseError.documentNotFound
     }
     
     // MARK: - Account Linking
@@ -881,5 +1136,3 @@ extension FirebaseManager {
         dlog("✅ FirebaseManager: Provider \(providerID) unlinked successfully")
     }
 }
-
-

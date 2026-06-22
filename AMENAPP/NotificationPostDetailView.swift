@@ -10,16 +10,83 @@ import FirebaseFirestore
 import FirebaseAuth
 import Combine
 
+/// Entry point for opening a post from a notification tap.
+/// Fetches the full `Post` object from Firestore and hands off to `PostDetailView`
+/// so the user gets the full comment thread, scroll-to-comment, and all interactions.
 struct NotificationPostDetailView: View {
     let postId: String
-    
+
+    @State private var realPost: Post?
+    @State private var isLoading = true
+    @State private var loadFailed = false
+
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView("Loading post...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let post = realPost {
+                PostDetailView(post: post)
+            } else {
+                // Fallback for deleted / private / unavailable posts
+                unavailablePostView
+            }
+        }
+        .task { await loadRealPost() }
+    }
+
+    private func loadRealPost() async {
+        // 1. Check PostsManager cache first (free, instant)
+        let mgr = PostsManager.shared
+        let allCached = mgr.openTablePosts + mgr.testimoniesPosts + mgr.prayerPosts
+        if let cached = allCached.first(where: { $0.firestoreId == postId }) {
+            realPost = cached
+            isLoading = false
+            return
+        }
+        // 2. Fetch from Firestore
+        do {
+            let snap = try await Firestore.firestore().collection("posts").document(postId).getDocument()
+            if snap.exists, let fp = try? snap.data(as: FirestorePost.self) {
+                realPost = fp.toPost()
+            } else {
+                loadFailed = true
+            }
+        } catch {
+            dlog("❌ NotificationPostDetailView: failed to load post \(postId): \(error)")
+            loadFailed = true
+        }
+        isLoading = false
+    }
+
+    private var unavailablePostView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "doc.text.image")
+                .font(.systemScaled(52))
+                .foregroundStyle(.secondary)
+            Text("Post Unavailable")
+                .font(.custom("OpenSans-Bold", size: 20))
+            Text("This post may have been deleted or is no longer accessible.")
+                .font(.custom("OpenSans-Regular", size: 14))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Legacy stub preserved for backwards compat (unused, kept for compilation)
+private struct _LegacyNotificationPostDetailView: View {
+    let postId: String
+
     @Environment(\.dismiss) var dismiss
     @StateObject private var viewModel = NotificationPostViewModel()
     @ObservedObject private var interactionsService = PostInteractionsService.shared
     @State private var showComments = false
     @State private var commentText = ""
     @FocusState private var isCommentFocused: Bool
-    
+
     var body: some View {
         Group {
             if viewModel.isLoading {
@@ -89,7 +156,7 @@ struct NotificationPostDetailView: View {
     private var errorView: some View {
         VStack(spacing: 16) {
             Image(systemName: "doc.text.image")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             Text("Post Unavailable")
@@ -126,7 +193,7 @@ struct NotificationPostDetailView: View {
             
             Button(action: sendComment) {
                 Image(systemName: "paperplane.fill")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
                     .background(
@@ -288,7 +355,7 @@ struct InteractionStatsView: View {
         var body: some View {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(color)
                 
                 Text("\(count)")
@@ -348,7 +415,7 @@ struct QuickInteractionButtons: View {
             Button(action: action) {
                 HStack(spacing: 6) {
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                     
                     Text(label)
                         .font(.custom("OpenSans-SemiBold", size: 14))
@@ -454,7 +521,7 @@ class NotificationPostViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: Error?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     func loadPost(postId: String) async {
         isLoading = true

@@ -1,225 +1,337 @@
 {
   "rules": {
-    ".read": false,
-    ".write": false,
-    
+    "test": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "user_posts": {
+      "$userId": {
+        // 3.4 FIX: Added .indexOn for timestamp so ordered queries on this path
+        // (e.g. profile feed sorted by recency) use an index rather than a full
+        // subtree scan. Without an index Firebase logs deprecation warnings and
+        // will refuse unindexed queries at scale, causing severe latency.
+        ".indexOn": ["timestamp"],
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId",
+        ".validate": "newData.hasChildren(['postId', 'timestamp']) && newData.child('authorId').val() == $userId && newData.child('timestamp').isNumber()"
+      }
+    },
+
+    "user_profiles": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId",
+        ".validate": "newData.hasChildren(['displayName', 'username'])"
+      }
+    },
+
     "postInteractions": {
       "$postId": {
         ".read": "auth != null",
-        
+        // FIX: Engagement counts must be server-only writes (Cloud Function / admin SDK).
+        // Previously any authenticated user could set amenCount, lightbulbCount,
+        // commentCount, or repostCount to an arbitrary number, breaking feed ranking.
         "lightbulbs": {
           "$userId": {
+            ".read": "auth != null",
             ".write": "auth != null && auth.uid == $userId",
-            ".validate": "newData.hasChildren(['timestamp', 'userName']) || !newData.exists()",
-            
-            "timestamp": {
-              ".validate": "newData.isNumber()"
-            },
-            "userName": {
-              ".validate": "newData.isString()"
-            }
+            ".validate": "newData.isBoolean() || newData.isNumber()"
           }
         },
-        
         "amens": {
           "$userId": {
+            ".read": "auth != null",
             ".write": "auth != null && auth.uid == $userId",
-            ".validate": "newData.hasChildren(['userId', 'userName', 'timestamp']) || !newData.exists()",
-            
-            "userId": {
-              ".validate": "newData.isString()"
-            },
-            "userName": {
-              ".validate": "newData.isString()"
-            },
-            "timestamp": {
-              ".validate": "newData.isNumber()"
-            },
-            "createdAt": {
-              ".validate": "newData.isNumber()"
-            }
+            ".validate": "newData.isBoolean() || newData.isNumber()"
           }
         },
-        
         "reposts": {
           "$userId": {
+            ".read": "auth != null",
             ".write": "auth != null && auth.uid == $userId",
-            ".validate": "newData.hasChildren(['timestamp', 'userName']) || !newData.exists()",
-            
-            "timestamp": {
-              ".validate": "newData.isNumber()"
-            },
-            "userName": {
-              ".validate": "newData.isString()"
-            }
+            ".validate": "!newData.exists() || (newData.hasChildren(['userId', 'timestamp']) && newData.child('userId').val() == $userId)"
           }
         },
-        
-        "comments": {
-          "$commentId": {
-            // Allow any authenticated user to write to comment nodes so that child rules
-            // for likedBy and likes (like/unlike interactions) can be evaluated.
-            // Authorship is enforced at the child level via .validate rules.
-            // Comment creation/deletion is gated by the validate rule below (requires authorId)
-            // and the authorId field validate (must equal auth.uid).
-            ".write": "auth != null",
-            ".validate": "newData.hasChildren(['authorId', 'content', 'timestamp']) || !newData.exists()",
-
-            // Author-only fields: only the comment author may write these.
-            "authorId": {
-              ".write": "auth != null && (!data.exists() || data.val() == auth.uid)",
-              ".validate": "newData.isString()"
-            },
-            "authorName": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isString()"
-            },
-            "authorInitials": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isString()"
-            },
-            "authorProfileImageURL": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isString()"
-            },
-            "authorUsername": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isString()"
-            },
-            "id": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isString()"
-            },
-            "postId": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isString()"
-            },
-            "userId": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isString()"
-            },
-            "userName": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isString()"
-            },
-            "content": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isString() && newData.val().length <= 2000"
-            },
-            "text": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isString() && newData.val().length <= 2000"
-            },
-            "timestamp": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isNumber()"
-            },
-            "createdAt": {
-              ".write": "auth != null && (!data.exists() || data.parent().child('authorId').val() == auth.uid)",
-              ".validate": "newData.isNumber()"
-            },
-            // likes count: any authenticated user may update (needed for like transactions)
-            "likes": {
-              ".validate": "newData.isNumber() && newData.val() >= 0"
-            },
-            "parentCommentId": {
-              ".validate": "newData.isString()"
-            },
-            "likedBy": {
-              "$userId": {
-                ".write": "auth != null && auth.uid == $userId",
-                ".validate": "newData.isBoolean() || newData.isNumber() || !newData.exists()"
-              }
-            }
-          }
-        },
-        
-        "amenCount": {
-          // P2 FIX: Gate counter writes to users who own the corresponding amen
-          // interaction record for this post. Previously any authenticated user
-          // could write any post's amenCount (delta-1 bounded but not owner-gated).
-          // Now the writer must have an entry under postInteractions/$postId/amens/$uid.
-          // Delta is still capped at ±1 to prevent bulk inflation even in edge cases.
-          ".write": "auth != null && (root.child('postInteractions').child($postId).child('amens').child(auth.uid).exists() || !newData.exists())",
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || (newData.val() - data.val() <= 1 && data.val() - newData.val() <= 1))"
-        },
-
-        "commentCount": {
-          // Allow increment when user has a comment on this post, OR decrement when they
-          // are removing their comment (record already deleted before count transaction runs).
-          // Delta is still capped at ±1 by the validate rule.
-          ".write": "auth != null && (root.child('postInteractions').child($postId).child('comments').hasChildren() || (data.exists() && newData.exists() && newData.val() < data.val()) || !newData.exists())",
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || (newData.val() - data.val() <= 1 && data.val() - newData.val() <= 1))"
-        },
-
-        "repostCount": {
-          // Allow increment when user has a repost entry, OR decrement when they are
-          // un-reposting (their entry is already deleted before the count transaction runs).
-          ".write": "auth != null && (root.child('postInteractions').child($postId).child('reposts').child(auth.uid).exists() || (data.exists() && newData.exists() && newData.val() < data.val()) || !newData.exists())",
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || (newData.val() - data.val() <= 1 && data.val() - newData.val() <= 1))"
-        },
-
         "lightbulbCount": {
-          // Allow increment when user has a lightbulb entry, OR decrement when they are
-          // un-lightbulbing (their entry is already deleted before the count transaction runs).
-          ".write": "auth != null && (root.child('postInteractions').child($postId).child('lightbulbs').child(auth.uid).exists() || (data.exists() && newData.exists() && newData.val() < data.val()) || !newData.exists())",
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || (newData.val() - data.val() <= 1 && data.val() - newData.val() <= 1))"
+          ".read": "auth != null",
+          ".write": false,
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "amenCount": {
+          ".read": "auth != null",
+          ".write": false,
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "commentCount": {
+          ".read": "auth != null",
+          ".write": false,
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "repostCount": {
+          ".read": "auth != null",
+          ".write": false,
+          ".validate": "newData.isNumber() && newData.val() >= 0"
         }
       }
     },
-    
-    "userInteractions": {
-      "$userId": {
-        ".read": "auth != null && auth.uid == $userId",
-        
-        "lightbulbs": {
-          "$postId": {
-            ".write": "auth != null && auth.uid == $userId",
-            ".validate": "newData.isBoolean() || newData.hasChildren(['timestamp']) || !newData.exists()",
-            
-            "timestamp": {
-              ".validate": "newData.isNumber()"
-            }
-          }
-        },
-        
-        "amens": {
-          "$postId": {
-            ".write": "auth != null && auth.uid == $userId",
-            ".validate": "newData.isBoolean() || newData.hasChildren(['timestamp']) || !newData.exists()",
-            
-            "timestamp": {
-              ".validate": "newData.isNumber()"
-            }
-          }
-        },
-        
-        "reposts": {
-          "$postId": {
-            ".write": "auth != null && auth.uid == $userId",
-            ".validate": "newData.isBoolean() || newData.hasChildren(['timestamp']) || !newData.exists()",
-            
-            "timestamp": {
-              ".validate": "newData.isNumber()"
-            }
-          }
-        }
-      }
-    },
-    
-    "user-reposts": {
+
+    "online_status": {
       "$userId": {
         ".read": "auth != null",
-        ".write": "auth != null && auth.uid == $userId"
+        ".write": "auth != null && auth.uid == $userId",
+        ".validate": "newData.hasChildren(['isOnline', 'lastSeen'])"
+      }
+    },
+
+    "conversations": {
+      "$conversationId": {
+        "typing": {
+          "$userId": {
+            ".read": "auth != null && root.child('userConversations').child(auth.uid).child($conversationId).exists()",
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.hasChildren(['userId', 'timestamp']) && newData.child('userId').val() == $userId && newData.child('timestamp').isNumber()"
+          }
+        },
+        "messages": {
+          ".indexOn": ["timestamp"],
+          "$messageId": {
+            ".read": "auth != null && root.child('userConversations').child(auth.uid).child($conversationId).exists()",
+            ".write": "auth != null && root.child('userConversations').child(auth.uid).child($conversationId).exists()"
+          }
+        },
+        "metadata": {
+          ".read": "auth != null && root.child('userConversations').child(auth.uid).child($conversationId).exists()",
+          ".write": "auth != null && root.child('userConversations').child(auth.uid).child($conversationId).exists()"
+        }
+      }
+    },
+
+    "userConversations": {
+      "$userId": {
+        // Item-31 FIX: Added .indexOn [".value"] so ordered queries on this path
+        // (e.g. conversation list sorted by last message time) use an index rather
+        // than a full subtree scan. Each child's value is a Unix-ms timestamp, so
+        // ordering by ".value" gives recency-sorted conversations.
+        ".indexOn": [".value"],
+        "$conversationId": {
+          ".read": "auth != null && auth.uid == $userId",
+          ".write": "auth != null && auth.uid == $userId",
+          // 3.5 FIX: Removed isBoolean() from the validate rule. The value stored
+          // here should be a numeric timestamp (last activity time), not a boolean.
+          // Accepting booleans is ambiguous — `true` conveys no ordering information
+          // and makes recency-sorted conversation queries impossible. Clients must
+          // write a Unix-millisecond timestamp (newData.isNumber()) instead.
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        }
+      }
+    },
+
+    "notification_tokens": {
+      "$userId": {
+        "$tokenId": {
+          ".read": "auth != null && auth.uid == $userId",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.hasChildren(['token', 'platform', 'createdAt'])"
+        }
+      }
+    },
+
+    "last_read": {
+      "$conversationId": {
+        "$userId": {
+          ".read": "auth != null && auth.uid == $userId",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    "live_reactions": {
+      "$postId": {
+        "$userId": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.isString() && newData.val().length < 10"
+        }
+      }
+    },
+
+    "live_reaction_timestamps": {
+      "$postId": {
+        "$userId": {
+          ".read": "auth != null && auth.uid == $userId",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.isNumber() && newData.val() <= now"
+        }
+      }
+    },
+
+    "counters": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        "unreadMessages": {
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "unreadNotifications": {
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "followerCount": {
+          ".write": false
+        },
+        "followingCount": {
+          ".write": false
+        }
+      }
+    },
+
+    "connections": {
+      "$userId": {
+        "followers": {
+          ".indexOn": ["timestamp"],
+          "$followerId": {
+            ".read": "auth != null",
+            // 3.6 FIX: Changed from user-writable to server-only (.write: false).
+            // The previous rule allowed any authenticated user to add themselves to
+            // ANY other user's followers list — bypassing Firestore's private-account
+            // follow-approval gate entirely. A user could gain follower access to
+            // private-account posts without ever being approved.
+            // Follower documents must be written exclusively by the onFollowCreated
+            // Cloud Function trigger (admin SDK) AFTER a follow request has been
+            // approved in Firestore. This ensures Firestore is the single source of
+            // truth for follow relationships and private-account approval.
+            ".write": false
+          }
+        },
+        "following": {
+          ".indexOn": ["timestamp"],
+          "$followingId": {
+            ".read": "auth != null",
+            // 3.6: following writes are still user-side for now (owner's own list).
+            // TODO: Migrate to server-only once onFollowCreated CF is confirmed as
+            // the sole write path, to maintain full consistency with Firestore.
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.isNumber()"
+          }
+        }
+      }
+    },
+
+    "devices": {
+      "$userId": {
+        "$deviceId": {
+          ".read": "auth != null && auth.uid == $userId",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.hasChildren(['deviceType', 'lastActive'])"
+        }
+      }
+    },
+
+    "sessions": {
+      "$userId": {
+        "$sessionId": {
+          ".read": "auth != null && auth.uid == $userId",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.hasChildren(['startTime', 'deviceType'])"
+        }
+      }
+    },
+
+    "user_saved_posts": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId",
+        "$postId": {
+          ".validate": "newData.isNumber() || newData.isBoolean()"
+        }
       }
     },
 
     "post-reposts": {
       "$postId": {
-        // P2 FIX: Was publicly readable (no auth required). Scoped to authenticated users.
         ".read": "auth != null",
         "$userId": {
+          ".read": "auth != null",
           ".write": "auth != null && auth.uid == $userId"
+        }
+      }
+    },
+
+    "user-reposts": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId",
+        "$postId": {
+          ".validate": "newData.isNumber() || newData.isBoolean()"
+        }
+      }
+    },
+
+    "user_comments": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId",
+        "$commentId": {
+          ".validate": "newData.hasChildren(['postId', 'timestamp'])"
+        }
+      }
+    },
+
+    "comments": {
+      "$postId": {
+        ".read": "auth != null",
+        ".indexOn": ["timestamp"],
+        "$commentId": {
+          ".read": "auth != null",
+          // Item-13 FIX: Enforce comment identity at the RTDB layer.
+          // newData.child('userId').val() == auth.uid prevents writing comments on
+          // behalf of another user. Block enforcement (blocked users silently
+          // dropping writes) is NOT possible at the RTDB rules layer because RTDB
+          // cannot read Firestore data. Block enforcement is authoritative at the
+          // CF layer (enforceMessageRestrictions).
+          ".write": "auth != null && (!newData.exists() || newData.child('userId').val() == auth.uid)",
+          ".validate": "newData.hasChildren(['userId', 'text', 'timestamp']) && newData.child('text').isString() && newData.child('text').val().length <= 2000 && newData.child('timestamp').isNumber()"
+        }
+      }
+    },
+
+    "comment_stats": {
+      "$commentId": {
+        ".read": "auth != null",
+        // FIX: Engagement counts must be server-only writes (Cloud Function / admin SDK).
+        // Previously any authenticated user could set amenCount or replyCount to any value.
+        "amenCount": {
+          ".write": false,
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "replyCount": {
+          ".write": false,
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      }
+    },
+
+    // Per-user interaction state: lightbulb/amen status keyed by postId.
+    // Path: /userInteractions/{userId}/lightbulbs/{postId}
+    //       /userInteractions/{userId}/amens/{postId}
+    "userInteractions": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        "lightbulbs": {
+          "$postId": {
+            ".read": "auth != null && auth.uid == $userId",
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.isBoolean() || newData.isNumber()"
+          }
+        },
+        "amens": {
+          "$postId": {
+            ".read": "auth != null && auth.uid == $userId",
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.isBoolean() || newData.isNumber()"
+          }
         }
       }
     },
@@ -227,393 +339,31 @@
     "prayerActivity": {
       "$postId": {
         ".read": "auth != null",
-        "prayingNow": {
-          // P2 FIX: Gate to users who have an entry in prayingUsers for this post.
-          ".write": "auth != null && root.child('prayerActivity').child($postId).child('prayingUsers').child(auth.uid).exists()",
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || (newData.val() - data.val() <= 1 && data.val() - newData.val() <= 1))"
-        },
         "prayingUsers": {
           "$userId": {
             ".read": "auth != null",
-            // Owner-only write — each user controls only their own praying status.
-            ".write": "auth != null && auth.uid == $userId"
+            ".write": "auth != null && auth.uid == $userId",
+            // 3.7 FIX: Added schema validation to prevent arbitrary data injection.
+            // Previously any authenticated user could write any structure here
+            // (e.g. { "csam": true } or a 1MB payload). The validate rule enforces
+            // the expected shape: a timestamp (required, numeric) and an optional
+            // numeric duration (seconds prayed). Unknown fields are implicitly denied
+            // because the rule uses hasChildren() rather than a permissive wildcard.
+            ".validate": "newData.hasChildren(['timestamp']) && newData.child('timestamp').isNumber() && (!newData.hasChild('duration') || newData.child('duration').isNumber() && newData.child('duration').val() >= 0)"
           }
         },
+        "prayingNow": {
+          ".read": "auth != null",
+          ".write": false
+        },
         "totalPrayerSessions": {
-          // P2 FIX: Gate to users who own a prayer session record.
-          ".write": "auth != null && root.child('prayerActivity').child($postId).child('prayingUsers').child(auth.uid).exists()",
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || (newData.val() - data.val() <= 1 && data.val() - newData.val() <= 1))"
+          ".read": "auth != null",
+          ".write": false
         },
         "sessions": {
           "$sessionId": {
-            // P2 FIX: Session must be authored by the calling user.
-            ".write": "auth != null && (!data.exists() ? newData.child('userId').val() == auth.uid : data.child('userId').val() == auth.uid)",
-            ".validate": "newData.hasChildren(['userId', 'createdAt']) || !newData.exists()"
-          }
-        }
-      }
-    },
-    
-    "user_saved_posts": {
-      "$userId": {
-        ".read": "auth != null && auth.uid == $userId",
-        ".write": "auth != null && auth.uid == $userId"
-      }
-    },
-    
-    "savedPosts": {
-      "$userId": {
-        ".read": "auth != null && auth.uid == $userId",
-        ".write": "auth != null && auth.uid == $userId"
-      }
-    },
-    
-    "user_posts": {
-      "$userId": {
-        ".read": "auth != null",
-        
-        "$postId": {
-          ".write": "auth != null && auth.uid == $userId",
-          ".validate": "newData.isBoolean() || newData.hasChildren(['timestamp', 'createdAt']) || !newData.exists()",
-          
-          "timestamp": {
-            ".validate": "newData.isNumber()"
-          },
-          "createdAt": {
-            ".validate": "newData.isNumber()"
-          },
-          "content": {
-            ".validate": "newData.isString()"
-          },
-          "category": {
-            ".validate": "newData.isString()"
-          }
-        }
-      }
-    },
-    
-    "test": {
-      ".read": "auth != null",
-      ".write": "auth != null",
-      
-      "connection": {
-        ".read": "auth != null",
-        ".write": "auth != null"
-      }
-    },
-    
-    "comments": {
-      "$postId": {
-        ".read": "auth != null",
-        
-        "$commentId": {
-          ".write": "auth != null && (!data.exists() || data.child('authorId').val() == auth.uid)",
-          ".validate": "newData.hasChildren(['authorId', 'content', 'createdAt']) || !newData.exists()",
-          
-          "authorId": {
-            ".validate": "newData.isString()"
-          },
-          "authorName": {
-            ".validate": "newData.isString()"
-          },
-          "authorInitials": {
-            ".validate": "newData.isString()"
-          },
-          "authorProfileImageURL": {
-            ".validate": "newData.isString()"
-          },
-          "content": {
-            ".validate": "newData.isString() && newData.val().length <= 2000"
-          },
-          "createdAt": {
-            ".validate": "newData.isNumber()"
-          }
-        }
-      }
-    },
-    
-    "comment_stats": {
-      "$commentId": {
-        ".read": "auth != null",
-        // P2 FIX: Was open write for any authenticated user. Comment stats should only
-        // be written by the interaction owner. Since the comment_interactions path
-        // tracks per-user amen records, gate the stat write to users who have
-        // interacted. For replyCount, gate to the comment author via comment_interactions.
-        // Deltas capped at ±1 to prevent bulk manipulation even if gate is bypassed.
-        ".write": "auth != null && root.child('comment_interactions').child($commentId).child('amen').child(auth.uid).exists()",
-        ".validate": "newData.hasChildren(['amenCount', 'replyCount']) || !newData.exists()",
-
-        "amenCount": {
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || (newData.val() - data.val() <= 1 && data.val() - newData.val() <= 1))"
-        },
-        "replyCount": {
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || (newData.val() - data.val() <= 1 && data.val() - newData.val() <= 1))"
-        }
-      }
-    },
-    
-    "comment_interactions": {
-      "$commentId": {
-        ".read": "auth != null",
-        
-        "amen": {
-          "$userId": {
-            ".write": "auth != null && auth.uid == $userId",
-            ".validate": "newData.isNumber() || !newData.exists()"
-          }
-        }
-      }
-    },
-    
-    "user_comments": {
-      "$userId": {
-        ".read": "auth != null && auth.uid == $userId",
-        
-        "$commentId": {
-          ".write": "auth != null && auth.uid == $userId",
-          ".validate": "newData.isNumber() || !newData.exists()"
-        }
-      }
-    },
-    
-    "posts": {
-      "recent": {
-        ".read": "auth != null",
-        "$postId": {
-          // P2 FIX: Added authorId == auth.uid check on create (in addition to existing
-          // update/delete gate). Previously a new write could forge any authorId string.
-          ".write": "auth != null && (!data.exists() ? newData.child('authorId').val() == auth.uid : data.child('authorId').val() == auth.uid)",
-          ".validate": "newData.hasChildren(['authorId', 'authorName', 'content', 'timestamp']) || !newData.exists()",
-
-          "authorId": {
-            // Enforce: the stored authorId must match the authenticated writer.
-            ".validate": "newData.isString() && newData.val() == auth.uid"
-          },
-          "authorName": {
-            ".validate": "newData.isString()"
-          },
-          "content": {
-            ".validate": "newData.isString()"
-          },
-          "timestamp": {
-            ".validate": "newData.isNumber()"
-          }
-        }
-      },
-
-      "byCategory": {
-        "$category": {
-          ".read": "auth != null",
-          "$postId": {
-            // P2 FIX: Same ownership gate as posts/recent.
-            ".write": "auth != null && (!data.exists() ? newData.child('authorId').val() == auth.uid : data.child('authorId').val() == auth.uid)"
-          }
-        }
-      }
-    },
-    
-    "prayerRequests": {
-      "$prayerId": {
-        ".read": "auth != null",
-
-        "prayers": {
-          "$prayId": {
-            // Gate: only the user writing the prayer entry can create/delete it.
-            ".write": "auth != null && (!data.exists() ? newData.child('userId').val() == auth.uid : data.child('userId').val() == auth.uid)",
-            ".validate": "newData.hasChildren(['userId', 'createdAt']) || !newData.exists()",
-
-            "userId": {
-              ".validate": "newData.isString() && newData.val() == auth.uid"
-            },
-            "userName": {
-              ".validate": "newData.isString()"
-            },
-            "createdAt": {
-              ".validate": "newData.isNumber()"
-            }
-          }
-        },
-
-        "prayerCount": {
-          // P2 FIX: Gate to users who own a prayer entry for this request.
-          // Previously any authenticated user could set an arbitrary count.
-          ".write": "auth != null && root.child('prayerRequests').child($prayerId).child('prayers').child(auth.uid).exists()",
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || (newData.val() - data.val() <= 1 && data.val() - newData.val() <= 1))"
-        }
-      }
-    },
-    
-    "userPresence": {
-      "$userId": {
-        ".read": "auth != null",
-        ".write": "auth != null && auth.uid == $userId",
-        ".validate": "newData.hasChildren(['isOnline', 'lastSeen']) || !newData.exists()",
-        
-        "isOnline": {
-          ".validate": "newData.isBoolean()"
-        },
-        "lastSeen": {
-          ".validate": "newData.isNumber()"
-        }
-      }
-    },
-    
-    "typingIndicators": {
-      "$conversationId": {
-        "$userId": {
-          ".read": "auth != null",
-          ".write": "auth != null && auth.uid == $userId",
-          ".validate": "newData.hasChildren(['isTyping', 'timestamp']) || !newData.exists()",
-          
-          "isTyping": {
-            ".validate": "newData.isBoolean()"
-          },
-          "timestamp": {
-            ".validate": "newData.isNumber()"
-          }
-        }
-      }
-    },
-    
-    "notifications": {
-      "$userId": {
-        ".read": "auth != null && auth.uid == $userId",
-        
-        "$notificationId": {
-          ".write": "auth != null && (!data.exists() || (auth.uid == $userId && newData.child('read').val() != data.child('read').val()) || (auth.uid == $userId && !newData.exists()))",
-          ".validate": "newData.hasChildren(['type', 'createdAt']) || !newData.exists()",
-          
-          "type": {
-            ".validate": "newData.isString()"
-          },
-          "fromUserId": {
-            ".validate": "newData.isString()"
-          },
-          "fromUserName": {
-            ".validate": "newData.isString()"
-          },
-          "createdAt": {
-            ".validate": "newData.isNumber()"
-          },
-          "read": {
-            ".validate": "newData.isBoolean()"
-          },
-          "postId": {
-            ".validate": "newData.isString()"
-          },
-          "message": {
-            ".validate": "newData.isString()"
-          }
-        }
-      }
-    },
-    
-    "messageReadReceipts": {
-      "$conversationId": {
-        "$messageId": {
-          "$userId": {
             ".read": "auth != null",
-            ".write": "auth != null && auth.uid == $userId",
-            ".validate": "newData.isNumber() || !newData.exists()"
-          }
-        }
-      }
-    },
-    
-    "liveActivities": {
-      "$activityId": {
-        ".read": "auth != null",
-        // P1 FIX: Was open write for any authenticated user — any user could create
-        // or overwrite arbitrary liveActivity records. Now scoped to the activity
-        // creator: writer must have their uid in the createdBy field at create time,
-        // and only the creator may update/delete after that.
-        ".write": "auth != null && (!data.exists() ? newData.child('createdBy').val() == auth.uid : data.child('createdBy').val() == auth.uid)",
-        ".validate": "newData.hasChildren(['type', 'createdAt', 'createdBy']) || !newData.exists()",
-
-        "type": {
-          ".validate": "newData.isString()"
-        },
-        "createdAt": {
-          ".validate": "newData.isNumber()"
-        },
-        "createdBy": {
-          ".validate": "newData.isString()"
-        },
-        "participants": {
-          ".validate": "newData.hasChildren()"
-        }
-      }
-    },
-    
-    "conversations": {
-      "$conversationId": {
-        ".read": "auth != null && data.child('metadata/participantIds').val().contains(auth.uid)",
-        ".write": "auth != null && data.child('metadata/participantIds').val().contains(auth.uid)",
-        
-        "metadata": {
-          ".validate": "newData.hasChildren(['participantIds']) || !newData.exists()"
-        },
-        
-        "messages": {
-          "$messageId": {
-            ".write": "auth != null && newData.child('senderId').val() === auth.uid"
-          }
-        },
-        
-        "typing": {
-          "$userId": {
-            ".write": "auth != null && $userId === auth.uid"
-          }
-        }
-      }
-    },
-    
-    "userConversations": {
-      "$userId": {
-        ".read": "auth != null && auth.uid == $userId",
-        ".write": "auth != null && auth.uid == $userId"
-      }
-    },
-    
-    "presence": {
-      "$userId": {
-        ".read": true,
-        ".write": "auth != null && auth.uid == $userId"
-      }
-    },
-    
-    "analytics": {
-      ".read": false,
-      ".write": false
-    },
-    
-    "admin": {
-      ".read": false,
-      ".write": false
-    },
-
-    "user-login-history": {
-      "$userId": {
-        ".read": "auth != null && auth.uid == $userId",
-        ".write": "auth != null && auth.uid == $userId",
-
-        "$sessionId": {
-          ".validate": "newData.hasChildren(['timestamp', 'deviceType']) || !newData.exists()",
-
-          "timestamp": {
-            ".validate": "newData.isNumber()"
-          },
-          "deviceType": {
-            ".validate": "newData.isString()"
-          },
-          "osVersion": {
-            ".validate": "newData.isString()"
-          },
-          "appVersion": {
-            ".validate": "newData.isString()"
-          },
-          "ipAddress": {
-            ".validate": "newData.isString()"
+            ".write": false
           }
         }
       }

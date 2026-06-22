@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent B — Amen Hub (Unified Inbox)</title>
+  <style>
+    /* ─────────────────────────────────────────
+       DESIGN TOKENS
+    ───────────────────────────────────────── */
+    :root {
+      --amenGold:       #C9A84C;
+      --amenPurple:     #6B4FA2;
+      --amenBlue:       #2E6DA4;
+      --amenBlack:      #1A1A1E;
+      --amenCream:      #F8F4EC;
+      --amenSlate:      #4A4A55;
+      --tagPrayer:      #C9A84C;
+      --tagTestimony:   #B5704A;
+      --tagChurch:      #2E6DA4;
+      --tagCommunity:   #6A8F6A;
+      --tagBerean:      #6B4FA2;
+      --glass-bg:       rgba(255,255,255,0.60);
+      --glass-border:   rgba(255,255,255,0.50);
+      --page-bg:        #EDE7D9;
+      --section-label:  #7A7468;
+      --shadow-soft:    0 4px 24px rgba(100,80,40,0.10), 0 1px 4px rgba(100,80,40,0.07);
+      --shadow-card:    0 2px 16px rgba(100,80,40,0.09), 0 1px 3px rgba(100,80,40,0.06);
+      --font:           -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    /* Dark mode */
+    body.dark {
+      --amenCream:      #1E1C18;
+      --amenBlack:      #F0EAD8;
+      --amenSlate:      #9E9890;
+      --page-bg:        #141210;
+      --glass-bg:       rgba(30,28,24,0.72);
+      --glass-border:   rgba(255,255,255,0.10);
+      --section-label:  #6A6258;
+      --shadow-soft:    0 4px 24px rgba(0,0,0,0.40), 0 1px 4px rgba(0,0,0,0.30);
+      --shadow-card:    0 2px 16px rgba(0,0,0,0.36), 0 1px 3px rgba(0,0,0,0.20);
+    }
+
+    /* ─────────────────────────────────────────
+       RESET + BASE
+    ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: #D8CDB5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+      transition: background 0.3s;
+    }
+
+    body.dark {
+      background: #0E0C0A;
+    }
+
+    /* ─────────────────────────────────────────
+       PAGE LABEL
+    ───────────────────────────────────────── */
+    .page-label {
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8A7A5A;
+      margin-bottom: 14px;
+      opacity: 0.9;
+    }
+
+    body.dark .page-label { color: #6A5A3A; }
+
+    /* ─────────────────────────────────────────
+       DARK MODE TOGGLE
+    ───────────────────────────────────────── */
+    .toggle-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+      align-items: center;
+    }
+
+    .toggle-btn {
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(255,255,255,0.45);
+      border: 1.5px solid rgba(255,255,255,0.55);
+      border-radius: 999px;
+      padding: 6px 16px;
+      cursor: pointer;
+      color: #5A4A2A;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+
+    body.dark .toggle-btn {
+      background: rgba(50,44,34,0.60);
+      border-color: rgba(255,255,255,0.12);
+      color: #B0A080;
+    }
+
+    .toggle-btn:hover { opacity: 0.8; }
+
+    /* ─────────────────────────────────────────
+       PHONE FRAME
+    ───────────────────────────────────────── */
+    .phone-frame {
+      width: 390px;
+      min-height: 844px;
+      background: var(--page-bg);
+      border-radius: 54px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 10px #1A1A1E,
+        0 0 0 12px #2A2A2E,
+        0 32px 80px rgba(0,0,0,0.55);
+      position: relative;
+      transition: background 0.3s;
+    }
+
+    /* Notch */
+    .phone-frame::before {
+      content: '';
+      display: block;
+      width: 120px;
+      height: 34px;
+      background: #1A1A1E;
+      border-radius: 0 0 22px 22px;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+    }
+
+    /* ─────────────────────────────────────────
+       STATUS BAR
+    ───────────────────────────────────────── */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 24px 4px;
+      padding-top: 18px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--amenBlack);
+      opacity: 0.7;
+      position: relative;
+      z-index: 10;
+    }
+
+    .status-time { font-size: 15px; font-weight: 700; letter-spacing: 0.01em; }
+
+    .status-icons {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .status-icon {
+      width: 16px;
+      height: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ─────────────────────────────────────────
+       NAVIGATION BAR (glass chrome)
+    ───────────────────────────────────────── */
+    .nav-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px 14px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--glass-border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      transition: background 0.3s;
+    }
+
+    .nav-back {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--amenGold);
+      cursor: pointer;
+    }
+
+    .nav-back svg { width: 10px; height: 16px; }
+
+    .nav-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--amenBlack);
+      letter-spacing: -0.01em;
+    }
+
+    .nav-action {
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(201,168,76,0.15);
+      border: 1.5px solid rgba(201,168,76,0.30);
+      border-radius: 50%;
+      cursor: pointer;
+      color: var(--amenGold);
+    }
+
+    .nav-action svg { width: 16px; height: 16px; }
+
+    /* ─────────────────────────────────────────
+       FILTER CHIP RAIL (glass chrome)
+    ───────────────────────────────────────── */
+    .chip-rail-wrapper {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--glass-border);
+      padding: 10px 0 10px;
+      transition: background 0.3s;
+    }
+
+    .chip-rail {
+      display: flex;
+      gap: 8px;
+      padding: 0 18px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .chip-rail::-webkit-scrollbar { display: none; }
+
+    .chip {
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 999px;
+      border: 1.5px solid rgba(74,74,85,0.22);
+      background: rgba(255,255,255,0.35);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: var(--amenSlate);
+      cursor: pointer;
+      transition: all 0.18s;
+      white-space: nowrap;
+    }
+
+    body.dark .chip {
+      background: rgba(40,36,28,0.55);
+      border-color: rgba(255,255,255,0.12);
+    }
+
+    /* Active chip — Prayer (gold) */
+    .chip.active-prayer {
+      background: rgba(201,168,76,0.18);
+      border-color: var(--amenGold);
+      color: var(--amenGold);
+    }
+
+    .chip.active-all {
+      background: rgba(74,74,85,0.12);
+      border-color: var(--amenSlate);
+      color: var(--amenBlack);
+    }
+
+    /* ─────────────────────────────────────────
+       CONTENT SCROLL
+    ───────────────────────────────────────── */
+    .content {
+      padding: 0 0 40px;
+      overflow-y: auto;
+      height: calc(844px - 44px - 54px - 56px - 52px); /* full - statusbar - navbar - chipbar - tabbar */
+    }
+
+    /* ─────────────────────────────────────────
+       SECTION HEADER
+    ───────────────────────────────────────── */
+    .section-header {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--section-label);
+      padding: 16px 20px 8px;
+    }
+
+    /* ─────────────────────────────────────────
+       PINNED CARD (GlassCard)
+    ───────────────────────────────────────── */
+    .pinned-card {
+      margin: 0 16px 6px;
+      background: rgba(255,255,255,0.42);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 22px;
+      border: 1.5px solid rgba(255,255,255,0.55);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      transition: background 0.3s, border 0.3s;
+    }
+
+    body.dark .pinned-card {
+      background: rgba(30,26,18,0.65);
+      border-color: rgba(255,255,255,0.10);
+    }
+
+    .pinned-card-inner {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--amenGold);
+      border-radius: 0 0 0 0;
+    }
+
+    .pin-badge {
+      font-size: 13px;
+      margin-right: 2px;
+    }
+
+    /* ─────────────────────────────────────────
+       HUB ITEM ROW
+    ───────────────────────────────────────── */
+    .hub-item-wrapper {
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Swipe action reveal background */
+    .swipe-bg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      align-items: stretch;
+    }
+
+    .swipe-action-left {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding-left: 20px;
+      background: var(--amenGold);
+      width: 100%;
+    }
+
+    .swipe-action-right {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 20px;
+      background: var(--amenSlate);
+      width: 100%;
+    }
+
+    .swipe-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .swipe-label-icon { font-size: 18px; }
+
+    /* Actual row — sits on top, translated to reveal action */
+    .hub-row {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 18px;
+      background: var(--amenCream);
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      transition: background 0.3s, transform 0.3s;
+    }
+
+    body.dark .hub-row {
+      border-bottom-color: rgba(255,255,255,0.05);
+    }
+
+    /* Swipe-revealed: translate row right to expose Keep Praying */
+    .hub-item-wrapper.swiped-right .hub-row {
+      transform: translateX(88px);
+    }
+
+    /* Left accent bar */
+    .hub-row::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px;
+      bottom: 8px;
+      width: 3px;
+      border-radius: 0 2px 2px 0;
+    }
+
+    .hub-row.accent-prayer::before   { background: var(--tagPrayer); }
+    .hub-row.accent-testimony::before { background: var(--tagTestimony); }
+    .hub-row.accent-church::before   { background: var(--tagChurch); }
+    .hub-row.accent-community::before { background: var(--tagCommunity); }
+    .hub-row.accent-berean::before   { background: var(--tagBerean); }
+
+    /* Avatar */
+    .hub-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      font-weight: 700;
+      color: white;
+      position: relative;
+    }
+
+    .hub-avatar.av-prayer    { background: linear-gradient(135deg, #D4A843, #B5893A); }
+    .hub-avatar.av-testimony { background: linear-gradient(135deg, #C4784F, #9A5A38); }
+    .hub-avatar.av-church    { background: linear-gradient(135deg, #3A7DB8, #2258A0); }
+    .hub-avatar.av-community { background: linear-gradient(135deg, #78A078, #4F7850); }
+    .hub-avatar.av-berean    { background: linear-gradient(135deg, #7D5AB5, #5A3D8C); }
+
+    /* Avatar ring for Berean AI */
+    .hub-avatar.av-berean::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 50%;
+      border: 2px solid var(--amenPurple);
+      opacity: 0.55;
+    }
+
+    /* Center content */
+    .hub-center { flex: 1; min-width: 0; }
+
+    .hub-author {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--amenBlack);
+      margin-bottom: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .hub-subject {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--amenSlate);
+      opacity: 0.8;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .hub-snippet {
+      font-size: 13px;
+      color: var(--amenSlate);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Berean snippet shimmer */
+    .hub-snippet.berean-shimmer {
+      background: linear-gradient(90deg, var(--amenPurple), #9B70CC, var(--amenPurple));
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    body.dark .hub-snippet.berean-shimmer {
+      background: linear-gradient(90deg, #9B70CC, #C4A0E8, #9B70CC);
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 50%; }
+      50%  { background-position: 0%   50%; }
+      100% { background-position: 200% 50%; }
+    }
+
+    /* Right column */
+    .hub-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .hub-timestamp {
+      font-size: 11px;
+      color: var(--amenSlate);
+      opacity: 0.7;
+      white-space: nowrap;
+    }
+
+    .hub-tag-chip {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1.5px solid;
+      background: transparent;
+      white-space: nowrap;
+    }
+
+    .hub-tag-chip.tag-prayer    { border-color: var(--tagPrayer);    color: var(--tagPrayer); }
+    .hub-tag-chip.tag-testimony { border-color: var(--tagTestimony); color: var(--tagTestimony); }
+    .hub-tag-chip.tag-church    { border-color: var(--tagChurch);    color: var(--tagChurch); }
+    .hub-tag-chip.tag-community { border-color: var(--tagCommunity); color: var(--tagCommunity); }
+    .hub-tag-chip.tag-berean    { border-color: var(--tagBerean);    color: var(--tagBerean); }
+
+    /* Unread dot */
+    .unread-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--amenGold);
+      flex-shrink: 0;
+      box-shadow: 0 0 5px rgba(201,168,76,0.50);
+    }
+
+    /* Pin label inside pinned card right col */
+    .pin-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--amenGold);
+      opacity: 0.8;
+    }
+
+    /* ─────────────────────────────────────────
+       SEPARATOR
+    ───────────────────────────────────────── */
+    .section-separator {
+      height: 1px;
+      margin: 6px 18px;
+      background: rgba(0,0,0,0.06);
+    }
+    body.dark .section-separator { background: rgba(255,255,255,0.06); }
+
+    /* ─────────────────────────────────────────
+       SWIPE HINT LABEL
+    ───────────────────────────────────────── */
+    .swipe-hint {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-align: center;
+      color: var(--amenGold);
+      opacity: 0.55;
+      padding: 6px 0 2px;
+    }
+
+    /* ─────────────────────────────────────────
+       TAB BAR (glass chrome)
+    ───────────────────────────────────────── */
+    .tab-bar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 82px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-around;
+      padding: 10px 0 0;
+      transition: background 0.3s;
+    }
+
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      cursor: pointer;
+    }
+
+    .tab-icon {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .tab-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--amenSlate);
+      opacity: 0.6;
+    }
+
+    .tab-item.active .tab-label { color: var(--amenGold); opacity: 1; }
+    .tab-item.active .tab-icon  { filter: none; }
+
+    /* ─────────────────────────────────────────
+       COMPOSE FAB
+    ───────────────────────────────────────── */
+    .compose-fab {
+      position: absolute;
+      bottom: 90px;
+      right: 20px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--amenGold), #B5893A);
+      box-shadow: 0 4px 20px rgba(201,168,76,0.45), 0 2px 8px rgba(0,0,0,0.20);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: white;
+      font-size: 22px;
+      z-index: 40;
+    }
+
+    /* ─────────────────────────────────────────
+       EMPTY SPACER at bottom
+    ───────────────────────────────────────── */
+    .bottom-spacer { height: 16px; }
+
+    /* ─────────────────────────────────────────
+       PINNED CARD row-level styles
+    ───────────────────────────────────────── */
+    .pinned-card .hub-row {
+      border-radius: 0;
+      border-bottom: none;
+      background: transparent;
+    }
+
+    /* Override the border-left on hub-row inside pinned-card — card itself handles accent */
+    .pinned-card .hub-row::before { display: none; }
+
+    /* ─────────────────────────────────────────
+       RESPONSIVE: keep phone centered
+    ───────────────────────────────────────── */
+    @media (max-width: 430px) {
+      .phone-frame { width: 100%; border-radius: 0; box-shadow: none; }
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-label">Agent B — Amen Hub (Unified Inbox)</div>
+
+  <div class="toggle-row">
+    <button class="toggle-btn" onclick="document.body.classList.toggle('dark')">
+      Toggle Dark Mode
+    </button>
+  </div>
+
+  <div class="phone-frame">
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <span class="status-time">9:41</span>
+      <div class="status-icons">
+        <!-- Signal bars -->
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="7" width="3" height="5" rx="1" fill="currentColor"/>
+          <rect x="4.5" y="5" width="3" height="7" rx="1" fill="currentColor"/>
+          <rect x="9" y="2.5" width="3" height="9.5" rx="1" fill="currentColor"/>
+          <rect x="13.5" y="0" width="3" height="12" rx="1" fill="currentColor" opacity="0.3"/>
+        </svg>
+        <!-- WiFi -->
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 9.5a1 1 0 100 2 1 1 0 000-2z" fill="currentColor"/>
+          <path d="M5.2 7.3C6 6.5 7 6 8 6s2 .5 2.8 1.3l1.4-1.4C11 4.7 9.6 4 8 4s-3 .7-4.2 1.9L5.2 7.3z" fill="currentColor"/>
+          <path d="M2.3 4.4C3.8 2.9 5.8 2 8 2s4.2.9 5.7 2.4l1.4-1.4C13.3 1.2 10.8 0 8 0 5.2 0 2.7 1.2.9 3l1.4 1.4z" fill="currentColor" opacity="0.5"/>
+        </svg>
+        <!-- Battery -->
+        <svg width="25" height="12" viewBox="0 0 25 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity="0.35"/>
+          <rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/>
+          <path d="M23 4v4a2 2 0 000-4z" fill="currentColor" opacity="0.4"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Navigation bar (glass chrome) -->
+    <div class="nav-bar">
+      <div class="nav-back">
+        <svg viewBox="0 0 10 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8.5 1.5L2 8l6.5 6.5" stroke="#C9A84C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Back
+      </div>
+      <div class="nav-title">Amen Hub</div>
+      <div class="nav-action" title="Compose">
+        <!-- Compose / pencil icon -->
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M11.5 1.5a2.121 2.121 0 013 3L5 14l-4 1 1-4 9.5-9.5z"
+                stroke="#C9A84C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Filter chip rail (glass chrome) -->
+    <div class="chip-rail-wrapper">
+      <div class="chip-rail">
+        <div class="chip active-all">All</div>
+        <div class="chip active-prayer">Prayer</div>
+        <div class="chip">Testimony</div>
+        <div class="chip">Church</div>
+        <div class="chip">Community</div>
+        <div class="chip">Berean</div>
+      </div>
+    </div>
+
+    <!-- Scrollable content area -->
+    <div class="content">
+
+      <!-- ── PINNED SECTION ── -->
+      <div class="section-header">📌 Pinned</div>
+
+      <div class="pinned-card">
+        <div class="pinned-card-inner">
+          <div class="hub-avatar av-prayer">W</div>
+          <div class="hub-center">
+            <div class="hub-author">Women's Retreat Team</div>
+            <div class="hub-subject">Prayer wall update</div>
+            <div class="hub-snippet">"God is moving! 3 registrations came in overnight — keep believing…"</div>
+          </div>
+          <div class="hub-right">
+            <span class="hub-timestamp">2d ago</span>
+            <span class="hub-tag-chip tag-prayer">Prayer</span>
+            <span class="pin-label">PINNED</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TODAY SECTION ── -->
+      <div class="section-header">Today</div>
+
+      <!-- Item 1: Prayer — UNREAD (swiped to reveal Keep Praying) -->
+      <div class="hub-item-wrapper swiped-right">
+        <div class="swipe-bg">
+          <div class="swipe-action-left">
+            <div class="swipe-label">
+              <span class="swipe-label-icon">🙏</span>
+              <span>Keep Praying</span>
+            </div>
+          </div>
+        </div>
+        <div class="hub-row accent-prayer">
+          <div class="hub-avatar av-prayer">M</div>
+          <div class="hub-center">
+            <div class="hub-author">Marcus A.</div>
+            <div class="hub-subject">Surgery recovery update</div>
+            <div class="hub-snippet">"Please continue praying, feeling stronger today — the doctor is encouraged…"</div>
+          </div>
+          <div class="hub-right">
+            <span class="hub-timestamp">2h ago</span>
+            <span class="hub-tag-chip tag-prayer">Prayer</span>
+            <div class="unread-dot"></div>
+          </div>
+        </div>
+      </div>
+      <div class="swipe-hint">← swipe revealed · Keep Praying</div>
+
+      <!-- Item 2: Berean AI answer -->
+      <div class="hub-item-wrapper">
+        <div class="hub-row accent-berean">
+          <div class="hub-avatar av-berean">B</div>
+          <div class="hub-center">
+            <div class="hub-author">Berean</div>
+            <div class="hub-subject">Your question about Romans 8</div>
+            <div class="hub-snippet berean-shimmer">"The phrase 'all things' in Romans 8:28 encompasses both joys and trials in the life of the…"</div>
+          </div>
+          <div class="hub-right">
+            <span class="hub-timestamp">4h ago</span>
+            <span class="hub-tag-chip tag-berean">Berean</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-separator"></div>
+
+      <!-- ── EARLIER SECTION ── -->
+      <div class="section-header">Earlier</div>
+
+      <!-- Item 3: Church — sermon notes -->
+      <div class="hub-item-wrapper">
+        <div class="swipe-bg">
+          <div class="swipe-action-left">
+            <div class="swipe-label">
+              <span class="swipe-label-icon">🙏</span>
+              <span>Keep Praying</span>
+            </div>
+          </div>
+          <div class="swipe-action-right">
+            <div class="swipe-label">
+              <span class="swipe-label-icon">📥</span>
+              <span>Archive</span>
+            </div>
+          </div>
+        </div>
+        <div class="hub-row accent-church">
+          <div class="hub-avatar av-church">PJ</div>
+          <div class="hub-center">
+            <div class="hub-author">Pastor James</div>
+            <div class="hub-subject">Sunday sermon notes shared</div>
+            <div class="hub-snippet">"The sermon outline from 'Unshakeable Faith' — three anchors for turbulent seasons…"</div>
+          </div>
+          <div class="hub-right">
+            <span class="hub-timestamp">Yesterday</span>
+            <span class="hub-tag-chip tag-church">Church</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Item 4: Community — event invite -->
+      <div class="hub-item-wrapper">
+        <div class="swipe-bg">
+          <div class="swipe-action-left">
+            <div class="swipe-label">
+              <span class="swipe-label-icon">🙏</span>
+              <span>Keep Praying</span>
+            </div>
+          </div>
+          <div class="swipe-action-right">
+            <div class="swipe-label">
+              <span class="swipe-label-icon">📥</span>
+              <span>Archive</span>
+            </div>
+          </div>
+        </div>
+        <div class="hub-row accent-community">
+          <div class="hub-avatar av-community">CM</div>
+          <div class="hub-center">
+            <div class="hub-author">Covenant Men's Study</div>
+            <div class="hub-subject">Event invite</div>
+            <div class="hub-snippet">"Romans Study — Tonight at 7:00 PM at the church fellowship hall. Dinner provided…"</div>
+          </div>
+          <div class="hub-right">
+            <span class="hub-timestamp">3d ago</span>
+            <span class="hub-tag-chip tag-community">Community</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Item 5: Testimony -->
+      <div class="hub-item-wrapper">
+        <div class="swipe-bg">
+          <div class="swipe-action-left">
+            <div class="swipe-label">
+              <span class="swipe-label-icon">🙏</span>
+              <span>Keep Praying</span>
+            </div>
+          </div>
+          <div class="swipe-action-right">
+            <div class="swipe-label">
+              <span class="swipe-label-icon">📥</span>
+              <span>Archive</span>
+            </div>
+          </div>
+        </div>
+        <div class="hub-row accent-testimony">
+          <div class="hub-avatar av-testimony">JH</div>
+          <div class="hub-center">
+            <div class="hub-author">Jordan H.</div>
+            <div class="hub-subject">Shared testimony</div>
+            <div class="hub-snippet">"I wanted to share how God showed up this week in such an unexpected and beautiful way…"</div>
+          </div>
+          <div class="hub-right">
+            <span class="hub-timestamp">4d ago</span>
+            <span class="hub-tag-chip tag-testimony">Testimony</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-spacer"></div>
+
+    </div><!-- /content -->
+
+    <!-- Compose FAB -->
+    <div class="compose-fab" title="New Message">✏️</div>
+
+    <!-- Tab bar (glass chrome) -->
+    <div class="tab-bar">
+      <div class="tab-item">
+        <div class="tab-icon">🏠</div>
+        <div class="tab-label">Home</div>
+      </div>
+      <div class="tab-item">
+        <div class="tab-icon">🔍</div>
+        <div class="tab-label">Discover</div>
+      </div>
+      <div class="tab-item active">
+        <div class="tab-icon">✉️</div>
+        <div class="tab-label" style="color: var(--amenGold);">Hub</div>
+      </div>
+      <div class="tab-item">
+        <div class="tab-icon">📖</div>
+        <div class="tab-label">Selah</div>
+      </div>
+      <div class="tab-item">
+        <div class="tab-icon">👤</div>
+        <div class="tab-label">Profile</div>
+      </div>
+    </div>
+
+  </div><!-- /phone-frame -->
+
+</body>
+</html>

@@ -75,7 +75,7 @@ struct TopicTag: Identifiable, Codable, Hashable {
 
 // MARK: - Scripture Reference Parser
 
-struct ScriptureRef: Equatable {
+struct ParsedScriptureRef: Equatable {
     let book: String
     let chapter: Int
     let verse: Int?
@@ -192,7 +192,7 @@ final class SemanticTopicService {
     }
 
     /// Detect and normalize scripture references in text
-    func detectScripture(in text: String) -> [ScriptureRef] {
+    func detectScripture(in text: String) -> [ParsedScriptureRef] {
         detectScriptureReferences(in: text)
     }
 
@@ -264,8 +264,8 @@ final class SemanticTopicService {
 
     // MARK: - Scripture Reference Detection
 
-    private func detectScriptureReferences(in text: String) -> [ScriptureRef] {
-        var refs: [ScriptureRef] = []
+    private func detectScriptureReferences(in text: String) -> [ParsedScriptureRef] {
+        var refs: [ParsedScriptureRef] = []
 
         // Pattern: "John 3:16" or "Ps 23" or "1 Cor 13:1-13"
         let pattern = #"(?i)(1|2|3)?\s*([A-Za-z]+\.?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?"#
@@ -300,7 +300,7 @@ final class SemanticTopicService {
                 endVerse = Int(text[endVerseRange])
             }
 
-            refs.append(ScriptureRef(book: canonicalBook, chapter: chapter, verse: verse, endVerse: endVerse))
+            refs.append(ParsedScriptureRef(book: canonicalBook, chapter: chapter, verse: verse, endVerse: endVerse))
         }
 
         return refs
@@ -328,7 +328,7 @@ struct TopicClusterChip: View {
 
     var body: some View {
         Text(cluster.rawValue)
-            .font(.system(size: small ? 10 : 12, weight: .medium))
+            .font(.systemScaled(small ? 10 : 12, weight: .medium))
             .foregroundStyle(chipColor)
             .padding(.horizontal, small ? 7 : 10)
             .padding(.vertical, small ? 3 : 5)

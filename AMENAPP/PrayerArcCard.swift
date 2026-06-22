@@ -269,10 +269,10 @@ struct PrayerArcCard: View {
     private func insightPill(_ text: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "sparkles")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(red: 0.18, green: 0.64, blue: 0.40))
             Text(text)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(.label))
             Spacer()
         }
@@ -348,17 +348,17 @@ struct PrayerArcCard: View {
                     .fill(Color(.systemGray6))
                     .frame(width: 38, height: 38)
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(isGold ? gold : Color(.secondaryLabel))
             }
             Text(label.isEmpty ? "—" : label + (label.count >= 60 ? "…" : ""))
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundStyle(Color(.label))
                 .lineLimit(1)
             Spacer()
             if hasChevron {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color(.tertiaryLabel))
             }
         }
@@ -403,7 +403,7 @@ struct PrayerArcCard: View {
                     ZStack {
                         Circle().fill(Color(.systemGray5))
                         Text("+\(vm.intercessors.count - 5)")
-                            .font(.system(size: 8, weight: .semibold))
+                            .font(.systemScaled(8, weight: .semibold))
                             .foregroundStyle(Color(.secondaryLabel))
                     }
                     .frame(width: 24, height: 24)
@@ -411,7 +411,7 @@ struct PrayerArcCard: View {
                 }
             }
             Text("\(vm.intercessors.count) \(vm.intercessors.count == 1 ? "person" : "people") received a notification today")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color(.tertiaryLabel))
         }
     }
@@ -435,6 +435,7 @@ struct PrayerArcCard: View {
                         .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 2)
                     Image("amen-logo")
                         .resizable()
+                        .renderingMode(.original)
                         .scaledToFit()
                         .frame(width: 26, height: 26)
                         .blendMode(.multiply)
@@ -442,7 +443,7 @@ struct PrayerArcCard: View {
             }
             .buttonStyle(.plain)
             Text("ask anything...")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color(.tertiaryLabel))
         }
         .frame(maxWidth: .infinity)
@@ -474,11 +475,11 @@ private struct PrayerDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text(prayer.content)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(Color(.label))
                         .padding(.horizontal, 20)
                         .padding(.top, 12)
@@ -487,7 +488,7 @@ private struct PrayerDetailSheet: View {
                         Divider().padding(.horizontal, 20)
                         VStack(alignment: .leading, spacing: 8) {
                             Text("People who prayed")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(Color(.secondaryLabel))
                                 .padding(.horizontal, 20)
                             ForEach(intercessors) { person in
@@ -499,7 +500,7 @@ private struct PrayerDetailSheet: View {
                                     .frame(width: 32, height: 32)
                                     .clipShape(Circle())
                                     Text(person.name)
-                                        .font(.system(size: 15))
+                                        .font(.systemScaled(15))
                                         .foregroundStyle(Color(.label))
                                 }
                                 .padding(.horizontal, 20)
@@ -528,7 +529,7 @@ private struct IntercessorListSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List(intercessors) { person in
                 HStack(spacing: 12) {
                     AsyncImage(url: URL(string: person.photoURL ?? "")) { phase in
@@ -538,7 +539,7 @@ private struct IntercessorListSheet: View {
                     .frame(width: 36, height: 36)
                     .clipShape(Circle())
                     Text(person.name)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color(.label))
                 }
             }

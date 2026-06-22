@@ -57,7 +57,7 @@ final class BereanSnapService: ObservableObject {
         case done        = "Done"
     }
 
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private let storage   = Storage.storage()
 
     // MARK: - Main entry point

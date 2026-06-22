@@ -336,10 +336,15 @@ class ThinkFirstGuardrailsService: ObservableObject {
     
     // MARK: - Text Normalization (matches server-side normalizeText)
 
-    /// Normalize text to defeat common evasion tactics (leet-speak, punctuation splitting,
-    /// repeated characters) before keyword matching.
+    /// Normalize text to defeat common evasion tactics (Unicode homoglyphs, leet-speak,
+    /// punctuation splitting, repeated characters) before keyword matching.
     private func normalizeText(_ text: String) -> String {
-        var s = text.lowercased()
+        // C-9: Unicode confusable normalization — converts Cyrillic/Greek/accented
+        // lookalike characters to their Latin equivalents before keyword matching.
+        // e.g. Cyrillic "а" (U+0430) → "a", accented "héll" → "hell"
+        let latinized = text.applyingTransform(.toLatin, reverse: false) ?? text
+        var s = latinized.folding(options: [.diacriticInsensitive, .caseInsensitive],
+                                  locale: Locale(identifier: "en_US"))
         // Leet-speak substitutions
         s = s.replacingOccurrences(of: "0", with: "o")
         s = s.replacingOccurrences(of: "1", with: "i")

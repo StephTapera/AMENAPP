@@ -15,6 +15,8 @@ class ChurchDeepLinkHandler: ObservableObject {
     
     @Published var churchIdToOpen: String?
     @Published var showChurchProfile = false
+    @Published var showReflection = false
+    @Published var showJourney = false
     
     private init() {}
     
@@ -22,6 +24,21 @@ class ChurchDeepLinkHandler: ObservableObject {
     func handleURL(_ url: URL) -> Bool {
         // Parse church deep link
         if let churchId = ChurchDeepLink.parse(url) {
+            // Check for sub-routes: amen://church/{id}/reflect, amen://church/{id}/journey
+            let components = url.pathComponents
+            if components.count > 2 {
+                let subRoute = components[2]
+                switch subRoute {
+                case "reflect":
+                    openReflection(churchId: churchId)
+                    return true
+                case "journey":
+                    openJourney(churchId: churchId)
+                    return true
+                default:
+                    break
+                }
+            }
             openChurch(id: churchId)
             return true
         }
@@ -31,6 +48,7 @@ class ChurchDeepLinkHandler: ObservableObject {
     
     /// Open church profile by ID
     func openChurch(id: String) {
+        resetSubRoutes()
         churchIdToOpen = id
         showChurchProfile = true
         
@@ -38,11 +56,40 @@ class ChurchDeepLinkHandler: ObservableObject {
         dlog("🔗 [DEEP LINK] Opening church: \(id)")
         #endif
     }
+
+    /// Open reflection for a church
+    func openReflection(churchId: String) {
+        resetSubRoutes()
+        churchIdToOpen = churchId
+        showReflection = true
+
+        #if DEBUG
+        dlog("🔗 [DEEP LINK] Opening reflection for church: \(churchId)")
+        #endif
+    }
+
+    /// Open journey timeline for a church
+    func openJourney(churchId: String) {
+        resetSubRoutes()
+        churchIdToOpen = churchId
+        showJourney = true
+
+        #if DEBUG
+        dlog("🔗 [DEEP LINK] Opening journey for church: \(churchId)")
+        #endif
+    }
     
     /// Close church profile
     func closeChurch() {
         showChurchProfile = false
+        resetSubRoutes()
         churchIdToOpen = nil
+    }
+
+    private func resetSubRoutes() {
+        showChurchProfile = false
+        showReflection = false
+        showJourney = false
     }
 }
 

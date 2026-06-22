@@ -18,7 +18,7 @@ final class NotificationAggregationService: ObservableObject {
     
     static let shared = NotificationAggregationService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Foreground Suppression State
     
@@ -44,6 +44,7 @@ final class NotificationAggregationService: ObservableObject {
     
     private var recentNotifications: [String: [Date]] = [:]  // key: type_targetId, value: timestamps
     private let aggregationWindow: TimeInterval = 30 * 60  // 10-30 min window (30 min = 1800 seconds)
+    private var notificationTokens: [NSObjectProtocol] = []
     
     // MARK: - Initialization
     
@@ -251,7 +252,7 @@ final class NotificationAggregationService: ObservableObject {
     
     private func setupScreenObservers() {
         // Listen for app foreground/background events
-        NotificationCenter.default.addObserver(
+        let fgToken = NotificationCenter.default.addObserver(
             forName: UIApplication.willEnterForegroundNotification,
             object: nil,
             queue: .main
@@ -260,8 +261,7 @@ final class NotificationAggregationService: ObservableObject {
             // Reset screen tracking
             Task { @MainActor [weak self] in self?.currentScreen = .none }
         }
-        
-        NotificationCenter.default.addObserver(
+        let bgToken = NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
             object: nil,
             queue: .main
@@ -269,6 +269,11 @@ final class NotificationAggregationService: ObservableObject {
             dlog("🌙 App entering background")
             Task { @MainActor [weak self] in self?.currentScreen = .none }
         }
+        notificationTokens.append(contentsOf: [fgToken, bgToken])
+    }
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 }
 

@@ -88,7 +88,7 @@ struct BereanPlusMenu: View {
                     // Header
                     HStack {
                         Text("Quick Actions")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(Color(white: 0.2))
                         
                         Spacer()
@@ -99,12 +99,12 @@ struct BereanPlusMenu: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 24))
+                                .font(.systemScaled(24))
                                 .foregroundStyle(Color(white: 0.4))
                         }
                     }
                     .padding()
-                    .background(Color.white)
+                    .background(Color(.systemBackground))
                     
                     Divider()
                     
@@ -185,11 +185,11 @@ struct BereanPlusMenu: View {
                                 }
                             }
                         }
-                        .background(Color.white)
+                        .background(Color(.systemBackground))
                     }
                     .frame(maxHeight: 400)
                 }
-                .background(Color.white)
+                .background(Color(.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .shadow(color: .black.opacity(0.2), radius: 20, y: -5)
                 .padding(.horizontal, 20)
@@ -211,7 +211,7 @@ struct PlusMenuButton: View {
             HStack(spacing: 16) {
                 // Icon
                 Image(systemName: icon)
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.systemScaled(24, weight: .medium))
                     .foregroundStyle(color)
                     .frame(width: 44, height: 44)
                     .background(
@@ -222,18 +222,18 @@ struct PlusMenuButton: View {
                 // Text
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(Color(white: 0.2))
                     
                     Text(subtitle)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(white: 0.5))
                 }
                 
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(white: 0.4))
             }
             .padding(.horizontal, 16)
@@ -405,14 +405,14 @@ struct VoiceInputView: View {
                     
                     // Status text
                     Text(speechRecognizer.isRecording ? "Listening..." : "Tap to start")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.systemScaled(20, weight: .medium))
                         .foregroundStyle(.white)
                     
                     // Transcribed text
                     if !speechRecognizer.transcribedText.isEmpty {
                         ScrollView {
                             Text(speechRecognizer.transcribedText)
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.white.opacity(0.9))
                                 .padding()
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -427,7 +427,7 @@ struct VoiceInputView: View {
                     // Error message
                     if let error = speechRecognizer.error {
                         Text(error)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.red)
                             .padding(.horizontal)
                     }
@@ -441,7 +441,7 @@ struct VoiceInputView: View {
                                 Image(systemName: "xmark")
                                 Text("Cancel")
                             }
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 24)
                             .padding(.vertical, 14)
@@ -459,8 +459,8 @@ struct VoiceInputView: View {
                                     Image(systemName: "checkmark")
                                     Text("Use Text")
                                 }
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.black)
+                                .font(.systemScaled(16, weight: .semibold))
+                                .foregroundStyle(.primary)
                                 .padding(.horizontal, 24)
                                 .padding(.vertical, 14)
                                 .background(
@@ -535,9 +535,10 @@ struct VerseDetailView: View {
     @State private var verseText: String = ""
     @State private var isLoading = true
     @State private var translations: [String: String] = [:]
-    @State private var selectedTranslation = "NIV"
+    @State private var selectedTranslation = "KJV" // TODO(legal): was NIV (Biblica, copyrighted) — changed to KJV (public domain) per AMEN-CONTENT-001
     
-    let availableTranslations = ["NIV", "ESV", "KJV", "NLT", "NASB"]
+    // TODO(legal): NIV/ESV/NLT/NASB removed — copyrighted without license (AMEN-CONTENT-001).
+    let availableTranslations = ["KJV", "WEB", "BSB"]
     
     var body: some View {
         NavigationStack {
@@ -549,7 +550,7 @@ struct VerseDetailView: View {
                     VStack(alignment: .leading, spacing: 24) {
                         // Reference
                         Text(verseReference)
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.systemScaled(28, weight: .bold))
                             .foregroundStyle(Color(white: 0.2))
                         
                         // Translation picker
@@ -562,7 +563,7 @@ struct VerseDetailView: View {
                                         }
                                     } label: {
                                         Text(translation)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(selectedTranslation == translation ? .white : Color(white: 0.4))
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 8)
@@ -631,7 +632,7 @@ struct VerseDetailView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color(white: 0.3))
                     }
                 }
@@ -647,11 +648,11 @@ struct VerseDetailView: View {
             do {
                 let passage = try await YouVersionBibleService.shared.fetchVerse(
                     reference: verseReference,
-                    version: .esv
+                    version: .kjv // TODO(legal): was .esv (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
                 )
                 await MainActor.run {
                     verseText = passage.text
-                    translations["ESV"] = passage.text
+                    translations["KJV"] = passage.text // TODO(legal): was ESV (Crossway, copyrighted) per AMEN-CONTENT-001
                     isLoading = false
                 }
             } catch {
@@ -682,15 +683,19 @@ struct VerseDetailView: View {
     private func saveVerse() {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         Task {
-            _ = try? await Firestore.firestore()
-                .collection("users").document(userId)
-                .collection("savedVerses")
-                .addDocument(data: [
-                    "reference": verseReference,
-                    "text": verseText,
-                    "translation": selectedTranslation,
-                    "savedAt": FieldValue.serverTimestamp()
-                ])
+            do {
+                try await Firestore.firestore()
+                    .collection("users").document(userId)
+                    .collection("savedVerses")
+                    .addDocument(data: [
+                        "reference": verseReference,
+                        "text": verseText,
+                        "translation": selectedTranslation,
+                        "savedAt": FieldValue.serverTimestamp()
+                    ])
+            } catch {
+                print("BereanMissingFeatures: failed to save verse — \(error.localizedDescription)")
+            }
         }
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
@@ -713,12 +718,12 @@ struct BereanActionButton: View {
         Button(action: action) {
             HStack {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                 Text(title)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
             }
             .foregroundStyle(color)
             .padding()
@@ -775,7 +780,7 @@ struct BereanReportIssueView: View {
                 
                 Section("Message Content") {
                     Text(message.content)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(white: 0.4))
                         .padding(.vertical, 8)
                 }
@@ -783,7 +788,7 @@ struct BereanReportIssueView: View {
                 Section("Description") {
                     TextEditor(text: $description)
                         .frame(minHeight: 100)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                 }
                 
                 Section {
@@ -798,7 +803,7 @@ struct BereanReportIssueView: View {
                             }
                         } else {
                             Text("Submit Report")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -820,14 +825,18 @@ struct BereanReportIssueView: View {
     private func submitReport() {
         isSubmitting = true
         Task {
-            let db = Firestore.firestore()
-            _ = try? await db.collection("bereanFeedback").addDocument(data: [
-                "userId": Auth.auth().currentUser?.uid ?? "anonymous",
-                "messageContent": message.content,
-                "issueType": issueType.rawValue,
-                "description": description,
-                "submittedAt": FieldValue.serverTimestamp()
-            ])
+            lazy var db = Firestore.firestore()
+            do {
+                try await db.collection("bereanFeedback").addDocument(data: [
+                    "userId": Auth.auth().currentUser?.uid ?? "anonymous",
+                    "messageContent": message.content,
+                    "issueType": issueType.rawValue,
+                    "description": description,
+                    "submittedAt": FieldValue.serverTimestamp()
+                ])
+            } catch {
+                print("BereanMissingFeatures: failed to submit report — \(error.localizedDescription)")
+            }
             await MainActor.run {
                 isSubmitting = false
                 isPresented = false

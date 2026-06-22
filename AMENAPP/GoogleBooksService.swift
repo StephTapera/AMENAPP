@@ -78,6 +78,22 @@ final class GoogleBooksService: @unchecked Sendable {
         return books
     }
 
+    // MARK: - Fetch by Volume ID
+
+    func fetchById(_ volumeId: String) async throws -> WLBook? {
+        var urlStr = "\(GoogleBooksConfig.baseURL)/volumes/\(volumeId)"
+        if !GoogleBooksConfig.apiKey.isEmpty {
+            urlStr += "?key=\(GoogleBooksConfig.apiKey)"
+        }
+        guard let url = URL(string: urlStr) else { throw WLBookServiceError.invalidURL }
+        let (data, response) = try await session.data(from: url)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw WLBookServiceError.httpError((response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+        let item = try JSONDecoder().decode(GBItem.self, from: data)
+        return WLBook(fromAPI: item)
+    }
+
     // MARK: - Curated Shelves
 
     func fetchCuratedShelves() async -> [WLBookShelf] {

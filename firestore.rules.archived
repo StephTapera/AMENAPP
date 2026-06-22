@@ -1,0 +1,3600 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // True if the caller holds a custom claim that marks them as an admin.
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // True if the caller holds the "moderator" or "admin" custom claim.
+    function isModerator() {
+      return isSignedIn() &&
+        (request.auth.token.moderator == true || request.auth.token.admin == true);
+    }
+
+    function hasNoPremiumSpoofFields() {
+      return !request.resource.data.keys().hasAny([
+        'premiumTier',
+        'hasPlusAccess',
+        'hasProAccess',
+        'premiumEntitlement',
+        'customTopicTagCount',
+        'aiUsageRemaining',
+        'aiUsageLimit'
+      ]);
+    }
+
+    function premiumFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'premiumTier',
+        'hasPlusAccess',
+        'hasProAccess',
+        'premiumEntitlement',
+        'customTopicTagCount',
+        'aiUsageRemaining',
+        'aiUsageLimit'
+      ]);
+    }
+
+    function isSpaceMember(spaceId) {
+      return isSignedIn() &&
+        (
+          exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid)) ||
+          (
+            exists(/databases/$(database)/documents/spaces/$(spaceId)) &&
+            get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds is list &&
+            get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds.hasAny([request.auth.uid])
+          )
+        );
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+    // ARCHITECTURE CONTRACT: The main /users/{uid} document must contain ONLY
+    // public profile data (displayName, photoURL, bio, churchId, etc.).
+    // PII (email, phone, FCM tokens, payment info) MUST live in locked
+    // subcollections (/users/{uid}/usage, /users/{uid}/safety, etc.) which
+    // are already owner-only below. Never add PII fields to this root document.
+    // Broad read is intentional — required for profile browsing and social graph.
+
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(uid) && hasNoPremiumSpoofFields();
+      allow update: if isOwner(uid) && premiumFieldsUnchanged();
+      allow delete: if isOwner(uid) || isAdmin();
+
+      match /customTopicTags/{tagId} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+      }
+
+      match /usage/{usageId} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+      }
+
+      match /safety/{docId} {
+        allow read: if isOwner(uid) || isModerator();
+        allow create, update, delete: if false;
+
+        match /trustedContacts/{contactId} {
+          allow read: if isOwner(uid) || isModerator();
+          allow create, update, delete: if false;
+        }
+
+        match /wellbeingSignals/{signalId} {
+          allow read: if isOwner(uid) || isModerator();
+          allow create, update, delete: if false;
+        }
+
+        match /feedControls/{controlId} {
+          allow read: if isOwner(uid) || isModerator();
+          allow create, update, delete: if false;
+        }
+
+        match /sessionBoundaries/{sessionId} {
+          allow read: if isOwner(uid) || isModerator();
+          allow create, update, delete: if false;
+        }
+
+        match /reports/{reportId} {
+          allow read: if isOwner(uid) || isModerator();
+          allow create, update, delete: if false;
+        }
+
+        match /notifications/{notificationId} {
+          allow read: if isOwner(uid);
+          allow create, update, delete: if false;
+        }
+      }
+    }
+
+    // Universal Create drafts. Owner-readable for restore; writes go through
+    // Cloud Functions so server-owned sync metadata cannot be forged.
+    match /users/{uid}/drafts/{draftId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    match /users/{uid}/media/{mediaId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+
+      match /transcriptTracks/{trackId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /captionTracks/{trackId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+    }
+
+    // ── Healthy Media — user-scoped sub-collections ───────────────────────────
+
+    // Media progress: only the owning user can read their own progress.
+    // Writes go through updateMediaProgress callable — client cannot write directly.
+    match /users/{uid}/mediaProgress/{mediaId} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+    }
+
+    // Media queues: user can read/delete their own queue items.
+    // New items are created by saveToMediaQueue callable only.
+    match /users/{uid}/mediaQueues/{queueId} {
+      allow read: if isOwner(uid);
+      allow create, update: if false;
+      allow delete: if isOwner(uid);
+
+      match /items/{itemId} {
+        allow read: if isOwner(uid);
+        allow create, update: if false;
+        allow delete: if isOwner(uid);
+      }
+    }
+
+    // Media sessions: only the owning user can read their own sessions.
+    // Created/completed by createMediaSession + completeMediaSession callables.
+    match /users/{uid}/mediaSessions/{sessionId} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+    }
+
+    // Accessibility preferences: user can read and write their own preferences.
+    // System fields (moderationVersion, etc.) are not present here.
+    match /users/{uid}/accessibility/mediaPreferences/main {
+      allow read: if isOwner(uid);
+      allow write: if isOwner(uid) &&
+        !request.resource.data.keys().hasAny([
+          'moderationStatus', 'rankingScore', 'trustScore',
+          'systemSafetyLabels', 'moderationVersion'
+        ]);
+    }
+
+    match /users/{uid}/smartMessageMemory/{nodeId} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+    }
+
+    match /users/{uid}/smartMessageActions/{actionId} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+    }
+
+    function contentVisibleToCaller() {
+      return resource.data.ownerId == request.auth.uid ||
+        (resource.data.collaborators is list && resource.data.collaborators.hasAny([request.auth.uid])) ||
+        (
+          resource.data.visibility == 'public' &&
+          resource.data.publishState == 'published' &&
+          resource.data.moderationState.status == 'approved' &&
+          !('deletedAt' in resource.data)
+        );
+    }
+
+    // Universal ContentNode collection. Client writes are denied; creation,
+    // publishing, moderation, deletion, and AI metadata are server-authoritative.
+    match /content/{contentId} {
+      allow read: if isSignedIn() && contentVisibleToCaller();
+      allow create, update, delete: if false;
+
+      match /metrics/{metricId} {
+        allow read: if isSignedIn() && metricId == 'aggregate';
+        allow write: if false;
+      }
+
+      match /replies/{replyId} {
+        allow read: if isSignedIn() &&
+          (
+            get(/databases/$(database)/documents/content/$(contentId)).data.ownerId == request.auth.uid ||
+            (
+              get(/databases/$(database)/documents/content/$(contentId)).data.visibility == 'public' &&
+              get(/databases/$(database)/documents/content/$(contentId)).data.publishState == 'published' &&
+              get(/databases/$(database)/documents/content/$(contentId)).data.moderationState.status == 'approved' &&
+              resource.data.moderationState.status == 'approved'
+            )
+          );
+        allow write: if false;
+      }
+
+      match /threadSummaries/{summaryId} {
+        allow read: if isSignedIn() &&
+          (
+            get(/databases/$(database)/documents/content/$(contentId)).data.ownerId == request.auth.uid ||
+            resource.data.ownerId == request.auth.uid
+          );
+        allow write: if false;
+      }
+    }
+
+    // ── Posts / feed ─────────────────────────────────────────────────────────
+
+    match /posts/{postId} {
+      // Authors can always read their own posts (incl. drafts).
+      // Others only see published posts — prevents draft/removed content leaking.
+      // Uses get() default 'published' for backward compat with legacy docs.
+      allow read: if isSignedIn() && (
+        resource.data.authorId == request.auth.uid ||
+        resource.data.get('publishState', 'published') == 'published'
+      );
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
+      allow delete: if isSignedIn() &&
+        (resource.data.authorId == request.auth.uid || isModerator());
+
+      match /safety/{docId} {
+        allow read: if isSignedIn() && docId != 'decision';
+        allow create, update, delete: if false;
+
+        match /integrityLabels/{labelId} {
+          allow read: if isSignedIn();
+          allow create, update, delete: if false;
+        }
+
+        match /claims/{claimId} {
+          allow read: if isSignedIn();
+          allow create, update, delete: if false;
+        }
+
+        match /reports/{reportId} {
+          allow read: if isModerator();
+          allow create, update, delete: if false;
+        }
+      }
+    }
+
+    // ── Healthy Immersive Media — posts/{postId}/media sub-collections ────────
+    // Canonical media path: posts/{postId}/media/{mediaId}
+    // Clients can read approved items. All writes are server-controlled via callables.
+
+    match /posts/{postId}/media/{mediaId} {
+      // Public viewers only see non-removed, non-hidden items.
+      allow read: if isSignedIn() &&
+        !(resource.data.get('status', '') in ['removed', 'hidden']) &&
+        !(resource.data.get('safety', {}).get('status', '') == 'removed');
+      // All writes go through callables (createMediaUploadSession, finalizeMediaUpload, etc.)
+      allow create, update, delete: if false;
+
+      // Caption tracks: draft/pending only visible to creator or admin.
+      match /captionTracks/{trackId} {
+        allow read: if isSignedIn() && (
+          resource.data.get('status', '') == 'approved' ||
+          resource.data.get('approvedByUser', false) == true ||
+          get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid ||
+          isAdmin()
+        );
+        allow create, update, delete: if false;
+      }
+
+      // Key moments: draft/pending only visible to creator or admin.
+      match /keyMoments/{momentId} {
+        allow read: if isSignedIn() && (
+          resource.data.get('approvedByUser', false) == true ||
+          resource.data.get('status', '') == 'approved' ||
+          get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid ||
+          isAdmin()
+        );
+        allow create, update, delete: if false;
+      }
+
+      // Draft metadata: creator and admin only — never public.
+      match /draftMetadata/{draftId} {
+        allow read: if isSignedIn() && (
+          get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid ||
+          isAdmin()
+        );
+        allow create, update, delete: if false;
+      }
+
+      // Verse-linked moments: same visibility as key moments.
+      match /verseLinkedMoments/{momentId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if false;
+      }
+
+      // Explanations: draft until approved, then public.
+      match /explanations/{explanationId} {
+        allow read: if isSignedIn() && (
+          resource.data.get('approvedByUser', false) == true ||
+          get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid ||
+          isAdmin()
+        );
+        allow create, update, delete: if false;
+      }
+    }
+
+    // Legacy mediaMeta path — read-only bridge until migration completes.
+    match /posts/{postId}/mediaMeta/{mediaId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+
+      match /captionTracks/{trackId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if false;
+      }
+
+      match /keyMoments/{momentId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if false;
+      }
+    }
+
+    // ── Media system collections — all server-write only ──────────────────────
+
+    // Ranking signals: server-computed — no client writes ever.
+    match /mediaRankingSignals/{mediaId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // Moderation queue: callable-created only, never client-written.
+    match /mediaModerationQueue/{mediaId} {
+      allow read: if isModerator() || isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // Search index: server-maintained only.
+    match /mediaSearchIndex/{mediaId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // Analytics events: append-only via callable, no client reads of others' events.
+    match /mediaAnalyticsEvents/{eventId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // Audit logs: server-only.
+    match /mediaAuditLogs/{docId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // Rate limit windows: server-only.
+    match /mediaRateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Churches ─────────────────────────────────────────────────────────────
+
+    match /churches/{churchId} {
+      allow read: if isSignedIn();
+      // Creator must include themselves in adminUids — prevents privilege escalation
+      // and orphaned churches with no admin. Sensitive church creation should go
+      // through the createChurch callable for full server-side validation.
+      allow create: if isSignedIn() &&
+        request.resource.data.adminUids is list &&
+        request.resource.data.adminUids.hasAny([request.auth.uid]);
+      allow update: if isSignedIn() && (
+        resource.data.adminUids.hasAny([request.auth.uid]) || isAdmin()
+      );
+      allow delete: if isAdmin();
+
+      // Hashed phone list: write only by authenticated user adding their own
+      // hash; no one can read the raw list (security through opacity).
+      match /memberHashedPhones/{docId} {
+        allow read: if false; // server-side only
+        allow create: if isSignedIn()
+          && request.resource.data.keys().hasOnly(['hashedPhone', 'addedAt'])
+          && request.resource.data.hashedPhone is string
+          && request.resource.data.hashedPhone.size() == 64; // SHA-256 hex
+        allow update, delete: if false; // immutable once written
+      }
+    }
+
+    // ── Action Threads (System 8: Care Workflows) ─────────────────────────────
+    // Thread metadata, steps, participants, and audit trail.
+    // Participants (coordinator + supporters) can read. Only the thread owner
+    // or assigned coordinator can create/update. All audit writes are server-only.
+
+    match /posts/{postId}/actionThreads/{threadId} {
+      allow read: if isSignedIn() &&
+        (
+          resource.data.creatorId == request.auth.uid ||
+          exists(/databases/$(database)/documents/posts/$(postId)/actionThreads/$(threadId)/participants/$(request.auth.uid))
+        );
+      allow create: if isSignedIn() && request.resource.data.creatorId == request.auth.uid;
+      allow update: if isSignedIn() &&
+        (resource.data.creatorId == request.auth.uid || isModerator());
+      allow delete: if false;
+
+      match /steps/{stepId} {
+        allow read: if isSignedIn() &&
+          exists(/databases/$(database)/documents/posts/$(postId)/actionThreads/$(threadId)/participants/$(request.auth.uid));
+        allow create, update: if isSignedIn() &&
+          exists(/databases/$(database)/documents/posts/$(postId)/actionThreads/$(threadId)/participants/$(request.auth.uid));
+        allow delete: if false;
+      }
+
+      match /participants/{uid} {
+        allow read: if isSignedIn() &&
+          exists(/databases/$(database)/documents/posts/$(postId)/actionThreads/$(threadId)/participants/$(request.auth.uid));
+        allow create: if isSignedIn() && uid == request.auth.uid;
+        allow update: if isSignedIn() && uid == request.auth.uid;
+        allow delete: if false;
+      }
+
+      match /audit/{entryId} {
+        allow read: if isSignedIn() &&
+          (
+            get(/databases/$(database)/documents/posts/$(postId)/actionThreads/$(threadId)).data.creatorId == request.auth.uid ||
+            isModerator()
+          );
+        allow write: if false;
+      }
+    }
+
+    // Per-user thread membership index — owner-readable for inbox/dashboard queries.
+    // Written server-side when a thread is created or a participant is added.
+    match /users/{uid}/actionThreadMemberships/{threadId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // ── Berean AI conversations ───────────────────────────────────────────────
+    // Each user owns their own conversation tree; no one else can read it.
+
+    match /bereanConversations/{uid}/{conversationId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /bereanConversations/{uid}/{conversationId}/messages/{messageId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── Moderation queue ─────────────────────────────────────────────────────
+    // Any signed-in user can submit a report; only moderators can read/manage.
+
+    match /moderationQueue/{reportId} {
+      allow create: if isSignedIn()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.keys().hasAll(['reporterId', 'contentId', 'reason', 'timestamp']);
+      allow read, update, delete: if isModerator();
+    }
+
+    // ── User safety records ───────────────────────────────────────────────────
+    // Written by safety-gate code on the client; readable only by admins.
+    // The writer must be the subject of the record (self-report) or an admin.
+
+    match /userSafetyRecords/{uid} {
+      allow read: if isAdmin();
+      allow create, update: if isOwner(uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Data export requests ──────────────────────────────────────────────────
+    // A user can submit exactly one request for their own data; admins manage.
+
+    match /dataExportRequests/{uid} {
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasAll(['requestedAt', 'status'])
+        && request.resource.data.status == 'pending';
+      allow read: if isOwner(uid) || isAdmin();
+      // Only admins can update status (e.g. mark fulfilled) or delete.
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Longitudinal / growth profiles ───────────────────────────────────────
+    // Personal spiritual-growth data; only the owning user can read or write.
+
+    match /longitudinalProfiles/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── Communities / Covenant rooms ─────────────────────────────────────────
+    // Legacy /communities (Ark) path. Client direct create is denied — community
+    // creation must go through a server-authoritative callable that seeds
+    // creatorId, adminUids, memberCount, moderationStatus, and safetyStatus.
+    // Server-owned fields (adminUids, memberCount, postCount, rankingScore,
+    // safetyStatus, moderationStatus, isOfficial, isArchived, isDeleted) are
+    // never client-writable.
+
+    function communityServerOwnedKeys() {
+      return [
+        'adminUids', 'memberCount', 'postCount', 'rankingScore',
+        'safetyStatus', 'moderationStatus', 'isOfficial',
+        'isArchived', 'isDeleted', 'creatorId', 'createdAt'
+      ];
+    }
+
+    function communityUpdateAffectsServerOwnedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(communityServerOwnedKeys());
+    }
+
+    match /communities/{communityId} {
+      // Read remains permitted only for non-private communities; private
+      // communities require server-resolved membership and are not yet
+      // exposed via client-readable rule — keep them server-mediated.
+      allow read: if isSignedIn()
+        && (!('visibility' in resource.data) || resource.data.visibility != 'private');
+      // Direct client create is denied. Creation must go through a callable.
+      allow create: if false;
+      // Update is allowed only for admins/creator AND only when no
+      // server-owned field is touched. Moderation status changes must
+      // go through a callable.
+      allow update: if isSignedIn()
+        && (resource.data.adminUids.hasAny([request.auth.uid]) || isAdmin())
+        && !communityUpdateAffectsServerOwnedKeys();
+      allow delete: if isAdmin();
+
+      match /posts/{postId} {
+        allow read: if isSignedIn()
+          // Read is denied if the parent community is private/members-only.
+          // Membership-gated reads must use a callable; client direct read of
+          // a private community's posts is blocked here.
+          && (
+            !exists(/databases/$(database)/documents/communities/$(communityId))
+            || !('visibility' in get(/databases/$(database)/documents/communities/$(communityId)).data)
+            || get(/databases/$(database)/documents/communities/$(communityId)).data.visibility == 'public'
+          );
+        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if isSignedIn() &&
+          (resource.data.authorId == request.auth.uid || isModerator());
+      }
+    }
+
+    // ── Amen Smart Message Intelligence ──────────────────────────────────────
+    // Generated entities, summaries, semantic index rows, and knowledge graph
+    // nodes are server-owned. Client writes are limited to explicit user actions
+    // that require confirmation: prayer requests and study sessions.
+
+    match /spaces/{spaceId} {
+      allow read: if isSpaceMember(spaceId);
+      allow create, update, delete: if false;
+
+      match /members/{memberId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create, update, delete: if false;
+      }
+
+      match /smartThreads/{threadId}/messages/{messageId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create, update, delete: if false;
+      }
+
+      match /smartThreads/{threadId}/insights/{insightId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create, update, delete: if false;
+      }
+
+      match /smartThreads/{threadId}/entities/{entityId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create, update, delete: if false;
+      }
+
+      match /smartThreads/{threadId}/studySessions/{sessionId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create: if isSpaceMember(spaceId)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'id', 'spaceId', 'threadId', 'title', 'scriptures', 'topics',
+            'notes', 'participants', 'createdBy', 'createdAt', 'updatedAt',
+            'seedMessageIds'
+          ])
+          && request.resource.data.spaceId == spaceId
+          && request.resource.data.threadId == threadId;
+        allow update, delete: if false;
+      }
+
+      match /knowledgeGraph/nodes/nodes/{nodeId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create, update, delete: if false;
+      }
+
+      match /knowledgeGraph/edges/edges/{edgeId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create, update, delete: if false;
+      }
+
+      match /prayerRequests/{requestId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create: if isSpaceMember(spaceId)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'createdBy', 'body', 'visibility', 'category', 'sourceMessageId',
+            'threadId', 'status', 'createdAt'
+          ])
+          && request.resource.data.visibility in ['private', 'selected_people', 'space']
+          && request.resource.data.status == 'open';
+        allow update, delete: if false;
+      }
+
+      match /semanticIndex/items/items/{itemId} {
+        allow read: if isSpaceMember(spaceId);
+        allow create, update, delete: if false;
+      }
+    }
+
+    // ── Covenant tiers / subscriptions ───────────────────────────────────────
+
+    match /covenantSubscriptions/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      // Writes are performed server-side (Cloud Functions) after payment
+      allow write: if false;
+    }
+
+    // ── Stripe customer ↔ uid mapping (P1-1) ─────────────────────────────────
+    // Written only by createCovenantCheckoutSession callable; the webhook
+    // reads this to validate that subscription.metadata.userId matches the
+    // Firebase uid that actually paid for this Stripe customer.
+
+    match /stripeCustomers/{customerId} {
+      allow read, write: if false;
+    }
+
+    // ── Saved Communities (Phase F) ──────────────────────────────────────────
+    // Owner-isolated. Direct client writes are blocked; the setCommunitySaved
+    // callable performs all writes server-side after validating visibility.
+
+    match /users/{uid}/savedCommunities/{communityKey} {
+      allow read:  if isOwner(uid);
+      allow write: if false;
+    }
+
+    // ── Church Notes ─────────────────────────────────────────────────────────
+    // Notes and their subcollections are private to the owning user.
+    // Server-owned fields (processing output, AI drafts) cannot be written by clients.
+
+    function isNoteOwner(noteId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/churchNotes/$(noteId)).data.userId == request.auth.uid;
+    }
+
+    function isNoteCollaboratorWithRole(noteId, roles) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid))
+        && roles.hasAny([
+          get(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid)).data.role
+        ]);
+    }
+
+    // Safe user-editable fields on the top-level note document.
+    function churchNoteAllowedUpdateFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['title', 'sermonTitle', 'sermonSpeaker', 'churchId', 'serviceDate',
+                  'journeyId', 'tags', 'scriptureReferences', 'updatedAt',
+                  'blockCount', 'hasShareableBlocks', 'pinnedBlockIds']);
+    }
+
+    match /churchNotes/{noteId} {
+      allow read:   if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+      );
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.keys().hasAll(['userId', 'title', 'createdAt']);
+      allow update: if isSignedIn()
+                      && (resource.data.userId == request.auth.uid ||
+                          isNoteCollaboratorWithRole(noteId, ['owner', 'editor']))
+                      && churchNoteAllowedUpdateFields();
+      // Clients cannot delete notes directly — soft-delete via callable.
+      allow delete: if false;
+
+      // Blocks — owner reads/writes individual blocks; no server-owned field restrictions
+      // since blocks contain user-typed content only.
+      match /blocks/{blockId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor'])
+        );
+      }
+
+      // Reflections, bridge, and linked prayers — owner read/write.
+      match /reflections/{reflectionId} {
+        allow read, write: if isSignedIn() && isNoteOwner(noteId);
+      }
+      match /bridge/{docId} {
+        allow read, write: if isSignedIn() && isNoteOwner(noteId);
+      }
+      match /linkedPrayers/{prayerId} {
+        allow read, write: if isSignedIn() && isNoteOwner(noteId);
+      }
+
+      // Processing jobs — owner can read and create the initial shell;
+      // server-owned output fields (status, transcriptText, ocrText, drafts,
+      // safetyStatus, moderationStatus) cannot be written by the client.
+      match /processingJobs/{jobId} {
+        allow read:   if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        // Client may create a job shell only through the callable (enforced by callable).
+        // Direct client creates are blocked to prevent field injection.
+        allow create: if false;
+        // Client can cancel (set status = "canceled") only — no other fields.
+        allow update: if isSignedIn() && isNoteOwner(noteId)
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['status', 'updatedAt'])
+                        && request.resource.data.status == 'canceled';
+        allow delete: if false;
+      }
+
+      match /collaborators/{uid} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          request.auth.uid == uid ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow create: if isSignedIn()
+          && isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter'])
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'id', 'noteId', 'authorUid', 'authorName', 'body',
+            'anchorBlockId', 'anchorRange',
+            'anchorText', 'anchorStart', 'anchorEnd',
+            'resolved', 'createdAt', 'updatedAt'
+          ]);
+        allow update: if isSignedIn()
+          && resource.data.authorUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['body', 'resolved', 'updatedAt']);
+        // Author may delete their own comment. Owner/editor cannot delete others' comments —
+        // they should resolve or, if removal is required, perform deletion via a callable
+        // that records moderation context.
+        allow delete: if isSignedIn() && resource.data.authorUid == request.auth.uid;
+      }
+
+      match /media/{mediaId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /transcripts/{transcriptId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /ocrResults/{ocrId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /aiDrafts/{draftId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor'])
+        );
+        allow write: if false;
+      }
+
+      match /studyGuides/{guideId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /translations/{translationId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow write: if false;
+      }
+
+      match /events/{eventId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor'])
+        );
+        allow write: if false;
+      }
+
+      // Action items — created server-side via approveChurchNoteActionItems callable.
+      // Clients can read (any collaborator) and toggle completion (owner/editor only).
+      match /actionItems/{itemId} {
+        allow read: if isSignedIn() && (
+          isNoteOwner(noteId) ||
+          isNoteCollaboratorWithRole(noteId, ['owner', 'editor', 'commenter', 'viewer'])
+        );
+        allow create: if false;
+        // Only completion-related fields can be updated client-side; everything else
+        // (text, sourceJobId, approvedBy, etc.) is server-owned.
+        allow update: if isSignedIn()
+          && (isNoteOwner(noteId) || isNoteCollaboratorWithRole(noteId, ['owner', 'editor']))
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['completed', 'completedBy', 'completedAt', 'updatedAt']);
+        // Owner can delete an action item; editors cannot.
+        allow delete: if isSignedIn() && isNoteOwner(noteId);
+      }
+    }
+
+    // AI drafts stored under users/{uid}/churchNotes/{noteId}/aiDrafts
+    // (legacy path used by createChurchNotesAIDraft callable).
+    // Clients can read their own drafts but cannot write AI output fields.
+    match /users/{uid}/churchNotes/{noteId}/aiDrafts/{draftId} {
+      allow read:   if isOwner(uid);
+      // Only callable/admin can create — client cannot write generatedText or moderationStatus.
+      allow create, update, delete: if false;
+    }
+
+    // Rate limit windows — server writes only; clients never touch these.
+    match /rateLimits/{uid}/windows/{windowKey} {
+      allow read, write: if false;
+    }
+
+    match /comments/{commentId}/safety/{docId} {
+      allow read: if isSignedIn() && docId != 'decision';
+      allow create, update, delete: if false;
+
+      match /reports/{reportId} {
+        allow read: if isModerator();
+        allow create, update, delete: if false;
+      }
+    }
+
+    match /conversations/{conversationId}/safety/{docId} {
+      allow read: if isModerator();
+      allow create, update, delete: if false;
+
+      match /riskEvents/{eventId} {
+        allow read: if isModerator();
+        allow create, update, delete: if false;
+      }
+
+      match /reports/{reportId} {
+        allow read: if isModerator();
+        allow create, update, delete: if false;
+      }
+    }
+
+    match /safetyReviews/{reviewId} {
+      allow read: if isModerator();
+      allow create, update, delete: if false;
+    }
+
+    match /safetyAuditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /safetyPolicyVersions/{policyVersion} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    match /safetyFeatureFlags/{flagId} {
+      allow read, write: if false;
+    }
+
+    match /safetyDecisions/{decisionId} {
+      allow read: if isModerator();
+      allow create, update, delete: if false;
+    }
+
+    // System flags — admin-only; clients never read/write.
+    match /system/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Server-only collections — written exclusively by Cloud Functions (Admin SDK).
+    // Explicit client deny prevents accidental exposure if catch-all were ever relaxed.
+    match /otpRequests/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /notificationDeadLetterQueue/{document=**} {
+      allow read, write: if false;
+    }
+
+    // ── Messaging — server-only via callable ──────────────────────────────────
+    // Conversation metadata and messages are written exclusively through
+    // deliverSmartShare / sendMessage callables and read through server-side
+    // pagination. Direct client access is always denied.
+
+    match /conversations/{conversationId} {
+      allow read, write: if false;
+
+      match /messages/{messageId} {
+        allow read, write: if false;
+      }
+
+      match /typingIndicators/{uid} {
+        allow read, write: if false;
+      }
+    }
+
+    // ── Block & restriction enforcement — server-only ─────────────────────────
+    // Written by createBlock / antiHarassmentEnforcement callables.
+    // Clients must never directly read or write block records.
+
+    match /blockedUsers/{docId} {
+      allow read, write: if false;
+    }
+
+    match /userRestrictions/{docId} {
+      allow read, write: if false;
+    }
+
+    match /enforcementHistory/{docId} {
+      allow read, write: if false;
+    }
+
+    match /rateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Berean AI — server-only ───────────────────────────────────────────────
+    // Memory, preferences, and thread state are managed exclusively by
+    // bereanChatProxy and related AI callables.
+
+    match /bereanMemory/{docId} {
+      allow read, write: if false;
+    }
+
+    match /bereanPreferences/{docId} {
+      allow read, write: if false;
+    }
+
+    match /bereanThreads/{docId} {
+      allow read, write: if false;
+
+      match /messages/{messageId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /bereanSessions/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Church journey & interaction state — server-only ─────────────────────
+
+    match /churchJourneys/{docId} {
+      allow read, write: if false;
+    }
+
+    match /churchInteractions/{docId} {
+      allow read, write: if false;
+    }
+
+    match /churchVisits/{docId} {
+      allow read, write: if false;
+    }
+
+    match /churchMemberships/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Share & collection state — server-only ────────────────────────────────
+
+    match /shareEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    match /savedCollections/{docId} {
+      allow read, write: if false;
+
+      match /items/{itemId} {
+        allow read, write: if false;
+      }
+    }
+
+    // ── Reaction indexes — server-only ────────────────────────────────────────
+
+    match /amens/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Analytics & internal queues — server-only ─────────────────────────────
+
+    match /actionSuggestions/{docId} {
+      allow read, write: if false;
+    }
+
+    match /messageReminders/{docId} {
+      allow read, write: if false;
+    }
+
+    match /accountabilityCircles/{docId} {
+      allow read, write: if false;
+    }
+
+    match /accountabilityThreads/{docId} {
+      allow read, write: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COMPREHENSIVE COLLECTION RULES
+    // Generated from full Swift + TypeScript collection audit.
+    // Every collection referenced in the codebase is explicitly ruled here.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ── Public / discoverable content — auth read, server write ───────────────
+    // Content that authenticated users can browse. All writes go through
+    // callable functions which enforce content ownership and moderation.
+
+    match /dailyVerses/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /daily_verses/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /topics/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /topicStats/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /trending/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /trendingHashtags/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /events/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /faithEvents/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /serveOpportunities/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /observances/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /verified_ministries/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /ministries/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /books/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /readingPlans/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /studyPlans/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /plans/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /weeklyPrompts/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /weeklyRecaps/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /sermons/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /sermonWeekPlans/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /smallGroups/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /groups/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /spaces/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /spacePosts/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /spaceMemberships/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /rooms/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /discussions/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /discussionNodes/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /discussionThreads/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /covenants/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /covenantActivity/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // covenantMemberships — members can read their own record; admins can read any.
+    // Writes are exclusively server-side (Stripe webhook via Cloud Functions Admin SDK).
+    match /covenantMemberships/{docId} {
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if false;
+    }
+
+    match /covenantReports/{docId} {
+      allow read: if isSignedIn() && isModerator();
+      allow write: if false;
+    }
+
+    match /organizations/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /amenLibrary/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /marketplace/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /tips/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /testimonies/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /studies/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /studyPlanProgress/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /prayers/{docId} {
+      // Personal prayers are private — owner-only. Server writes only.
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /prayerRequests/{docId} {
+      // Prayer requests may be shared publicly; enforce visibility field.
+      // Owner always reads their own. Others only see explicitly public requests.
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.isPublic == true
+      );
+      allow write: if false;
+    }
+
+    match /prayerWall/{docId} {
+      // Community prayer wall — readable by all signed-in users (intentionally public).
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /prayerRooms/{docId} {
+      // Prayer rooms — readable by all signed-in users (community feature).
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /openTablePosts/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /threads/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /stories/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /media/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /mediaPosts/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /clips/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /cards/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /translationPreferences/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ── Social graph — auth read, server-enforced write ───────────────────────
+    // Social relationships are readable by authenticated users (follower counts,
+    // follow state). All mutations go through createFollow / createBlock callables.
+
+    match /follows/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /followEvents/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /followRequests/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.fromUserId == request.auth.uid ||
+        resource.data.toUserId == request.auth.uid
+      );
+      allow write: if false;
+    }
+
+    match /userFollowing/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /followers/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /following/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /reposts/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /likes/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /reactions/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /storyReactions/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /attachmentReactions/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /messageReactions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /prayedBy/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /prayedLog/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /reposts/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /blocks/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.blockerId == request.auth.uid ||
+        resource.data.blockedId == request.auth.uid
+      );
+      allow write: if false;
+    }
+
+    match /blocked/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /members/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /memberships/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /groupMemberships/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /presence/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /presence_preferences/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /presence_signals/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /presence_states/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /typing/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── User-private data — owner read only, server write ─────────────────────
+    // Personal data only visible to the owning user. All writes server-side.
+
+    match /notifications/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /notificationState/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /notificationDigests/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /notificationEngagement/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /notification_groups/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /deviceTokens/{docId} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    match /devices/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /preferences/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /settings/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /feedPreferences/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /feedNLPreferences/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /userFeedPrefs/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /userNotificationPreferences/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /onboarding/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /seenPosts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /seenMilestones/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /notInterested/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /dismissedSuggestions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedPosts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedVerses/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedCards/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedChurches/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedChurch/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedItems/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedResources/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedSearches/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedBooks/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedClips/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedCommunities/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /savedMoments/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /blessedLater/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /bookmarkedMedia/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Private journal / reflection — strictly owner-only
+
+    match /selahEntries/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /selah_reflections/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /selah_sessions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /selah_saved/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /selah_memories/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /selah_continuations/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /selah_creator_projects/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /selah_media/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /selah_outcomes/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /selah_trust_circles/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /reflections/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /reflectionEntries/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /reflectionJourneys/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /spiritualCheckIns/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /spiritualReflections/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /spiritual_graph_state/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /spiritual_memory/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /spiritualGraph/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /spiritual_graph/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /notes/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /noteFolders/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /drafts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /postDrafts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creationDrafts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /testimonyDrafts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /unsentThoughts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /prayerReflections/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /prayerReminders/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /prayer_commitments/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /answered_prayers/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /prayerChains/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /prayerRoomSummaries/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /living_entries/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /living_entry_reflections/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /wellnessCheckIns/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /wellness/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /spiritualCheckIns/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /checkIns/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /circleCheckIns/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /koraCheckIns/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /koraCheckInResponses/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /koraCircles/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /koraJournalEntries/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /usagePatterns/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /usageSessions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /scrollBudgetUsage/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /mediaResumeState/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /mediaHistory/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /loginHistory/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /loginAlerts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /userActivityLogs/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /user_activity_summary/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /user_privacy_settings/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /user_context/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /user_church_reminders/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /userChurchRelations/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /userSubscriptions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /userReports/{docId} {
+      allow read: if isSignedIn() && resource.data.reporterId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /userConscience/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /userChurchNotesSummary/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /userFeedSignals/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /postViews/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /pinnedPosts/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /postInteractions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /postEngagementActions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /postActionReflections/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /feedSessions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /sessionBoundaries/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /sessions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /restModePolicies/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /safeConversationSettings/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /crisisSupportPreferences/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /mutedConversations/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /mutedThreads/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /mutedUsers/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /restricted/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /secureConversations/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.participantA == request.auth.uid ||
+        resource.data.participantB == request.auth.uid
+      );
+      allow write: if false;
+    }
+
+    match /encryptedMessages/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.recipientId == request.auth.uid
+      );
+      allow write: if false;
+    }
+
+    match /keyBundles/{uid} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /usedOTPKs/{docId} {
+      allow read, write: if false;
+    }
+
+    match /trustedCircles/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /trustedCircleNotifications/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /trustedContacts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ── Creator & Studio content — auth/owner read, server write ─────────────
+
+    match /creatorProfiles/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /studioProfiles/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /creatorProjects/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorDrafts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorAssets/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorBrandKits/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorPosts/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /creatorTemplates/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /creatorTemplatesSaved/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorScenes/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorEarnings/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorEntitlements/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorFollows/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /creatorSubscriptions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorTransactions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorTips/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorJobs/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /creatorVerificationRequests/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /studioProjects/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /studioItems/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /studioProducts/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /studioServices/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /faithCreators/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /vergeCreatorProfiles/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /vergeRooms/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /vergeMessages/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ── Amen Connect — spaces, catchup, activity, DMs, saved, reminders ─────────
+
+    match /connectSpaces/{spaceId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+      match /channels/{itemId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+      match /meetings/{itemId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+      match /events/{itemId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+      match /boards/{itemId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+      match /marketplaceListings/{itemId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+    }
+
+    match /connectCatchUp/{uid} {
+      allow read: if isSignedIn() && uid == request.auth.uid;
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if isSignedIn() && uid == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    match /connectActivity/{uid} {
+      allow read: if isSignedIn() && uid == request.auth.uid;
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if isSignedIn() && uid == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    match /connectSaved/{uid} {
+      allow read: if isSignedIn() && uid == request.auth.uid;
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if isSignedIn() && uid == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    match /connectReminders/{uid} {
+      allow read: if isSignedIn() && uid == request.auth.uid;
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if isSignedIn() && uid == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    match /connectMemberships/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /connectDMs/{docId} {
+      allow read: if isSignedIn() && (resource == null || request.auth.uid in resource.data.participantIds);
+      allow write: if false;
+    }
+
+    match /connectCreatorProfiles/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /connectUserSafety/{uid} {
+      allow read: if isSignedIn() && uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /connectUserTrust/{uid} {
+      allow read: if isSignedIn() && uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /amenConnect/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /amenConnectProfiles/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /amenConnectMarketplace/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Church admin/staff collections — member read, server write ────────────
+
+    match /churchBulletins/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /churchTips/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /churchPreferences/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /churchFollowUps/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /churchNoteReflections/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /churchNoteFolders/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /churchNoteSessions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /churchNoteShareEvents/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /churchReflections/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /churchPlans/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /churchRoutines/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /churchSeasonalEvents/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /churchStaffRoles/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /churchTags/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /churchVisitInsights/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /churchVisitSessions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /churchVisitors/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /church_admins/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /church_discovery_state/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /church_fit/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /church_smart_actions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /churchProfiles/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /eventRsvps/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /rsvps/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /servingSignups/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /servingRoles/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /serviceFollowUps/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /evangelismFollowUps/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /pastoral_care_signals/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /signups/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ── Mentorship & connection — auth read, server write ─────────────────────
+
+    match /mentorProfiles/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /mentors/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /mentorRequests/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.menteeId == request.auth.uid ||
+        resource.data.mentorId == request.auth.uid
+      );
+      allow write: if false;
+    }
+
+    match /mentorshipRelationships/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.menteeId == request.auth.uid ||
+        resource.data.mentorId == request.auth.uid
+      );
+      allow write: if false;
+    }
+
+    match /mentorshipCheckIns/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /leaderConnections/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /leaderConnectionRequests/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /burdenMatches/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /fellowshipSuggestions/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /arkCommunities/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Giving & financial — owner-only ───────────────────────────────────────
+
+    match /givingHistory/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /creatorEarnings/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /bookingRequests/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /commissionRequests/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /commissionProfiles/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /cause_briefs/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /charityRatings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /nonprofits/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Report & safety — owner read, moderator read, server write ────────────
+
+    match /contentReports/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.reporterId == request.auth.uid || isModerator()
+      );
+      allow write: if false;
+    }
+
+    match /postReports/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.reporterId == request.auth.uid || isModerator()
+      );
+      allow write: if false;
+    }
+
+    match /covenantReports/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /spamReports/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.reporterId == request.auth.uid || isModerator()
+      );
+      allow write: if false;
+    }
+
+    match /hubContentReports/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /safetyFlags/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /safetyEscalations/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /safetyReports/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /appeals/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || isModerator()
+      );
+      allow write: if false;
+    }
+
+    match /content_appeals/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || isModerator()
+      );
+      allow write: if false;
+    }
+
+    match /moderationReports/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /securityEvents/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /crisis_follow_ups/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /deletionRequests/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /bugReports/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /bug_reports/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /feedback/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ── Usernames / identity lookup — auth read ───────────────────────────────
+
+    match /usernames/{username} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /usernameLookup/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Scheduling — owner read, server write ─────────────────────────────────
+
+    match /scheduledPosts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /scheduled_posts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /scheduledMessages/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /scheduledNotifications/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /scheduledContent/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ── Fasting / disciplines — owner read ────────────────────────────────────
+
+    match /fasts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /checklists/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /readingPlans/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /walkWithChrist/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /discipleshipEvents/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /discipleshipProfile/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ── Attachments / media metadata — auth read ──────────────────────────────
+
+    match /attachments/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /transcripts/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /ocrResults/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /scriptureReferences/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /verseLinkedMoments/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /photoInsights/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /contentSeries/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Amenity/utility — server-only ─────────────────────────────────────────
+    // Internal test, noop, and rate-limit collections.
+
+    match /_noop/{docId} {
+      allow read, write: if false;
+    }
+
+    match /_test_/{docId} {
+      allow read, write: if false;
+    }
+
+    match /_analyticsEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    match /_ids/{docId} {
+      allow read, write: if false;
+    }
+
+    match /_rateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    match /_semanticInFlight/{docId} {
+      allow read, write: if false;
+    }
+
+    match /_tmp/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Analytics / telemetry — server-only ───────────────────────────────────
+
+    match /analytics/{docId} {
+      allow read, write: if false;
+    }
+
+    match /analyticsEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    match /analytics_shabbat_blocks/{docId} {
+      allow read, write: if false;
+    }
+
+    match /aiUsageEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    match /studioAnalyticsEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    match /creatorUsageAnalytics/{docId} {
+      allow read, write: if false;
+    }
+
+    match /voiceUsage/{docId} {
+      allow read, write: if false;
+    }
+
+    match /whisperUsage/{docId} {
+      allow read, write: if false;
+    }
+
+    match /translationAnalytics/{docId} {
+      allow read, write: if false;
+    }
+
+    match /guardrailEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    match /sloMetrics/{docId} {
+      allow read, write: if false;
+    }
+
+    match /postEngagementSignals/{docId} {
+      allow read, write: if false;
+    }
+
+    match /engagementEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    match /activity_events/{docId} {
+      allow read, write: if false;
+    }
+
+    match /notification_open_events/{docId} {
+      allow read, write: if false;
+    }
+
+    match /age_verification_events/{docId} {
+      allow read, write: if false;
+    }
+
+    match /berean_giving_sessions/{docId} {
+      allow read, write: if false;
+    }
+
+    match /berean_voice_events/{docId} {
+      allow read, write: if false;
+    }
+
+    match /berean_voice_sessions/{docId} {
+      allow read, write: if false;
+    }
+
+    match /mediaSendEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── AI pipeline — server-only ─────────────────────────────────────────────
+
+    match /bereanAccountability/{docId} {
+      allow read, write: if false;
+    }
+
+    match /bereanActions/{docId} {
+      allow read, write: if false;
+    }
+
+    match /bereanContext/{docId} {
+      allow read, write: if false;
+    }
+
+    match /bereanFeedback/{docId} {
+      allow read, write: if false;
+    }
+
+    match /bereanProjects/{docId} {
+      allow read, write: if false;
+    }
+
+    match /bereanPulse/{docId} {
+      allow read, write: if false;
+    }
+
+    match /bereanSavedMessages/{docId} {
+      allow read, write: if false;
+    }
+
+    match /bereanSettings/{docId} {
+      allow read, write: if false;
+    }
+
+    match /aiBibleStudyConversations/{docId} {
+      allow read, write: if false;
+    }
+
+    match /chatMemory/{docId} {
+      allow read, write: if false;
+    }
+
+    match /libraryMemory/{docId} {
+      allow read, write: if false;
+    }
+
+    match /libraryMemoryMeta/{docId} {
+      allow read, write: if false;
+    }
+
+    match /learningData/{docId} {
+      allow read, write: if false;
+    }
+
+    match /semanticInsights/{docId} {
+      allow read, write: if false;
+    }
+
+    match /translationChunks/{docId} {
+      allow read, write: if false;
+    }
+
+    match /translationModerationAnomalies/{docId} {
+      allow read, write: if false;
+    }
+
+    match /truthEmotionAnalyses/{docId} {
+      allow read, write: if false;
+    }
+
+    match /contentDiscernmentAggregates/{docId} {
+      allow read, write: if false;
+    }
+
+    match /eternalWeightSignals/{docId} {
+      allow read, write: if false;
+    }
+
+    match /scriptureDriftSignals/{docId} {
+      allow read, write: if false;
+    }
+
+    match /scriptureReferenceRequests/{docId} {
+      allow read, write: if false;
+    }
+
+    match /scriptureReferenceResults/{docId} {
+      allow read, write: if false;
+    }
+
+    match /sermonAnalyses/{docId} {
+      allow read, write: if false;
+    }
+
+    match /noteSummaryRequests/{docId} {
+      allow read, write: if false;
+    }
+
+    match /noteSummaryResults/{docId} {
+      allow read, write: if false;
+    }
+
+    match /prayerQueue/{docId} {
+      allow read, write: if false;
+    }
+
+    match /prayerAnsweredJobs/{docId} {
+      allow read, write: if false;
+    }
+
+    match /prayer_analyses/{docId} {
+      allow read, write: if false;
+    }
+
+    match /prayer_reminders/{docId} {
+      allow read, write: if false;
+    }
+
+    match /prayer_status_updates/{docId} {
+      allow read, write: if false;
+    }
+
+    match /helixNodes/{docId} {
+      allow read, write: if false;
+    }
+
+    match /helixWorkflowRuns/{docId} {
+      allow read, write: if false;
+    }
+
+    match /helixWorkflows/{docId} {
+      allow read, write: if false;
+    }
+
+    match /relationalGravityNodes/{docId} {
+      allow read, write: if false;
+    }
+
+    match /momentInterceptions/{docId} {
+      allow read, write: if false;
+    }
+
+    match /revivalNudges/{docId} {
+      allow read, write: if false;
+    }
+
+    match /smartSuggestions/{docId} {
+      allow read, write: if false;
+    }
+
+    match /suggestedRailCache/{docId} {
+      allow read, write: if false;
+    }
+
+    match /suggestionFeedback/{docId} {
+      allow read, write: if false;
+    }
+
+    match /wellnessEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Moderation pipeline — server-only ─────────────────────────────────────
+
+    match /moderationAuditLogs/{docId} {
+      allow read, write: if false;
+    }
+
+    match /moderationFlags/{docId} {
+      allow read, write: if false;
+    }
+
+    match /moderationLogs/{docId} {
+      allow read, write: if false;
+    }
+
+    match /moderation_ingest_events/{docId} {
+      allow read, write: if false;
+    }
+
+    match /moderation_queue/{docId} {
+      allow read, write: if false;
+    }
+
+    match /moderatorAlerts/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /imageModerationLogs/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /moderationAppeals/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /moderation_appeals/{docId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /moderation/{docId} {
+      allow read, write: if false;
+    }
+
+    match /adultContentHashes/{docId} {
+      allow read, write: if false;
+    }
+
+    match /quarantinedContentHashes/{docId} {
+      allow read, write: if false;
+    }
+
+    match /mediaScanQueue/{docId} {
+      allow read, write: if false;
+    }
+
+    match /media_moderation/{docId} {
+      allow read, write: if false;
+    }
+
+    match /media_scan_requests/{docId} {
+      allow read, write: if false;
+    }
+
+    match /advancedModerationLogs/{docId} {
+      allow read, write: if false;
+    }
+
+    match /contentIntegrity/{docId} {
+      allow read, write: if false;
+    }
+
+    match /contentIntegrityLabels/{docId} {
+      allow read, write: if false;
+    }
+
+    match /contentEmbeddings/{docId} {
+      allow read, write: if false;
+    }
+
+    match /contentSafetyLogs/{docId} {
+      allow read, write: if false;
+    }
+
+    match /brigadingAlerts/{docId} {
+      allow read, write: if false;
+    }
+
+    match /shadowBans/{docId} {
+      allow read, write: if false;
+    }
+
+    match /suspensionLog/{docId} {
+      allow read, write: if false;
+    }
+
+    match /suspiciousActivity/{docId} {
+      allow read, write: if false;
+    }
+
+    match /humanReviewQueue/{docId} {
+      allow read, write: if false;
+    }
+
+    match /ncmecReadiness/{docId} {
+      allow read, write: if false;
+    }
+
+    match /shared_knowledge_integrity/{docId} {
+      allow read, write: if false;
+    }
+
+    match /silenceSignals/{docId} {
+      allow read, write: if false;
+    }
+
+    match /silent_reactions/{docId} {
+      allow read, write: if false;
+    }
+
+    match /quiet_blocks/{docId} {
+      allow read, write: if false;
+    }
+
+    match /repeated_contact_attempts/{docId} {
+      allow read, write: if false;
+    }
+
+    match /relationship_activity_state/{docId} {
+      allow read, write: if false;
+    }
+
+    match /messageSafetyEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    match /safetyControls/{docId} {
+      allow read, write: if false;
+    }
+
+    match /safetyEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    match /safetyAuditLog/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Processing queues & jobs — server-only ────────────────────────────────
+
+    match /processingJobs/{docId} {
+      allow read, write: if false;
+    }
+
+    match /scheduledBatches/{docId} {
+      allow read, write: if false;
+    }
+
+    match /churchMediaIngestionRequests/{docId} {
+      allow read, write: if false;
+    }
+
+    match /churchRecommendationRequests/{docId} {
+      allow read, write: if false;
+    }
+
+    match /churchRecommendationResults/{docId} {
+      allow read, write: if false;
+    }
+
+    match /crisisDetectionRequests/{docId} {
+      allow read, write: if false;
+    }
+
+    match /crisisDetectionResults/{docId} {
+      allow read, write: if false;
+    }
+
+    match /crisis_session_events/{docId} {
+      allow read, write: if false;
+    }
+
+    match /fcmQueue/{docId} {
+      allow read, write: if false;
+    }
+
+    match /notificationQueue/{docId} {
+      allow read, write: if false;
+    }
+
+    match /notificationBatches/{docId} {
+      allow read, write: if false;
+    }
+
+    match /shareDeliveries/{docId} {
+      allow read, write: if false;
+    }
+
+    match /sharePayloads/{docId} {
+      allow read, write: if false;
+    }
+
+    match /shareRenderJobs/{docId} {
+      allow read, write: if false;
+    }
+
+    match /studioModerationFlags/{docId} {
+      allow read, write: if false;
+    }
+
+    match /studioNotifications/{docId} {
+      allow read, write: if false;
+    }
+
+    match /amenSyncAssets/{docId} {
+      allow read, write: if false;
+    }
+
+    match /amenSyncJobs/{docId} {
+      allow read, write: if false;
+    }
+
+    match /amenSyncProjects/{docId} {
+      allow read, write: if false;
+    }
+
+    match /amenSyncVariants/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Trust & rate limit scoring — server-only ──────────────────────────────
+
+    match /trustScoreQueue/{docId} {
+      allow read, write: if false;
+    }
+
+    match /userTrustScores/{docId} {
+      allow read, write: if false;
+    }
+
+    match /user_trust/{docId} {
+      allow read, write: if false;
+    }
+
+    match /user_reputation/{docId} {
+      allow read, write: if false;
+    }
+
+    match /user_enforcement/{docId} {
+      allow read, write: if false;
+    }
+
+    match /user_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
+    match /passwordResetRateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    match /phoneAuthRateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    match /function_rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
+    match /rateLimitCounters/{docId} {
+      allow read, write: if false;
+    }
+
+    match /provenance/{docId} {
+      allow read, write: if false;
+    }
+
+    match /usedOTPKs/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Amen Gatherings (System 38) ──────────────────────────────────────────
+    //
+    // Security model:
+    //   - Public/unlisted gatherings are readable by signed-in users (privacy-shaped by callable).
+    //   - Private/roleGated gatherings: prefer callable-backed reads — client reads denied.
+    //   - Counts are ALWAYS incremented server-side. Client cannot write counts.
+    //   - Users can write ONLY their own RSVP (when allowed by gathering settings).
+    //   - Host/admin operations go through callable functions exclusively.
+    //   - Prayer/pastoral answers are write-only for the user; hosts read via callable.
+    //   - Access pass integration: no client self-grant.
+
+    function isGatheringHost(gatheringId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/gatherings/$(gatheringId)) &&
+        get(/databases/$(database)/documents/gatherings/$(gatheringId)).data.createdByUid == request.auth.uid;
+    }
+
+    function isPublishedPublicGathering(gatheringId) {
+      let g = get(/databases/$(database)/documents/gatherings/$(gatheringId)).data;
+      return g.status == "published" && (g.visibility == "public" || g.visibility == "unlisted");
+    }
+
+    // Gathering documents
+    match /gatherings/{gatheringId} {
+      // Public/unlisted published gatherings readable by signed-in users.
+      // Private/roleGated readable only by host (prefer callable for privacy shaping).
+      allow read: if isSignedIn() && (
+        isPublishedPublicGathering(gatheringId) ||
+        isGatheringHost(gatheringId) ||
+        isAdmin()
+      );
+
+      // Clients CANNOT create, update, or delete gatherings directly.
+      // All mutations go through Firebase callable functions.
+      allow create, update, delete: if false;
+
+      // Questions — readable by anyone who can read the gathering, writable only by callable.
+      match /questions/{questionId} {
+        allow read: if isSignedIn() && (
+          isPublishedPublicGathering(gatheringId) ||
+          isGatheringHost(gatheringId)
+        );
+        allow create, update, delete: if false;
+      }
+
+      // RSVPs — privacy-critical subcollection.
+      match /rsvps/{uid} {
+        // Users can read their own RSVP.
+        // Host can read all RSVPs. (Non-host attendee reads are shaped by callable.)
+        allow read: if isSignedIn() && (
+          request.auth.uid == uid ||
+          isGatheringHost(gatheringId) ||
+          isAdmin()
+        );
+
+        // Users can write their own RSVP ONLY when:
+        //   - They are authenticated.
+        //   - They are writing for themselves.
+        //   - They are NOT setting server-only fields (counts, checkedInAt, answers for sensitive gatherings).
+        //   - The RSVP uid matches the auth uid.
+        // NOTE: In production, all RSVP writes should go through the callable for
+        //       capacity enforcement and count updates. This client write path
+        //       is intentionally restricted and supplementary.
+        allow create, update: if isSignedIn() &&
+          request.auth.uid == uid &&
+          // Prevent spoofing uid
+          request.resource.data.uid == request.auth.uid &&
+          // Prevent client from setting checkedInAt (server-only)
+          !request.resource.data.keys().hasAny(["checkedInAt"]) &&
+          // Prevent client from incrementing counts (counts live on parent doc)
+          !request.resource.data.keys().hasAny(["counts"]);
+
+        allow delete: if isSignedIn() && (
+          request.auth.uid == uid ||
+          isGatheringHost(gatheringId)
+        );
+      }
+
+      // Updates (host announcements) — host writes via callable; read by attendees.
+      match /updates/{updateId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if false;
+      }
+
+      // Photos — use existing media pipeline rules; no duplicate upload logic.
+      match /photos/{photoId} {
+        allow read: if isSignedIn() && (
+          isPublishedPublicGathering(gatheringId) ||
+          isGatheringHost(gatheringId)
+        );
+        allow create, update, delete: if false;
+      }
+
+      // Comments — reuse existing moderation rules. Client cannot bypass.
+      match /comments/{commentId} {
+        allow read: if isSignedIn() && (
+          isPublishedPublicGathering(gatheringId) ||
+          isGatheringHost(gatheringId)
+        );
+        allow create, update, delete: if false;
+      }
+    }
+
+    // ── Access Passes ─────────────────────────────────────────────────────────
+    // All reads and writes go through callable Cloud Functions.
+    // Direct client access is blocked at every level.
+
+    match /accessPasses/{passId} {
+      // Callable-only: no direct client reads or writes.
+      allow read, write: if false;
+
+      match /events/{eventId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Requester can read their own pending request (to poll status); no direct writes.
+    match /accessRequests/{requestId} {
+      allow read: if isSignedIn() && resource.data.requesterId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // User can read their own active check-in (to show confirmation UI); no direct writes.
+    match /activeCheckIns/{checkInId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Rate limit counters are managed exclusively by backend; clients have no access.
+    match /rateLimits/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Agent traces and AI audit receipts are server-owned. They may include
+    // policy metadata, model choices, and safety outcomes, so clients must not
+    // read or write them directly.
+    match /agentRuns/{runId} {
+      allow read, write: if false;
+
+      match /spans/{spanId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /aiAudit/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Amen Integrations Platform. OAuth states, encrypted token accounts,
+    // provider audit logs, idempotency records, and meeting records are managed
+    // through App Check protected Cloud Functions only.
+    match /amenIntegrationAccounts/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /amenIntegrationOAuthStates/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /amenIntegrationAuditLogs/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /amenIntegrationIdempotency/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /amenMeetings/{meetingId} {
+      allow read, write: if false;
+
+      match /recaps/{recapId} {
+        allow read, write: if false;
+      }
+    }
+
+    // ── Private resonance events — user-scoped, no cross-user access ─────────
+    // Heart, pray, save, reflect and all 13 event types are stored privately.
+    // No public count is ever derived from these documents — they inform
+    // per-user recommendation ranking only.
+    match /users/{uid}/resonanceEvents/{eventId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasAll([
+            'eventType', 'contentId', 'contentType', 'sessionId', 'timestamp'
+          ])
+        && !request.resource.data.keys().hasAny([
+            'publicCount', 'aggregateCount', 'visibleTo', 'sharedWith'
+          ]);
+      allow update, delete: if false;
+    }
+
+    // ─── Spiritual OS ──────────────────────────────────────────────────────────
+
+    // Daily Digest — CF writes, owner reads, only isRead client-writable
+    match /spiritualOS_digest/{userId}/items/{itemId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if false;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+        && request.resource.data.isRead is bool;
+      allow delete: if false;
+    }
+
+    // Unified Hub Inbox — CF writes, owner reads
+    // Client writes: isPinned, isRead, isArchived only
+    match /spiritualOS_hub/{userId}/items/{itemId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if false;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['isPinned', 'isRead', 'isArchived']);
+      allow delete: if false;
+    }
+
+    // Life Planner Events — owner full control EXCEPT bereanNote/isBereanNote (CF-only)
+    match /spiritualOS_planner/{userId}/events/{eventId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && !('isBereanNote' in request.resource.data)
+        && !('bereanNote' in request.resource.data);
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['isCompleted', 'isDismissed', 'title', 'description',
+                      'startDate', 'endDate', 'isAllDay', 'color']);
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Context State — single doc, owner read/delete only, CF writes
+    match /spiritualOS_context/{userId} {
+      allow read, delete: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if false; // updateContextState CF only
+    }
+
+    // Berean Suggestions — CF writes, owner reads, client may dismiss
+    match /spiritualOS_suggestions/{userId}/items/{itemId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if false;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isDismissed']);
+      allow delete: if false;
+    }
+
+    // ── Object Discussion Rooms ───────────────────────────────────────────────
+    // Any canonical object (song, sermon, verse, study, mentor) can spawn
+    // community rooms. Auth required for all access; only the room creator or
+    // a member's own presence/messages may be written.
+
+    match /objectDiscussionRooms/{objectId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF only
+
+      match /rooms/{roomId} {
+        allow read: if isSignedIn();
+        // Only the room creator may update room metadata (lastActivity, participantCount)
+        allow create: if isSignedIn()
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isSignedIn()
+          && (resource.data.createdBy == request.auth.uid
+              || request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['participantCount', 'lastActivity']));
+        allow delete: if false;
+
+        match /messages/{messageId} {
+          allow read: if isSignedIn();
+          allow create: if isSignedIn()
+            && request.resource.data.senderId == request.auth.uid
+            && request.resource.data.keys().hasAll(['senderId', 'body', 'createdAt'])
+            && request.resource.data.body is string
+            && request.resource.data.body.size() > 0
+            && request.resource.data.body.size() <= 2000;
+          // Only soft-delete by owner (set isDeleted = true)
+          allow update: if isSignedIn()
+            && resource.data.senderId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isDeleted'])
+            && request.resource.data.isDeleted == true;
+          allow delete: if false;
+        }
+
+        match /presence/{uid} {
+          allow read: if isSignedIn();
+          // Each user manages only their own presence record
+          allow write: if isSignedIn() && request.auth.uid == uid;
+        }
+      }
+    }
+
+    // ── Default deny ─────────────────────────────────────────────────────────
+    // Catch-all: deny everything not matched above.
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -33,7 +33,7 @@ final class TranslationCacheManager {
 
     // MARK: - L3: Firestore Cache
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let firestoreCacheCollection = "translations"
 
     // MARK: - Init
@@ -107,7 +107,8 @@ final class TranslationCacheManager {
         text: String,
         sourceLanguage: String,
         targetLanguage: String,
-        engineVersion: TranslationEngine = .gcpV3
+        engineVersion: TranslationEngine = .gcpV3,
+        translationMode: TranslationMode = .literal
     ) -> String {
         let normalized = text
             .lowercased()
@@ -115,7 +116,7 @@ final class TranslationCacheManager {
             .components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
             .joined(separator: " ")
-        let raw = "\(normalized)|\(sourceLanguage)|\(targetLanguage)|\(engineVersion.rawValue)"
+        let raw = "\(normalized)|\(sourceLanguage)|\(targetLanguage)|\(engineVersion.rawValue)|\(translationMode.rawValue)"
         let digest = SHA256.hash(data: Data(raw.utf8))
         return digest.compactMap { String(format: "%02x", $0) }.joined()
     }

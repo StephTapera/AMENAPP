@@ -65,7 +65,7 @@ struct Message {
 
 class UserServiceExtensions {
     static let shared = UserServiceExtensions()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     
@@ -93,7 +93,7 @@ extension FollowService {
     
     /// Check if two users follow each other (mutual follow)
     func areFollowingEachOther(userId1: String, userId2: String) async throws -> Bool {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         let follow1 = try await db.collection("follows")
             .whereField("followerId", isEqualTo: userId1)
@@ -128,7 +128,7 @@ extension FollowService {
 
 class MessagingPermissionService {
     static let shared = MessagingPermissionService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     /// Check if current user can message another user and if it's limited
     func canMessageUser(_ targetUserId: String) async throws -> (canMessage: Bool, isLimited: Bool) {
@@ -245,7 +245,7 @@ extension FirebaseMessagingService {
             )
         }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // Check for existing 1-on-1 conversation before creating a new one
         let existing = try await db.collection("conversations")
@@ -282,7 +282,7 @@ extension FirebaseMessagingService {
             throw NSError(domain: "Auth", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         // Get conversation
         let conversation = try await db.collection("conversations")
@@ -307,13 +307,43 @@ extension FirebaseMessagingService {
         if isLimited {
             let messageCounts = conversationData["messageCounts"] as? [String: Int] ?? [:]
             let currentCount = messageCounts[currentUserId] ?? 0
-            
+
             if currentCount >= 1 {
                 throw NSError(domain: "Permission", code: -1,
                     userInfo: [NSLocalizedDescriptionKey: "Message request already sent. Wait for them to follow you back."])
             }
         }
-        
+
+        // ── LOCAL CRISIS PRE-SCAN: instant, no network required ──────────────────
+        if CrisisDetectionService.shared.hasLocalCrisisSignal(in: text) {
+            NotificationCenter.default.post(
+                name: .showCrisisResources,
+                object: nil,
+                userInfo: [:]
+            )
+        }
+        // ─────────────────────────────────────────────────────────────────────────
+
+        // ── MODERATION GATE (hard rule: no message write without a decision record) ──
+        let safetyResult = try await ModerationGatewayService.check(
+            content: text,
+            contentType: .message,
+            contextId: conversationId
+        )
+        if safetyResult.crisisEscalated {
+            // Crisis resources must be shown — message is still delivered
+            // (crisisEscalations/ was already written server-side)
+            NotificationCenter.default.post(
+                name: .showCrisisResources,
+                object: nil,
+                userInfo: ["resources": safetyResult.crisisResources ?? []]
+            )
+        } else if !safetyResult.canProceed {
+            throw NSError(domain: "Messaging", code: -2,
+                userInfo: [NSLocalizedDescriptionKey: safetyResult.userFacingReason])
+        }
+        // ── END MODERATION GATE ──────────────────────────────────────────────
+
         // Create message and update conversation in a batch
         let batch = db.batch()
         

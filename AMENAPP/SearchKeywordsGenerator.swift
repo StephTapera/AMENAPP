@@ -81,7 +81,7 @@ struct SearchKeywordsGenerator {
     /// Update all existing users with search keywords (run once)
     @MainActor
     static func updateAllUsersWithKeywords() async throws {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         dlog("🔄 Starting batch update of user search keywords...")
         
@@ -131,7 +131,7 @@ struct SearchKeywordsGenerator {
     /// Update all existing groups with search keywords (run once)
     @MainActor
     static func updateAllGroupsWithKeywords() async throws {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         dlog("🔄 Starting batch update of group search keywords...")
         

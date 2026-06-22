@@ -4,40 +4,32 @@
 //
 //  Created by Assistant on 2/4/26.
 //
-//  Debug provider for Firebase App Check in simulator
+//  App Check provider factories for Firebase App Check.
 
 import Foundation
 import FirebaseAppCheck
 import FirebaseCore
 
-/// Debug provider factory for App Check - use only in simulator
+/// Debug provider factory for App Check.
+/// Used in DEBUG builds (simulator and device) so engineers can register a
+/// debug token in the Firebase Console without needing a real device attestation.
+/// NEVER ship this class in a Release/production build — it is guarded by #if DEBUG
+/// in AppDelegate and should only ever be referenced inside that guard.
 class AppCheckDebugProviderFactory: NSObject, AppCheckProviderFactory {
-    func createProvider(with app: FirebaseApp) -> AppCheckProvider? {
+    func createProvider(with app: FirebaseApp) -> (any AppCheckProvider)? {
         return AppCheckDebugProvider(app: app)
     }
 }
 
-/// App Attest provider factory for App Check - use on real devices
-/// Firebase does not ship a dedicated AppAttestProviderFactory, so we define one here.
-class AppCheckAppAttestProviderFactory: NSObject, AppCheckProviderFactory {
-    func createProvider(with app: FirebaseApp) -> AppCheckProvider? {
-        return AppAttestProvider(app: app)
-    }
-}
-
-/// Extension to configure App Check based on environment
-extension FirebaseApp {
-    static func configureAppCheck() {
-        #if targetEnvironment(simulator)
-        // Simulator: use debug provider (requires registered debug token in Firebase Console)
-        dlog("🔧 Configuring App Check with DEBUG provider (simulator)")
-        let providerFactory = AppCheckDebugProviderFactory()
-        AppCheck.setAppCheckProviderFactory(providerFactory)
-        #else
-        // Real device: use App Attest
-        dlog("🔧 Configuring App Check with App Attest provider (real device)")
-        let providerFactory = AppCheckAppAttestProviderFactory()
-        AppCheck.setAppCheckProviderFactory(providerFactory)
-        #endif
+/// AMEN App Check provider factory for production builds.
+/// Uses App Attest on iOS 14+ (cryptographic device attestation).
+/// Falls back to DeviceCheck on iOS 13 (device-level signal, weaker but broad).
+final class AmenAppCheckProviderFactory: NSObject, AppCheckProviderFactory {
+    func createProvider(with app: FirebaseApp) -> (any AppCheckProvider)? {
+        if #available(iOS 14.0, *) {
+            return AppAttestProvider(app: app)
+        } else {
+            return DeviceCheckProvider(app: app)
+        }
     }
 }

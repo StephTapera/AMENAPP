@@ -7,10 +7,14 @@
 //
 
 import Foundation
+import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - Content Categories
 
-enum ContentCategory: String, Codable {
+typealias ContentCategory = ContentModerationClass
+
+enum ContentModerationClass: String, Codable {
     case post = "post"
     case comment = "comment"
     case reply = "reply"
@@ -110,7 +114,7 @@ enum ContentIntegrityAction: String, Codable {
         case .rateLimit:
             return "You're posting quite frequently. Take a moment to reflect before sharing more"
         case .shadowRestrict:
-            return ""  // Silent action
+            return "Your posts are currently shown to a limited audience due to repeated content violations. Contact support if you believe this is an error."
         case .reject:
             return "This content doesn't meet our community guidelines. Please review and try again"
         }
@@ -171,7 +175,7 @@ enum ReviewState: String, Codable {
 struct ReviewQueueItem: Codable {
     let id: String
     let contentId: String
-    let contentType: ContentCategory
+    let contentType: ContentModerationClass
     let userId: String
     let contentText: String?
     let contentMediaURLs: [String]?
@@ -190,7 +194,7 @@ class EnforcementLadder {
     /// Determine enforcement action based on moderation scores and user history
     static func determineAction(
         scores: ModerationScores,
-        category: ContentCategory,
+        category: ContentModerationClass,
         userViolationCount: Int,
         recentSimilarContentCount: Int
     ) -> ModerationDecision {
@@ -260,6 +264,19 @@ class EnforcementLadder {
             confidence = 1.0
             reasons.append("Repeated content policy violations")
             detectedBehaviors.append(.repeatedAbuse)
+            // C-06: Write moderation decision audit record for shadow-restrict appeal trail
+            Task {
+                guard let uid = Auth.auth().currentUser?.uid else { return }
+                try? await Firestore.firestore()
+                    .collection("moderationDecisions")
+                    .document(uid)
+                    .setData([
+                        "action": "shadowRestrict",
+                        "appliedAt": Timestamp(date: Date()),
+                        "reason": "repeated_violations",
+                        "appealable": true,
+                    ], merge: true)
+            }
         }
 
         // Generate suggested revisions for non-blocking actions

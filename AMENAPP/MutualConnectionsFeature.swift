@@ -16,7 +16,7 @@ import FirebaseAuth
 class MutualConnectionsService {
     static let shared = MutualConnectionsService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var cache: [String: [MutualConnection]] = [:]
 
     private init() {}
@@ -172,7 +172,7 @@ struct MutualConnectionsBadge: View {
 
                 // Count text
                 Text(mutualText)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.black.opacity(0.6))
             }
             .padding(.horizontal, 10)
@@ -206,7 +206,7 @@ struct MutualConnectionsBadge: View {
             .frame(width: 24, height: 24)
             .overlay(
                 Text(initials)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundColor(.white)
             )
     }
@@ -303,7 +303,7 @@ struct MutualConnectionsListView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(connection.displayName)
                     .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
 
                 Text("@\(connection.username)")
                     .font(.custom("OpenSans-Regular", size: 13))
@@ -313,7 +313,7 @@ struct MutualConnectionsListView: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.black.opacity(0.3))
         }
         .padding(12)

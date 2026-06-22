@@ -7,6 +7,8 @@
 //
 
 import SwiftUI
+import FirebaseFunctions
+import FirebaseAuth
 
 /// A beautiful, native-feeling in-app review prompt overlay
 /// Appears as a centered modal card above the current content
@@ -24,7 +26,12 @@ struct InAppReviewPromptView: View {
     
     /// Animation state for smooth appearance
     @State private var isAnimatingIn = false
-    
+
+    /// Feedback text entered by the user for low ratings
+    @State private var feedbackText = ""
+    /// Controls visibility of the feedback text field for low ratings
+    @State private var showFeedbackField = false
+
     // MARK: - Constants
     
     private let cardWidth: CGFloat = 320
@@ -42,7 +49,7 @@ struct InAppReviewPromptView: View {
                 .opacity(isAnimatingIn ? 1.0 : 0.0)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                 isAnimatingIn = true
             }
         }
@@ -75,7 +82,7 @@ struct InAppReviewPromptView: View {
             headerSection
                 .padding(.top, 32)
                 .padding(.horizontal, 24)
-            
+
             // Star rating row
             StarRatingRow(
                 rating: $selectedRating,
@@ -88,7 +95,42 @@ struct InAppReviewPromptView: View {
             )
             .padding(.top, 24)
             .padding(.horizontal, 24)
-            
+
+            // Low-rating feedback form
+            if showFeedbackField {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("What could be better?")
+                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .foregroundStyle(.secondary)
+
+                    TextEditor(text: $feedbackText)
+                        .frame(height: 80)
+                        .padding(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color(.systemGray6))
+                        )
+                        .accessibilityLabel("Feedback text field")
+
+                    Button(action: submitLowRatingFeedback) {
+                        Text("Send Feedback")
+                            .font(.custom("OpenSans-Bold", size: 15))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(
+                                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                    .fill(Color.blue)
+                            )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .accessibilityLabel("Send feedback")
+                }
+                .padding(.top, 16)
+                .padding(.horizontal, 24)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
             // Not Now button
             notNowButton
                 .padding(.top, 32)
@@ -135,10 +177,8 @@ struct InAppReviewPromptView: View {
                 .fill(Color(.systemGray6))
                 .frame(width: appIconSize, height: appIconSize)
             
-            // App icon or logo
-            // TODO: Replace with actual app icon asset
             Image(systemName: "flame.fill")
-                .font(.system(size: 32, weight: .semibold))
+                .font(.systemScaled(32, weight: .semibold))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.orange, .red],
@@ -180,16 +220,31 @@ struct InAppReviewPromptView: View {
             if rating >= 4 {
                 // High rating: Request native StoreKit review
                 ReviewPromptManager.shared.requestNativeReview()
+                dismissPrompt()
             } else {
-                // Low rating: Open feedback form or direct to support
-                // TODO: Implement feedback flow for low ratings
-                dlog("⭐️ User gave \(rating) stars - could show feedback form")
+                // Low rating: show inline feedback form before dismissing
                 ReviewPromptManager.shared.userDidRate()
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showFeedbackField = true
+                }
             }
-            
-            // Dismiss the prompt
-            dismissPrompt()
         }
+    }
+
+    /// Submit low-rating feedback to the backend and dismiss
+    private func submitLowRatingFeedback() {
+        let ratingToSend = selectedRating
+        let textToSend = feedbackText
+        Task {
+            _ = try? await Functions.functions(region: "us-central1")
+                .httpsCallable("submitAppFeedback")
+                .call([
+                    "rating": ratingToSend,
+                    "feedback": textToSend,
+                    "uid": Auth.auth().currentUser?.uid ?? ""
+                ])
+        }
+        dismissPrompt()
     }
     
     /// Dismiss with haptic feedback
@@ -203,7 +258,7 @@ struct InAppReviewPromptView: View {
     
     /// Dismiss the prompt with animation
     private func dismissPrompt() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             isAnimatingIn = false
         }
         

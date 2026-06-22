@@ -19,18 +19,18 @@ struct QuietModeTooltip: View {
         if isMuted || isHidden {
             HStack(spacing: 10) {
                 Image(systemName: isMuted ? "speaker.slash.fill" : "eye.slash.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(isMuted ? "You muted \(firstName)" : "You hid \(firstName)'s posts")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.primary)
 
                     Text(isMuted
                          ? "Their posts won't appear in your feed"
                          : "Their content is hidden from your view")
-                        .font(.system(size: 11, weight: .regular))
+                        .font(.systemScaled(11, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
 
@@ -41,7 +41,7 @@ struct QuietModeTooltip: View {
                     else { onUnhide?() }
                 } label: {
                     Text("Undo")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.blue)
                 }
                 .buttonStyle(.plain)

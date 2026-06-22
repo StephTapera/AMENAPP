@@ -8,7 +8,7 @@ import Combine
 class SmartNotificationRouter: ObservableObject {
     static let shared = SmartNotificationRouter()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var userPreferences: SmartNotificationPreferences = SmartNotificationPreferences()
     private var relationshipCache: [String: RelationshipContext] = [:]
 

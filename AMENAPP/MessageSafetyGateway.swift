@@ -125,11 +125,11 @@ final class MessageSafetyGateway {
     static let shared = MessageSafetyGateway()
 
     // Moderation queue collection (indexed for human review dashboard)
-    private let moderationQueue = Firestore.firestore().collection("moderationQueue")
+    private lazy var moderationQueue = Firestore.firestore().collection("moderationQueue")
     // Safety events collection (indexed for pattern-of-behavior engine)
-    private let safetyEvents = Firestore.firestore().collection("safetyEvents")
+    private lazy var safetyEvents = Firestore.firestore().collection("safetyEvents")
     // User safety records (strike counter, freeze status)
-    private let userSafetyRecords = Firestore.firestore().collection("userSafetyRecords")
+    private lazy var userSafetyRecords = Firestore.firestore().collection("userSafetyRecords")
 
     // In-memory freeze cache: userId → (isFrozen, fetchedAt)
     // TTL: 60s for frozen accounts (short so unfreezes propagate quickly).
@@ -597,7 +597,7 @@ final class MessageSafetyGateway {
     ) async {
         guard !userId.isEmpty else { return }
         let ref = userSafetyRecords.document(userId)
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         do {
             _ = try await db.runTransaction { transaction, errorPointer in
@@ -763,10 +763,14 @@ final class MessageSafetyGateway {
                 "safetyRiskScore": score,
                 "safetyScannedAt": FieldValue.serverTimestamp()
             ]
-            try? await Firestore.firestore()
-                .collection("conversations").document(conversationId)
-                .collection("messages").document(messageId)
-                .updateData(updateData)
+            do {
+                try await Firestore.firestore()
+                    .collection("conversations").document(conversationId)
+                    .collection("messages").document(messageId)
+                    .updateData(updateData)
+            } catch {
+                print("MessageSafetyGateway: failed to flag message under_review — \(error.localizedDescription)")
+            }
 
             // Log to moderation queue if not already logged
             await self.persistSafetyEvent(

@@ -22,7 +22,7 @@ class PushNotificationManager: NSObject, ObservableObject {
     @Published var fcmToken: String?
     @Published var notificationPermissionGranted = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var fcmTokenObserver: NSObjectProtocol?
     
     // P0 FIX: Prevent duplicate FCM setup
@@ -85,8 +85,12 @@ class PushNotificationManager: NSObject, ObservableObject {
     // MARK: - Register for Remote Notifications
     
     func registerForRemoteNotifications() async {
+        #if targetEnvironment(simulator)
+        dlog("⏭️ Skipping remote notification registration on simulator (APNS not available)")
+        #else
         UIApplication.shared.registerForRemoteNotifications()
         dlog("📱 Registering for remote notifications...")
+        #endif
     }
     
     // MARK: - Handle Device Token
@@ -251,6 +255,7 @@ class PushNotificationManager: NSObject, ObservableObject {
         )
     }
     
+    @MainActor
     func handleNotificationTap(_ response: UNNotificationResponse) {
         let userInfo = response.notification.request.content.userInfo
         

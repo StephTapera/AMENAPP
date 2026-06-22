@@ -47,7 +47,7 @@ struct RichTextEditorView: View {
                     .padding(.vertical, 10)
                     .focused($isEditorFocused)
                     .onChange(of: isEditorFocused) { _, focused in
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             showFormattingToolbar = focused
                         }
                     }
@@ -187,7 +187,7 @@ struct TextFormatButton: View {
                         .foregroundStyle(.white.opacity(0.8))
                 } else {
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.white.opacity(0.8))
                 }
             }

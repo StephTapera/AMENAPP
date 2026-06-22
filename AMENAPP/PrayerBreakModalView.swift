@@ -24,7 +24,7 @@ struct PrayerBreakModalView: View {
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
                 .onTapGesture {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                         onSkip()
                     }
                 }
@@ -33,7 +33,7 @@ struct PrayerBreakModalView: View {
             VStack(spacing: 24) {
                 // Icon with breathing animation
                 Image(systemName: "hands.sparkles.fill")
-                    .font(.system(size: 36, weight: .light))
+                    .font(.systemScaled(36, weight: .light))
                     .foregroundStyle(.white)
                     .scaleEffect(breatheAnimation ? 1.08 : 1.0)
                     .animation(
@@ -45,13 +45,13 @@ struct PrayerBreakModalView: View {
                 
                 // Compact title
                 Text("Time for a Break")
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .font(.systemScaled(28, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                 
                 // Concise message
                 Text("Take a moment to step away and reconnect with God in prayer.")
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(.white.opacity(0.85))
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
@@ -61,15 +61,15 @@ struct PrayerBreakModalView: View {
                 VStack(spacing: 12) {
                     // Primary: Pray Now
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             onPrayNow()
                         }
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "heart.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                             Text("Pray Now")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -86,15 +86,15 @@ struct PrayerBreakModalView: View {
                     
                     // Secondary: Remind Later
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             onRemindLater()
                         }
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "clock")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                             Text("Remind in 15 min")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.systemScaled(15, weight: .medium))
                         }
                         .foregroundStyle(.white.opacity(0.8))
                         .frame(maxWidth: .infinity)
@@ -111,12 +111,12 @@ struct PrayerBreakModalView: View {
                     
                     // Tertiary: Skip
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             onSkip()
                         }
                     } label: {
                         Text("Not now")
-                            .font(.system(size: 14, weight: .regular))
+                            .font(.systemScaled(14, weight: .regular))
                             .foregroundStyle(.white.opacity(0.5))
                             .padding(.vertical, 8)
                     }
@@ -139,7 +139,7 @@ struct PrayerBreakModalView: View {
             .opacity(animate ? 1.0 : 0)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75))) {
                 animate = true
             }
             breatheAnimation = true

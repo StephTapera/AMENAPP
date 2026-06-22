@@ -117,7 +117,7 @@ struct PrayerReminderSettingsView: View {
     private var headerCard: some View {
         VStack(spacing: 12) {
             Image(systemName: "bell.badge.fill")
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.blue, .purple],
@@ -207,7 +207,7 @@ struct PrayerReminderSettingsView: View {
                         style: style,
                         isSelected: selectedReminderStyle == style
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedReminderStyle = style
                             applyReminderStyle(style)
                         }
@@ -291,7 +291,7 @@ struct PrayerReminderSettingsView: View {
                 } label: {
                     HStack {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                         
                         Text("Add Custom Reminder")
                             .font(.custom("OpenSans-SemiBold", size: 16))
@@ -351,7 +351,7 @@ struct PrayerReminderSettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Image(systemName: "book.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.purple)
                     
                     Text("Today's Verse")
@@ -528,7 +528,7 @@ struct ReminderStyleCard: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(isSelected ? .blue : .secondary)
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -575,7 +575,7 @@ struct ReminderTimeRow: View {
                     .frame(width: 36, height: 36)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(color)
             }
             
@@ -605,7 +605,7 @@ struct ReminderInfoRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.blue)
                 .frame(width: 20)
             
@@ -639,7 +639,7 @@ struct CustomReminderRow: View {
                     .frame(width: 36, height: 36)
                 
                 Image(systemName: "bell.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.purple)
             }
             
@@ -667,7 +667,7 @@ struct CustomReminderRow: View {
                 onDelete()
             } label: {
                 Image(systemName: "trash")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.red)
             }
         }

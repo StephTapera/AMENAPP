@@ -296,7 +296,7 @@ struct SynapticStudioView: View {
         HStack {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(10)
                     .background(Circle().fill(.ultraThinMaterial))
@@ -307,9 +307,9 @@ struct SynapticStudioView: View {
 
             VStack(spacing: 2) {
                 Text("Synaptic Studio")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.systemScaled(16, weight: .bold))
                 Text("Your body. Your words.")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
@@ -338,7 +338,7 @@ struct SynapticStudioView: View {
                             )
                             .frame(width: 120, height: 120)
                         Image(systemName: "waveform.path.ecg")
-                            .font(.system(size: 44, weight: .ultraLight))
+                            .font(.systemScaled(44, weight: .ultraLight))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [Color.purple, Color.blue],
@@ -349,11 +349,11 @@ struct SynapticStudioView: View {
                     .padding(.top, 20)
 
                     Text("Let your body speak first")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.systemScaled(22, weight: .bold))
                         .multilineTextAlignment(.center)
 
                     Text("Synaptic Studio reads your biometric state — heart rate, HRV — and shapes your creative output to meet you exactly where you are.")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
@@ -402,9 +402,9 @@ struct SynapticStudioView: View {
                         } else {
                             HStack(spacing: 8) {
                                 Image(systemName: "waveform.path.ecg")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                 Text("Read My State")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.systemScaled(16, weight: .bold))
                             }
                         }
                     }
@@ -430,7 +430,7 @@ struct SynapticStudioView: View {
                     vm.phase = .intent
                 } label: {
                     Text("Skip — create without biometrics")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -457,7 +457,7 @@ struct SynapticStudioView: View {
                     // Mode picker
                     VStack(alignment: .leading, spacing: 8) {
                         Text("What are you creating?")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.secondary)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
@@ -471,18 +471,18 @@ struct SynapticStudioView: View {
                     // Intent input
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Your intention")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.secondary)
                         ZStack(alignment: .topLeading) {
                             TextEditor(text: $vm.userIntent)
                                 .frame(minHeight: 120)
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .scrollContentBackground(.hidden)
                                 .padding(12)
                                 .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
                             if vm.userIntent.isEmpty {
                                 Text("What's stirring in you right now?")
-                                    .font(.system(size: 15))
+                                    .font(.systemScaled(15))
                                     .foregroundStyle(Color(.placeholderText))
                                     .padding(.top, 19)
                                     .padding(.leading, 16)
@@ -496,9 +496,9 @@ struct SynapticStudioView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "waveform.path.ecg.rectangle.fill")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                             Text("Create from My State")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.systemScaled(16, weight: .bold))
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -531,9 +531,9 @@ struct SynapticStudioView: View {
         Button { vm.creativeMode = mode } label: {
             HStack(spacing: 6) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                 Text(mode.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -553,16 +553,16 @@ struct SynapticStudioView: View {
     private func biometricSummaryCard(_ snap: BiometricSnapshot) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "waveform.path.ecg")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.purple)
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(Color.purple.opacity(0.1)))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("You are: \(snap.emotionalProfile)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 Text(snap.aiContext)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -587,16 +587,16 @@ struct SynapticStudioView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                         Text("Edit")
                     }
                     .foregroundStyle(vm.creativeMode.accentColor)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 }
                 .buttonStyle(.plain)
                 Spacer()
                 Text(vm.creativeMode.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 20)
@@ -609,7 +609,7 @@ struct SynapticStudioView: View {
                         .progressViewStyle(.circular)
                         .tint(vm.creativeMode.accentColor)
                     Text("Synthesizing from your state…")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -617,10 +617,10 @@ struct SynapticStudioView: View {
                 Spacer()
                 VStack(spacing: 14) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(.orange)
                     Text(err)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                     Button("Try Again") { vm.generate() }
@@ -633,7 +633,7 @@ struct SynapticStudioView: View {
                     VStack(spacing: 16) {
                         TextEditor(text: $vm.generatedContent)
                             .frame(minHeight: 240)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .scrollContentBackground(.hidden)
                             .padding(16)
                             .background(
@@ -652,7 +652,7 @@ struct SynapticStudioView: View {
                                 vm.generate()
                             } label: {
                                 Label("Regenerate", systemImage: "arrow.clockwise")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(vm.creativeMode.accentColor)
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 9)
@@ -667,7 +667,7 @@ struct SynapticStudioView: View {
                                 HapticManager.impact(style: .light)
                             } label: {
                                 Label("Copy", systemImage: "doc.on.doc")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 9)
@@ -677,7 +677,7 @@ struct SynapticStudioView: View {
 
                             Button { showShareSheet = true } label: {
                                 Label("Share", systemImage: "square.and.arrow.up")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 9)
@@ -709,15 +709,15 @@ private struct BiometricFeatureRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(color)
                 .frame(width: 28, height: 28)
                 .background(Circle().fill(color.opacity(0.1)))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 Text(detail)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
         }

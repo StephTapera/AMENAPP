@@ -120,10 +120,10 @@ struct WorshipSongPickerSheet: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(source == .spotify ? Color.green.opacity(0.8) : Color.purple.opacity(0.8))
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
 
             TextField("", text: $query, prompt:
-                Text("Search worship songs...").foregroundStyle(.white.opacity(0.4))
+                Text("Search or paste music link...").foregroundStyle(.white.opacity(0.4))
             )
             .foregroundStyle(.white)
             .autocorrectionDisabled()
@@ -164,13 +164,13 @@ struct WorshipSongPickerSheet: View {
     private var promptState: some View {
         VStack(spacing: 16) {
             Image(systemName: "music.note.list")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(source == .spotify ? Color.green.opacity(0.6) : Color.purple.opacity(0.6))
             Text("Search for a worship song")
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .font(.systemScaled(17, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.8))
-            Text("Search by song title or artist name")
-                .font(.system(size: 14))
+            Text("Search by song title or artist, or paste an Apple Music or Spotify link")
+                .font(.systemScaled(14))
                 .foregroundStyle(.white.opacity(0.5))
         }
     }
@@ -178,13 +178,13 @@ struct WorshipSongPickerSheet: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "music.note.slash")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.white.opacity(0.3))
             Text("No results for \"\(query)\"")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(.systemScaled(16, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.7))
             Text("Try a different song title or artist")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.white.opacity(0.4))
         }
     }
@@ -192,10 +192,10 @@ struct WorshipSongPickerSheet: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.orange.opacity(0.8))
             Text(message)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -205,12 +205,17 @@ struct WorshipSongPickerSheet: View {
     // MARK: - Actions
 
     private func performSearch() {
-        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return }
         isSearching = true
         errorMessage = nil
         results = []
         let currentSource = source
-        let currentQuery = query
+        let currentQuery = trimmedQuery
+        if isSupportedMusicLink(currentQuery) {
+            resolveMusicLink(currentQuery)
+            return
+        }
         Task {
             do {
                 let found: [WorshipSongResult]
@@ -232,16 +237,67 @@ struct WorshipSongPickerSheet: View {
         }
     }
 
+    private func isSupportedMusicLink(_ value: String) -> Bool {
+        let lowercased = value.lowercased()
+        return lowercased.hasPrefix("spotify:")
+            || lowercased.contains("open.spotify.com")
+            || lowercased.contains("music.apple.com")
+            || lowercased.contains("itunes.apple.com")
+    }
+
+    private func resolveMusicLink(_ value: String) {
+        Task {
+            do {
+                let ref = try await ChurchNoteMusicAttachmentResolverService.shared.resolve(urlString: value)
+                await MainActor.run {
+                    addedIDs.insert(ref.providerID)
+                    isSearching = false
+                    onAdd(ref)
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    isSearching = false
+                }
+            }
+        }
+    }
+
     private func addSong(_ song: WorshipSongResult) {
         addedIDs.insert(song.uniqueKey)
+        let provider: MusicProvider = song.source == .spotify ? .spotify : .appleMusic
+        let providerID: String
+        let deepLinkURL: String?
+        let webURL: String?
+
+        switch song.source {
+        case .spotify:
+            providerID = song.spotifyTrackID ?? song.uniqueKey
+            deepLinkURL = song.spotifyTrackID.map { "spotify:track:\($0)" }
+            webURL = song.spotifyTrackURL
+        case .appleMusic:
+            providerID = song.musicKitID ?? song.uniqueKey
+            deepLinkURL = song.appleMusicURL
+            webURL = song.appleMusicURL
+        }
+
         let ref = WorshipSongReference(
+            provider: provider,
+            entityType: .song,
+            providerID: providerID,
             title: song.title,
             artist: song.artist,
+            subtitle: song.artist,
             musicKitID: song.musicKitID,
             appleMusicURL: song.appleMusicURL,
             albumArtURL: song.albumArtURL,
             spotifyTrackID: song.spotifyTrackID,
-            spotifyTrackURL: song.spotifyTrackURL
+            spotifyTrackURL: song.spotifyTrackURL,
+            deepLinkURL: deepLinkURL,
+            webURL: webURL,
+            requiresSubscription: song.source == .appleMusic,
+            requiresAppInstall: song.source == .spotify
         )
         onAdd(ref)
         // For Apple Music songs, start playback so the user can preview
@@ -280,13 +336,13 @@ private struct SongResultRow: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         default:
                             Image(systemName: "music.note")
-                                .font(.system(size: 22))
+                                .font(.systemScaled(22))
                                 .foregroundStyle(song.source == .spotify ? Color.green.opacity(0.7) : Color.purple.opacity(0.7))
                         }
                     }
                 } else {
                     Image(systemName: "music.note")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(song.source == .spotify ? Color.green.opacity(0.7) : Color.purple.opacity(0.7))
                 }
                 // Source badge
@@ -296,11 +352,11 @@ private struct SongResultRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(song.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 Text(song.artist)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.white.opacity(0.6))
                     .lineLimit(1)
             }
@@ -311,11 +367,11 @@ private struct SongResultRow: View {
             Button(action: onAdd) {
                 if isAdded {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(.green)
                 } else {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(song.source == .spotify ? Color.green : Color.purple)
                 }
             }
@@ -348,12 +404,12 @@ private struct SourceBadge: View {
         Group {
             if source == .spotify {
                 Image(systemName: "s.circle.fill")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundStyle(Color.green)
                     .background(Circle().fill(Color.black).padding(-1))
             } else {
                 Image(systemName: "music.note.list")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(3)
                     .background(Circle().fill(Color(red: 0.98, green: 0.26, blue: 0.45)))
@@ -398,14 +454,14 @@ struct WorshipSongResult: Identifiable {
 // MARK: - WorshipSongSearchService
 
 /// Thin wrapper around MusicKit catalog search (Apple Music) and Spotify Web API.
-/// Falls back to a fixed list of popular worship songs when MusicKit is unavailable.
+/// Missing provider access returns an empty result set instead of fake catalog data.
 enum WorshipSongSearchService {
 
     static func search(query: String) async throws -> [WorshipSongResult] {
         #if canImport(MusicKit)
         return try await searchWithMusicKit(query: query)
         #else
-        return fallbackSearch(query: query)
+        return []
         #endif
     }
 
@@ -413,12 +469,7 @@ enum WorshipSongSearchService {
 
     static func searchSpotify(query: String) async throws -> [WorshipSongResult] {
         let tracks = await AMENMediaService.shared.searchSpotifyTracks(query: query)
-        if tracks.isEmpty {
-            // Spotify not configured or no results — return fallback catalog
-            return fallbackSearch(query: query).map {
-                WorshipSongResult(title: $0.title, artist: $0.artist, source: .spotify)
-            }
-        }
+        guard !tracks.isEmpty else { return [] }
         return tracks.map { track in
             WorshipSongResult(
                 title: track.name,
@@ -431,31 +482,6 @@ enum WorshipSongSearchService {
         }
     }
 
-    // MARK: Fallback (no MusicKit / no Spotify credentials)
-
-    static func fallbackSearch(query: String) -> [WorshipSongResult] {
-        let catalog: [(String, String)] = [
-            ("Way Maker", "Sinach"),
-            ("Goodness of God", "Bethel Music"),
-            ("What a Beautiful Name", "Hillsong Worship"),
-            ("Oceans (Where Feet May Fail)", "Hillsong United"),
-            ("Build My Life", "Housefires"),
-            ("King of Kings", "Hillsong Worship"),
-            ("Raise a Hallelujah", "Bethel Music"),
-            ("Holy Spirit", "Francesca Battistelli"),
-            ("O Come to the Altar", "Elevation Worship"),
-            ("Reckless Love", "Cory Asbury"),
-            ("Do It Again", "Elevation Worship"),
-            ("Graves into Gardens", "Elevation Worship"),
-            ("Jireh", "Elevation Worship"),
-            ("Promises", "Maverick City Music"),
-            ("Talking to Jesus", "Elevation Worship"),
-        ]
-        let q = query.lowercased()
-        return catalog
-            .filter { $0.0.lowercased().contains(q) || $0.1.lowercased().contains(q) }
-            .map { WorshipSongResult(title: $0.0, artist: $0.1) }
-    }
 }
 
 // MARK: - MusicKit extension
@@ -468,8 +494,7 @@ extension WorshipSongSearchService {
     static func searchWithMusicKit(query: String) async throws -> [WorshipSongResult] {
         let status = await MusicAuthorization.request()
         guard status == .authorized else {
-            // Not authorized — still return a fallback list
-            return fallbackSearch(query: query)
+            return []
         }
 
         var req = MusicCatalogSearchRequest(term: query, types: [Song.self])
@@ -499,19 +524,22 @@ struct SavedWorshipSongsSection: View {
     var onRemove: ((WorshipSongReference) -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Label("Worship Music", systemImage: "music.note.list")
-                .font(.custom("OpenSans-Bold", size: 18))
-                .foregroundStyle(.white.opacity(0.9))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 5) {
+                Image(systemName: "music.note")
+                    .font(.systemScaled(10, weight: .medium))
+                Text("WORSHIP")
+                    .font(.systemScaled(10, weight: .semibold))
+                    .tracking(1.2)
+            }
+            .foregroundStyle(.white.opacity(0.4))
 
-            VStack(spacing: 10) {
+            VStack(spacing: 6) {
                 ForEach(songs) { song in
                     WorshipSongRow(song: song, noteId: noteId, onRemove: onRemove)
                 }
             }
         }
-        .padding(24)
-        .glassEffect(GlassEffectStyle.regular.tint(.purple), in: RoundedRectangle(cornerRadius: 24))
     }
 }
 
@@ -522,134 +550,126 @@ private struct WorshipSongRow: View {
     let noteId: String?
     var onRemove: ((WorshipSongReference) -> Void)?
 
-    @ObservedObject private var vm = WorshipNowPlayingViewModel.shared
-    @State private var isLoading = false
-
-    private var isSpotify: Bool { song.spotifyTrackID != nil }
-    private var isCurrentSong: Bool {
-        vm.currentSong?.title == song.title && vm.currentSong?.artist == song.artist
-    }
-    private var isPlaying: Bool { isCurrentSong && vm.isPlaying }
+    @Environment(\.openURL) private var openURL
+    @State private var showUnavailableAlert = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Album art
-            ZStack(alignment: .bottomTrailing) {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSpotify ? Color.green.opacity(0.2) : Color.purple.opacity(0.25))
-                    .frame(width: 44, height: 44)
-                if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
-                    AsyncImage(url: url) { phase in
-                        if case .success(let img) = phase {
-                            img.resizable().scaledToFill()
-                                .frame(width: 44, height: 44)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                        } else {
-                            Image(systemName: isPlaying ? "waveform" : "music.note")
-                                .font(.system(size: 18))
-                                .foregroundStyle(isSpotify ? Color.green : Color.purple)
-                                .symbolEffect(.variableColor.iterative, isActive: isPlaying)
-                        }
-                    }
-                } else {
-                    Image(systemName: isPlaying ? "waveform" : "music.note")
-                        .font(.system(size: 18))
-                        .foregroundStyle(isSpotify ? Color.green : Color.purple)
-                        .symbolEffect(.variableColor.iterative, isActive: isPlaying)
-                }
-                // Source badge overlay
-                if isSpotify {
-                    Image(systemName: "s.circle.fill")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color.green)
-                        .background(Circle().fill(Color.black).padding(-1))
-                        .offset(x: 4, y: 4)
-                }
-            }
+        HStack(spacing: 10) {
+            artworkView
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(song.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                Text(song.artist)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.6))
+                Text(statusLine)
+                    .font(.systemScaled(11))
+                    .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(1)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Play/open button
-            Button {
-                handlePlayTap()
-            } label: {
-                ZStack {
-                    if isLoading {
-                        ProgressView().scaleEffect(0.75).tint(.white)
-                    } else if isSpotify {
-                        Image(systemName: "arrow.up.forward.app.fill")
-                            .font(.system(size: 26))
-                            .foregroundStyle(Color.green.opacity(0.85))
-                    } else {
-                        Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 30))
-                            .foregroundStyle(isCurrentSong ? Color.purple : Color.white.opacity(0.7))
-                    }
-                }
-                .frame(width: 34, height: 34)
+            Button { handlePlayTap() } label: {
+                Image(systemName: trailingIcon)
+                    .font(.systemScaled(11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.78))
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color.white.opacity(0.08)))
             }
             .buttonStyle(.plain)
 
-            // Remove button (only shown when onRemove is provided)
             if let onRemove {
-                Button {
-                    onRemove(song)
-                } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(.red.opacity(0.7))
+                Button { onRemove(song) } label: {
+                    Image(systemName: "xmark")
+                        .font(.systemScaled(9, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(Color.white.opacity(0.07)))
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(isCurrentSong ? 0.12 : 0.06))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(
-                            isCurrentSong ? Color.purple.opacity(0.5) : Color.white.opacity(0.1),
-                            lineWidth: 1
-                        )
-                )
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
         )
-        .animation(.spring(duration: 0.3), value: isCurrentSong)
+        .alert("Music Unavailable", isPresented: $showUnavailableAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("This attachment can’t be opened right now. Try another link or remove it from this note.")
+        }
+    }
+
+    private var artworkView: some View {
+        Group {
+            if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
+                AsyncImage(url: url) { phase in
+                    if case .success(let img) = phase {
+                        img.resizable().scaledToFill()
+                    } else {
+                        artFallback
+                    }
+                }
+            } else {
+                artFallback
+            }
+        }
+        .frame(width: 32, height: 32)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+    }
+
+    private var artFallback: some View {
+        RoundedRectangle(cornerRadius: 7)
+            .fill(Color.white.opacity(0.08))
+            .overlay(
+                Image(systemName: "music.note")
+                    .font(.systemScaled(12))
+                    .foregroundStyle(.white.opacity(0.74))
+            )
+    }
+
+    private var statusLine: String {
+        let base = song.subtitle ?? song.artist
+        let helper = song.availabilityState.helperText
+        return base.isEmpty ? helper : "\(base) · \(helper)"
+    }
+
+    private var trailingIcon: String {
+        switch song.availabilityState {
+        case .unavailable:
+            return "exclamationmark.circle"
+        case .accountRequired:
+            return "lock.circle"
+        case .viewOnly:
+            return "arrow.up.right.circle"
+        case .readyToOpen:
+            return "arrow.up.right"
+        }
+    }
+
+    private var preferredURL: URL? {
+        guard let deepLinkURL = song.deepLinkURL, let url = URL(string: deepLinkURL) else {
+            return nil
+        }
+        return UIApplication.shared.canOpenURL(url) ? url : nil
+    }
+
+    private var webFallbackURL: URL? {
+        guard let webURL = song.webURL else { return nil }
+        return URL(string: webURL)
     }
 
     private func handlePlayTap() {
-        if isSpotify {
-            // Open Spotify app (or web fallback)
-            let deepLink = song.spotifyTrackURL ?? (song.spotifyTrackID.map { "spotify:track:\($0)" } ?? "")
-            let webFallback = song.spotifyTrackID.map { "https://open.spotify.com/track/\($0)" } ?? ""
-            if let url = URL(string: deepLink), UIApplication.shared.canOpenURL(url) {
-                UIApplication.shared.open(url)
-            } else if let url = URL(string: webFallback), !webFallback.isEmpty {
-                UIApplication.shared.open(url)
-            }
+        if let preferredURL {
+            openURL(preferredURL)
+        } else if let webFallbackURL {
+            openURL(webFallbackURL)
         } else {
-            let svc = WorshipMusicService.shared
-            if isCurrentSong {
-                svc.pauseResume()
-            } else {
-                isLoading = true
-                Task {
-                    await svc.playSong(title: song.title, artist: song.artist, churchNoteId: noteId)
-                    await MainActor.run { isLoading = false }
-                }
-            }
+            showUnavailableAlert = true
         }
     }
 }

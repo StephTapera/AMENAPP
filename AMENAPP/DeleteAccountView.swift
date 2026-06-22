@@ -9,6 +9,7 @@ import SwiftUI
 import FirebaseAuth
 import AuthenticationServices
 import CryptoKit
+import GoogleSignIn
 
 struct DeleteAccountView: View {
     @Environment(\.dismiss) private var dismiss
@@ -26,8 +27,10 @@ struct DeleteAccountView: View {
 
     // Deletion state
     @State private var isDeleting = false
+    @State private var isSoftDelete = false
     @State private var deletionError: String?
     @State private var showError = false
+    @State private var deletionSucceeded = false
     @FocusState private var confirmFieldFocused: Bool
 
     var body: some View {
@@ -36,7 +39,7 @@ struct DeleteAccountView: View {
                 // Warning icon
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 52))
+                        .font(.systemScaled(52))
                         .foregroundStyle(.red)
                         .padding(.top, 32)
 
@@ -64,6 +67,12 @@ struct DeleteAccountView: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                         .padding(.top, 4)
+
+                    // A8-002: Explicit grace-period disclosure
+                    Text("Your account will be deactivated immediately. All data is permanently deleted after 30 days.")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                        .padding(.top, 2)
                 }
                 .padding(16)
                 .background(
@@ -101,6 +110,30 @@ struct DeleteAccountView: View {
 
                 // Action buttons
                 VStack(spacing: 12) {
+                    // OS-20: Soft-delete option — 30-day recovery window.
+                    Button {
+                        confirmFieldFocused = false
+                        triggerSoftDelete()
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text("Schedule Deletion (Recommended)")
+                                .font(.body.weight(.semibold))
+                            Text("30-day recovery window before permanent delete")
+                                .font(.caption)
+                                .opacity(0.85)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .foregroundStyle(.white)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(isConfirmed ? Color.orange : Color.orange.opacity(0.3))
+                        )
+                    }
+                    .disabled(!isConfirmed || isDeleting)
+                    .padding(.horizontal, 20)
+
+                    // Hard-delete: immediate, permanent, no recovery.
                     Button {
                         confirmFieldFocused = false
                         triggerDeletion()
@@ -112,7 +145,7 @@ struct DeleteAccountView: View {
                                     Text("Deleting…")
                                 }
                             } else {
-                                Text("Delete My Account")
+                                Text("Delete Immediately (No Recovery)")
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -154,12 +187,20 @@ struct DeleteAccountView: View {
         } message: {
             Text(deletionError ?? "An unexpected error occurred. Please try again.")
         }
+        .fullScreenCover(isPresented: $deletionSucceeded) {
+            AccountDeletedConfirmationView()
+        }
     }
 
     // MARK: - Helpers
 
+    private func triggerSoftDelete() {
+        isSoftDelete = true
+        showReauthSheet = true
+    }
+
     private func triggerDeletion() {
-        // Firebase requires re-auth before account deletion
+        isSoftDelete = false
         showReauthSheet = true
     }
 
@@ -167,14 +208,70 @@ struct DeleteAccountView: View {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isDeleting = true
         do {
-            try await AccountDeletionService.shared.deleteAccount(userId: uid)
-            // Sign out and return to root
-            authViewModel.signOut()
+            if isSoftDelete {
+                // OS-20: Soft delete — 30-day recovery window, Auth account preserved.
+                try await AccountRecoveryService.shared.scheduleAccountDeletion(userId: uid)
+            } else {
+                // Hard delete — immediate, permanent, no recovery.
+                try await AccountDeletionService.shared.deleteAccount(userId: uid)
+            }
+            deletionSucceeded = true
         } catch {
             deletionError = error.localizedDescription
             showError = true
         }
         isDeleting = false
+    }
+}
+
+// MARK: - Account Deleted Confirmation
+
+struct AccountDeletedConfirmationView: View {
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "checkmark.seal.fill")
+                .font(.systemScaled(64))
+                .foregroundStyle(.green)
+
+            VStack(spacing: 10) {
+                Text("Account Deleted")
+                    .font(.title2.bold())
+                Text("Your account and all associated data have been permanently removed from AMEN.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+
+            Text("We're sorry to see you go. You're always welcome back.")
+                .font(.footnote)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            Spacer()
+
+            Button {
+                // Sign out navigates to the welcome screen
+                Task { @MainActor in
+                    try? Auth.auth().signOut()
+                }
+            } label: {
+                Text("Done")
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .foregroundStyle(.white)
+                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 40)
+        }
+        .background(Color(.systemBackground).ignoresSafeArea())
+        // Prevent dismiss by swipe so the user must tap Done (which signs them out)
+        .interactiveDismissDisabled(true)
     }
 }
 
@@ -211,7 +308,7 @@ private struct ReauthenticationSheet: View {
             VStack(spacing: 24) {
                 VStack(spacing: 8) {
                     Image(systemName: "lock.shield")
-                        .font(.system(size: 40))
+                        .font(.systemScaled(40))
                         .foregroundStyle(.primary)
                         .padding(.top, 32)
                     Text("Confirm Your Identity")
@@ -240,11 +337,28 @@ private struct ReauthenticationSheet: View {
                     }
                     .padding(.horizontal, 24)
                 } else if isGoogle {
-                    Text("Please sign in with Google again to confirm.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
+                    // Google re-auth
+                    Button {
+                        Task { await reauthWithGoogle() }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "g.circle.fill")
+                            Text("Continue with Google")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .background(RoundedRectangle(cornerRadius: 14).fill(Color.blue))
+                    }
+                    .padding(.horizontal, 24)
+
+                    if let err = error {
+                        Text(err)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 24)
+                    }
                 } else {
                     // Email/password
                     VStack(alignment: .leading, spacing: 8) {
@@ -319,6 +433,36 @@ private struct ReauthenticationSheet: View {
             self.error = "Incorrect password. Please try again."
         }
         isLoading = false
+    }
+
+    private func reauthWithGoogle() async {
+        isLoading = true
+        error = nil
+        guard let rootVC = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first?.windows.first?.rootViewController else {
+            self.error = "Unable to find root view controller."
+            isLoading = false
+            return
+        }
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
+            guard let idToken = result.user.idToken?.tokenString else {
+                self.error = "Google re-authentication failed. Please try again."
+                self.isLoading = false
+                return
+            }
+            let credential = GoogleAuthProvider.credential(
+                withIDToken: idToken,
+                accessToken: result.user.accessToken.tokenString
+            )
+            try await Auth.auth().currentUser?.reauthenticate(with: credential)
+            self.onComplete(true)
+        } catch {
+            self.error = "Google re-authentication failed. Please try again."
+            self.onComplete(false)
+        }
+        self.isLoading = false
     }
 
     private func reauthWithApple() async {

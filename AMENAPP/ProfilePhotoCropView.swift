@@ -84,7 +84,7 @@ struct ProfilePhotoCropView: View {
 
                     // ── Hint text ────────────────────────────────────────────
                     Text("Pinch to zoom · Drag to reposition")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.white.opacity(0.55))
                         .padding(.bottom, 32)
                 }
@@ -101,7 +101,7 @@ struct ProfilePhotoCropView: View {
                         onCancel()
                     }
                     .foregroundStyle(.white)
-                    .font(.custom("OpenSans-Regular", size: 16))
+                    .font(AMENFont.regular(16))
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
@@ -110,7 +110,7 @@ struct ProfilePhotoCropView: View {
                         commitCrop()
                     } label: {
                         Text("Use Photo")
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(AMENFont.bold(16))
                             .foregroundStyle(.white)
                     }
                 }
@@ -149,7 +149,7 @@ struct ProfilePhotoCropView: View {
                     height: baseOffset.height + value.translation.height
                 )
                 finalOffset = clampOffset(finalOffset, scale: scale)
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                     offset = finalOffset
                 }
                 baseOffset = finalOffset
@@ -170,7 +170,7 @@ struct ProfilePhotoCropView: View {
             .onEnded { value in
                 let final = max(minScale, baseScale * value.magnification)
                 let clampedOffset = clampOffset(baseOffset, scale: final)
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                     scale = final
                     offset = clampedOffset
                 }
@@ -214,7 +214,34 @@ struct ProfilePhotoCropView: View {
             image.draw(in: CGRect(x: x, y: y, width: scaledW, height: scaledH))
         }
 
-        onCrop(cropped)
+        // Ensure the cropped image has a valid CGImage by re-rendering if needed
+        // This prevents crashes during EXIF stripping in FirebaseManager
+        guard let validImage = ensureValidCGImage(cropped) else {
+            dlog("⚠️ Failed to create valid CGImage from crop")
+            onCancel()
+            return
+        }
+
+        onCrop(validImage)
+    }
+
+    /// Ensures the UIImage has a valid CGImage backing, re-rendering if necessary
+    private func ensureValidCGImage(_ image: UIImage) -> UIImage? {
+        // If already has cgImage, return as-is
+        if image.cgImage != nil {
+            return image
+        }
+
+        // Otherwise, re-render to create a CGImage-backed UIImage
+        let size = image.size
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = image.scale
+        format.opaque = false
+
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { context in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
     }
 }
 

@@ -75,14 +75,14 @@ struct ScriptureCitationChip: View {
         Button(action: onTap) {
             HStack(spacing: 5) {
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
 
                 Text(reference)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .lineLimit(1)
 
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .opacity(0.7)
             }
             .foregroundStyle(chipBlue)
@@ -152,7 +152,7 @@ struct ScriptureVerseCard: View {
                 .scaleEffect(0.75)
                 .tint(chipBlue)
             Text("Loading verse…")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
@@ -162,10 +162,10 @@ struct ScriptureVerseCard: View {
     private var errorView: some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
             Text("Verse unavailable")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
@@ -176,13 +176,13 @@ struct ScriptureVerseCard: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Text(p.reference)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(chipBlue)
 
                 Spacer(minLength: 4)
 
                 Text(p.version.rawValue)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(chipBlue.opacity(0.7))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -190,7 +190,7 @@ struct ScriptureVerseCard: View {
             }
 
             Text(p.text)
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
                 .foregroundStyle(Color(white: 0.22))
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)

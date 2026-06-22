@@ -44,7 +44,7 @@ final class UniversalSearchViewModel: ObservableObject {
 
     // MARK: Private
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var searchTask: Task<Void, Never>?
     private var debounceTask: Task<Void, Never>?
     private let recentKey = "amen_recent_searches"
@@ -136,7 +136,9 @@ final class UniversalSearchViewModel: ObservableObject {
                     response += chunk
                     bereanAnswer = response
                 }
-            } catch {}
+            } catch {
+                dlog("⚠️ [DiscoverSearch] Berean inline search failed: \(error.localizedDescription)")
+            }
             if !Task.isCancelled { bereanAnswerLoading = false }
         }
     }
@@ -284,6 +286,8 @@ final class UniversalSearchViewModel: ObservableObject {
         let lowered = query.lowercased()
         let followingSet = FollowService.shared.following
         let currentUID = Auth.auth().currentUser?.uid ?? ""
+        // Filter out users the current user has blocked or been blocked by
+        let blockedIds = BlockService.shared.blockedUsers
         do {
             // Prefix match on displayNameLower; fall back to usernameLower if empty
             let snap = try await db.collection("users")
@@ -294,6 +298,7 @@ final class UniversalSearchViewModel: ObservableObject {
             return snap.documents.compactMap { doc -> DiscoveryPerson? in
                 let d = doc.data()
                 guard doc.documentID != currentUID,
+                      !blockedIds.contains(doc.documentID),
                       let displayName = d["displayName"] as? String,
                       let username = d["username"] as? String else { return nil }
                 return DiscoveryPerson(
@@ -322,14 +327,18 @@ final class UniversalSearchViewModel: ObservableObject {
             .components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
         guard !tokens.isEmpty else { return [] }
+        let blockedIds = BlockService.shared.blockedUsers
         do {
             let snap = try await db.collection("posts")
                 .whereField("contentTokens", arrayContainsAny: Array(tokens.prefix(10)))
+                .whereField("visibility", isEqualTo: "everyone")
                 .limit(to: 10)
                 .getDocuments()
             return snap.documents.compactMap { doc -> DiscoveryPost? in
                 let d = doc.data()
-                guard let content = d["content"] as? String else { return nil }
+                let authorId = d["authorId"] as? String ?? ""
+                guard !blockedIds.contains(authorId),
+                      let content = d["content"] as? String else { return nil }
                 return DiscoveryPost(
                     id: doc.documentID,
                     authorId: d["authorId"] as? String ?? "",
@@ -542,9 +551,9 @@ struct UniversalSearchResultsView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                // PART 4: Berean AI answer card — shown for question-style queries
+                // PART 4: Enhanced Berean AI answer card — shown for question-style queries
                 if viewModel.bereanAnswerLoading || !viewModel.bereanAnswer.isEmpty {
-                    BereanSearchAnswerCard(
+                    EnhancedAIAnswerCard(
                         query: query,
                         answer: viewModel.bereanAnswer,
                         isLoading: viewModel.bereanAnswerLoading,
@@ -557,10 +566,10 @@ struct UniversalSearchResultsView: View {
                     .padding(.top, 8)
                 }
 
-                // PART 3: Top profile card — shown when people results exist
+                // PART 3: Enhanced top profile card — shown when people results exist
                 if let topPerson = viewModel.scopedPeople.first,
                    viewModel.searchScope == .forYou || viewModel.searchScope == .people {
-                    SearchTopProfileCard(
+                    EnhancedProfileCard(
                         person: topPerson,
                         previewPosts: viewModel.results.posts,
                         onFollow: {
@@ -618,7 +627,7 @@ struct UniversalSearchResultsView: View {
         VStack(spacing: 14) {
             Spacer().frame(height: 60)
             Image(systemName: "xmark.circle")
-                .font(.system(size: 40, weight: .light))
+                .font(.systemScaled(40, weight: .light))
                 .foregroundStyle(.white.opacity(0.4))
             Text("Nothing found for '\(query)'")
                 .font(.custom("OpenSans-Regular", size: 15))
@@ -765,7 +774,7 @@ struct USSPersonRow: View {
                                 .foregroundStyle(.primary)
                             if person.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(.blue)
                             }
                         }
@@ -892,7 +901,7 @@ struct USSChurchRow: View {
                         .foregroundStyle(.primary)
                     if church.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -902,7 +911,7 @@ struct USSChurchRow: View {
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -942,7 +951,7 @@ struct USSTopicRow: View {
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -957,7 +966,7 @@ struct USSSimpleRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: item.iconName)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.secondary)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
@@ -1122,7 +1131,7 @@ struct SearchRecentListView: View {
                 ForEach(recentSnapshot, id: \.self) { term in
                     HStack(spacing: 12) {
                         Image(systemName: "clock")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                             .frame(width: 20)
 
@@ -1141,7 +1150,7 @@ struct SearchRecentListView: View {
                             recentSnapshot = viewModel.recentSearches
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                                 .foregroundStyle(.tertiary)
                         }
                         .buttonStyle(.plain)

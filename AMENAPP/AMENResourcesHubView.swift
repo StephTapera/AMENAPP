@@ -8,6 +8,8 @@
 
 import SwiftUI
 import Observation
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - View Model (unchanged data layer)
 
@@ -137,14 +139,7 @@ private struct MediaCardItem: Identifiable {
     }
 }
 
-// MARK: - Scroll Offset Preference Key
 
-private struct ResourcesHubScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
 
 // MARK: - Hub View
 
@@ -265,13 +260,50 @@ struct AMENResourcesHubView: View {
                 .padding(.bottom, 24)
         }
         .navigationBarHidden(true)
-        .task { await vm.load() }
+        .task {
+            await vm.load()
+            await loadSavedIDs()
+        }
         .navigationDestination(item: $selectedEntry) { entry in
             AMENResourceDetailView(entry: entry)
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isSearchActive)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selectedMode)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: vm.selectedCategory)
+    }
+
+    // MARK: - Saved Resources Persistence
+
+    private func savedCollection() -> CollectionReference? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        return Firestore.firestore()
+            .collection("users").document(uid)
+            .collection("savedResources")
+    }
+
+    private func loadSavedIDs() async {
+        guard let col = savedCollection() else { return }
+        guard let snapshot = try? await col.whereField("isSaved", isEqualTo: true).getDocuments() else { return }
+        let ids = Set(snapshot.documents.map { $0.documentID })
+        await MainActor.run { savedIDs = ids }
+    }
+
+    private func toggleSaved(_ item: MediaCardItem) {
+        if savedIDs.contains(item.id) {
+            savedIDs.remove(item.id)
+            Task { try? await savedCollection()?.document(item.id).delete() }
+        } else {
+            savedIDs.insert(item.id)
+            Task {
+                try? await savedCollection()?.document(item.id).setData([
+                    "isSaved":    true,
+                    "title":      item.title,
+                    "subtitle":   item.subtitle,
+                    "category":   item.category.rawValue,
+                    "savedAt":    FieldValue.serverTimestamp(),
+                ])
+            }
+        }
     }
 
     // MARK: - Dot Grid Texture
@@ -301,7 +333,7 @@ struct AMENResourcesHubView: View {
                 dismiss()
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 36, height: 36)
                     .background(.white.opacity(0.08), in: Circle())
@@ -310,7 +342,7 @@ struct AMENResourcesHubView: View {
             Spacer()
 
             Text("Christian Media")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.7))
 
             Spacer()
@@ -331,10 +363,10 @@ struct AMENResourcesHubView: View {
     private func nowPlayingChip(_ item: MediaCardItem) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "waveform")
-                .font(.system(size: 10, weight: .bold))
+                .font(.systemScaled(10, weight: .bold))
                 .symbolEffect(.variableColor.iterative, isActive: true)
             Text(item.title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .lineLimit(1)
         }
         .foregroundStyle(.white)
@@ -361,7 +393,7 @@ struct AMENResourcesHubView: View {
                     selectedMode = mode
                 } label: {
                     Text(mode.rawValue)
-                        .font(.system(size: 14, weight: selectedMode == mode ? .semibold : .regular))
+                        .font(.systemScaled(14, weight: selectedMode == mode ? .semibold : .regular))
                         .foregroundStyle(selectedMode == mode ? .white : .white.opacity(0.4))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -393,7 +425,7 @@ struct AMENResourcesHubView: View {
     private var heroLabel: some View {
         HStack(alignment: .lastTextBaseline, spacing: 0) {
             Text(modeHeroText)
-                .font(.system(size: 52, weight: .black))
+                .font(.systemScaled(52, weight: .black))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -402,7 +434,7 @@ struct AMENResourcesHubView: View {
             Spacer()
 
             Text("\(allItems.count)")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.3))
                 .padding(.bottom, 4)
         }
@@ -433,15 +465,15 @@ struct AMENResourcesHubView: View {
         let isSelected = vm.selectedCategory == cat
         return Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                 vm.selectedCategory = cat
             }
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: cat.sfSymbol)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(cat.rawValue)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
             }
             .foregroundStyle(isSelected ? .white : .white.opacity(0.5))
             .padding(.horizontal, 14)
@@ -471,12 +503,12 @@ struct AMENResourcesHubView: View {
     private var searchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.white.opacity(0.5))
 
             TextField("Search media…", text: $searchText)
                 .focused($searchFocused)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.white)
                 .tint(.white)
                 .submitLabel(.search)
@@ -526,18 +558,14 @@ struct AMENResourcesHubView: View {
                         },
                         onPlay: {
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 nowPlayingItem = nowPlayingItem?.id == item.id ? nil : item
                             }
                         },
                         onSave: {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                                if savedIDs.contains(item.id) {
-                                    savedIDs.remove(item.id)
-                                } else {
-                                    savedIDs.insert(item.id)
-                                }
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
+                                toggleSaved(item)
                             }
                         }
                     )
@@ -575,16 +603,16 @@ struct AMENResourcesHubView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: selectedMode == .library ? "bookmark.slash" : "magnifyingglass")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.white.opacity(0.2))
 
             Text(selectedMode == .library ? "Nothing saved yet" : "No results")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.4))
 
             if selectedMode == .library {
                 Text("Tap the bookmark icon on any card to save it here.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.white.opacity(0.25))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
@@ -613,7 +641,7 @@ struct AMENResourcesHubView: View {
                         }
                         selectedDock = tab
                         if tab == .saved {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 selectedMode = .library
                             }
                         }
@@ -621,7 +649,7 @@ struct AMENResourcesHubView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: tab == .playing && nowPlayingItem != nil ? "waveform" : tab.icon)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .symbolEffect(.variableColor.iterative,
                                           options: .repeating,
                                           isActive: tab == .playing && nowPlayingItem != nil)
@@ -629,7 +657,7 @@ struct AMENResourcesHubView: View {
                             .frame(height: 22)
 
                         Text(tab.rawValue)
-                            .font(.system(size: 10, weight: dockTabIsActive(tab) ? .semibold : .regular))
+                            .font(.systemScaled(10, weight: dockTabIsActive(tab) ? .semibold : .regular))
                             .foregroundStyle(dockTabIsActive(tab) ? .white : .white.opacity(0.3))
                     }
                     .frame(maxWidth: .infinity)
@@ -712,7 +740,7 @@ private struct StackingMediaCard: View {
                 // Category + duration row
                 HStack(spacing: 8) {
                     Text(categoryLabel)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundStyle(.white.opacity(0.7))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -720,7 +748,7 @@ private struct StackingMediaCard: View {
 
                     if let dur = durationLabel {
                         Text(dur)
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.5))
                     }
 
@@ -728,7 +756,7 @@ private struct StackingMediaCard: View {
 
                     if isNowPlaying {
                         Image(systemName: "waveform")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.white)
                             .symbolEffect(.variableColor.iterative, isActive: true)
                     }
@@ -738,7 +766,7 @@ private struct StackingMediaCard: View {
 
                 // Title
                 Text(item.title)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(2)
                     .padding(.horizontal, 16)
@@ -746,14 +774,14 @@ private struct StackingMediaCard: View {
                 // Subtitle row
                 HStack(spacing: 6) {
                     Text(item.subtitle)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.white.opacity(0.7))
 
                     Text("·")
                         .foregroundStyle(.white.opacity(0.3))
 
                     Text(item.sourceLabel)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.white.opacity(0.5))
                         .lineLimit(1)
                 }
@@ -763,7 +791,7 @@ private struct StackingMediaCard: View {
                 // Scripture reference
                 if let ref = item.scriptureRef {
                     Text(ref)
-                        .font(.system(size: 11, weight: .medium, design: .serif))
+                        .font(.systemScaled(11, weight: .medium, design: .serif))
                         .foregroundStyle(.white.opacity(0.45))
                         .italic()
                         .padding(.horizontal, 16)
@@ -776,11 +804,11 @@ private struct StackingMediaCard: View {
                     Button(action: onPlay) {
                         HStack(spacing: 6) {
                             Image(systemName: isNowPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                             Text(isNowPlaying ? "Pause" : "Play")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
                         .background(Capsule().fill(.white))
@@ -792,7 +820,7 @@ private struct StackingMediaCard: View {
                     // Save
                     Button(action: onSave) {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(isSaved ? Color(red: 0.52, green: 0.18, blue: 0.80) : .white.opacity(0.6))
                             .frame(width: 40, height: 40)
                             .background(Circle().fill(.white.opacity(0.10)))
@@ -802,7 +830,7 @@ private struct StackingMediaCard: View {
                     // More / open
                     Button(action: onTap) {
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.6))
                             .frame(width: 40, height: 40)
                             .background(Circle().fill(.white.opacity(0.10)))
@@ -833,7 +861,7 @@ private struct StackingMediaCard: View {
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { isPressed = false }
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) { isPressed = false }
                 }
         )
     }
@@ -881,6 +909,8 @@ private struct StackingMediaCard: View {
 
 private struct DarkShimmerModifier: ViewModifier {
     @State private var phase: CGFloat = -1
+    // SECURITY FIX (MEDIUM 2026-06-11): Added reduce-motion guard for infinite shimmer animation.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content.overlay(
@@ -900,6 +930,7 @@ private struct DarkShimmerModifier: ViewModifier {
         )
         .clipped()
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.linear(duration: 1.6).repeatForever(autoreverses: false)) {
                 phase = 1
             }

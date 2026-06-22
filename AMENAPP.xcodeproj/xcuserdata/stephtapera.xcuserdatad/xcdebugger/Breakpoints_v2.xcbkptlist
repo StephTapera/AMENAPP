@@ -1,55 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Bucket
-   uuid = "06E1818F-6A44-4DF4-B873-92F2F60E0F38"
+   uuid = "00000000-0000-0000-0000-000000000000"
    type = "1"
    version = "2.0">
    <Breakpoints>
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "F9140C53-5ED0-4CEF-9A79-ACF387F03FA5"
+            uuid = "B9DA7FFC-4154-481C-8A7D-E75A464492F4"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "AMENAPP/MessagingPlaceholders.swift"
+            filePath = "AMENAPP/AMENAPP/AMENAPP/Pulse/AmenPulseSurfaceView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "295"
-            endingLineNumber = "295"
-            landmarkName = "unknown"
-            landmarkType = "0">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "95006F11-3E9C-428C-BB4C-392FFFEDD5E2"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "../../../Library/Developer/Xcode/DerivedData/AMENAPP-cdzidecvpqnzqhddrssfcdofthow/SourcePackages/checkouts/firebase-ios-sdk/FirebaseDatabase/Sources/Utilities/FValidation.m"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "311"
-            endingLineNumber = "311"
-            landmarkName = "+validateFrom:validUpdateDictionaryKey:withValue:"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "45CF8488-9D13-4F68-A78B-53162B031E6B"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "AMENAPP/UserProfileView.swift"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "155"
-            endingLineNumber = "155"
-            landmarkName = "UserProfileTab"
-            landmarkType = "13">
+            startingLineNumber = "34"
+            endingLineNumber = "34"
+            landmarkName = "chip"
+            landmarkType = "24">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

@@ -14,8 +14,13 @@ import AVKit
 struct FullscreenMediaViewer: View {
     let media: PostMediaContainer
     let startIndex: Int
+
+    /// Optional post ID for media resume tracking (System 12).
+    var postId: String? = nil
     
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var currentIndex: Int
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
@@ -24,10 +29,15 @@ struct FullscreenMediaViewer: View {
     @State private var dragDismissOffset: CGFloat = 0
     @State private var isDraggingToDismiss = false
     @State private var showChrome = true
+
+    /// Decoded UIImage of the current item, used to drive the Adaptive Ambient palette.
+    /// Fails closed to neutral when nil (AdaptiveColorsMode.off renders byte-identical neutral).
+    @State private var ambientImage: UIImage? = nil
     
-    init(media: PostMediaContainer, startIndex: Int) {
+    init(media: PostMediaContainer, startIndex: Int, postId: String? = nil) {
         self.media = media
         self.startIndex = startIndex
+        self.postId = postId
         _currentIndex = State(initialValue: startIndex)
     }
     
@@ -42,36 +52,77 @@ struct FullscreenMediaViewer: View {
             : nil
     }
     
+    // TODO(gate: HUMAN-MACHINE) — ambient: replace hand-wired pager with AdaptiveMediaViewer(items:coordinator:)
+    // once concurrent edits settle; map media.sortedItems → [AdaptiveMediaViewer.Item].
+    // TODO(gate: HUMAN-MACHINE) — ambient: tint AVPlayer controls/scrubber with palette.accent;
+    // VideoPlayerFullscreen needs palette passed in or @Environment(\.ambientPalette) read there.
     var body: some View {
-        ZStack {
-            // Dark glass background
-            backgroundView
-            
-            // Media pager
-            TabView(selection: $currentIndex) {
-                ForEach(Array(media.sortedItems.enumerated()), id: \.element.id) { index, item in
-                    mediaView(for: item, at: index)
-                        .tag(index)
+        // Ambient scope: the current media item's color drives a soft palette behind the
+        // black viewer. Additive + reversible; fails closed to neutral when mode == .off or
+        // when the decoded UIImage is unavailable.
+        AmbientScope { coordinator in
+            ZStack {
+                // Adaptive ambient wash (behind the dark glass). Bleeds the current media's
+                // blurred color; flat neutral when intensity == 0 / Reduce Transparency.
+                AdaptiveAmbientBackground(bleedImage: ambientImage, bleedHeight: 560)
+                    .opacity(dismissOpacity)
+
+                // Dark glass background (preserves dismiss fade + immersive viewing)
+                backgroundView
+
+                // Media pager
+                TabView(selection: $currentIndex) {
+                    ForEach(Array(media.sortedItems.enumerated()), id: \.element.id) { index, item in
+                        mediaView(for: item, at: index)
+                            .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .onChange(of: currentIndex) {
+                    resetZoom()
+                    driveAmbient(coordinator: coordinator)
+                }
+                .offset(y: dragDismissOffset)
+                .gesture(dismissGesture)
+
+                // Chrome overlay
+                if showChrome {
+                    chromeOverlay
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .onChange(of: currentIndex) {
-                resetZoom()
+            .statusBarHidden()
+            .onTapGesture {
+                toggleChrome()
             }
-            .offset(y: dragDismissOffset)
-            .gesture(dismissGesture)
-            
-            // Chrome overlay
-            if showChrome {
-                chromeOverlay
+            .onTapGesture(count: 2) {
+                handleDoubleTap()
             }
+            .onAppear { driveAmbient(coordinator: coordinator) }
+            .onDisappear { coordinator.reset(scheme: scheme, reduceMotion: reduceMotion) }
         }
-        .statusBarHidden()
-        .onTapGesture {
-            toggleChrome()
+    }
+
+    /// Decode the current item's image (reusing the shared ImageCache) and feed it to the
+    /// ambient coordinator. For video items the poster/thumbnail drives the palette.
+    private func driveAmbient(coordinator: AmbientCoordinator) {
+        guard let item = currentItem else {
+            ambientImage = nil
+            coordinator.drive(with: nil,
+                              key: AmbientSourceKey(id: "fullscreen/empty", revision: "0"),
+                              scheme: scheme, reduceMotion: reduceMotion)
+            return
         }
-        .onTapGesture(count: 2) {
-            handleDoubleTap()
+        let key = AmbientSourceKey(id: "fullscreen/\(item.id)", revision: item.url)
+        // Prefer the still URL for images; the thumbnail for videos.
+        let driveURL = item.type == .video ? (item.thumbnailURL ?? item.url) : item.url
+        Task {
+            let img = await ImageCache.shared.loadImage(url: driveURL,
+                                                        size: CGSize(width: 600, height: 600))
+            await MainActor.run {
+                ambientImage = img
+                coordinator.drive(with: img, key: key,
+                                  scheme: scheme, reduceMotion: reduceMotion)
+            }
         }
     }
     
@@ -106,34 +157,26 @@ struct FullscreenMediaViewer: View {
     }
     
     private func zoomableImageView(_ item: PostMediaItem, isActive: Bool) -> some View {
-        CachedAsyncImage(url: URL(string: item.url)) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scaleEffect(isActive ? scale : 1.0)
-                    .offset(isActive ? offset : .zero)
-                    .gesture(isActive ? magnificationGesture : nil)
-                    .gesture(isActive ? panGesture : nil)
-                
-            case .failure:
-                errorPlaceholder
-                
-            case .empty:
-                loadingPlaceholder
-                
-            @unknown default:
-                loadingPlaceholder
-            }
+        CachedAsyncImage(url: URL(string: item.url)) { image in
+            image
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scaleEffect(isActive ? scale : 1.0)
+                .offset(isActive ? offset : .zero)
+                .gesture(isActive ? magnificationGesture : nil)
+                .gesture(isActive ? panGesture : nil)
+        } placeholder: {
+            loadingPlaceholder
         }
     }
     
     private func fullscreenVideoView(_ item: PostMediaItem) -> some View {
         VideoPlayerFullscreen(
             url: item.url,
-            thumbnailURL: item.thumbnailURL
+            thumbnailURL: item.thumbnailURL,
+            postId: postId,
+            mediaItemId: item.id
         )
     }
     
@@ -147,10 +190,10 @@ struct FullscreenMediaViewer: View {
     private var errorPlaceholder: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48, weight: .light))
+                .font(.systemScaled(48, weight: .light))
                 .foregroundStyle(.white.opacity(0.7))
             Text("Media unavailable")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.white.opacity(0.7))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -186,37 +229,26 @@ struct FullscreenMediaViewer: View {
             HapticManager.impact(style: .light)
             dismiss()
         } label: {
-            ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Circle()
-                            .fill(Color.black.opacity(0.3))
-                    )
-                    .frame(width: 40, height: 40)
-                
+            // Float the control in the sanctioned ambient glass primitive (tints to content).
+            AdaptiveGlassContainer(shape: Circle(), tintAlpha: 0.22) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Close media viewer")
     }
-    
+
     private var counterBadge: some View {
-        Text("\(currentIndex + 1) / \(media.count)")
-            .font(.custom("OpenSans-SemiBold", size: 13))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Capsule()
-                            .fill(Color.black.opacity(0.3))
-                    )
-            )
+        AdaptiveGlassContainer(tintAlpha: 0.22) {
+            Text("\(currentIndex + 1) / \(media.count)")
+                .font(AMENFont.semiBold(13))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+        }
     }
     
     private var bottomIndicators: some View {
@@ -247,7 +279,7 @@ struct FullscreenMediaViewer: View {
             .onEnded { _ in
                 lastScale = 1.0
                 if scale < 1.05 {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         resetZoom()
                     }
                 }
@@ -284,7 +316,7 @@ struct FullscreenMediaViewer: View {
                 if dragDismissOffset > 100 || value.velocity.height > 600 {
                     dismiss()
                 } else {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         dragDismissOffset = 0
                     }
                 }
@@ -300,7 +332,7 @@ struct FullscreenMediaViewer: View {
     }
     
     private func handleDoubleTap() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             if scale > 1.05 {
                 resetZoom()
             } else {
@@ -323,18 +355,37 @@ struct FullscreenMediaViewer: View {
 private struct VideoPlayerFullscreen: View {
     let url: String
     let thumbnailURL: String?
+    var postId: String? = nil
+    var mediaItemId: String? = nil
     
-    @StateObject private var viewModel = VideoPlayerViewModel()
+    @State private var player: AVPlayer?
     
     var body: some View {
-        VideoPlayer(player: viewModel.player)
+        VideoPlayer(player: player)
             .ignoresSafeArea()
             .onAppear {
-                viewModel.setupPlayer(url: url)
-                viewModel.play()
+                setupPlayer()
             }
             .onDisappear {
-                viewModel.pause()
+                player?.pause()
+                if postId != nil {
+                    MediaSessionCoordinator.shared.endSession()
+                }
             }
+    }
+    
+    private func setupPlayer() {
+        guard let videoURL = URL(string: url) else { return }
+        player = AVPlayer(url: videoURL)
+
+        // Integrate with media session coordinator for resume tracking
+        if let pId = postId, let mId = mediaItemId, let p = player {
+            MediaSessionCoordinator.shared.beginSession(
+                postId: pId, mediaItemId: mId,
+                surface: .fullscreen, player: p
+            )
+        }
+
+        player?.play()
     }
 }

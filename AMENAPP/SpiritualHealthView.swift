@@ -91,7 +91,7 @@ final class SpiritualHealthStore: ObservableObject {
     @Published var currentStreak: Int = 0
     @Published var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var checkInListener: ListenerRegistration?
     private var reflectionListener: ListenerRegistration?
 
@@ -238,7 +238,7 @@ final class SpiritualHealthStore: ObservableObject {
 
     static let milestones: [GrowthMilestone] = [
         GrowthMilestone(title: "First Check-In", description: "Completed your first weekly check-in", icon: "star.fill", color: .yellow, target: 1, category: "Consistency"),
-        GrowthMilestone(title: "4-Week Streak", description: "4 consecutive weekly check-ins", icon: "flame.fill", color: .orange, target: 4, category: "Consistency"),
+        GrowthMilestone(title: "4-Week Rhythm", description: "4 consecutive weekly check-ins", icon: "flame.fill", color: .orange, target: 4, category: "Rhythm"),
         GrowthMilestone(title: "3-Month Journey", description: "12 consecutive weekly check-ins", icon: "crown.fill", color: Color(red: 0.85, green: 0.65, blue: 0.10), target: 12, category: "Consistency"),
         GrowthMilestone(title: "Faithful Writer", description: "Written 5 reflection entries", icon: "pencil.and.scribble", color: Color(red: 0.28, green: 0.52, blue: 0.90), target: 5, category: "Reflection"),
         GrowthMilestone(title: "Scripture Reader", description: "Scored 5/5 on Scripture 3 weeks", icon: "book.fill", color: Color(red: 0.20, green: 0.65, blue: 0.38), target: 3, category: "Scripture"),
@@ -288,7 +288,7 @@ struct SpiritualHealthView: View {
             .navigationBarHidden(true)
             .onAppear {
                 store.loadAll()
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.75).delay(0.1)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.75)).delay(0.1)) {
                     appeared = true
                 }
             }
@@ -340,36 +340,45 @@ struct SpiritualHealthView: View {
                 HStack {
                     Spacer()
                     if store.currentStreak > 0 {
-                        HStack(spacing: 5) {
-                            Text("🔥")
-                                .font(.system(size: 16))
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text("\(store.currentStreak) week\(store.currentStreak == 1 ? "" : "s")")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(heroInk)
-                                Text("streak")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(heroSecondary)
+                        // streak count hidden per constitution — vanityMetricsAlwaysHidden
+                        VStack(alignment: .trailing, spacing: 4) {
+                            HStack(spacing: 5) {
+                                Text("🔥")
+                                    .font(.systemScaled(16))
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text("Consistent this week")
+                                        .font(.systemScaled(13, weight: .semibold))
+                                        .foregroundStyle(heroInk)
+                                    Text("your rhythm")
+                                        .font(.systemScaled(10))
+                                        .foregroundStyle(heroSecondary)
+                                }
                             }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(heroPurple.opacity(0.08))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(heroPurple.opacity(0.15), lineWidth: 1)
+                                    )
+                            )
+                            .accessibilityLabel("Only you can see this")
+                            Text("Only you can see this")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(heroPurple.opacity(0.08))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(heroPurple.opacity(0.15), lineWidth: 1)
-                                )
-                        )
                     }
                 }
                 .padding(.top, 56)
                 .padding(.bottom, 16)
+                // Sabbath v2: the streak/badges card is removed in `.rest` (I3).
+                .sabbathSubtracted(.streaks)
 
                 // Eyebrow
                 Text("SPIRITUAL HEALTH")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .kerning(2.2)
                     .foregroundStyle(heroSecondary)
                     .padding(.bottom, 8)
@@ -383,7 +392,7 @@ struct SpiritualHealthView: View {
                     .padding(.bottom, 10)
 
                 Text("Weekly check-ins for scripture, prayer & growth.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(heroSecondary)
                     .padding(.bottom, 20)
 
@@ -393,9 +402,9 @@ struct SpiritualHealthView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                         Text(hasThisWeeksCheckIn ? "Update This Week" : "Start Check-In")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 22)
@@ -428,12 +437,12 @@ struct SpiritualHealthView: View {
             HStack(spacing: 8) {
                 ForEach(SHTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             selectedTab = tab
                         }
                     } label: {
                         Text(tab.rawValue)
-                            .font(.system(size: 14, weight: selectedTab == tab ? .semibold : .regular))
+                            .font(.systemScaled(14, weight: selectedTab == tab ? .semibold : .regular))
                             .foregroundStyle(selectedTab == tab ? .white : .primary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -444,15 +453,20 @@ struct SpiritualHealthView: View {
                                             .fill(Color(red: 0.28, green: 0.15, blue: 0.65))
                                     } else {
                                         Capsule()
-                                            .fill(Color(.secondarySystemBackground))
+                                            .fill(.regularMaterial)
                                     }
                                 }
+                            )
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(selectedTab == tab ? Color.clear : Color.black.opacity(0.06), lineWidth: 0.5)
                             )
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 20)
+            .padding(.vertical, 4)
         }
     }
 
@@ -483,6 +497,9 @@ struct SpiritualHealthView: View {
                     .padding(.top, 16)
             }
 
+            faithWrappedCard
+                .padding(.horizontal, 20)
+
             // 8-week trend sparkline
             if store.checkIns.count >= 2 {
                 trendChart
@@ -508,7 +525,7 @@ struct SpiritualHealthView: View {
                         Image(systemName: "checkmark.circle.fill")
                         Text("Check In")
                     }
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -522,7 +539,7 @@ struct SpiritualHealthView: View {
                         Image(systemName: "pencil.and.scribble")
                         Text("Reflect")
                     }
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color(red: 0.28, green: 0.15, blue: 0.65))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -534,85 +551,91 @@ struct SpiritualHealthView: View {
             // Wellness Exercises
             VStack(alignment: .leading, spacing: 12) {
                 Text("Wellness Exercises")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.systemScaled(18, weight: .bold))
                     .padding(.horizontal, 20)
                 
                 VStack(spacing: 10) {
                     NavigationLink(destination: BreathingExerciseView()) {
                         HStack(spacing: 12) {
                             Image(systemName: "wind")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.white)
                                 .frame(width: 44, height: 44)
                                 .background(Color.blue, in: RoundedRectangle(cornerRadius: 12))
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Breathing Exercise")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                                     .foregroundStyle(.primary)
                                 Text("Calm your mind and center yourself")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(12)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     }
                     .buttonStyle(.plain)
                     
                     NavigationLink(destination: MovementWellnessView()) {
                         HStack(spacing: 12) {
                             Image(systemName: "figure.walk")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.white)
                                 .frame(width: 44, height: 44)
                                 .background(Color.green, in: RoundedRectangle(cornerRadius: 12))
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Movement Wellness")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                                     .foregroundStyle(.primary)
                                 Text("Gentle movements for body and soul")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(12)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     }
                     .buttonStyle(.plain)
                     
                     NavigationLink(destination: SleepHygieneView()) {
                         HStack(spacing: 12) {
                             Image(systemName: "moon.stars.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.white)
                                 .frame(width: 44, height: 44)
                                 .background(Color.purple, in: RoundedRectangle(cornerRadius: 12))
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Sleep Hygiene")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                                     .foregroundStyle(.primary)
                                 Text("Rest well and restore your spirit")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .padding(12)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     }
                     .buttonStyle(.plain)
                 }
@@ -624,18 +647,20 @@ struct SpiritualHealthView: View {
     private var emptyOverviewCard: some View {
         VStack(spacing: 16) {
             Image(systemName: "heart.text.square.fill")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
             Text("Start Your First Check-In")
-                .font(.system(size: 18, weight: .bold))
+                .font(.systemScaled(18, weight: .bold))
             Text("Track your spiritual health each week — scripture, prayer, community, mindset, and gratitude.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
     private func latestScoreCard(checkIn: SpiritualCheckIn) -> some View {
@@ -643,23 +668,23 @@ struct SpiritualHealthView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("This Week")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                     Text("Spiritual Health Score")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                 }
                 Spacer()
                 Text(checkIn.mood.emoji)
-                    .font(.system(size: 32))
+                    .font(.systemScaled(32))
             }
 
             // Score dial
             HStack(alignment: .bottom, spacing: 0) {
                 Text(String(format: "%.1f", checkIn.overallScore))
-                    .font(.system(size: 52, weight: .black))
+                    .font(.systemScaled(52, weight: .black))
                     .foregroundStyle(scoreColor(checkIn.overallScore))
                 Text("/5")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(.bottom, 8)
 
@@ -667,7 +692,7 @@ struct SpiritualHealthView: View {
 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(checkIn.mood.rawValue)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(checkIn.mood.color)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 5)
@@ -675,7 +700,7 @@ struct SpiritualHealthView: View {
 
                     let weekStr = weekLabel(checkIn.weekOf)
                     Text(weekStr)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -702,18 +727,19 @@ struct SpiritualHealthView: View {
 
             if !checkIn.reflectionNote.isEmpty {
                 Text("\"\(checkIn.reflectionNote)\"")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .italic()
                     .lineLimit(2)
             }
         }
         .padding(20)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(scoreColor(store.checkIns.first?.overallScore ?? 3).opacity(0.2), lineWidth: 1.5)
+                .strokeBorder(scoreColor(store.checkIns.first?.overallScore ?? 3).opacity(0.2), lineWidth: 1.5)
         )
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
     private func scoreColor(_ score: Double) -> Color {
@@ -736,7 +762,7 @@ struct SpiritualHealthView: View {
     private var trendChart: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("8-Week Trend")
-                .font(.system(size: 16, weight: .bold))
+                .font(.systemScaled(16, weight: .bold))
 
             let last8 = Array(store.checkIns.prefix(8).reversed())
             let maxScore = 5.0
@@ -810,20 +836,22 @@ struct SpiritualHealthView: View {
                 let last8 = Array(store.checkIns.prefix(8).reversed())
                 ForEach(Array(last8.enumerated()), id: \.offset) { i, c in
                     Text("W\(i + 1)")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.secondary)
                     if i < last8.count - 1 { Spacer() }
                 }
             }
         }
         .padding(20)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
     private func dimensionsCard(checkIn: SpiritualCheckIn) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("5 Dimensions")
-                .font(.system(size: 16, weight: .bold))
+                .font(.systemScaled(16, weight: .bold))
 
             let dims: [(String, String, Int, Color)] = [
                 ("Scripture", "book.fill", checkIn.scoreScripture, Color(red: 0.20, green: 0.65, blue: 0.38)),
@@ -837,11 +865,11 @@ struct SpiritualHealthView: View {
                 ForEach(dims, id: \.0) { name, icon, score, color in
                     HStack(spacing: 12) {
                         Image(systemName: icon)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(color)
                             .frame(width: 22)
                         Text(name)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .frame(width: 80, alignment: .leading)
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
@@ -856,7 +884,7 @@ struct SpiritualHealthView: View {
                         }
                         .frame(height: 6)
                         Text("\(score)/5")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(color)
                             .frame(width: 28, alignment: .trailing)
                     }
@@ -864,7 +892,44 @@ struct SpiritualHealthView: View {
             }
         }
         .padding(20)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+    }
+
+    // Faith Wrapped entry card
+    private var faithWrappedCard: some View {
+        NavigationLink(destination: SpiritualJourneySelectionView()) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Color.black.opacity(0.08))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "sparkles")
+                        .font(.systemScaled(18, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Faith Wrapped")
+                        .font(.systemScaled(15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text("Your season, gently told back to you")
+                        .font(.systemScaled(12))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
     }
 
     // Rotating set of Berean AI-style reflection prompts
@@ -881,48 +946,49 @@ struct SpiritualHealthView: View {
         return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
                 Text("Berean Reflection Prompt")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
                 Spacer()
                 Text("This week")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
             Text(prompt.0)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .italic()
                 .foregroundStyle(.primary)
 
             Text(prompt.1)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
 
             Divider()
 
             Text(prompt.2)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
 
             Button {
                 showReflectionSheet = true
             } label: {
                 Text("Write a Reflection")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
                     .padding(.top, 2)
             }
             .buttonStyle(.plain)
         }
         .padding(20)
-        .background(Color(red: 0.93, green: 0.90, blue: 1.0), in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(Color(red: 0.42, green: 0.24, blue: 0.82).opacity(0.2), lineWidth: 1)
+                .strokeBorder(Color(red: 0.42, green: 0.24, blue: 0.82).opacity(0.2), lineWidth: 1)
         )
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
     }
 
     // MARK: - History Tab
@@ -930,7 +996,7 @@ struct SpiritualHealthView: View {
     private var historyTab: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Check-In History")
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
 
@@ -954,10 +1020,10 @@ struct SpiritualHealthView: View {
             VStack(spacing: 2) {
                 let cal = Calendar.current
                 Text(monthShort(ci.weekOf))
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Text("\(cal.component(.day, from: ci.weekOf))")
-                    .font(.system(size: 20, weight: .black))
+                    .font(.systemScaled(20, weight: .black))
                     .foregroundStyle(.primary)
             }
             .frame(width: 40)
@@ -966,11 +1032,11 @@ struct SpiritualHealthView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(ci.mood.emoji + " " + ci.mood.rawValue)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(ci.mood.color)
                     Spacer()
                     Text(String(format: "%.1f / 5", ci.overallScore))
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.systemScaled(14, weight: .bold))
                         .foregroundStyle(scoreColor(ci.overallScore))
                 }
                 GeometryReader { geo in
@@ -984,14 +1050,16 @@ struct SpiritualHealthView: View {
                 .frame(height: 5)
                 if !ci.reflectionNote.isEmpty {
                     Text(ci.reflectionNote)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
         }
         .padding(16)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : 20)
         .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
@@ -1007,13 +1075,13 @@ struct SpiritualHealthView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Reflections")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
                 Spacer()
                 Button {
                     showReflectionSheet = true
                 } label: {
                     Image(systemName: "square.and.pencil")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
                 }
             }
@@ -1023,12 +1091,12 @@ struct SpiritualHealthView: View {
             if store.reflections.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "pencil.and.scribble")
-                        .font(.system(size: 40))
+                        .font(.systemScaled(40))
                         .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82).opacity(0.5))
                     Text("No reflections yet")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                     Text("Write your first faith reflection — a verse, a prayer, or something God is teaching you.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
@@ -1051,20 +1119,20 @@ struct SpiritualHealthView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(entry.title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .lineLimit(1)
                 Spacer()
                 Text(relativeDate(entry.createdAt))
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
             if !entry.scripture.isEmpty {
                 Text(entry.scripture)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
             }
             Text(entry.body)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
             if !entry.tags.isEmpty {
@@ -1072,7 +1140,7 @@ struct SpiritualHealthView: View {
                     HStack(spacing: 6) {
                         ForEach(entry.tags, id: \.self) { tag in
                             Text("#\(tag)")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                                 .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
@@ -1083,7 +1151,9 @@ struct SpiritualHealthView: View {
             }
         }
         .padding(16)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 16)
         .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
@@ -1102,7 +1172,7 @@ struct SpiritualHealthView: View {
     private var milestonesTab: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Growth Milestones")
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
 
@@ -1117,7 +1187,7 @@ struct SpiritualHealthView: View {
 
     private func isAchieved(_ milestone: GrowthMilestone) -> Bool {
         switch milestone.category {
-        case "Consistency": return store.currentStreak >= milestone.target
+        case "Consistency", "Rhythm": return store.currentStreak >= milestone.target
         case "Reflection":  return store.reflections.count >= milestone.target
         case "Scripture":   return store.checkIns.filter { $0.scoreScripture == 5 }.count >= milestone.target
         case "Prayer":      return store.checkIns.filter { $0.scorePrayer == 5 }.count >= milestone.target
@@ -1132,26 +1202,26 @@ struct SpiritualHealthView: View {
                     .fill(achieved ? m.color : Color(.systemGray5))
                     .frame(width: 52, height: 52)
                 Image(systemName: m.icon)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(achieved ? .white : Color(.systemGray3))
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(m.title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(achieved ? .primary : .secondary)
                     if achieved {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.green)
                     }
                 }
                 Text(m.description)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                 Text(m.category)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(m.color)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
@@ -1161,19 +1231,17 @@ struct SpiritualHealthView: View {
 
             if !achieved {
                 Text("\(progressValue(m))/\(m.target)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
         }
         .padding(16)
-        .background(
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .fill(achieved ? m.color.opacity(0.08) : Color(.secondarySystemBackground))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(achieved ? m.color.opacity(0.3) : Color.clear, lineWidth: 1.5)
-                )
+                .strokeBorder(achieved ? m.color.opacity(0.3) : Color.black.opacity(0.06), lineWidth: achieved ? 1.5 : 0.5)
         )
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : -20)
         .animation(.spring(response: 0.4, dampingFraction: 0.75).delay(delay), value: appeared)
@@ -1181,7 +1249,7 @@ struct SpiritualHealthView: View {
 
     private func progressValue(_ m: GrowthMilestone) -> Int {
         switch m.category {
-        case "Consistency": return store.currentStreak
+        case "Consistency", "Rhythm": return store.currentStreak
         case "Reflection":  return store.reflections.count
         case "Scripture":   return store.checkIns.filter { $0.scoreScripture == 5 }.count
         case "Prayer":      return store.checkIns.filter { $0.scorePrayer == 5 }.count
@@ -1257,23 +1325,23 @@ struct CheckInSheet: View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("How are you spiritually?")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                 Text("Be honest — this is just for you.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
             }
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(SpiritualMood.allCases, id: \.self) { mood in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedMood = mood
                         }
                     } label: {
                         VStack(spacing: 8) {
                             Text(mood.emoji)
-                                .font(.system(size: 30))
+                                .font(.systemScaled(30))
                             Text(mood.rawValue)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(selectedMood == mood ? .white : .primary)
                         }
                         .frame(maxWidth: .infinity)
@@ -1303,9 +1371,9 @@ struct CheckInSheet: View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Rate your week")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                 Text("Score each area 1 (low) – 5 (high)")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
             }
             let dims: [(String, String, Binding<Int>, Color)] = [
@@ -1327,19 +1395,19 @@ struct CheckInSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(color)
                 Text(name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Spacer()
                 Text("\(score.wrappedValue)/5")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundStyle(color)
             }
             HStack(spacing: 8) {
                 ForEach(1...5, id: \.self) { val in
                     Button {
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.7))) {
                             score.wrappedValue = val
                         }
                         let hap = UIImpactFeedbackGenerator(style: .light)
@@ -1351,7 +1419,7 @@ struct CheckInSheet: View {
                             .frame(height: 32)
                             .overlay(
                                 Text("\(val)")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                     .foregroundStyle(val <= score.wrappedValue ? .white : Color(.systemGray2))
                             )
                     }
@@ -1366,17 +1434,17 @@ struct CheckInSheet: View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Reflect & Pray")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                 Text("Optional — share what's on your heart.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("Reflection Note")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
                 TextEditor(text: $reflectionNote)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .frame(minHeight: 100)
                     .padding(12)
                     .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
@@ -1384,7 +1452,7 @@ struct CheckInSheet: View {
                         Group {
                             if reflectionNote.isEmpty {
                                 Text("What did God show you this week?")
-                                    .font(.system(size: 15))
+                                    .font(.systemScaled(15))
                                     .foregroundStyle(Color(.placeholderText))
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 20)
@@ -1396,10 +1464,10 @@ struct CheckInSheet: View {
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("Prayer Request")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
                 TextField("Share a prayer request (optional)...", text: $prayerRequest, axis: .vertical)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .lineLimit(3...5)
                     .padding(12)
                     .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
@@ -1411,23 +1479,25 @@ struct CheckInSheet: View {
         HStack(spacing: 12) {
             if currentStep > 0 {
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                         currentStep -= 1
                     }
                 } label: {
                     Text("Back")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 }
                 .buttonStyle(.plain)
             }
 
             Button {
                 if currentStep < 2 {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                         currentStep += 1
                     }
                 } else {
@@ -1439,7 +1509,7 @@ struct CheckInSheet: View {
                         ProgressView().tint(.white)
                     } else {
                         Text(currentStep < 2 ? "Continue" : "Save Check-In")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                     }
                 }
                 .foregroundStyle(.white)
@@ -1579,23 +1649,23 @@ struct ReflectionDetailSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text(entry.title)
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.systemScaled(24, weight: .bold))
                     if !entry.scripture.isEmpty {
                         Text(entry.scripture)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(Color(red: 0.93, green: 0.90, blue: 1.0), in: Capsule())
                     }
                     Text(entry.body)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .lineSpacing(6)
                     if !entry.tags.isEmpty {
                         HStack(spacing: 8) {
                             ForEach(entry.tags, id: \.self) { tag in
                                 Text("#\(tag)")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 4)
@@ -1659,24 +1729,25 @@ struct SpiritualHealthEntryCard: View {
                 .frame(width: 56, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 Image(systemName: "heart.text.square.fill")
-                    .font(.system(size: 26))
+                    .font(.systemScaled(26))
                     .foregroundStyle(.white)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Spiritual Health")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.systemScaled(17, weight: .bold))
                     .foregroundStyle(.primary)
                 Text("Weekly check-ins · Growth tracking · Reflections")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 if store.currentStreak > 0 {
+                    // streak count hidden per constitution — vanityMetricsAlwaysHidden
                     HStack(spacing: 4) {
                         Text("🔥")
-                            .font(.system(size: 12))
-                        Text("\(store.currentStreak)-week streak")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12))
+                        Text("Consistent this week")
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(Color(red: 0.85, green: 0.47, blue: 0.10))
                     }
                 }
@@ -1685,7 +1756,7 @@ struct SpiritualHealthEntryCard: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(16)
@@ -1701,7 +1772,7 @@ struct SpiritualHealthEntryCard: View {
         .scaleEffect(appeared ? 1 : 0.95)
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.75).delay(0.1)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.75)).delay(0.1)) {
                 appeared = true
             }
         }

@@ -28,8 +28,11 @@ import FirebaseStorage
 ///   for future publication.
 struct CreatePostView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @ObservedObject private var postsManager: PostsManager = .shared
     @ObservedObject private var draftsManager: DraftsManager = .shared
+    @ObservedObject private var userService: UserService = .shared
+    @AppStorage("currentUserProfileImageURL") private var cachedProfileImageURL: String = ""
     @State private var postText = ""
     @State private var selectedCategory: PostCategory = .openTable
     @State private var selectedImages: [PhotosPickerItem] = []
@@ -48,14 +51,16 @@ struct CreatePostView: View {
     @State private var showingScheduleSheet = false
     @State private var isPublishing = false
     @State private var postBtnState: PostButtonMorphState = .idle
+    @State private var uploadState: UploadVisualState = .idle
     @State private var showDraftsSheet = false
-    @State private var showFirstPostGuidelinesPrompt = false
+    @State private var showGuidelinesGate = false
     @State private var scheduledDate: Date?
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
     @State private var errorTitle = "Error"
     @State private var showingSuccessNotice = false
     @State private var showCancelConfirmation = false
+    @State private var shouldPersistDraftOnExit = true
 
     // P1-6 FIX: Better error recovery
     @State private var isRetryableError = false
@@ -67,6 +72,7 @@ struct CreatePostView: View {
     @State private var autoSaveTask: Task<Void, Never>?
     @State private var mentionSearchTask: Task<Void, Never>?
     @StateObject private var linkController = ComposerLinkPreviewController()
+    @StateObject private var insightEngine = ComposerInsightEngine.shared
     @State private var showMentionSuggestions = false
     @State private var mentionSuggestions: [AlgoliaUser] = []
     @State private var currentMentionQuery = ""
@@ -85,8 +91,18 @@ struct CreatePostView: View {
     @State private var pollOptions: [String] = ["", ""]  // start with 2 blank options
     @State private var pollDuration: PollDuration = .oneDay
 
-    // MARK: - Action card (camera / poll menu)
-    @State private var showingActionCard = false
+    // MARK: - Attachment picker popup (glass floating card)
+    @State private var showingAttachmentPicker = false
+
+    // MARK: - Document picker (Files attachment)
+    @State private var showingDocumentPicker = false
+    @State private var attachedDocumentURL: URL? = nil
+
+    // MARK: - Creator Draft AI assistant
+    @State private var showingCreatorDraftSheet = false
+
+    // MARK: - Testimony Editor (SELAH W4: guided 3-panel testimony composer)
+    @State private var showingTestimonyEditor = false
 
     // MARK: - Toolbar expand/collapse
     @State private var isToolbarExpanded = false
@@ -116,11 +132,16 @@ struct CreatePostView: View {
     // Audience / visibility
     @State private var postVisibility: Post.PostVisibility = .everyone
     @State private var showingAudienceSheet = false
+    @State private var initialAudienceIntent: AmenPostAudience? = nil
+    @State private var initialAudienceMetadata: AmenAudienceMetadata? = nil
 
-    // Scripture verse
+    // Scripture verse - two-stage Liquid Glass drawer
     @State private var attachedVerseReference: String = ""
     @State private var attachedVerseText: String = ""
     @State private var showingVersePickerSheet = false
+    
+    // Scripture attachment ViewModel (new structured system)
+    @StateObject private var verseAttachmentVM = VerseAttachmentViewModel()
 
     // Church tag
     @State private var taggedChurchId: String = ""
@@ -133,7 +154,12 @@ struct CreatePostView: View {
     
     // P0-2 FIX: Store delayed tasks for cancellation
     @State private var delayedTasks: [Task<Void, Never>] = []
-    
+
+    // MARK: - Music Attachment
+    @State private var attachedMusic: MusicAttachment? = nil
+    @State private var musicCardMode: MusicCardMode = .expanded
+    @State private var showingMusicBrowser = false
+
     // TRUST & SAFETY: Content moderation tracking
     @StateObject private var integrityTracker = ComposerIntegrityTracker()
     @ObservedObject private var rateLimiter = ComposerRateLimiter.shared
@@ -163,11 +189,32 @@ struct CreatePostView: View {
     @State private var showThinkFirstPrompt = false
     @State private var thinkFirstCheckResult: ThinkFirstGuardrailsService.ContentCheckResult?
     @State private var pendingPostContent = ""  // Store content during guardrail check
+
+    // MARK: - Aegis Pre-Post Review Gate
+    @State private var showAegisReview = false
+    @State private var aegisDecision: PrePostDecision? = nil
+
+    // MARK: - Berean Camera MEDIA-GATE
+    @State private var showMediaGateReview = false
+    @State private var mediaGateReviewResult: MediaGatePrecheckResult?
+    @State private var mediaGatePrecheckResults: [MediaGatePrecheckResult] = []
+    @State private var approvedMediaGateFindings: [MediaGateSafetyFinding] = []
+    @State private var approvedMediaGateActions: [MediaGateRedactionAction] = []
+    @State private var bypassMediaGateReview = false
+
+    // MARK: - Email Verification Gate
+    @State private var showEmailVerificationAlert = false
     
     // Berean AI tone assist
     @State private var bereanToneSuggestion: String?
     @State private var isLoadingBereanTone = false
     @State private var showBereanToneSheet = false
+    @ObservedObject private var supportDetectionService = SupportDetectionService.shared
+    @ObservedObject private var supportActionExecutor = SupportActionExecutor.shared
+    @State private var supportDraftPayload: SupportInterventionPayload?
+    @State private var supportDraftTask: Task<Void, Never>?
+    @State private var showSupportDraftSheet = false
+    @State private var bypassSupportDraftGate = false
     
     // MARK: - New Features (Phase 1-3)
     
@@ -203,14 +250,40 @@ struct CreatePostView: View {
     @State private var isThreadMode = false
     @State private var threadPosts: [String] = [""]  // Array of thread post texts
     @State private var currentThreadIndex = 0
-    
+
+    // MARK: - Adaptive Composer Attachments (composer_adaptive_rail flag)
+    @State private var composerAttachments: [ComposerAttachment] = []
+
+    // MARK: - Smart Post Context Detection
+    @State private var postDetectedItems: [DetectedPostContextItem] = []
+    @State private var detectionTask: Task<Void, Never>?
+    @State private var showSmartComposerReview = false
+    @State private var smartComposerRiskAcknowledged = false
+
     // MARK: - Initializer
     
-    init(initialCategory: PostCategory? = nil) {
+    init(
+        initialCategory: PostCategory? = nil,
+        initialText: String = "",
+        initialAudience: AmenPostAudience? = nil,
+        initialAudienceMetadata: AmenAudienceMetadata? = nil
+    ) {
+        if !initialText.isEmpty {
+            _postText = State(initialValue: initialText)
+        }
+        if let audienceVisibility = initialAudience?.defaultPostVisibility {
+            _postVisibility = State(initialValue: audienceVisibility)
+        }
+        if let initialAudience {
+            _initialAudienceIntent = State(initialValue: initialAudience)
+        }
+        if let initialAudienceMetadata {
+            _initialAudienceMetadata = State(initialValue: initialAudienceMetadata)
+        }
         if let category = initialCategory {
             _selectedCategory = State(initialValue: category)
             // P1-3: Prayer posts default to followers-only comments + followers visibility for privacy
-            if category == .prayer {
+            if category == .prayer, initialAudience == nil {
                 _commentPermission = State(initialValue: .followersOnly)
                 _postVisibility = State(initialValue: .followers)
             }
@@ -298,120 +371,263 @@ struct CreatePostView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color(.systemBackground).ignoresSafeArea()
+        mainView
+    }
+    
+    private var topicTagButtonText: String {
+        if selectedTopicTag.isEmpty {
+            return selectedCategory == .testimonies ? "Add category" : "Add topic tag"
+        }
+        return selectedTopicTag
+    }
+    
+    @ViewBuilder
+    private var composeContentArea: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // TRUST & SAFETY: Show personalize nudge banner
+            if showModerationNudge {
+                PersonalizeNudgeBanner(
+                    message: moderationNudgeMessage,
+                    isVisible: $showModerationNudge
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
 
-                VStack(spacing: 0) {
-                    // ── Threads-style compose layout ────────────────────────
-                    ScrollView(showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 0) {
-                            // User row with avatar + category selector
-                            threadsUserRow
-                                .padding(.horizontal, 16)
-                                .padding(.top, 12)
+            textEditorView
+            supportDraftPresentation
+            
+            versePreviewBadge
+            
+            // Inline scripture suggestion (appears while typing)
+            if verseAttachmentVM.showInlineSuggestion, let verse = verseAttachmentVM.inlineSuggestedVerse, verseAttachmentVM.attachedScripture == nil {
+                InlineScriptureSuggestionBar(
+                    verse: verse,
+                    label: verseAttachmentVM.inlineSuggestionLabel,
+                    onAttach: {
+                        verseAttachmentVM.attachVerse(verse, source: .inlineSuggestion)
+                        attachedVerseReference = verse.reference
+                        attachedVerseText = verse.text
+                    },
+                    onDismiss: {
+                        verseAttachmentVM.dismissInlineSuggestion()
+                    },
+                    onSeeRelated: {
+                        verseAttachmentVM.openMiniAttach(draftText: postText)
+                    }
+                )
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .padding(.horizontal, -4)
+            }
+            
+            taggedUsersChips
 
-                            // Compose area with thread connector
-                            HStack(alignment: .top, spacing: 12) {
-                                // Thread connector line
-                                VStack(spacing: 0) {
-                                    Rectangle()
-                                        .fill(Color.primary.opacity(0.1))
-                                        .frame(width: 1)
+            // MARK: - Smart Composition Cues
+            composerSuggestionRow
+
+            // MARK: - Smart Post Context Tray
+            SmartPostContextTray(
+                detectedItems: postDetectedItems,
+                onAction: handleSmartContextAction
+            )
+
+            // Topic tag selector (required for OpenTable/Prayer)
+            if selectedCategory == .openTable || selectedCategory == .prayer || selectedCategory == .testimonies {
+                Button {
+                    showingTopicTagSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "tag")
+                            .font(.systemScaled(12, weight: .medium))
+                        Text(topicTagButtonText)
+                            .font(.systemScaled(13, weight: .medium))
+                        if selectedTopicTag.isEmpty && selectedCategory == .prayer {
+                            Text("Required")
+                                .font(.systemScaled(10, weight: .medium))
+                                .foregroundStyle(.secondary.opacity(0.7))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.primary.opacity(0.06)))
+                        }
+                    }
+                    .foregroundStyle(selectedTopicTag.isEmpty ? Color.secondary : Color.primary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background { if reduceTransparency {
+                        let fillColor: Color = selectedTopicTag.isEmpty ? Color(.systemGray6) : Color.primary.opacity(0.08)
+                        Capsule().fill(fillColor)
+                    } }
+                    .amenGlassEffect(in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(selectedTopicTag.isEmpty
+                    ? "Select topic tag\(selectedCategory != .testimonies ? " (required)" : "")"
+                    : "Topic tag: \(topicTagButtonText). Double-tap to change.")
+                .modifier(ShakeEffect(shakes: shakeTopicTag ? 3 : 0))
+            }
+
+            if selectedTopicTag.isEmpty && !suggestedTopicTags.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(suggestedTopicTags.prefix(4), id: \.self) { tag in
+                            Button {
+                                withAnimation(Motion.adaptive(.spring(response: 0.24, dampingFraction: 0.82))) {
+                                    selectedTopicTag = tag
                                 }
-                                .frame(width: 44) // aligned under avatar
-                                .padding(.top, 4)
-
-                                // Text input — clean, no borders
-                                VStack(alignment: .leading, spacing: 12) {
-                                    // TRUST & SAFETY: Show personalize nudge banner
-                                    if showModerationNudge {
-                                        PersonalizeNudgeBanner(
-                                            message: moderationNudgeMessage,
-                                            isVisible: $showModerationNudge
-                                        )
-                                        .transition(.move(edge: .top).combined(with: .opacity))
-                                    }
-
-                                    textEditorView
-                                    
-                                    versePreviewBadge
-                                    
-                                    taggedUsersChips
-
-                                    // Topic tag selector (required for OpenTable/Prayer)
-                                    if selectedCategory == .openTable || selectedCategory == .prayer || selectedCategory == .testimonies {
-                                        Button {
-                                            showingTopicTagSheet = true
-                                        } label: {
-                                            HStack(spacing: 6) {
-                                                Image(systemName: "tag")
-                                                    .font(.system(size: 12, weight: .medium))
-                                                Text(selectedTopicTag.isEmpty
-                                                     ? (selectedCategory == .testimonies ? "Add category" : "Add topic tag")
-                                                     : selectedTopicTag)
-                                                    .font(.system(size: 13, weight: .medium))
-                                                if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
-                                                    Text("Required")
-                                                        .font(.system(size: 10, weight: .medium))
-                                                        .foregroundStyle(.secondary.opacity(0.7))
-                                                        .padding(.horizontal, 5)
-                                                        .padding(.vertical, 2)
-                                                        .background(Capsule().fill(Color.primary.opacity(0.06)))
-                                                }
-                                            }
-                                            .foregroundStyle(selectedTopicTag.isEmpty ? .secondary : .primary)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 8)
-                                            .background(
-                                                Capsule()
-                                                    .fill(selectedTopicTag.isEmpty ? Color(.systemGray6) : Color.primary.opacity(0.08))
-                                            )
-                                        }
-                                        .buttonStyle(.plain)
-                                        .modifier(ShakeEffect(shakes: shakeTopicTag ? 3 : 0))
-                                    }
-
-                                    // Camera photo preview
-                                    if let capturedImage = cameraImage {
-                                        CameraAttachmentPreview(image: capturedImage) {
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                                cameraImage = nil
-                                            }
-                                        }
-                                        .transition(.scale(scale: 0.92).combined(with: .opacity))
-                                    }
-
-                                    // Library photo grid
-                                    if !selectedImageData.isEmpty {
-                                        ImagePreviewGrid(images: $selectedImageData, onAddMore: { showingImagePicker = true })
-                                    }
-
-                                    // Poll composer
-                                    if showingPoll {
-                                        PollComposerCard(
-                                            options: $pollOptions,
-                                            duration: $pollDuration,
-                                            onRemove: {
-                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                                    showingPoll = false
-                                                    pollOptions = ["", ""]
-                                                    pollDuration = .oneDay
-                                                }
-                                            }
-                                        )
-                                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                                    }
-
-                                    ComposerLinkPreview(controller: linkController)
-                                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
-
-                                    // Inline toolbar — simple gray icons
-                                    threadsAttachmentBar
-                                        .padding(.top, 8)
-                                }
+                                HapticManager.impact(style: .light)
+                            } label: {
+                                Text(tag)
+                                    .font(.systemScaled(12, weight: .medium))
+                                    .foregroundStyle(Color.primary.opacity(0.65))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(.thinMaterial, in: Capsule())
                             }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Use suggested topic \(tag)")
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            // Camera photo preview
+            if let capturedImage = cameraImage {
+                CameraAttachmentPreview(image: capturedImage) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                        cameraImage = nil
+                        mediaGateReviewResult = nil
+                        mediaGatePrecheckResults = []
+                        approvedMediaGateFindings = []
+                        approvedMediaGateActions = []
+                        bypassMediaGateReview = false
+                    }
+                }
+                .transition(.scale(scale: 0.92).combined(with: .opacity))
+            }
+
+            // Library photo grid
+            if !selectedImageData.isEmpty {
+                ImagePreviewGrid(images: $selectedImageData, onAddMore: { showingImagePicker = true })
+            }
+
+            // Music attachment card preview
+            if let music = attachedMusic {
+                VStack(spacing: 4) {
+                    MusicCardContainer(track: music, displayMode: $musicCardMode)
+                    Button {
+                        attachedMusic = nil
+                        AudioPlaybackManager.shared.stop()
+                    } label: {
+                        Label("Remove music", systemImage: "xmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 4)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+
+            // Document attachment chip — shown when a file is selected from Files
+            if let docURL = attachedDocumentURL {
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.fill")
+                        .font(.systemScaled(13, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+                    Text(docURL.lastPathComponent)
+                        .font(.systemScaled(13, weight: .medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(Color.primary)
+                    Spacer()
+                    Button {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                            attachedDocumentURL = nil
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.systemScaled(15))
+                            .foregroundStyle(Color.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(.systemGray6))
+                )
+                .transition(.scale(scale: 0.95).combined(with: .opacity))
+                .accessibilityLabel("Attached file: \(docURL.lastPathComponent). Double-tap to remove.")
+            }
+
+            // Poll composer
+            if showingPoll {
+                PollComposerCard(
+                    options: $pollOptions,
+                    duration: $pollDuration,
+                    draftText: postText,
+                    onRemove: {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                            showingPoll = false
+                            pollOptions = ["", ""]
+                            pollDuration = .oneDay
+                        }
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            ComposerLinkPreview(controller: linkController)
+                .animation(.amenSpringStandard, value: linkController.activeURL)
+
+            // Inline toolbar — hidden when adaptive rail is enabled (composer_adaptive_rail flag)
+            if !AMENFeatureFlags.shared.composerAdaptiveRailEnabled {
+                threadsAttachmentBar
+                    .padding(.top, 8)
+            }
+        }
+    }
+    
+    // MARK: - Compose Input Row (extracted to reduce type-checker complexity)
+    private var composeInputRow: some View {
+        HStack(alignment: .top, spacing: 8) {
+            // Thread connector line
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.primary.opacity(0.1))
+                    .frame(width: 1)
+            }
+            .frame(width: 36) // tighter alignment under avatar
+            .padding(.top, 4)
+
+            // Text input — clean, no borders
+            composeContentArea
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private var mainView: some View {
+        navigationStackView
+    }
+    
+    // MARK: - Main Content ZStack
+    private var mainContentZStack: some View {
+        ZStack {
+            Color(.systemBackground).ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // ── Threads-style compose layout ────────────────────────
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // User row with avatar + category selector
+                        threadsUserRow
                             .padding(.horizontal, 16)
+                            .padding(.top, 12)
+
+                        // Compose area with thread connector
+                        composeInputRow
 
                         // ── Add to thread row (Threads-style) ───────────────
                         if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isThreadMode {
@@ -424,14 +640,14 @@ struct CreatePostView: View {
 
                                 Button {
                                     // Append a new empty thread segment
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                         isThreadMode = true
                                         threadPosts = [postText, ""]  // Move main text to thread array
                                         currentThreadIndex = 1
                                     }
                                 } label: {
                                     Text("Add to thread…")
-                                        .font(.system(size: 15))
+                                        .font(.systemScaled(15))
                                         .foregroundStyle(Color(.tertiaryLabel))
                                 }
                                 .buttonStyle(.plain)
@@ -461,14 +677,14 @@ struct CreatePostView: View {
                                             get: { threadPosts[index] },
                                             set: { threadPosts[index] = $0 }
                                         ), axis: .vertical)
-                                        .font(.system(size: 16))
+                                        .font(.systemScaled(16))
                                         .lineLimit(10...20)
                                         .textFieldStyle(.plain)
                                         
                                         // Remove thread post button
                                         if threadPosts.count > 2 || !threadPosts[index].isEmpty {
                                             Button {
-                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                                     threadPosts.remove(at: index)
                                                     if threadPosts.count == 1 {
                                                         isThreadMode = false
@@ -479,13 +695,14 @@ struct CreatePostView: View {
                                             } label: {
                                                 HStack(spacing: 6) {
                                                     Image(systemName: "xmark.circle.fill")
-                                                        .font(.system(size: 14))
+                                                        .font(.systemScaled(14))
                                                     Text("Remove")
-                                                        .font(.system(size: 13))
+                                                        .font(.systemScaled(13))
                                                 }
                                                 .foregroundStyle(.secondary)
                                             }
                                             .buttonStyle(.plain)
+                                            .accessibilityLabel("Remove thread post \(index + 1)")
                                         }
                                     }
                                 }
@@ -493,7 +710,7 @@ struct CreatePostView: View {
                                 .padding(.vertical, 8)
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                             }
-                            
+
                             // Add another thread post button
                             if threadPosts.count < 10 {
                                 HStack(spacing: 12) {
@@ -503,12 +720,12 @@ struct CreatePostView: View {
                                         .padding(.leading, 16)
                                     
                                     Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                             threadPosts.append("")
                                         }
                                     } label: {
                                         Text("Add another post…")
-                                            .font(.system(size: 15))
+                                            .font(.systemScaled(15))
                                             .foregroundStyle(Color(.tertiaryLabel))
                                     }
                                     .buttonStyle(.plain)
@@ -519,9 +736,12 @@ struct CreatePostView: View {
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                             }
                         }
-                        }
                     }
                 }
+                
+                // ── Bottom toolbar with schedule, tone check, etc. ────────────
+                threadsBottomBar
+                    .padding(.bottom, 8)
 
                 // Upload progress overlay
                 if isUploadingImages {
@@ -534,7 +754,7 @@ struct CreatePostView: View {
                             HStack(spacing: 12) {
                                 ProgressView().tint(.blue)
                                 Text("Uploading images... \(Int(uploadProgress * 100))%")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .font(AMENFont.semiBold(14))
                                     .foregroundStyle(.primary)
                             }
                         }
@@ -561,68 +781,109 @@ struct CreatePostView: View {
                     .animation(.spring(response: 0.45, dampingFraction: 0.72), value: showingSuccessNotice)
                 }
             }
+        }
+    }
+    
+    // MARK: - Navigation Stack Content with Toolbar
+    @ViewBuilder
+    private var navigationStackContent: some View {
+        mainContentZStack
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        isTextFieldFocused = false
-                        let hasContent = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            || !selectedImageData.isEmpty
-                            || cameraImage != nil
-                            || showingPoll
-                        if hasContent {
-                            showCancelConfirmation = true
-                        } else {
-                            dismiss()
-                        }
-                    }
-                    .font(.system(size: 16, weight: .regular))
+                toolbarContent
+            }
+    }
+    
+    // MARK: - Toolbar Content
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarLeading) {
+            Button {
+                isTextFieldFocused = false
+                let hasContent = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || !selectedImageData.isEmpty
+                    || cameraImage != nil
+                    || showingPoll
+                if hasContent {
+                    showCancelConfirmation = true
+                } else {
+                    dismiss()
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.systemScaled(17, weight: .semibold))
+                    Text("Back")
+                        .font(.systemScaled(17, weight: .regular))
+                }
+                .foregroundStyle(.primary)
+            }
+            .confirmationDialog("", isPresented: $showCancelConfirmation, titleVisibility: .hidden) {
+                Button("Save Draft") {
+                    shouldPersistDraftOnExit = false
+                    saveDraft()
+                    dismiss()
+                }
+                Button("Discard Post", role: .destructive) {
+                    shouldPersistDraftOnExit = false
+                    clearRecoveredDraft()   // POST-01: also clear the auto-saved draft so it can't resurface on next launch
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+        }
+
+        ToolbarItem(placement: .principal) {
+            Text("New post")
+                .font(.systemScaled(16, weight: .semibold))
+        }
+
+        // Draft button
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button {
+                showDraftsSheet = true
+            } label: {
+                Image(systemName: "doc.text")
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(.primary)
-                    .confirmationDialog("", isPresented: $showCancelConfirmation, titleVisibility: .hidden) {
-                        Button("Save Draft") {
-                            saveDraft()
-                            dismiss()
-                        }
-                        Button("Discard Post", role: .destructive) {
-                            dismiss()
-                        }
-                        Button("Cancel", role: .cancel) { }
-                    }
-                }
+            }
+            .accessibilityLabel("View saved drafts")
+        }
 
-                ToolbarItem(placement: .principal) {
-                    Text("New post")
-                        .font(.system(size: 16, weight: .semibold))
-                }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
+        // Liquid Glass Post Button
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button {
+                requestPublishFromSmartComposer(useLiquidAnimation: true)
+            } label: {
+                HStack(spacing: 6) {
                     ZStack {
-                        // Character count arc — appears when approaching limit
-                        let fraction = min(Double(postText.count) / 500.0, 1.0)
-                        if postText.count > 400 {
-                            Circle()
-                                .trim(from: 0, to: fraction)
-                                .stroke(
-                                    postText.count > 500 ? Color.red :
-                                    postText.count > 480 ? Color.orange : Color(.systemGray3),
-                                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
-                                )
-                                .frame(width: 50, height: 50)
-                                .rotationEffect(.degrees(-90))
-                                .animation(.easeOut(duration: 0.15), value: fraction)
-                        }
-                        CirclePostButton(postText: $postText) {
-                            await publishPostAsync()
-                        }
+                        Circle()
+                            .fill(canPost ? Color.black.opacity(0.08) : Color.black.opacity(0.04))
+                            .frame(width: 20, height: 20)
+
+                        Image(systemName: scheduledDate != nil ? "calendar" : "arrow.up")
+                            .font(.systemScaled(11, weight: .bold))
                     }
-                    .frame(width: 50, height: 50)
+
+                    Text(scheduledDate != nil ? "Schedule" : "Post")
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                threadsBottomBar
-            }
-            // Photo picker — uses the system modifier (not a sheet wrapper) so
-            // onChange fires in the main view scope and selectedImageData is updated.
+            .buttonStyle(.amenGlass(
+                role: .primary,
+                size: .compact,
+                shape: .capsule,
+                background: .balanced,
+                placement: .overlay
+            ))
+            .disabled(!canPost)
+            .accessibilityLabel(scheduledDate != nil ? "Schedule post" : "Share post")
+            .accessibilityHint(scheduledDate != nil ? "Schedules your post for later" : "Publishes your post to the community")
+        }
+    }
+
+    // MARK: - Photo Picker Modifiers
+    private func applyPhotoPickerModifiers<Content: View>(_ content: Content) -> some View {
+        content
             .photosPicker(
                 isPresented: $showingImagePicker,
                 selection: $selectedImages,
@@ -632,6 +893,11 @@ struct CreatePostView: View {
             .onChange(of: selectedImages) { _, newItems in
                 Task {
                     selectedImageData = []
+                    mediaGateReviewResult = nil
+                    mediaGatePrecheckResults = []
+                    approvedMediaGateFindings = []
+                    approvedMediaGateActions = []
+                    bypassMediaGateReview = false
                     var oversizedImages = 0
 
                     for item in newItems {
@@ -656,6 +922,11 @@ struct CreatePostView: View {
                     }
                 }
             }
+    }
+    
+    // MARK: - Sheet Modifiers Group 1
+    private func applySheetModifiers1<Content: View>(_ content: Content) -> some View {
+        content
             .sheet(isPresented: $showingLinkSheet) {
                 LinkInputSheet(url: $linkURL, isPresented: $showingLinkSheet) { url in
                     // Delegate to controller so manual URL also gets rich preview
@@ -666,7 +937,15 @@ struct CreatePostView: View {
                 TopicTagSheet(selectedTag: $selectedTopicTag, isPresented: $showingTopicTagSheet, selectedCategory: $selectedCategory)
             }
             .sheet(isPresented: $showingScheduleSheet) {
-                SchedulePostSheet(isPresented: $showingScheduleSheet, scheduledDate: $scheduledDate)
+                SmartScheduleSheet(
+                    isPresented: $showingScheduleSheet,
+                    scheduledDate: $scheduledDate,
+                    postText: postText,
+                    hasImages: !selectedImageData.isEmpty,
+                    hasVideo: false
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showDraftsSheet) {
                 DraftsView()
@@ -676,20 +955,17 @@ struct CreatePostView: View {
                     .onChange(of: commentPermission) { oldValue, newValue in
                         // Update allowComments based on permission
                         allowComments = (newValue != .nobody)
+                        smartComposerRiskAcknowledged = false
                     }
             }
             .sheet(isPresented: $showingAudienceSheet) {
                 PostAudienceSheet(selectedVisibility: $postVisibility)
+                    .onChange(of: postVisibility) { _, _ in
+                        smartComposerRiskAcknowledged = false
+                    }
                     .presentationDetents([.medium])
             }
-            .sheet(isPresented: $showingVersePickerSheet) {
-                PostVersePickerSheet(
-                    verseReference: $attachedVerseReference,
-                    verseText: $attachedVerseText,
-                    isPresented: $showingVersePickerSheet
-                )
-                .presentationDetents([.medium, .large])
-            }
+
             .sheet(isPresented: $showingChurchTagSheet) {
                 PostChurchTagSheet(
                     taggedChurchId: $taggedChurchId,
@@ -754,11 +1030,54 @@ struct CreatePostView: View {
                 .presentationCornerRadius(28)
                 .presentationBackground(.clear)
             }
+    }
+    
+    // MARK: - Sheet Modifiers Group 2
+    private func applySheetModifiers2<Content: View>(_ content: Content) -> some View {
+        content
+            // SELAH W4: guided testimony editor — only shown when testimonies flag is ON
+            .sheet(isPresented: $showingTestimonyEditor) {
+                if AMENFeatureFlags.shared.testimonies {
+                    TestimonyEditorView()
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
+                }
+            }
+            .sheet(isPresented: $showingMusicBrowser) {
+                MusicBrowseSheet(selectedMusic: $attachedMusic)
+            }
             .sheet(isPresented: $showThinkFirstPrompt) {
                 thinkFirstPromptSheetContent
             }
             .sheet(isPresented: $showBereanToneSheet) {
                 bereanToneSheetContent
+            }
+            .sheet(isPresented: $showAltTextSheet) {
+                altTextSheetContent
+            }
+            .sheet(isPresented: $showingCreatorDraftSheet) {
+                CreatorDraftAssistantSheet(
+                    initialDraftType: selectedCategory == .openTable ? "post" : selectedCategory.rawValue
+                ) { draft in
+                    postText = draft
+                    showingCreatorDraftSheet = false
+                } onDismiss: {
+                    showingCreatorDraftSheet = false
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            .fileImporter(
+                isPresented: $showingDocumentPicker,
+                allowedContentTypes: [.item],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    attachedDocumentURL = urls.first
+                case .failure(let error):
+                    dlog("Document picker error: \(error)")
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("aiContentDetected"))) { notification in
                 if let userInfo = notification.userInfo,
@@ -769,12 +1088,126 @@ struct CreatePostView: View {
                     showAIContentAlert = true
                 }
             }
-        }
+    }
+    
+    // MARK: - Final Modifiers (Camera, Alerts, Lifecycle)
+    private func applyFinalModifiers<Content: View>(_ content: Content) -> some View {
+        content
         .interactiveDismissDisabled(!postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImageData.isEmpty || !linkURL.isEmpty || cameraImage != nil || showingPoll)
+        // Verse drawer — top-level so it doesn't conflict with other sheets
+        .verseDrawer(isPresented: $showingVersePickerSheet) { verse in
+            attachedVerseReference = verse.reference.displayString
+            attachedVerseText = verse.text
+            verseAttachmentVM.attachVerse(verse, source: .manualSearch)
+        }
+        // Scripture detail route (from pill tap)
+        .fullScreenCover(isPresented: $verseAttachmentVM.showScriptureDetail) {
+            if let ctx = verseAttachmentVM.scriptureDetailContext {
+                ScriptureDetailRoute(context: ctx) {
+                    verseAttachmentVM.dismissScriptureDetail()
+                }
+            }
+        }
+        // Quick replace drawer
+        .sheet(isPresented: $verseAttachmentVM.showQuickReplace) {
+            if let attachment = verseAttachmentVM.attachedScripture {
+                QuickReplaceVerseDrawer(
+                    currentAttachment: attachment,
+                    replaceResults: verseAttachmentVM.quickReplaceResults,
+                    onReplace: { newVerse in
+                        verseAttachmentVM.attachVerse(newVerse, source: .replace)
+                        attachedVerseReference = newVerse.reference.displayString
+                        attachedVerseText = newVerse.text
+                    },
+                    onOpenFullSearch: {
+                        verseAttachmentVM.dismissQuickReplace()
+                        showingVersePickerSheet = true
+                    },
+                    onDismiss: {
+                        verseAttachmentVM.dismissQuickReplace()
+                    }
+                )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+            }
+        }
         // Camera sheet — native UIImagePickerController for instant capture
         .sheet(isPresented: $showingCamera) {
             CameraImagePicker(image: $cameraImage)
                 .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showMediaGateReview) {
+            if let result = mediaGateReviewResult {
+                BereanMediaGateReviewSheet(
+                    result: result,
+                    onMakeSafeAndPost: { actions in
+                        applyMediaGateActions(actions)
+                        showMediaGateReview = false
+                        mediaGateReviewResult = nil
+                        bypassMediaGateReview = true
+                        publishPost()
+                    },
+                    onEdit: {
+                        showMediaGateReview = false
+                        mediaGateReviewResult = nil
+                    }
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+        }
+        .sheet(isPresented: $showSupportDraftSheet) {
+            if let payload = supportDraftPayload,
+               case .sheet(let model) = payload.presentationMode {
+                SupportInterventionSheetView(
+                    model: model,
+                    actions: payload.actions,
+                    onAction: handleSupportDraftAction(_:),
+                    onDismiss: dismissSupportDraftPrompt,
+                    onContinue: continuePostAfterSupportPrompt
+                )
+            }
+        }
+        // MARK: - Aegis Pre-Post Review Sheet
+        .sheet(isPresented: $showAegisReview) {
+            if let decision = aegisDecision {
+                if case .crisisIntervene = decision.action {
+                    AmenCrisisInterventionView {
+                        showAegisReview = false
+                        aegisDecision = nil
+                    }
+                } else {
+                    AmenPrePostReviewSheet(
+                        decision: decision,
+                        draftContent: postText,
+                        onProceed: {
+                            showAegisReview = false
+                            aegisDecision = nil
+                            startPublishPipeline()
+                        },
+                        onEdit: {
+                            showAegisReview = false
+                            aegisDecision = nil
+                        },
+                        onCancel: {
+                            showAegisReview = false
+                            aegisDecision = nil
+                            postText = ""
+                            dismiss()
+                        }
+                    )
+                }
+            }
+        }
+        // MARK: - Email Verification Alert
+        .alert("Verify Your Email", isPresented: $showEmailVerificationAlert) {
+            Button("Resend Email") {
+                Auth.auth().currentUser?.sendEmailVerification(completion: nil)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Please verify your email address before posting. Check your inbox for a verification link.")
         }
         .alert(errorTitle, isPresented: $showingErrorAlert) {
             // P1-6 FIX: Show retry button for network/upload errors
@@ -803,24 +1236,58 @@ struct CreatePostView: View {
         } message: {
             Text("AMEN is a community for authentic, personal sharing. We noticed this content may not be written in your own words.\n\nPlease share your personal thoughts, experiences, and reflections. We want to hear from you, not from AI tools.")
         }
-        .sheet(isPresented: $showFirstPostGuidelinesPrompt) {
-            CommunityGuidelinesPrompt {
-                showFirstPostGuidelinesPrompt = false
-                // Re-call publishPost after user acknowledges
-                publishPost()
+        .sheet(isPresented: $showSmartComposerReview) {
+            SmartComposerReviewSheet(
+                notes: smartComposerReviewNotes,
+                requiresConfirmation: requiresSmartComposerConfirmation,
+                onAction: handleSmartComposerReviewAction,
+                onDismiss: { showSmartComposerReview = false }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .overlay {
+            if showGuidelinesGate {
+                CommunityGuidelinesGateView(
+                    onAccept: {
+                        showGuidelinesGate = false
+                        // Re-call publishPost after user acknowledges
+                        publishPost()
+                    },
+                    onCancel: {
+                        showGuidelinesGate = false
+                    }
+                )
+                .transition(.opacity)
+            }
+        }
+        .task {
+            // Load current user if not yet available so the composer header shows
+            // the real username and avatar instead of the "@you" fallback.
+            if userService.currentUser == nil {
+                await userService.fetchCurrentUser()
+            }
+        }
+        .onChange(of: isTextFieldFocused) { _, focused in
+            // Dismiss the attachment picker when the keyboard opens so it
+            // does not overlap the text editor.
+            if focused && showingAttachmentPicker {
+                withAnimation(.amenSpringStandard) { showingAttachmentPicker = false }
             }
         }
         .onAppear {
             isTextFieldFocused = true
             updateHashtagSuggestions()
-            
+
             // Check for auto-saved draft recovery
             checkForDraftRecovery()
-            
+
             // Start auto-save timer (every 30 seconds)
             startAutoSaveTimer()
         }
         .onDisappear {
+            persistDraftIfNeeded()
+
             // Stop auto-save task when view disappears
             autoSaveTask?.cancel()
             autoSaveTask = nil
@@ -829,6 +1296,8 @@ struct CreatePostView: View {
             // after the TextEditor's UITextView is torn down (prevents RTIInputSystemClient SIGABRT)
             mentionSearchTask?.cancel()
             mentionSearchTask = nil
+            supportDraftTask?.cancel()
+            supportDraftTask = nil
             
             // Cancel pending link preview
             linkController.reset()
@@ -837,6 +1306,7 @@ struct CreatePostView: View {
             delayedTasks.forEach { $0.cancel() }
             delayedTasks.removeAll()
         }
+        .supportDestinationSheet()
         .alert("Recover Draft?", isPresented: $showDraftRecovery) {
             Button("Recover") {
                 if let draft = recoveredDraft {
@@ -851,7 +1321,26 @@ struct CreatePostView: View {
         }
     }
     
+    // MARK: - Navigation Stack View
+    private var navigationStackView: some View {
+        let baseStack = NavigationStack {
+            applySheetModifiers2(applySheetModifiers1(applyPhotoPickerModifiers(navigationStackContent)))
+        }
+        
+        return applyFinalModifiers(baseStack)
+    }
+    
     // MARK: - Computed Properties
+    private var hasDraftableContent: Bool {
+        let trimmedText = postText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmedText.isEmpty
+            || !selectedImageData.isEmpty
+            || cameraImage != nil
+            || showingPoll
+            || !linkURL.isEmpty
+            || !attachedVerseReference.isEmpty
+    }
+
     private var canPost: Bool {
         let hasText = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let isWithinLimit = postText.count <= 500
@@ -870,23 +1359,145 @@ struct CreatePostView: View {
         return hasContent
     }
 
+    private var suggestedTopicTags: [String] {
+        let tags = postDetectedItems
+            .filter { $0.type == .topicTag }
+            .map(\.rawValue)
+        return Array(Set(tags)).sorted()
+    }
+
+    private var smartComposerReviewNotes: [SmartComposerReviewNote] {
+        var notes: [SmartComposerReviewNote] = []
+        let lower = postText.lowercased()
+        let hasPersonalSignal = postDetectedItems.contains { $0.type == .audienceRisk }
+            || ["confession", "struggling with", "addiction", "abuse", "therapy", "private"].contains { lower.contains($0) }
+        let hasPublicAudience = postVisibility == .everyone
+        let hasOpenReplies = commentPermission == .everyone
+
+        if hasPersonalSignal && hasPublicAudience && hasOpenReplies {
+            notes.append(SmartComposerReviewNote(
+                title: "Public prayer or personal context",
+                message: "This draft sounds personal and is set to Everyone with open replies.",
+                severity: .confirmation,
+                actions: [.makeFollowersOnly, .limitRepliesToFollowers, .addSensitiveWarning]
+            ))
+        } else if hasPersonalSignal && hasPublicAudience {
+            notes.append(SmartComposerReviewNote(
+                title: "Audience privacy",
+                message: "This draft includes personal context. A smaller audience may fit better.",
+                severity: .warning,
+                actions: [.makeFollowersOnly, .addSensitiveWarning]
+            ))
+        }
+
+        if selectedTopicTag.isEmpty, let firstTag = suggestedTopicTags.first {
+            notes.append(SmartComposerReviewNote(
+                title: "Suggested topic",
+                message: "AMEN detected \(firstTag) from your draft.",
+                severity: .note,
+                actions: [.openTopicTags]
+            ))
+        } else if !selectedTopicTag.isEmpty,
+                  !suggestedTopicTags.isEmpty,
+                  !suggestedTopicTags.contains(selectedTopicTag) {
+            notes.append(SmartComposerReviewNote(
+                title: "Topic may not match",
+                message: "Your selected topic is \(selectedTopicTag), but this draft looks closer to \(suggestedTopicTags.prefix(2).joined(separator: " or ")).",
+                severity: .warning,
+                actions: [.openTopicTags]
+            ))
+        }
+
+        if postDetectedItems.contains(where: { $0.type == .link }) && linkController.activeURL == nil && linkURL.isEmpty {
+            notes.append(SmartComposerReviewNote(
+                title: "Link preview available",
+                message: "Turn the pasted URL into a preview card before posting.",
+                severity: .info,
+                actions: [.openLinkPreview]
+            ))
+        }
+
+        if postDetectedItems.contains(where: { $0.type == .linkTrust }) {
+            notes.append(SmartComposerReviewNote(
+                title: "Check this link",
+                message: "This link may use HTTP or a short redirect. Preview it before posting.",
+                severity: .warning,
+                actions: [.openLinkPreview]
+            ))
+        }
+
+        if shouldShowVerseSuggestion {
+            notes.append(SmartComposerReviewNote(
+                title: "Verse context",
+                message: "A verse could add context to this post.",
+                severity: .note,
+                actions: [.addVerseContext]
+            ))
+        }
+
+        if postDetectedItems.contains(where: { $0.type == .sensitiveSignal }) && !hasSensitiveContent {
+            notes.append(SmartComposerReviewNote(
+                title: "Sensitive topic",
+                message: "Consider adding a content warning so readers can choose when to engage.",
+                severity: .warning,
+                actions: [.addSensitiveWarning]
+            ))
+        }
+
+        return notes
+    }
+
+    private var requiresSmartComposerConfirmation: Bool {
+        smartComposerReviewNotes.contains { $0.severity == .confirmation }
+    }
+
+    private var hasSmartComposerNotes: Bool {
+        !smartComposerReviewNotes.isEmpty
+    }
+
     private var pollHasValidOptions: Bool {
         let filled = pollOptions.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         return filled.count >= 2
     }
     
-    // P2 FIX: Verse attachment preview badge
+    // P2 FIX: Verse attachment preview badge (Liquid Glass)
     @ViewBuilder
     private var versePreviewBadge: some View {
-        if !attachedVerseReference.isEmpty {
-            VerseBadgeView(
+        if let attachment = verseAttachmentVM.attachedScripture {
+            AttachedScripturePill(
+                attachment: attachment,
+                onTap: {
+                    verseAttachmentVM.openScriptureDetail(from: .composer)
+                },
+                onReplace: {
+                    verseAttachmentVM.openQuickReplace()
+                },
+                onRemove: {
+                    verseAttachmentVM.removeAttachment()
+                    attachedVerseReference = ""
+                    attachedVerseText = ""
+                },
+                onViewChapter: {
+                    verseAttachmentVM.openScriptureDetail(from: .composer)
+                },
+                onCopyReference: {
+                    UIPasteboard.general.string = attachment.canonicalReference
+                }
+            )
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        } else if !attachedVerseReference.isEmpty {
+            // Legacy fallback for existing data
+            LiquidGlassAttachedVerseBadge(
                 reference: attachedVerseReference,
                 text: attachedVerseText,
                 onRemove: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         attachedVerseReference = ""
                         attachedVerseText = ""
                     }
+                },
+                onEdit: {
+                    showingVersePickerSheet = true
                 }
             )
             .transition(.opacity.combined(with: .move(edge: .top)))
@@ -903,7 +1514,131 @@ struct CreatePostView: View {
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
-    
+
+    // MARK: - Smart Composition Cues
+
+    @ViewBuilder
+    private var composerSuggestionRow: some View {
+        let result = insightEngine.result
+        let suggestions = [result.primarySuggestion].compactMap { $0 } + result.secondarySuggestions
+        if !suggestions.isEmpty && result.confidence >= 0.3 {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(suggestions, id: \.rawValue) { action in
+                        ComposerCuePill(action: action) {
+                            handleCueTap(action)
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+            .padding(.vertical, 4)
+            .transition(.asymmetric(
+                insertion: .move(edge: .bottom).combined(with: .opacity),
+                removal: .opacity
+            ))
+            .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.78)), value: suggestions.map(\.rawValue))
+        }
+    }
+
+    private func handleCueTap(_ action: ComposerSuggestedAction) {
+        HapticManager.impact(style: .light)
+        switch action {
+        case .attachVerse:
+            showingVersePickerSheet = true
+        case .addTopicTag:
+            showingTopicTagSheet = true
+        case .addCalendarDate:
+            showingScheduleSheet = true
+        case .switchToThread:
+            break // Future: thread mode toggle
+        case .tagPeople:
+            showingTagPeopleSheet = true
+        case .adjustAudience:
+            showingAudienceSheet = true
+        case .addImage:
+            showingImagePicker = true
+        case .addPoll:
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                showingPoll = true
+            }
+        }
+    }
+
+    private func handleSmartContextAction(_ action: PostContextAction, item: DetectedPostContextItem) {
+        HapticManager.impact(style: .light)
+        switch action {
+        case .addLinkPreview:
+            if item.type == .link {
+                linkURL = item.rawValue
+                linkController.handleTextChange(item.rawValue)
+            } else {
+                showingLinkSheet = true
+            }
+        case .attachMusic:
+            showingMusicBrowser = true
+        case .createReminder:
+            showingScheduleSheet = true
+        case .saveAsMemory:
+            showSmartComposerReview = true
+        case .addTopicTag:
+            selectedTopicTag = item.rawValue
+        case .addVerseContext:
+            showingVersePickerSheet = true
+        case .adjustAudience:
+            showSmartComposerReview = true
+        case .dismiss:
+            postDetectedItems.removeAll { $0.id == item.id }
+        }
+    }
+
+    private func handleSmartComposerReviewAction(_ action: SmartComposerReviewAction) {
+        HapticManager.impact(style: .light)
+        switch action {
+        case .makeFollowersOnly:
+            postVisibility = .followers
+            smartComposerRiskAcknowledged = false
+            showSmartComposerReview = false
+        case .limitRepliesToFollowers:
+            commentPermission = .followersOnly
+            allowComments = true
+            smartComposerRiskAcknowledged = false
+            showSmartComposerReview = false
+        case .addSensitiveWarning:
+            hasSensitiveContent = true
+            if sensitiveContentReason.isEmpty {
+                sensitiveContentReason = "Personal or sensitive topic"
+            }
+            smartComposerRiskAcknowledged = false
+            showSmartComposerReview = false
+        case .openTopicTags:
+            showSmartComposerReview = false
+            showingTopicTagSheet = true
+        case .openLinkPreview:
+            showSmartComposerReview = false
+            showingLinkSheet = true
+        case .addVerseContext:
+            showSmartComposerReview = false
+            showingVersePickerSheet = true
+        case .continuePosting:
+            smartComposerRiskAcknowledged = true
+            showSmartComposerReview = false
+            publishPost()
+        }
+    }
+
+    private func requestPublishFromSmartComposer(useLiquidAnimation: Bool = false) {
+        guard canPost && !isPublishing else { return }
+        isTextFieldFocused = false
+        if requiresSmartComposerConfirmation && !smartComposerRiskAcknowledged {
+            showSmartComposerReview = true
+        } else if useLiquidAnimation {
+            triggerLiquidPost()
+        } else {
+            publishPost()
+        }
+    }
+
     private var characterCountText: String {
         "\(postText.count) / 500"
     }
@@ -928,6 +1663,111 @@ struct CreatePostView: View {
         }
     }
     
+    // MARK: - Contextual verse suggestion
+
+    private var shouldShowVerseSuggestion: Bool {
+        let lower = postText.lowercased()
+        let keywords = ["pray", "scripture", "verse", "bible", "psalm", "jesus", "god ", "faith", "grace", "forgiv", "worship", "holy", "spirit", "lord", "amen"]
+        let hasKeyword = keywords.contains { lower.contains($0) }
+        return hasKeyword && postText.count > 20 && attachedVerseReference.isEmpty
+    }
+
+    // MARK: - Sensitive content expansion (liquid glass)
+
+    private var sensitiveContentExpansion: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Reason field
+            HStack(spacing: 8) {
+                Image(systemName: "text.bubble")
+                    .font(.systemScaled(12))
+                    .foregroundStyle(Color.primary.opacity(0.4))
+                TextField("Reason (optional — grief, trauma, etc.)", text: $sensitiveContentReason)
+                    .font(AMENFont.regular(13))
+                    .foregroundStyle(Color.primary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(Color.primary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+
+            // Hide engagement counts toggle
+            Button {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    hideEngagementCounts.toggle()
+                }
+                HapticManager.impact(style: .light)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: hideEngagementCounts ? "eye.slash.fill" : "eye")
+                        .font(.systemScaled(12))
+                        .foregroundStyle(hideEngagementCounts ? Color(hex: "6B48FF") : Color.primary.opacity(0.4))
+                    Text("Hide likes & comments count")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(Color.primary.opacity(0.75))
+                    Spacer()
+                    Image(systemName: hideEngagementCounts ? "checkmark.circle.fill" : "circle")
+                        .font(.systemScaled(16))
+                        .foregroundStyle(hideEngagementCounts ? Color(hex: "6B48FF") : Color.primary.opacity(0.25))
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, 8)
+    }
+
+    // MARK: - Alt text sheet
+
+    @ViewBuilder
+    private var altTextSheetContent: some View {
+        NavigationStack {
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 16) {
+                        ForEach(Array(selectedImageData.enumerated()), id: \.offset) { index, data in
+                            VStack(alignment: .leading, spacing: 8) {
+                                if let uiImage = UIImage(data: data) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(height: 140)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                }
+                                Text("Image \(index + 1) description")
+                                    .font(AMENFont.semiBold(12))
+                                    .foregroundStyle(.secondary)
+                                TextField("Describe this image for screen readers…", text: Binding(
+                                    get: { index < imageAltTexts.count ? imageAltTexts[index] : "" },
+                                    set: { val in
+                                        while imageAltTexts.count <= index { imageAltTexts.append("") }
+                                        imageAltTexts[index] = val
+                                    }
+                                ), axis: .vertical)
+                                .font(AMENFont.regular(14))
+                                .padding(12)
+                                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                                .lineLimit(3...6)
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                    }
+                    .padding(.vertical, 16)
+                }
+            }
+            .navigationTitle("Alt Text")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showAltTextSheet = false }
+                        .font(AMENFont.semiBold(15))
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
     // Berean AI tone assist — fun interactive popup
     @ViewBuilder
     private var bereanToneSheetContent: some View {
@@ -1014,8 +1854,13 @@ struct CreatePostView: View {
                 // Camera photo preview (instant capture)
                 if let capturedImage = cameraImage {
                     CameraAttachmentPreview(image: capturedImage) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             cameraImage = nil
+                            mediaGateReviewResult = nil
+                            mediaGatePrecheckResults = []
+                            approvedMediaGateFindings = []
+                            approvedMediaGateActions = []
+                            bypassMediaGateReview = false
                         }
                     }
                     .padding(.horizontal, 20)
@@ -1034,8 +1879,9 @@ struct CreatePostView: View {
                     PollComposerCard(
                         options: $pollOptions,
                         duration: $pollDuration,
+                        draftText: postText,
                         onRemove: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 showingPoll = false
                                 pollOptions = ["", ""]
                                 pollDuration = .oneDay
@@ -1085,11 +1931,18 @@ struct CreatePostView: View {
 
     /// User row: avatar + name + category picker (Threads-style)
     private var threadsUserRow: some View {
-        HStack(spacing: 12) {
+        // Resolve photo URL: live profile takes priority, cached AppStorage as fallback
+        let photoURLString = userService.currentUser?.profileImageURL?.nilIfEmpty
+            ?? cachedProfileImageURL.nilIfEmpty
+        // Resolve display name: prefer @username, fall back to display name
+        let nameToShow = userService.currentUser?.username.nilIfEmpty
+            ?? userService.currentUser?.displayName.nilIfEmpty
+            ?? "you"
+        let initial = String(nameToShow.prefix(1)).uppercased()
+
+        return HStack(spacing: 12) {
             // Profile photo
-            if let photoURL = UserService.shared.currentUser?.profileImageURL,
-               !photoURL.isEmpty,
-               let url = URL(string: photoURL) {
+            if let urlString = photoURLString, let url = URL(string: urlString) {
                 CachedAsyncImage(url: url) { image in
                     image.resizable().scaledToFill()
                         .frame(width: 44, height: 44)
@@ -1099,8 +1952,8 @@ struct CreatePostView: View {
                         .fill(Color.primary.opacity(0.08))
                         .frame(width: 44, height: 44)
                         .overlay(
-                            Text(String(UserService.shared.currentUser?.displayName.prefix(1) ?? "A").uppercased())
-                                .font(.system(size: 18, weight: .semibold))
+                            Text(initial)
+                                .font(.systemScaled(18, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         )
                 }
@@ -1109,21 +1962,24 @@ struct CreatePostView: View {
                     .fill(Color.primary.opacity(0.08))
                     .frame(width: 44, height: 44)
                     .overlay(
-                        Text(String(UserService.shared.currentUser?.displayName.prefix(1) ?? "A").uppercased())
-                            .font(.system(size: 18, weight: .semibold))
+                        Text(initial)
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(.secondary)
                     )
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
-                    Text(UserService.shared.currentUser?.displayName ?? "You")
-                        .font(.system(size: 15, weight: .semibold))
+                    Text("@\(nameToShow)")
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
 
                     if let uid = Auth.auth().currentUser?.uid,
-                       VerifiedBadgeHelper.isVerified(userId: uid) {
-                        VerifiedBadge(size: 14)
+                       VerifiedBadgeHelper.shared.isVerified(userId: uid) {
+                        VerifiedBadge(
+                            type: VerifiedBadgeHelper.shared.getVerificationType(userId: uid),
+                            size: 14
+                        )
                     }
                 }
 
@@ -1139,10 +1995,10 @@ struct CreatePostView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(selectedCategory.displayName)
-                            .font(.system(size: 13, weight: .regular))
+                            .font(.systemScaled(13, weight: .regular))
                             .foregroundStyle(.secondary)
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -1153,81 +2009,343 @@ struct CreatePostView: View {
     }
 
     /// Inline attachment icons (Threads-style: simple gray icons in a row)
+    /// The SF Symbol name the engine recommends highlighting, if any.
+    private var recommendedAttachmentIcon: String? {
+        insightEngine.result.primarySuggestion?.attachmentBarIcon
+    }
+
+    @ViewBuilder
     private var threadsAttachmentBar: some View {
+        let recommended = recommendedAttachmentIcon
         HStack(spacing: 20) {
-            Button { showingImagePicker = true } label: {
-                Image(systemName: "photo")
-                    .font(.system(size: 18, weight: .light))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-
-            Button { showingCamera = true } label: {
-                Image(systemName: "camera")
-                    .font(.system(size: 18, weight: .light))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-
+            // + button — opens the floating glass attachment picker card
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(.amenSpringStandard) {
+                    showingAttachmentPicker.toggle()
+                }
+                HapticManager.impact(style: .light)
+            } label: {
+                Image(systemName: showingAttachmentPicker ? "xmark" : "plus")
+                    .font(.systemScaled(18, weight: .medium))
+                    .foregroundStyle(showingAttachmentPicker ? Color.primary.opacity(0.75) : .secondary.opacity(0.65))
+                    .amenSymbolReplaceTransition()
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(showingAttachmentPicker ? "Close attachment menu" : "Open attachment menu")
+
+            attachmentBarIcon("chart.bar.xaxis", label: showingPoll ? "Remove poll" : "Create poll", recommended: recommended) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     showingPoll.toggle()
                 }
-            } label: {
-                Image(systemName: "chart.bar.xaxis")
-                    .font(.system(size: 18, weight: .light))
-                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
+            attachmentBarIcon("text.book.closed", label: "Attach scripture", recommended: recommended) { showingVersePickerSheet = true }
+            attachmentBarIcon("link", label: "Add link", recommended: recommended) { showingLinkSheet = true }
+            attachmentBarIcon("calendar", label: "Schedule post", recommended: recommended) { showingScheduleSheet = true }
+            attachmentBarIcon("sparkles", label: "Draft with Berean AI", recommended: recommended) {
+                showingCreatorDraftSheet = true
+                AMENAnalyticsService.shared.track(.commOSCreatorDraftRequested(draftType: selectedCategory.rawValue))
+            }
 
-            Button { showingVersePickerSheet = true } label: {
-                Image(systemName: "text.book.closed")
-                    .font(.system(size: 18, weight: .light))
-                    .foregroundStyle(.secondary)
+            // SELAH W4: Guided testimony composer — only shown when testimonies flag is ON
+            if AMENFeatureFlags.shared.testimonies {
+                attachmentBarIcon("text.badge.star", label: "Write guided testimony", recommended: recommended) {
+                    showingTestimonyEditor = true
+                }
             }
-            .buttonStyle(.plain)
 
-            Button { showingLinkSheet = true } label: {
-                Image(systemName: "link")
-                    .font(.system(size: 18, weight: .light))
-                    .foregroundStyle(.secondary)
+            if AMENFeatureFlags.shared.musicAttachmentEnabled {
+                Button {
+                    showingMusicBrowser = true
+                } label: {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 22))
+                        .foregroundStyle(.primary)
+                }
+                .accessibilityLabel("Attach music")
             }
-            .buttonStyle(.plain)
 
             Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground).opacity(0.9)) } }
+        .amenGlassEffect(in: Capsule())
+        // Floating glass attachment picker card overlaid above the + button.
+        // The overlay is anchored to the top-leading corner of the bar so the
+        // card's bottom sits at the bar and the card opens upward.
+        .overlay(alignment: .topLeading) {
+            if showingAttachmentPicker {
+                attachmentPickerCard
+                    .offset(y: -(attachmentPickerCardEstimatedHeight + 8))
+                    .transition(
+                        .scale(scale: 0.88, anchor: .bottomLeading)
+                        .combined(with: .opacity)
+                    )
+                    .zIndex(10)
+                    .allowsHitTesting(true)
+            }
         }
     }
 
-    /// Bottom bar: reply options + character count
-    private var threadsBottomBar: some View {
-        HStack {
-            // Reply options
-            Button {
-                showCommentControls = true
-            } label: {
-                Text(commentPermission == .everyone ? "Anyone can reply" : commentPermission.rawValue)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(.secondary)
+    /// Estimated height of the three-row picker card (3 × 64 pt rows + padding).
+    private let attachmentPickerCardEstimatedHeight: CGFloat = 208
+
+    // MARK: - DockedCreationRail tool routing (§5.1)
+
+    /// Routes ToolID taps from DockedCreationRail to the appropriate
+    /// sheet or picker in CreatePostView. Mirrors the old threadsAttachmentBar
+    /// but works from the keyboard-attached rail.
+    private func handleRailToolSelected(_ id: ToolID) {
+        switch id {
+        case .photo:
+            showingImagePicker = true
+        case .camera:
+            guard !showingPoll else { return }
+            showingCamera = true
+        case .bible:
+            showingVersePickerSheet = true
+        case .link:
+            showingLinkSheet = true
+        case .poll:
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                showingPoll.toggle()
             }
-            .buttonStyle(.plain)
+        case .event:
+            showingScheduleSheet = true
+        case .music:
+            guard AMENFeatureFlags.shared.musicAttachmentEnabled else { return }
+            showingMusicBrowser = true
+        case .file:
+            showingDocumentPicker = true
+        case .more:
+            withAnimation(.amenSpringStandard) { showingAttachmentPicker = true }
+        default:
+            withAnimation(.amenSpringStandard) { showingAttachmentPicker = true }
+        }
+        HapticManager.impact(style: .light)
+    }
 
-            Spacer()
+    @ViewBuilder
+    private func attachmentBarIcon(_ icon: String, label: String, recommended: String?, action: @escaping () -> Void) -> some View {
+        let isHighlighted = (icon == recommended)
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.systemScaled(18, weight: .light))
+                .foregroundStyle(isHighlighted ? Color.primary.opacity(0.85) : .secondary.opacity(0.55))
+                .scaleEffect(isHighlighted ? 1.08 : 1.0)
+                .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)), value: isHighlighted)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(label))
+        .accessibilityHint(Text(isHighlighted ? "Recommended for this post" : ""))
+    }
 
-            // Character count — shows early but stays calm until near limit
-            if postText.count > 250 {
-                Text("\(postText.count)/500")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(
-                        postText.count > 500 ? .red :
-                        postText.count > 480 ? .orange :
-                        .secondary.opacity(0.5)
-                    )
-                    .transition(.opacity.animation(.easeIn(duration: 0.3)))
+    // MARK: - Glass Attachment Picker Card
+
+    /// Floating glass card — delegates to AttachmentPickerFloatingCard so that
+    /// @Environment(\.accessibilityReduceTransparency) is resolved inside its
+    /// own View body (the cleanest Swift pattern, matching BereanFloatingActionTray).
+    private var attachmentPickerCard: some View {
+        AttachmentPickerFloatingCard(
+            onCamera: {
+                withAnimation(.amenSpringStandard) { showingAttachmentPicker = false }
+                guard !showingPoll else { return }
+                showingCamera = true
+            },
+            onPhotos: {
+                withAnimation(.amenSpringStandard) { showingAttachmentPicker = false }
+                showingImagePicker = true
+            },
+            onFiles: {
+                withAnimation(.amenSpringStandard) { showingAttachmentPicker = false }
+                showingDocumentPicker = true
+            }
+        )
+    }
+
+
+    /// Bottom bar: reply options + action icons + character count + context panels
+    private var threadsBottomBar: some View {
+        VStack(spacing: 6) {
+
+            // ── Verse suggestion pill (contextual, no button needed) ──────
+            if shouldShowVerseSuggestion {
+                Button { showingVersePickerSheet = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "book.fill")
+                            .font(.systemScaled(11))
+                        Text("Attach a verse?")
+                            .font(AMENFont.semiBold(12))
+                        Image(systemName: "plus")
+                            .font(.systemScaled(11, weight: .semibold))
+                    }
+                    .foregroundColor(Color(hex: "6B48FF"))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+                    .amenGlassEffect(in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            // ── Alt text prompt when images attached ─────────────────────
+            if !selectedImageData.isEmpty {
+                let allAlt = imageAltTexts.count == selectedImageData.count && imageAltTexts.allSatisfy { !$0.isEmpty }
+                Button {
+                    if imageAltTexts.count != selectedImageData.count {
+                        imageAltTexts = Array(repeating: "", count: selectedImageData.count)
+                    }
+                    editingAltTextIndex = 0
+                    showAltTextSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: allAlt ? "checkmark.circle.fill" : "text.bubble")
+                            .font(.systemScaled(11))
+                            .foregroundColor(allAlt ? .green : Color.primary.opacity(0.45))
+                        Text(allAlt ? "Alt text added" : "Add alt text for accessibility")
+                            .font(AMENFont.regular(12))
+                            .foregroundColor(Color.primary.opacity(0.55))
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .transition(.opacity)
+            }
+
+            // ── Readiness hint ──────────────────────────────────────────────
+            if insightEngine.result.readinessState == .tooShort {
+                HStack(spacing: 5) {
+                    Image(systemName: "text.badge.plus")
+                        .font(.systemScaled(10, weight: .medium))
+                    Text("Want to add more context?")
+                        .font(AMENFont.regular(11))
+                }
+                .foregroundStyle(Color.primary.opacity(0.45))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            // ── Main icon row ─────────────────────────────────────────────
+            HStack(spacing: 10) {
+                // Reply options
+                Button {
+                    showCommentControls = true
+                } label: {
+                    Text(commentPermission == .everyone ? "Anyone can reply" : commentPermission.rawValue)
+                        .font(.systemScaled(12, weight: .medium))
+                        .foregroundStyle(Color.primary.opacity(0.75))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background { if reduceTransparency { Capsule().fill(Color(.systemGray6)) } }
+                        .amenGlassEffect(in: Capsule())
+                }
+                .buttonStyle(.plain)
+
+                // Audience/Visibility selector
+                Button {
+                    showingAudienceSheet = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: initialAudienceIntent?.icon ?? postVisibility.icon)
+                            .font(.systemScaled(11, weight: .medium))
+                        Text(composerAudienceLabel)
+                            .font(.systemScaled(12, weight: .medium))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(Color.primary.opacity(0.75))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background { if reduceTransparency { Capsule().fill(Color(.systemGray6)) } }
+                    .amenGlassEffect(in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Post audience: \(composerAudienceLabel)")
+                .accessibilityHint("Double-tap to change who can see your post")
+
+                Spacer()
+
+                // Sensitive content toggle
+                Button {
+                    if hasSmartComposerNotes {
+                        showSmartComposerReview = true
+                    } else {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
+                            hasSensitiveContent.toggle()
+                            if !hasSensitiveContent {
+                                sensitiveContentReason = ""
+                                hideEngagementCounts = false
+                            }
+                        }
+                    }
+                    HapticManager.impact(style: .light)
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: hasSensitiveContent || hasSmartComposerNotes ? "exclamationmark.triangle.fill" : "exclamationmark.triangle")
+                            .font(.systemScaled(15, weight: .medium))
+                            .foregroundStyle(hasSensitiveContent || hasSmartComposerNotes ? .orange : Color.primary.opacity(0.55))
+
+                        if hasSmartComposerNotes {
+                            Circle()
+                                .fill(Color(red: 0.92, green: 0.15, blue: 0.26))
+                                .frame(width: 6, height: 6)
+                                .offset(x: 4, y: -3)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(hasSmartComposerNotes ? "Review post notes" : hasSensitiveContent ? "Remove content warning" : "Mark as sensitive")
+
+                // Berean AI tone checker — only when text exists
+                if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    BereanToneButton(isLoading: isLoadingBereanTone) {
+                        requestBereanToneAssist()
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                }
+
+                // Compose language detection chip
+                if AMENFeatureFlags.shared.creationLanguageEnabled {
+                    ComposeLanguageChip(text: postText)
+                }
+
+                // Character count — shows early but stays calm until near limit
+                if postText.count > 250 {
+                    Text("\(postText.count)/500")
+                        .font(.systemScaled(12, weight: .medium))
+                        .foregroundStyle(
+                            postText.count > 500 ? .red :
+                            postText.count > 480 ? .orange :
+                            .secondary.opacity(0.6)
+                        )
+                        .transition(.opacity.animation(.easeIn(duration: 0.3)))
+                }
+            }
+
+            // ── Sensitive content expansion panel ─────────────────────────
+            if hasSensitiveContent {
+                sensitiveContentExpansion
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color(.systemBackground))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
+        .background { if reduceTransparency { RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(.systemBackground)) } }
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .opacity(insightEngine.result.readinessState == .empty ? 0.85 : 1.0)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 6)
+        .animation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8)), value: hasSensitiveContent)
+        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8)), value: shouldShowVerseSuggestion)
+        .animation(.easeOut(duration: 0.2), value: selectedImageData.count)
+        .animation(.easeOut(duration: 0.2), value: insightEngine.result.readinessState)
     }
 
     private var bottomToolbar: some View {
@@ -1236,9 +2354,9 @@ struct CreatePostView: View {
             if postText.count > 400 {
                 HStack(spacing: 3) {
                     Image(systemName: characterCountIcon)
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                     Text("\(postText.count)/500")
-                        .font(.custom("OpenSans-SemiBold", size: 10))
+                        .font(AMENFont.semiBold(10))
                 }
                 .foregroundStyle(characterCountColor)
                 .padding(.horizontal, 8)
@@ -1261,7 +2379,12 @@ struct CreatePostView: View {
                 // X (close) — always visible, left anchor
                 CompactGlassButton(icon: "xmark", isActive: false) {
                     isTextFieldFocused = false
-                    if !postText.isEmpty { saveDraft() }
+                    // POST-02: both branches disabled persistence; hoist the shared assignment.
+                    // (Default is `true`, so this must stay explicit for the no-content case.)
+                    shouldPersistDraftOnExit = false
+                    if hasDraftableContent {
+                        saveDraft()
+                    }
                     dismiss()
                 }
                 .accessibilityLabel("Close")
@@ -1273,7 +2396,7 @@ struct CreatePostView: View {
 
                         // Expand / Collapse toggle — leftmost in the scroll area
                         Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2))) {
                                 isToolbarExpanded.toggle()
                             }
                             let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1281,11 +2404,11 @@ struct CreatePostView: View {
                             haptic.impactOccurred(intensity: 0.7)
                         } label: {
                             Image(systemName: isToolbarExpanded ? "chevron.left" : "ellipsis")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(Color.primary.opacity(0.6))
                                 .frame(width: 32, height: 32)
                                 .scaleEffect(isToolbarExpanded ? 0.95 : 1.0)
-                                .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
+                                .amenSymbolReplaceTransition()
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(isToolbarExpanded ? "Collapse toolbar" : "Expand toolbar")
@@ -1327,7 +2450,7 @@ struct CreatePostView: View {
                                 isActive: showingPoll
                             ) {
                                 guard cameraImage == nil else { return }
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                                     showingPoll.toggle()
                                     if !showingPoll {
                                         pollOptions = ["", ""]
@@ -1349,14 +2472,17 @@ struct CreatePostView: View {
                             .accessibilityLabel("Add link")
                             .transition(.scale.combined(with: .opacity))
 
-                            // Schedule
-                            CompactGlassButton(
-                                icon: "calendar",
-                                isActive: scheduledDate != nil
-                            ) {
-                                showingScheduleSheet = true
-                            }
-                            .accessibilityLabel("Schedule post")
+                            // Schedule — smart glass pill (shows state inline)
+                            ComposerSchedulePill(
+                                scheduledDate: scheduledDate,
+                                onTap: { showingScheduleSheet = true },
+                                onClear: {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
+                                        scheduledDate = nil
+                                    }
+                                    HapticManager.impact(style: .light)
+                                }
+                            )
                             .transition(.scale.combined(with: .opacity))
 
                             // Community (comment controls)
@@ -1380,12 +2506,25 @@ struct CreatePostView: View {
                             .accessibilityLabel("Tag people")
                             .transition(.scale.combined(with: .opacity))
 
+                            // Content warning
+                            CompactGlassButton(
+                                icon: hasSensitiveContent ? "exclamationmark.triangle.fill" : "exclamationmark.triangle",
+                                isActive: hasSensitiveContent
+                            ) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.82))) {
+                                    hasSensitiveContent.toggle()
+                                }
+                                HapticManager.impact(style: .light)
+                            }
+                            .accessibilityLabel(hasSensitiveContent ? "Remove content warning" : "Mark as sensitive content")
+                            .transition(.scale.combined(with: .opacity))
+
                             // Draft (only when text exists)
                             if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                 CompactGlassButton(icon: "square.and.arrow.down", isActive: false) {
                                     isTextFieldFocused = false
                                     saveDraft()
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         showingDraftSavedNotice = true
                                     }
                                     scheduleDelayedAction(seconds: 1.5) {
@@ -1393,6 +2532,15 @@ struct CreatePostView: View {
                                     }
                                 }
                                 .accessibilityLabel("Save draft")
+                                .transition(.scale.combined(with: .opacity))
+                            }
+
+                            // Berean AI tone checker — only when text exists
+                            if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                BereanToneButton(isLoading: isLoadingBereanTone) {
+                                    requestBereanToneAssist()
+                                }
+                                .accessibilityLabel("Check tone with Berean AI")
                                 .transition(.scale.combined(with: .opacity))
                             }
                         }
@@ -1406,15 +2554,15 @@ struct CreatePostView: View {
 
                 // ── POST button — always visible, right anchor ───────────
                 Button(action: {
-                    guard canPost && !isPublishing else { return }
-                    isTextFieldFocused = false
-                    publishPost()
+                    requestPublishFromSmartComposer()
                 }) {
                     ZStack {
                         Circle()
-                            .fill(Color(red: 0.91, green: 0.91, blue: 0.93).opacity(canPost ? 1.0 : 0.55))
+                            .fill(Color.clear)
                             .frame(width: 38, height: 38)
-                            .shadow(color: Color.black.opacity(0.10), radius: 4, x: 0, y: 2)
+                            .shadow(color: Color.black.opacity(canPost ? 0.10 : 0.04), radius: 6, x: 0, y: 2)
+                            .background { if reduceTransparency { Circle().fill(Color(.systemBackground)) } }
+                            .amenGlassEffect(in: Circle())
 
                         if isPublishing {
                             ProgressView()
@@ -1422,7 +2570,7 @@ struct CreatePostView: View {
                                 .scaleEffect(0.80)
                         } else if scheduledDate != nil {
                             Image(systemName: "calendar.badge.clock")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.systemScaled(14, weight: .bold))
                                 .foregroundStyle(canPost
                                     ? Color(red: 0.92, green: 0.15, blue: 0.26)
                                     : Color(red: 0.92, green: 0.15, blue: 0.26).opacity(0.30))
@@ -1439,41 +2587,19 @@ struct CreatePostView: View {
                 .disabled(!canPost || isPublishing || isUploadingImages)
                 .accessibilityLabel(scheduledDate != nil ? "Schedule post" : "Publish post")
                 .modifier(ShakeEffect(shakes: shakePublishButton ? 3 : 0))
+                .shadow(
+                    color: insightEngine.result.readinessState == .ready
+                        ? Color(hex: "6B48FF").opacity(0.35) : .clear,
+                    radius: 8, y: 0
+                )
+                .animation(.easeInOut(duration: 0.4), value: insightEngine.result.readinessState == .ready)
                 .padding(.trailing, 4)
             }
             .padding(.horizontal, 4)
             .padding(.vertical, 8)
-            .background(
-                ZStack {
-                    Capsule()
-                        .fill(.ultraThinMaterial)
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.3),
-                                    Color.white.opacity(0.05)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                    Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.5),
-                                    Color.white.opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.5
-                        )
-                }
-            )
             .shadow(color: .black.opacity(0.06), radius: 12, y: 3)
-            .shadow(color: .white.opacity(0.4), radius: 6, y: -1)
+            .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+            .amenGlassEffect(in: Capsule())
             .padding(.horizontal, 20)
             .padding(.bottom, 6)
         }
@@ -1523,24 +2649,24 @@ struct CreatePostView: View {
     private var topicTagHeaderView: some View {
         HStack {
             Image(systemName: "tag.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.red)
             
             Text(selectedCategory == .testimonies ? "Testimony Category" : selectedCategory == .openTable ? "Topic Tag" : "Prayer Type")
-                .font(.custom("OpenSans-Bold", size: 15))
+                .font(AMENFont.bold(15))
                 .foregroundStyle(.primary)
             
             Spacer()
             
-            if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
+            if selectedTopicTag.isEmpty && selectedCategory == .prayer {
                 Text("* Required")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
             } else if selectedTopicTag.isEmpty && selectedCategory == .testimonies {
                 Text("Optional")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -1557,11 +2683,11 @@ struct CreatePostView: View {
             if selectedTopicTag.isEmpty {
                 HStack(spacing: 6) {
                     Text(selectedCategory == .testimonies ? "Select a category (optional)" : selectedCategory == .openTable ? "Select a topic tag" : "Select prayer type")
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundStyle(.secondary)
                     if selectedCategory != .testimonies {
                         Text("Required")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(.secondary.opacity(0.7))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -1572,19 +2698,19 @@ struct CreatePostView: View {
                 // Show icon for prayer types
                 if selectedCategory == .prayer {
                     Image(systemName: prayerTypeIcon(for: selectedTopicTag))
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(prayerTypeColor(for: selectedTopicTag))
                 }
                 
                 Text(selectedTopicTag)
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
             }
             
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(14)
@@ -1600,10 +2726,10 @@ struct CreatePostView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "person.2.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.blue)
                 Text("Audience")
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                 Spacer()
             }
@@ -1614,15 +2740,20 @@ struct CreatePostView: View {
                 }
             } label: {
                 HStack {
-                    Image(systemName: postVisibility.icon)
-                        .font(.system(size: 14, weight: .semibold))
+                    Image(systemName: initialAudienceIntent?.icon ?? postVisibility.icon)
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(postVisibility.tintColor)
-                    Text(postVisibility.displayName)
-                        .font(.custom("OpenSans-Bold", size: 15))
-                        .foregroundStyle(.primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(composerAudienceLabel)
+                            .font(AMENFont.bold(15))
+                            .foregroundStyle(.primary)
+                        Text(postVisibility.displayName)
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 .padding(14)
@@ -1637,78 +2768,112 @@ struct CreatePostView: View {
         .padding(.top, 4)
     }
 
+    private var composerAudienceLabel: String {
+        guard let audience = initialAudienceIntent else { return postVisibility.displayName }
+        if audience == .space, let spaceName = initialAudienceMetadata?.spaceName, !spaceName.isEmpty {
+            return spaceName
+        }
+        return audience.displayName
+    }
+
+    private var audienceIntentFirestoreData: [String: Any]? {
+        guard let audience = initialAudienceIntent else { return nil }
+        var data: [String: Any] = [
+            "audience": audience.rawValue,
+            "visibilityFallback": postVisibility.rawValue
+        ]
+        if let metadata = initialAudienceMetadata {
+            if let spaceId = metadata.spaceId { data["spaceId"] = spaceId }
+            if let spaceName = metadata.spaceName { data["spaceName"] = spaceName }
+            if let spaceType = metadata.spaceType { data["spaceType"] = spaceType }
+        }
+        return data
+    }
+
     // MARK: - Verse Picker
 
     private var verseSelectorView: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.orange)
                 Text("Scripture")
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text("Optional")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Capsule().fill(Color.gray.opacity(0.1)))
             }
 
-            Button {
-                withAnimation(.easeOut(duration: 0.2)) {
-                    showingVersePickerSheet = true
-                }
-            } label: {
-                HStack {
-                    if attachedVerseReference.isEmpty {
-                        Text("Attach a Bible verse")
-                            .font(.custom("OpenSans-Regular", size: 15))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(attachedVerseReference)
-                                .font(.custom("OpenSans-Bold", size: 15))
-                                .foregroundStyle(.primary)
-                            if !attachedVerseText.isEmpty {
-                                Text(attachedVerseText)
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                            }
-                        }
+            if let attachment = verseAttachmentVM.attachedScripture {
+                // New Liquid Glass pill design
+                AttachedScripturePill(
+                    attachment: attachment,
+                    onTap: {
+                        verseAttachmentVM.openScriptureDetail(from: .composer)
+                    },
+                    onReplace: {
+                        verseAttachmentVM.openQuickReplace()
+                    },
+                    onRemove: {
+                        verseAttachmentVM.removeAttachment()
+                        attachedVerseReference = ""
+                        attachedVerseText = ""
+                    },
+                    onViewChapter: {
+                        verseAttachmentVM.openScriptureDetail(from: .composer)
+                    },
+                    onCopyReference: {
+                        UIPasteboard.general.string = attachment.canonicalReference
                     }
-                    Spacer()
-                    if !attachedVerseReference.isEmpty {
-                        Button {
-                            withAnimation {
-                                attachedVerseReference = ""
-                                attachedVerseText = ""
-                            }
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemGray6))
                 )
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            } else if !attachedVerseReference.isEmpty {
+                // Legacy fallback
+                LiquidGlassAttachedVerseBadge(
+                    reference: attachedVerseReference,
+                    text: attachedVerseText,
+                    onRemove: {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                            attachedVerseReference = ""
+                            attachedVerseText = ""
+                        }
+                    },
+                    onEdit: { showingVersePickerSheet = true }
+                )
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            } else {
+                // Empty state — attach CTA
+                Button {
+                    showingVersePickerSheet = true
+                } label: {
+                    HStack {
+                        Text("Attach a Bible verse")
+                            .font(AMENFont.regular(15))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(14, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemGray6))
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 20)
         .padding(.top, 4)
+        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78)), value: verseAttachmentVM.attachedScripture != nil)
+        .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78)), value: attachedVerseReference.isEmpty)
     }
 
     // MARK: - Church Tag
@@ -1717,14 +2882,14 @@ struct CreatePostView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "building.columns.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.indigo)
                 Text("Tag a Church")
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text("Optional")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -1739,11 +2904,11 @@ struct CreatePostView: View {
                 HStack {
                     if taggedChurchName.isEmpty {
                         Text("Tag your church")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
                     } else {
                         Text(taggedChurchName)
-                            .font(.custom("OpenSans-Bold", size: 15))
+                            .font(AMENFont.bold(15))
                             .foregroundStyle(.primary)
                     }
                     Spacer()
@@ -1755,13 +2920,13 @@ struct CreatePostView: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
                     } else {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1782,10 +2947,13 @@ struct CreatePostView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .topLeading) {
                     TextEditor(text: $postText)
-                        .font(.custom("OpenSans-Regular", size: 17))
+                        .font(AMENFont.regular(17))
                         .focused($isTextFieldFocused)
                         .scrollContentBackground(.hidden)
+                        .accessibilityLabel("Post content")
+                        .accessibilityHint("Type your post here")
                         .onChange(of: postText) { oldValue, newValue in
+                            smartComposerRiskAcknowledged = false
                             // Defer side effects so they don't trigger a re-render mid-paste,
                             // which would interrupt the paste operation on SwiftUI TextEditor.
                             let addedLength = newValue.count - oldValue.count
@@ -1801,10 +2969,41 @@ struct CreatePostView: View {
                                 detectHashtags(in: snapshot)
                             }
                             linkController.handleTextChange(newValue)
+                            // Smart composition insight analysis
+                            insightEngine.analyzeText(
+                                newValue,
+                                category: selectedCategory.rawValue,
+                                hasVerse: !attachedVerseReference.isEmpty,
+                                hasTopicTag: !selectedTopicTag.isEmpty,
+                                hasPoll: showingPoll,
+                                hasImages: !selectedImageData.isEmpty
+                            )
                             // P1-4: Debounced autosave — saves 3s after user stops typing
                             scheduleAutosave()
+                            // Scripture intent detection for inline suggestions
+                            verseAttachmentVM.analyzeDraftText(newValue)
+                            scheduleSupportDraftAnalysis(for: newValue)
+                            // Smart post context detection (debounced 0.5 s)
+                            if PostingOSFeatureFlags.shared.smartPostContextEnabled {
+                                detectionTask?.cancel()
+                                detectionTask = Task {
+                                    try? await Task.sleep(nanoseconds: 500_000_000)
+                                    guard !Task.isCancelled else { return }
+                                    let items = await PostComposerSmartDetectionService().detectAll(in: newValue)
+                                    await MainActor.run { postDetectedItems = items }
+                                }
+                            }
                         }
-                    
+                        .dockedCreationRail(
+                            surface: .post,
+                            currentText: $postText,
+                            isEnabled: AMENFeatureFlags.shared.composerAdaptiveRailEnabled,
+                            onToolSelected: handleRailToolSelected,
+                            onAttachmentReady: { attachment in
+                                composerAttachments.append(attachment)
+                            }
+                        )
+
                     // Placeholder overlay
                     if postText.isEmpty {
                         EditorPlaceholderView(
@@ -1835,17 +3034,42 @@ struct CreatePostView: View {
                 taggedUsersChipsView
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 4)
+    }
+
+    @ViewBuilder
+    private var supportDraftPresentation: some View {
+        if let payload = supportDraftPayload {
+            switch payload.presentationMode {
+            case .none, .sheet:
+                EmptyView()
+            case .chips(let chips):
+                SupportChipsRowView(
+                    chips: chips,
+                    onTap: handleSupportDraftAction(_:),
+                    onDismiss: dismissSupportDraftPrompt
+                )
+                .padding(.horizontal, 4)
+            case .inlineCard(let model):
+                SupportInlineCardView(
+                    model: model,
+                    actions: payload.actions,
+                    onTap: handleSupportDraftAction(_:),
+                    onDismiss: dismissSupportDraftPrompt
+                )
+                .padding(.horizontal, 4)
+            }
+        }
     }
     
     private var taggedUsersChipsView: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: "person.badge.plus")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color.purple)
                 Text("Tagged")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
                     .foregroundStyle(.secondary)
             }
             ScrollView(.horizontal, showsIndicators: false) {
@@ -1853,7 +3077,7 @@ struct CreatePostView: View {
                     ForEach(taggedUsers, id: \.userId) { user in
                         HStack(spacing: 5) {
                             Text("@\(user.username)")
-                                .font(.custom("OpenSans-SemiBold", size: 12))
+                                .font(AMENFont.semiBold(12))
                                 .foregroundStyle(.purple)
                             Button {
                                 withAnimation(.easeOut(duration: 0.15)) {
@@ -1862,7 +3086,7 @@ struct CreatePostView: View {
                                 HapticManager.impact(style: .light)
                             } label: {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 9, weight: .bold))
+                                    .font(.systemScaled(9, weight: .bold))
                                     .foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
@@ -1888,10 +3112,10 @@ struct CreatePostView: View {
             // Section label
             HStack(spacing: 5) {
                 Image(systemName: "at")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.secondary)
                 Text("Mention User")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 14)
@@ -1930,11 +3154,11 @@ struct CreatePostView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.blue)
                 
                 Text("Suggested Hashtags")
-                    .font(.custom("OpenSans-Bold", size: 13))
+                    .font(AMENFont.bold(13))
                     .foregroundStyle(.secondary)
             }
             
@@ -1945,7 +3169,7 @@ struct CreatePostView: View {
                             insertHashtag(tag)
                         } label: {
                             Text(tag)
-                                .font(.custom("OpenSans-SemiBold", size: 13))
+                                .font(AMENFont.semiBold(13))
                                 .foregroundStyle(.blue)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
@@ -1977,12 +3201,12 @@ struct CreatePostView: View {
             // Left accent block — day number
             VStack(spacing: 1) {
                 Text(scheduledDate, format: .dateTime.weekday(.abbreviated))
-                    .font(.custom("OpenSans-Bold", size: 9))
+                    .font(AMENFont.bold(9))
                     .foregroundStyle(accentDark.opacity(0.75))
                     .tracking(0.8)
                     .textCase(.uppercase)
                 Text(scheduledDate, format: .dateTime.day())
-                    .font(.system(size: 22, weight: .black))
+                    .font(.systemScaled(22, weight: .black))
                     .foregroundStyle(accentDark)
             }
             .frame(width: 48)
@@ -1993,13 +3217,13 @@ struct CreatePostView: View {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Scheduled for")
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(ink.opacity(0.50))
                     ScheduledWhenLine(date: scheduledDate)
                 }
                 Spacer()
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         self.scheduledDate = nil
                     }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -2009,7 +3233,7 @@ struct CreatePostView: View {
                             .fill(ink.opacity(0.07))
                             .frame(width: 28, height: 28)
                         Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.systemScaled(10, weight: .bold))
                             .foregroundStyle(ink.opacity(0.55))
                     }
                 }
@@ -2030,11 +3254,11 @@ struct CreatePostView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Image(systemName: characterCountIcon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(characterCountColor)
                     
                     Text(characterCountText)
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .font(AMENFont.semiBold(13))
                         .foregroundStyle(characterCountColor)
                 }
                 
@@ -2042,14 +3266,14 @@ struct CreatePostView: View {
                 if postText.count > 500 {
                     HStack(spacing: 4) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                         Text("Character limit exceeded - cannot post")
-                            .font(.custom("OpenSans-Bold", size: 11))
+                            .font(AMENFont.bold(11))
                     }
                     .foregroundStyle(.red)
                 } else if postText.count > 450 {
                     Text("Consider shortening your post")
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.orange)
                 }
             }
@@ -2250,17 +3474,47 @@ struct CreatePostView: View {
     }
     
     private func updateHashtagSuggestions() {
+        // Optimistic fallback per category while Firestore loads
+        let fallback: [String]
         switch selectedCategory {
         case .openTable:
-            hashtagSuggestions = ["#AIandFaith", "#TechEthics", "#Innovation", "#DigitalMinistry", "#TechForGood"]
+            fallback = ["#AIandFaith", "#TechEthics", "#Innovation", "#DigitalMinistry", "#TechForGood"]
         case .testimonies:
-            hashtagSuggestions = ["#Testimony", "#FaithJourney", "#Blessed", "#Miracle", "#GodIsGood"]
+            fallback = ["#Testimony", "#FaithJourney", "#Blessed", "#Miracle", "#GodIsGood"]
         case .prayer:
-            hashtagSuggestions = ["#PrayerRequest", "#PraiseReport", "#Intercession", "#DailyPrayer", "#PrayerWarrior"]
+            fallback = ["#PrayerRequest", "#PraiseReport", "#Intercession", "#DailyPrayer", "#PrayerWarrior"]
         case .tip:
-            hashtagSuggestions = ["#TipOfTheDay", "#HelpfulTips", "#ProTip", "#LifeHack", "#Advice"]
+            fallback = ["#TipOfTheDay", "#HelpfulTips", "#ProTip", "#LifeHack", "#Advice"]
         case .funFact:
-            hashtagSuggestions = ["#FunFact", "#DidYouKnow", "#Interesting", "#TodayILearned", "#Facts"]
+            fallback = ["#FunFact", "#DidYouKnow", "#Interesting", "#TodayILearned", "#Facts"]
+        }
+        hashtagSuggestions = fallback
+
+        // Fetch live trending tags from Firestore in background
+        let categoryKey = selectedCategory.rawValue
+        Task {
+            do {
+                let snapshot = try await FirebaseManager.shared.firestore
+                    .collection("trendingHashtags")
+                    .whereField("category", isEqualTo: categoryKey)
+                    .order(by: "useCount", descending: true)
+                    .limit(to: 8)
+                    .getDocuments()
+
+                let liveTags = snapshot.documents.compactMap { doc -> String? in
+                    guard let tag = doc.data()["tag"] as? String else { return nil }
+                    return tag.hasPrefix("#") ? tag : "#\(tag)"
+                }
+
+                if !liveTags.isEmpty {
+                    await MainActor.run {
+                        hashtagSuggestions = liveTags
+                    }
+                }
+            } catch {
+                // Network failure — fallback already shown, silently skip
+                dlog("⚠️ [Hashtags] Firestore fetch failed, using fallback: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -2365,34 +3619,43 @@ struct CreatePostView: View {
         return nil
     }
     
-    private func saveDraft() {
+    private func saveDraft(showNotice: Bool = true) {
+        guard hasDraftableContent else { return }
+
         // Save post using DraftsManager
         draftsManager.saveDraft(
             content: postText,
             category: selectedCategory.rawValue,
             topicTag: selectedTopicTag.isEmpty ? nil : selectedTopicTag,
             linkURL: linkURL.isEmpty ? nil : linkURL,
-            visibility: postVisibility.rawValue
+            visibility: postVisibility.rawValue,
+            scriptureAttachment: verseAttachmentVM.attachedScripture
         )
-        
+
+        guard showNotice else { return }
+
         withAnimation {
             showingDraftSavedNotice = true
         }
-        
+
         // P0-2 FIX: Use cancellable task instead of DispatchQueue
         scheduleDelayedAction(seconds: 2) {
             withAnimation {
                 showingDraftSavedNotice = false
             }
         }
-        
     }
-    
+
+    private func persistDraftIfNeeded() {
+        guard shouldPersistDraftOnExit, !isPublishing else { return }
+        saveDraft(showNotice: false)
+    }
+
     /// Triggers a short shake animation on the publish button to signal rejection.
     private func triggerPublishShake() {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.error)
-        withAnimation(.default) {
+        withAnimation(.amenEaseQuick) {
             shakePublishButton = true
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -2400,17 +3663,219 @@ struct CreatePostView: View {
         }
     }
 
+    private func scheduleSupportDraftAnalysis(for text: String) {
+        supportDraftTask?.cancel()
+        bypassSupportDraftGate = false
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            supportDraftPayload = nil
+            return
+        }
+
+        supportDraftTask = Task {
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled else { return }
+
+            let payload = await supportDetectionService.analyzeSupport(
+                surface: .postDraft,
+                text: trimmed,
+                metadata: [
+                    "category": selectedCategory.rawValue,
+                    "hasImages": selectedImageData.isEmpty ? "false" : "true",
+                    "hasVerse": attachedVerseReference.isEmpty ? "false" : "true"
+                ]
+            )
+
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                supportDraftPayload = payload
+                if let payload {
+                    supportDetectionService.record(payload: payload, outcome: .shown)
+                }
+            }
+        }
+    }
+
+    private func handleSupportDraftAction(_ action: SupportAction) {
+        guard let payload = supportDraftPayload else { return }
+        supportActionExecutor.execute(action, from: .postDraft)
+        supportDetectionService.record(payload: payload, outcome: .engaged)
+        showSupportDraftSheet = false
+    }
+
+    private func dismissSupportDraftPrompt() {
+        if let payload = supportDraftPayload {
+            supportDetectionService.record(payload: payload, outcome: .dismissed)
+        }
+        supportDraftPayload = nil
+        showSupportDraftSheet = false
+    }
+
+    private func continuePostAfterSupportPrompt() {
+        bypassSupportDraftGate = true
+        showSupportDraftSheet = false
+        publishPost()
+    }
+
+    private func shouldPresentSupportDraftGate(for text: String) -> Bool {
+        guard !bypassSupportDraftGate,
+              let payload = supportDraftPayload,
+              payload.analyzedText == text,
+              case .sheet = payload.presentationMode else {
+            return false
+        }
+
+        return true
+    }
+
+    private var shouldRunMediaGatePrecheck: Bool {
+        AMENFeatureFlags.shared.bereanCameraEnabled
+            && AMENFeatureFlags.shared.mediaGateEnabled
+            && AMENFeatureFlags.shared.mediaGateOnDevicePrecheck
+            && !bypassMediaGateReview
+            && (cameraImage != nil || !selectedImageData.isEmpty)
+    }
+
+    private func beginMediaGatePrecheck() {
+        guard shouldRunMediaGatePrecheck else {
+            startPublishPipeline()
+            return
+        }
+
+        Task {
+            var imageDataBatch: [Data] = []
+            if let cameraImage, let cameraData = cameraImage.jpegData(compressionQuality: 0.85) {
+                imageDataBatch.append(cameraData)
+            }
+            imageDataBatch.append(contentsOf: selectedImageData)
+
+            guard !imageDataBatch.isEmpty else {
+                await MainActor.run {
+                    inFlightPostId = nil
+                    showError(title: "Media Review Needed", message: "This media could not be checked, so it cannot be posted yet.")
+                }
+                return
+            }
+
+            var results: [MediaGatePrecheckResult] = []
+            for imageData in imageDataBatch {
+                results.append(await BereanCameraMediaGatePrecheckService.shared.precheckImageData(imageData))
+            }
+
+            await MainActor.run {
+                let aggregateResult = aggregateMediaGateResult(from: results)
+                mediaGatePrecheckResults = results
+                mediaGateReviewResult = aggregateResult
+                if aggregateResult.requiresReview {
+                    inFlightPostId = nil
+                    showMediaGateReview = true
+                } else {
+                    applyMediaGateActions(aggregateResult.suggestedActions)
+                    bypassMediaGateReview = true
+                    startPublishPipeline()
+                }
+            }
+        }
+    }
+
+    private func aggregateMediaGateResult(from results: [MediaGatePrecheckResult]) -> MediaGatePrecheckResult {
+        let findings = results.flatMap(\.findings)
+        let actions = uniqueMediaGateActions(results.flatMap(\.suggestedActions))
+        return MediaGatePrecheckResult(
+            strippedImageData: results.first?.strippedImageData ?? Data(),
+            findings: findings,
+            suggestedActions: actions,
+            localDecision: results.contains(where: { $0.requiresReview }) ? .review : .publish
+        )
+    }
+
+    private func applyMediaGateActions(_ actions: [MediaGateRedactionAction]) {
+        let results = mediaGatePrecheckResults.isEmpty ? mediaGateReviewResult.map { [$0] } ?? [] : mediaGatePrecheckResults
+        approvedMediaGateFindings = results.flatMap(\.findings)
+        approvedMediaGateActions = uniqueMediaGateActions(actions)
+
+        var resultIndex = 0
+        if cameraImage != nil, resultIndex < results.count {
+            let result = results[resultIndex]
+            let redactedData = MediaGateImageRedactor.applying(actions: result.suggestedActions, to: result.strippedImageData)
+            cameraImage = UIImage(data: redactedData)
+            resultIndex += 1
+        }
+
+        guard !selectedImageData.isEmpty else {
+            applyMediaGateVisibilityLimitIfNeeded(actions: approvedMediaGateActions)
+            return
+        }
+
+        for selectedIndex in selectedImageData.indices {
+            guard resultIndex < results.count else { break }
+            let result = results[resultIndex]
+            selectedImageData[selectedIndex] = MediaGateImageRedactor.applying(
+                actions: result.suggestedActions,
+                to: result.strippedImageData
+            )
+            resultIndex += 1
+        }
+
+        applyMediaGateVisibilityLimitIfNeeded(actions: approvedMediaGateActions)
+    }
+
+    private func uniqueMediaGateActions(_ actions: [MediaGateRedactionAction]) -> [MediaGateRedactionAction] {
+        var uniqueActions: [MediaGateRedactionAction] = []
+        for action in actions where !uniqueActions.contains(action) {
+            uniqueActions.append(action)
+        }
+        return uniqueActions
+    }
+
+    private func applyMediaGateVisibilityLimitIfNeeded(actions: [MediaGateRedactionAction]) {
+        if actions.contains(where: { action in
+            if case .removeLocation = action { return true }
+            return false
+        }) {
+            postVisibility = postVisibility == .everyone ? .followers : postVisibility
+        }
+    }
+
+    private func mergeCameraImageIntoUploadBatchIfNeeded() {
+        guard let cameraImage, let cameraData = cameraImage.jpegData(compressionQuality: 0.85) else { return }
+        selectedImageData.insert(cameraData, at: 0)
+        self.cameraImage = nil
+    }
+
+    private func evaluateServerMediaGateIfNeeded(postId: UUID, uploadPath: String, userId: String) async -> MediaGatePolicyEvaluation {
+        guard AMENFeatureFlags.shared.bereanCameraEnabled,
+              AMENFeatureFlags.shared.mediaGateEnabled else {
+            return MediaGatePolicyEvaluation(decision: .publish, auditId: nil)
+        }
+
+        let knownMinorAuthor = (try? await AmenChildSafetyService.shared.checkIsMinor(userId: userId)) ?? true
+        return await BereanMediaGatePolicyClient.shared.evaluateUploadedMedia(
+            postId: postId.uuidString,
+            uploadPath: uploadPath,
+            findings: approvedMediaGateFindings,
+            actions: approvedMediaGateActions,
+            knownMinorAuthor: knownMinorAuthor
+        )
+    }
+
     private func publishPost() {
         dlog("🔵 publishPost() called")
         dlog("   isPublishing: \(isPublishing)")
         dlog("   canPost: \(canPost)")
 
-        // First-post community guidelines prompt (shown once, gated by UserDefaults)
-        let hasSeenGuidelinesKey = "hasSeenFirstPostGuidelines"
-        if !UserDefaults.standard.bool(forKey: hasSeenGuidelinesKey) {
-            showFirstPostGuidelinesPrompt = true
-            UserDefaults.standard.set(true, forKey: hasSeenGuidelinesKey)
-            return  // publishPost() will be called again after user dismisses the prompt
+        // P0 GATE: Email must be verified before any post can be submitted.
+        guard Auth.auth().currentUser?.isEmailVerified == true else {
+            showEmailVerificationAlert = true
+            return
+        }
+
+        // Smart community guidelines gate — checks first post, session, 30-day inactivity
+        if CommunityGuidelinesEligibilityService.shared.shouldShowGuidelines {
+            showGuidelinesGate = true
+            return  // publishPost() will be called again after user acknowledges
         }
 
         // Cancel auto-save immediately — no point saving a post that's about to be published
@@ -2457,6 +3922,21 @@ struct CreatePostView: View {
             return
         }
         
+        // OFFLINE FIX: Block post submission when device has no network.
+        // Firestore offline persistence does NOT queue creates reliably — the
+        // write may silently succeed locally but never reach the server if the
+        // connection drops before the document propagates. Surface an explicit
+        // error so the user knows to retry after reconnecting.
+        if !AMENNetworkMonitor.shared.isConnected {
+            showError(
+                title: "You're Offline",
+                message: "Your post couldn't be sent — please check your connection and try again.",
+                isRetryable: true,
+                retry: { self.publishPost() }
+            )
+            return
+        }
+
         // Set idempotency token immediately to block concurrent duplicates
         inFlightPostId = UUID().uuidString
         
@@ -2487,25 +3967,22 @@ struct CreatePostView: View {
             )
             return
         }
+
+        if shouldPresentSupportDraftGate(for: sanitizedContent) {
+            inFlightPostId = nil
+            showSupportDraftSheet = true
+            return
+        }
         
-        // Validate topic tag for #OPENTABLE and Prayer
-        if (selectedCategory == .openTable || selectedCategory == .prayer) && selectedTopicTag.isEmpty {
-            dlog("❌ Topic tag required but missing")
-            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
-            
-            // P1 FIX: Shake topic tag button and show inline error
-            withAnimation(.default) {
-                shakeTopicTag = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                shakeTopicTag = false
-            }
-            
+        // Validate topic tag for Prayer only — openTable tag is optional
+        if selectedCategory == .prayer && selectedTopicTag.isEmpty {
+            dlog("❌ Prayer type required but missing")
+            inFlightPostId = nil
+            withAnimation(.amenEaseQuick) { shakeTopicTag = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { shakeTopicTag = false }
             showError(
-                title: "Topic Tag Required",
-                message: selectedCategory == .openTable ? 
-                    "Please select a topic tag for your #OPENTABLE post." :
-                    "Please select a prayer type for your prayer post."
+                title: "Prayer Type Required",
+                message: "Please select a prayer type for your prayer post."
             )
             return
         }
@@ -2533,7 +4010,96 @@ struct CreatePostView: View {
         }
         
         dlog("✅ All validations passed!")
-        
+
+        if shouldRunMediaGatePrecheck {
+            beginMediaGatePrecheck()
+            return
+        }
+
+        // ============================================================================
+        // ✅ P0 GATE: Aegis Pre-Post Content Safety Review
+        // ============================================================================
+        // Gated by AMENFeatureFlags.aegisPrePostReviewEnabled (Remote Config key:
+        // "aegis_pre_post_review_enabled", default true).
+        // When the flag is off the Aegis check is skipped entirely and the post
+        // flows directly to startPublishPipeline() — allowing an instant kill-switch
+        // without touching any other code path.
+        guard AMENFeatureFlags.shared.aegisPrePostReviewEnabled else {
+            dlog("[Aegis] Pre-post review flag OFF — skipping safety gate")
+            startPublishPipeline()
+            return
+        }
+
+        // Run AmenContentSafetyService.checkBeforePost before entering the publish pipeline.
+        // If the decision is anything other than .allow, show AmenPrePostReviewSheet.
+        // The sheet's onProceed callback skips back to proceedWithPublish() directly.
+        let aegisSanitizedContent = sanitizeContent(postText)
+        Task {
+            guard let aegisAuthorId = Auth.auth().currentUser?.uid else {
+                await MainActor.run {
+                    inFlightPostId = nil
+                    showError(title: "Not Signed In", message: "Please sign in again to post.")
+                }
+                return
+            }
+            // SECURITY FIX (HIGH 2026-06-11): Resolve actual minor status instead of
+            // hardcoding false. Default to true (minor-safe) on error, matching
+            // AmenComposerViewModel.swift line 177 pattern.
+            let aegisIsMinorAuthor = (try? await AmenChildSafetyService.shared.checkIsMinor(userId: aegisAuthorId)) ?? true
+            let aegisRequest = ContentCheckRequest(
+                text: aegisSanitizedContent,
+                mediaUrls: [],
+                authorId: aegisAuthorId,
+                objectType: "post",
+                contextRef: nil,
+                isMinorAuthor: aegisIsMinorAuthor
+            )
+            let decision: PrePostDecision
+            do {
+                decision = try await AmenContentSafetyService.shared.checkBeforePost(aegisRequest)
+            } catch {
+                dlog("[Aegis] checkBeforePost error — failing closed: \(error)")
+                let failResult = ContentSafetyResult(
+                    tier: .high,
+                    categories: [],
+                    confidence: 0.0,
+                    suggestion: "We couldn't verify this post right now. You may edit or post anyway.",
+                    hardBlocked: false,
+                    requiresModerationReview: true,
+                    escalateImmediately: false,
+                    checkedAt: Date()
+                )
+                decision = PrePostDecision(
+                    action: .showSuggestion("We couldn't verify this post right now. You may edit or post anyway."),
+                    safetyResult: failResult
+                )
+            }
+            await MainActor.run {
+                switch decision.action {
+                case .allow:
+                    // Safe — fall through to existing publish pipeline
+                    aegisDecision = nil
+                    startPublishPipeline()
+                case .showSuggestion, .blockWithMessage, .crisisIntervene:
+                    // Show the review sheet; publish pipeline is held until user responds
+                    aegisDecision = decision
+                    inFlightPostId = nil  // Allow re-entry after sheet is resolved
+                    showAegisReview = true
+                }
+            }
+        }
+        return  // All publish paths now flow through startPublishPipeline() or the Aegis sheet
+    }
+
+    /// Starts the full publish pipeline after all pre-flight gates have passed.
+    /// Called either directly from Aegis (.allow path) or from AmenPrePostReviewSheet.onProceed.
+    private func startPublishPipeline() {
+        // Re-acquire idempotency token (may have been cleared by Aegis sheet flow)
+        if inFlightPostId == nil { inFlightPostId = UUID().uuidString }
+
+        // Compute sanitized content here (was computed in publishPost() before the refactor)
+        let sanitizedContent = sanitizeContent(postText)
+
         // ============================================================================
         // ✅ HEY FEED: Think First Guardrails + MODERATION CONSTITUTION Stage 1
         // ============================================================================
@@ -2689,6 +4255,14 @@ struct CreatePostView: View {
                 linkURL: linkURL.isEmpty ? linkController.activeURL?.absoluteString : linkURL,
                 scheduledFor: scheduledDate
             )
+        } else if isThreadMode && threadPosts.filter({ !$0.trimmingCharacters(in: .whitespaces).isEmpty }).count > 1 {
+            dlog("🧵 Publishing thread (\(threadPosts.count) posts)")
+            publishThread(
+                posts: threadPosts,
+                category: postCategory,
+                topicTag: selectedTopicTag.isEmpty ? nil : selectedTopicTag,
+                allowComments: allowComments
+            )
         } else {
             dlog("📤 Publishing immediately")
             // Publish immediately
@@ -2765,7 +4339,7 @@ struct CreatePostView: View {
                 // ─────────────────────────────────────────────────────────
 
                 // P1-1 FIX: PARALLEL MODERATION - Run all safety checks in parallel
-                let contentCategory: ContentCategory = .post
+                let contentCategory: ContentModerationClass = .post
                 dlog("🛡️ Starting parallel moderation checks...")
                 
                 // TRUST & SAFETY: Export real authenticity signals from tracking
@@ -2827,10 +4401,8 @@ struct CreatePostView: View {
                         .getDocument()
                 }
                 
-                // Merge camera image (if any) into the selectedImageData upload batch
-                if let camImg = cameraImage, let camData = camImg.jpegData(compressionQuality: 0.85) {
-                    await MainActor.run { selectedImageData.insert(camData, at: 0) }
-                }
+                // Merge camera image (if any) into the selectedImageData upload batch once.
+                await MainActor.run { mergeCameraImageIntoUploadBatchIfNeeded() }
 
                 // P0-3 FIX: Make image upload BLOCKING if images attached
                 var imageURLs: [String]? = nil
@@ -2840,7 +4412,21 @@ struct CreatePostView: View {
                         let uploadResult = try await uploadImages()
                         imageURLs = uploadResult.urls
                         uploadedGroupPath = uploadResult.groupPath
-                        dlog("✅ Images uploaded: \(imageURLs?.count ?? 0)")
+
+                        let mediaGateEvaluation = await evaluateServerMediaGateIfNeeded(
+                            postId: postId,
+                            uploadPath: uploadResult.groupPath,
+                            userId: currentUser.uid
+                        )
+                        guard mediaGateEvaluation.decision.allowsClientPostAfterServerGate else {
+                            throw NSError(
+                                domain: "MediaGatePolicy",
+                                code: -10,
+                                userInfo: [NSLocalizedDescriptionKey: "This media needs safety review before it can be posted."]
+                            )
+                        }
+
+                        dlog("✅ Images uploaded and media gate cleared: \(imageURLs?.count ?? 0)")
                         
                         // Verify we got URLs back
                         if imageURLs?.isEmpty ?? true {
@@ -2880,13 +4466,49 @@ struct CreatePostView: View {
                         return
                     }
                 }
-                
+
+                // ── Document upload (blocking, same pattern as image upload) ──
+                var uploadedDocumentURL: String? = nil
+                let capturedDocURL = await MainActor.run { attachedDocumentURL }
+                if let localDocURL = capturedDocURL {
+                    dlog("📎 Uploading attached document: \(localDocURL.lastPathComponent)")
+                    do {
+                        guard let userId = Auth.auth().currentUser?.uid else {
+                            throw NSError(domain: "CreatePostView", code: 401,
+                                          userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+                        }
+                        let docData = try Data(contentsOf: localDocURL)
+                        let filename = localDocURL.lastPathComponent
+                        let docRef = FirebaseManager.shared.storage.reference()
+                            .child("post_documents")
+                            .child(userId)
+                            .child("\(UUID().uuidString)_\(filename)")
+                        let docMeta = StorageMetadata()
+                        docMeta.contentType = "application/octet-stream"
+                        let _ = try await docRef.putDataAsync(docData, metadata: docMeta)
+                        uploadedDocumentURL = try await docRef.downloadURL().absoluteString
+                        dlog("✅ Document uploaded: \(uploadedDocumentURL ?? "nil")")
+                    } catch {
+                        await MainActor.run {
+                            isPublishing = false
+                            inFlightPostId = nil
+                            notifyPostingFailed()
+                            showError(
+                                title: "File Upload Failed",
+                                message: "Your document couldn't be uploaded. Please try again."
+                            )
+                        }
+                        dlog("❌ Document upload failed: \(error)")
+                        return
+                    }
+                }
+
                 // ⚡ WAIT: Get results from parallel tasks
                 let userDoc = try await userDataTask.value
                 let userData = userDoc.data()
                 let authorProfileImageURL = userData?["profileImageURL"] as? String
                 let authorUsername = userData?["username"] as? String
-                
+
                 // P1-3 FIX: Parallelize mention resolution
                 let mentionUsernames = Post.extractMentionUsernames(from: content)
                 var mentions: [MentionedUser] = []
@@ -2996,7 +4618,13 @@ struct CreatePostView: View {
                     newPost.taggedChurchId = taggedChurchId
                     newPost.taggedChurchName = taggedChurchName.isEmpty ? nil : taggedChurchName
                 }
-                
+
+                // Set document attachment if one was uploaded
+                if let docURL = uploadedDocumentURL {
+                    newPost.documentURL = docURL
+                    newPost.documentName = capturedDocURL?.lastPathComponent
+                }
+
                 dlog("   ✅ Post object created: \(postId)")
                 
                 // Save to Firestore immediately
@@ -3009,6 +4637,7 @@ struct CreatePostView: View {
                     "topicTag": topicTag as Any,
                     "visibility": postVisibility.rawValue,
                     "allowComments": allowComments,
+                    "commentPermissions": (allowComments ? mapToPostCommentPermissions(commentPermission) : .off).rawValue,
                     "imageURLs": imageURLs as Any,
                     "linkURL": (linkURL ?? linkController.activeURL?.absoluteString) as Any? as Any,
                     "createdAt": Timestamp(date: timestamp),
@@ -3017,6 +4646,14 @@ struct CreatePostView: View {
                     "repostCount": 0,
                     "lightbulbCount": 0
                 ]
+
+                if let audienceIntentFirestoreData {
+                    postData["audienceIntent"] = audienceIntentFirestoreData
+                    postData["audienceIntentRaw"] = initialAudienceIntent?.rawValue as Any
+                    if let spaceId = initialAudienceMetadata?.spaceId {
+                        postData["spaceId"] = spaceId
+                    }
+                }
                 
                 // ✅ Add profile picture if available
                 if let authorProfileImageURL = authorProfileImageURL {
@@ -3066,7 +4703,14 @@ struct CreatePostView: View {
                 }
 
                 // ✅ Attached scripture verse (from verse picker)
-                if !attachedVerseReference.isEmpty {
+                if let attachment = verseAttachmentVM.attachedScripture {
+                    // New structured format
+                    postData["verseReference"] = attachment.canonicalReference
+                    postData["verseText"] = attachment.previewText
+                    postData["scriptureAttachment"] = attachment.firestoreData
+                    dlog("   📖 Verse attached (structured): \(attachment.canonicalReference)")
+                } else if !attachedVerseReference.isEmpty {
+                    // Legacy fallback
                     postData["verseReference"] = attachedVerseReference
                     if !attachedVerseText.isEmpty {
                         postData["verseText"] = attachedVerseText
@@ -3096,6 +4740,47 @@ struct CreatePostView: View {
                     dlog("   📊 Poll attached: \(filledOptions.count) options, expires: \(String(describing: pollDuration.expiryDate))")
                 }
 
+                // ✅ Sensitive content flag — surfaced in feed behind a tap-to-reveal blur
+                if hasSensitiveContent {
+                    postData["hasSensitiveContent"] = true
+                    if !sensitiveContentReason.isEmpty {
+                        postData["sensitiveContentReason"] = sensitiveContentReason
+                    }
+                }
+
+                // ✅ Privacy: hide engagement counts (likes/comments) from public view
+                if hideEngagementCounts {
+                    postData["hideEngagementCounts"] = true
+                }
+
+                // ✅ Alt text for image accessibility
+                let filteredAlt = imageAltTexts.filter { !$0.isEmpty }
+                if !filteredAlt.isEmpty {
+                    postData["imageAltTexts"] = filteredAlt
+                }
+
+                // ✅ File attachment (document uploaded from Files picker)
+                if let docURL = uploadedDocumentURL {
+                    postData["documentURL"] = docURL
+                    if let name = capturedDocURL?.lastPathComponent {
+                        postData["documentName"] = name
+                    }
+                    dlog("   📎 Document attached: \(capturedDocURL?.lastPathComponent ?? "unknown")")
+                }
+
+                // Music attachment — snapshot id/title/artists for feed rendering
+                let capturedMusic = await MainActor.run { attachedMusic }
+                if let music = capturedMusic {
+                    postData["musicAttachmentId"] = music.id
+                    postData["musicAttachmentTitle"] = music.title
+                    postData["musicAttachmentArtists"] = music.artists
+                    if let artURL = music.albumArtURL?.absoluteString { postData["musicAttachmentAlbumArtURL"] = artURL }
+                    postData["musicAttachmentPreviewURL"] = music.previewURL.absoluteString
+                    postData["musicAttachmentDurationMs"] = music.durationMs
+                    postData["musicAttachmentStartMs"] = music.startMs
+                    dlog("   🎵 Music attached: \(music.title)")
+                }
+
                 // SECURITY: Stamp every post with moderationStatus="pending" so the
                 // server-side Cloud Function trigger (posts/{postId} onCreate) always
                 // runs a second-pass moderation check. A modified client that bypasses
@@ -3118,6 +4803,7 @@ struct CreatePostView: View {
                         inFlightPostId = nil
                         linkController.reset()
                         UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
+                        shouldPersistDraftOnExit = false
                         withAnimation { showingSuccessNotice = true }
                         // P0-2 FIX: Critical - cancellable dismiss task
                         scheduleDelayedAction(seconds: 0.15) {
@@ -3193,6 +4879,14 @@ struct CreatePostView: View {
                         )
                     }
                 }
+
+                Task { @MainActor in
+                    await IntelligentSocialPipeline.shared.handlePostCreated(
+                        post: newPost,
+                        authenticitySignals: signals,
+                        currentSurface: "post_creation"
+                    )
+                }
                 
                 // P0-2 FIX: Only dismiss AFTER Firestore confirms success
                 await MainActor.run {
@@ -3211,22 +4905,37 @@ struct CreatePostView: View {
                     // Clear state (P0-1, P1-2)
                     inFlightPostId = nil
                     postContentSource = nil  // reset source label for next post
+                    attachedDocumentURL = nil  // clear document attachment after successful post
+                    // Music attachment cleanup
+                    if attachedMusic != nil {
+                        AudioPlaybackManager.shared.stop()
+                        attachedMusic = nil
+                    }
                     UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
+                    shouldPersistDraftOnExit = false
                     
                     // ✅ Show success and dismiss ONLY after Firestore success
                     withAnimation {
                         showingSuccessNotice = true
                     }
+
+                    // Record post for community guidelines eligibility tracking
+                    CommunityGuidelinesEligibilityService.shared.recordPostPublished()
+
+                    // Analytics: track post creation with media and scripture signals
+                    let analyticsHasMedia = !(imageURLs?.isEmpty ?? true)
+                    let analyticsHasScripture = verseAttachmentVM.attachedScripture != nil || !attachedVerseReference.isEmpty
+                    AMENAnalyticsService.shared.track(.postCreated(hasMedia: analyticsHasMedia, hasScripture: analyticsHasScripture))
                     
                     // P0-2 FIX: Critical - cancellable dismiss task
                     scheduleDelayedAction(seconds: 0.15) {
-                        dlog("👋 Dismissing CreatePostView (safe after Firestore)")
+                        dlog("Dismissing CreatePostView (safe after Firestore)")
                         dismiss()
                     }
                     
                     // Reset publishing state
                     isPublishing = false
-                    dlog("✅ Post creation flow completed!")
+                    dlog("Post creation flow completed!")
                 }
                 
                 // Success! Sync to Algolia for search (non-blocking background task)
@@ -3323,12 +5032,46 @@ struct CreatePostView: View {
             publishPost()
         }
     }
+
+    /// Drives LiquidGlassPostButton visual states while calling the real publish pipeline.
+    private func triggerLiquidPost() {
+        guard uploadState == .idle else { return }
+        Task {
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.72))) {
+                uploadState = .pressed
+            }
+            try? await Task.sleep(for: .milliseconds(120))
+            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.82))) {
+                uploadState = .uploading(progress: 0.05)
+            }
+            // Kick off real publish pipeline
+            await MainActor.run { publishPost() }
+            // Visual progress animation — runs in parallel with actual upload
+            let steps: [CGFloat] = [0.12, 0.24, 0.37, 0.51, 0.68, 0.84, 1.0]
+            for v in steps {
+                try? await Task.sleep(for: .milliseconds(140))
+                withAnimation(.linear(duration: 0.12)) { uploadState = .uploading(progress: v) }
+            }
+            try? await Task.sleep(for: .milliseconds(180))
+            withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.84))) { uploadState = .success }
+            try? await Task.sleep(for: .milliseconds(900))
+            withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.88))) { uploadState = .idle }
+        }
+    }
     
     /// Sync post to Algolia for instant search (non-blocking)
     private func syncPostToAlgolia(_ post: Post) {
+        // Belt-and-suspenders: never index prayer posts in Algolia regardless of visibility
+        guard post.category != .prayer else {
+            dlog("🔒 Skipping Algolia sync for prayer post (category guard)")
+            return
+        }
         // Run in background - don't block UI or show errors
         Task.detached(priority: .background) {
             do {
+                // isPublic: true only for posts visible to everyone that are not prayer requests.
+                // Followers-only and community posts must not be discoverable in search.
+                let isPublic = post.visibility == .everyone && post.category != .prayer
                 // Convert Post to dictionary for Algolia
                 let postData: [String: Any] = [
                     "content": post.content,
@@ -3339,7 +5082,7 @@ struct CreatePostView: View {
                     "commentCount": post.commentCount,
                     "repostCount": post.repostCount,
                     "createdAt": post.createdAt.timeIntervalSince1970,
-                    "isPublic": true,
+                    "isPublic": isPublic,
                     "shareCount": 0  // Add shareCount for Algolia
                 ]
                 
@@ -3404,11 +5147,14 @@ struct CreatePostView: View {
                     self.compressImage(imageData, maxSizeInMB: 1.0)
                 }.value
                 
-                guard let compressedData = compressedData else {
+                guard var compressedData = compressedData else {
                     dlog("⚠️ Failed to compress image \(index)")
                     failedUploads += 1
                     continue
                 }
+
+                let metadataStrip = await CameraMetadataStripService.shared.stripMetadata(from: compressedData)
+                compressedData = metadataStrip.strippedData
                 
                 // ✅ SAFESEARCH MODERATION: Check image safety before upload
                 do {
@@ -3528,6 +5274,164 @@ struct CreatePostView: View {
         return imageData
     }
     
+    // MARK: - Thread Publishing
+
+    /// Publishes each post in the thread sequentially, linking them via a shared threadId.
+    /// The head post (index 0) gets isThreadHead=true and threadPostCount=N.
+    private func publishThread(
+        posts: [String],
+        category: Post.PostCategory,
+        topicTag: String?,
+        allowComments: Bool
+    ) {
+        dlog("🧵 [Thread DEBUG] publishThread() called with \(posts.count) posts")
+        
+        let filledPosts = posts.map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        
+        dlog("🧵 [Thread DEBUG] Filtered to \(filledPosts.count) non-empty posts")
+        
+        guard filledPosts.count > 1 else {
+            dlog("🧵 [Thread DEBUG] Less than 2 posts, falling back to publishImmediately")
+            publishImmediately(
+                content: filledPosts.first ?? "",
+                category: category,
+                topicTag: topicTag,
+                allowComments: allowComments,
+                linkURL: linkURL.isEmpty ? linkController.activeURL?.absoluteString : linkURL
+            )
+            return
+        }
+
+        Task {
+            defer {
+                Task { @MainActor in
+                    if isPublishing { isPublishing = false; inFlightPostId = nil }
+                }
+            }
+
+            dlog("🧵 [Thread DEBUG] Task started, checking currentUser...")
+            
+            guard let currentUser = Auth.auth().currentUser else {
+                dlog("❌ [Thread DEBUG] No currentUser found!")
+                await MainActor.run {
+                    isPublishing = false
+                    inFlightPostId = nil
+                    errorMessage = "You must be signed in to post."
+                }
+                return
+            }
+            
+            dlog("🧵 [Thread DEBUG] currentUser found: \(currentUser.uid)")
+
+            let threadId = UUID().uuidString
+            let threadCount = filledPosts.count
+            var authorProfileImageURL: String? = nil
+
+            // Fetch author profile image once
+            authorProfileImageURL = UserProfileImageCache.shared.cachedProfileImageURL
+            
+            dlog("🧵 [Thread DEBUG] Profile image URL: \(authorProfileImageURL ?? "nil")")
+            dlog("🧵 [Thread] Publishing \(threadCount) posts with threadId: \(threadId)")
+
+            for (index, postContent) in filledPosts.enumerated() {
+                dlog("🧵 [Thread DEBUG] Preparing post \(index + 1)/\(threadCount)...")
+                
+                let postId = UUID()
+                let timestamp = Date().addingTimeInterval(Double(index) * 0.05)
+                
+                dlog("🧵 [Thread DEBUG] Post ID: \(postId.uuidString), timestamp: \(timestamp)")
+                
+                var postData: [String: Any] = [
+                    "authorId": currentUser.uid,
+                    "authorName": currentUser.displayName ?? "User",
+                    "authorInitials": String((currentUser.displayName ?? "U").prefix(1)),
+                    "content": postContent,
+                    "category": category.rawValue,
+                    "topicTag": topicTag as Any,
+                    "visibility": postVisibility.rawValue,
+                    "allowComments": allowComments,
+                    "createdAt": Timestamp(date: timestamp),
+                    "amenCount": 0,
+                    "commentCount": 0,
+                    "repostCount": 0,
+                    "lightbulbCount": 0,
+                    "threadId": threadId,
+                    "threadIndex": index,
+                    "isThreadHead": index == 0,
+                    "threadPostCount": index == 0 ? threadCount : 0,
+                    "moderationStatus": "pending",
+                    "clientSafetyVersion": 1
+                ]
+                
+                dlog("🧵 [Thread DEBUG] Base postData created")
+
+                if let audienceIntentFirestoreData {
+                    postData["audienceIntent"] = audienceIntentFirestoreData
+                    postData["audienceIntentRaw"] = initialAudienceIntent?.rawValue as Any
+                    if let spaceId = initialAudienceMetadata?.spaceId {
+                        postData["spaceId"] = spaceId
+                    }
+                }
+
+                if let url = authorProfileImageURL {
+                    postData["authorProfileImageURL"] = url
+                }
+                if hasSensitiveContent {
+                    postData["hasSensitiveContent"] = true
+                }
+                // First post in thread carries link preview if any
+                if index == 0, let lm = linkController.metadata {
+                    postData["linkPreviewTitle"] = lm.title as Any
+                    postData["linkPreviewDescription"] = lm.description as Any
+                    postData["linkPreviewImageURL"] = lm.imageURL?.absoluteString as Any
+                    postData["linkPreviewSiteName"] = lm.siteName as Any
+                    dlog("🧵 [Thread DEBUG] Added link preview to first post")
+                }
+                
+                dlog("🧵 [Thread DEBUG] Writing post \(index + 1) to Firestore...")
+
+                do {
+                    try await FirebaseManager.shared.firestore
+                        .collection("posts")
+                        .document(postId.uuidString)
+                        .setData(postData)
+                    dlog("✅ [Thread] Post \(index + 1)/\(threadCount) published successfully")
+                } catch {
+                    dlog("❌ [Thread] Failed to publish post \(index + 1): \(error)")
+                    dlog("❌ [Thread DEBUG] Error details: \(error.localizedDescription)")
+                    await MainActor.run {
+                        isPublishing = false
+                        inFlightPostId = nil
+                        errorMessage = "Thread post \(index + 1) failed to publish. Please try again."
+                    }
+                    return
+                }
+            }
+
+            dlog("🧵 [Thread DEBUG] All posts written successfully, cleaning up UI state...")
+
+            await MainActor.run {
+                dlog("🧵 [Thread DEBUG] On MainActor, resetting state...")
+                inFlightPostId = nil
+                isThreadMode = false
+                threadPosts = [""]
+                currentThreadIndex = 0
+                linkController.reset()
+                UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
+                shouldPersistDraftOnExit = false
+                withAnimation { showingSuccessNotice = true }
+                HapticManager.notification(type: .success)
+                // Record post for community guidelines eligibility tracking
+                CommunityGuidelinesEligibilityService.shared.recordPostPublished()
+                dlog("[Thread] Scheduling dismiss...")
+                scheduleDelayedAction(seconds: 0.15) { dismiss() }
+            }
+
+            dlog("[Thread] All \(threadCount) posts published successfully")
+        }
+    }
+
     private func schedulePost(
         content: String,
         category: Post.PostCategory,
@@ -3538,22 +5442,38 @@ struct CreatePostView: View {
     ) {
         Task {
             do {
+                guard let scheduledAuthorId = Auth.auth().currentUser?.uid else {
+                    throw NSError(domain: "CreatePostView", code: 401,
+                                  userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+                }
+
+                let scheduledPostId = UUID()
+
                 // Upload images first if any
+                await MainActor.run { mergeCameraImageIntoUploadBatchIfNeeded() }
                 var imageURLs: [String]? = nil
                 if !selectedImageData.isEmpty {
                     let uploadResult = try await uploadImages()
                     imageURLs = uploadResult.urls
+
+                    let mediaGateEvaluation = await evaluateServerMediaGateIfNeeded(
+                        postId: scheduledPostId,
+                        uploadPath: uploadResult.groupPath,
+                        userId: scheduledAuthorId
+                    )
+                    guard mediaGateEvaluation.decision.allowsClientPostAfterServerGate else {
+                        throw NSError(
+                            domain: "MediaGatePolicy",
+                            code: -10,
+                            userInfo: [NSLocalizedDescriptionKey: "This media needs safety review before it can be scheduled."]
+                        )
+                    }
                 }
                 
                 // MARK: - ✅ IMPLEMENTED: Scheduled Posts with Cloud Functions
                 dlog("📅 Scheduling post via Cloud Functions...")
                 
                 // Save to Firestore scheduled_posts collection
-                guard let scheduledAuthorId = Auth.auth().currentUser?.uid else {
-                    throw NSError(domain: "CreatePostView", code: 401,
-                                  userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
-                }
-                
                 let scheduledPostData: [String: Any] = [
                     "content": content,
                     "category": category.rawValue,
@@ -3564,12 +5484,17 @@ struct CreatePostView: View {
                     "scheduledFor": Timestamp(date: scheduledFor),
                     "createdAt": Timestamp(date: Date()),
                     "authorId": scheduledAuthorId,
-                    "status": "pending"
+                    "status": "pending",
+                    // moderationStatus ensures the scheduled post publisher CF
+                    // runs server-side NeMo Guard before publishing to posts/
+                    "moderationStatus": "pending",
+                    "clientSafetyVersion": 1
                 ]
                 
                 try await FirebaseManager.shared.firestore
                     .collection("scheduled_posts")
-                    .addDocument(data: scheduledPostData)
+                    .document(scheduledPostId.uuidString)
+                    .setData(scheduledPostData)
                 
                 await MainActor.run {
                     
@@ -3579,6 +5504,7 @@ struct CreatePostView: View {
                     
                     isPublishing = false
                     inFlightPostId = nil  // FIX: clear hash so user can post again after scheduling
+                    shouldPersistDraftOnExit = false
                     
                     // P0-2 FIX: Cancellable dismiss
                     scheduleDelayedAction(seconds: 0.5) {
@@ -3588,18 +5514,9 @@ struct CreatePostView: View {
                     dlog("✅ Post scheduled successfully for: \(scheduledFor)")
                 }
                 
-                // NOTE: Cloud Function will publish at scheduled time
-                // TODO: [BACKEND] Deploy executeScheduledPosts Cloud Function to publish pending scheduled posts
-                // Example Cloud Function (deploy separately):
-                // exports.publishScheduledPosts = functions.pubsub.schedule('every 1 minutes')
-                //   .onRun(async (context) => {
-                //     const now = admin.firestore.Timestamp.now();
-                //     const scheduled = await admin.firestore().collection('scheduled_posts')
-                //       .where('scheduledFor', '<=', now)
-                //       .where('status', '==', 'pending')
-                //       .get();
-                //     // Process and publish each post
-                //   });
+                // ✅ executeScheduledPosts Cloud Function deployed in scheduledPostsFunctions.js
+                // Runs every 5 minutes via Cloud Scheduler — queries scheduled_posts where
+                // status="pending" and scheduledFor <= now, creates real posts, marks as "published".
                 
             } catch {
                 await MainActor.run {
@@ -3799,13 +5716,13 @@ struct CreatePostView: View {
         var body: some View {
             HStack(spacing: 0) {
                 Text(date, style: .date)
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(.primary)
                 Text(" at ")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                 Text(date, style: .time)
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(.primary)
             }
         }
@@ -3822,12 +5739,126 @@ struct CreatePostView: View {
             Group {
                 if isEmpty {
                     Text(placeholder)
-                        .font(.custom("OpenSans-Regular", size: 17))
+                        .font(AMENFont.regular(17))
                         .foregroundStyle(.secondary)
                         .padding(.top, 8)
                         .allowsHitTesting(false)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Attachment Picker Glass Components
+
+/// Floating glass card shown when the user taps the `+` button in the
+/// inline attachment bar. Handles its own reduce-transparency branching so
+/// `.amenGlassEffect()` is always the last modifier in the non-reduced path.
+private struct AttachmentPickerFloatingCard: View {
+    let onCamera: () -> Void
+    let onPhotos: () -> Void
+    let onFiles: () -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        if reduceTransparency {
+            cardRows
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color(.systemBackground))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.8)
+                        )
+                )
+                .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
+        } else {
+            cardRows
+                // .amenGlassEffect() is last — iOS 26 glass surface for the card
+                .amenGlassEffect(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(color: .black.opacity(0.10), radius: 20, y: 8)
+        }
+    }
+
+    private var cardRows: some View {
+        VStack(spacing: 0) {
+            AttachmentPickerRow(icon: "camera.fill", label: "Camera",
+                                accessibilityHint: "Take a photo with camera",
+                                action: onCamera)
+            rowDivider
+            AttachmentPickerRow(icon: "photo.fill", label: "Photos",
+                                accessibilityHint: "Choose from photo library",
+                                action: onPhotos)
+            rowDivider
+            AttachmentPickerRow(icon: "doc.fill", label: "Files",
+                                accessibilityHint: "Attach a file",
+                                action: onFiles)
+        }
+        .frame(width: 200)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var rowDivider: some View {
+        Divider()
+            .opacity(0.3)
+            .padding(.leading, 72)
+    }
+}
+
+/// Single row inside `AttachmentPickerFloatingCard`.
+/// The icon circle uses `.amenGlassEffect(in: .circle)` as a separate glass element.
+private struct AttachmentPickerRow: View {
+    let icon: String
+    let label: String
+    let accessibilityHint: String
+    let action: () -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                AttachmentPickerIconCircle(icon: icon)
+
+                Text(label)
+                    .font(.systemScaled(15, weight: .medium))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityHint(accessibilityHint)
+    }
+}
+
+/// Icon circle for each picker row.
+/// Uses `.amenGlassEffect(in: .circle)` on iOS 26; falls back to a filled
+/// secondary background when reduce-transparency is on.
+private struct AttachmentPickerIconCircle: View {
+    let icon: String
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        if reduceTransparency {
+            Image(systemName: icon)
+                .font(.systemScaled(18, weight: .medium))
+                .foregroundStyle(.primary)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(Color(.secondarySystemBackground)))
+                .clipShape(Circle())
+        } else {
+            // .amenGlassEffect() is last — individual glass circle
+            Image(systemName: icon)
+                .font(.systemScaled(18, weight: .medium))
+                .foregroundStyle(.primary)
+                .frame(width: 44, height: 44)
+                .amenGlassEffect(in: Circle())
         }
     }
 }
@@ -3855,6 +5886,7 @@ struct CirclePostButton: View {
     @State private var pulseScale: CGFloat = 1
     @State private var pulseOpacity: Double = 0
     @State private var ringProgress: CGFloat = 0
+    @State private var pulseTimer: Timer?
     
     var body: some View {
         ZStack {
@@ -3870,8 +5902,9 @@ struct CirclePostButton: View {
                             pulseScale = 1.3
                             pulseOpacity = 0
                         }
-                        // Reset pulse for continuous animation
-                        Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+                        // Reset pulse for continuous animation — timer is stored and invalidated on disappear
+                        pulseTimer?.invalidate()
+                        pulseTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
                             pulseScale = 1
                             pulseOpacity = 0.3
                             withAnimation(.easeOut(duration: 2)) {
@@ -3879,6 +5912,10 @@ struct CirclePostButton: View {
                                 pulseOpacity = 0
                             }
                         }
+                    }
+                    .onDisappear {
+                        pulseTimer?.invalidate()
+                        pulseTimer = nil
                     }
             }
             
@@ -3916,7 +5953,7 @@ struct CirclePostButton: View {
             ZStack {
                 // Send icon (paperplane)
                 Image(systemName: "paperplane.fill")
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.systemScaled(17, weight: .medium))
                     .foregroundStyle(iconColor)
                     .opacity(iconOpacity)
                     .scaleEffect(iconScale)
@@ -3931,8 +5968,8 @@ struct CirclePostButton: View {
                 // Checkmark (sent state)
                 if showCheck {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.black)
+                        .font(.systemScaled(14, weight: .bold))
+                        .foregroundStyle(.primary)
                         .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -4019,7 +6056,7 @@ struct CirclePostButton: View {
         
         // Show spinner after 220ms
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.65))) {
                 showSpinner = true
             }
             
@@ -4045,7 +6082,7 @@ struct CirclePostButton: View {
         
         // Show checkmark after 150ms
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.55)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.55))) {
                 showCheck = true
             }
             
@@ -4067,6 +6104,135 @@ struct CirclePostButton: View {
         ringProgress = 0
         pulseScale = 1
         pulseOpacity = 0
+    }
+}
+
+// MARK: - Threads-Style Post Button
+
+struct ThreadsPostButton: View {
+    @Binding var postText: String
+    let onPost: () async -> Void
+    
+    @State private var buttonState: PostButtonState = .idle
+    @State private var isPressed = false
+    @State private var showSpinner = false
+    @State private var showCheck = false
+    
+    var body: some View {
+        Button {
+            guard buttonState == .ready else { return }
+            triggerPost()
+        } label: {
+            ZStack {
+                // "Post" text (idle/ready state)
+                if !showSpinner && !showCheck {
+                    Text("Post")
+                        .font(.systemScaled(16, weight: .semibold))
+                        .foregroundStyle(buttonState == .ready ? Color.primary : Color.secondary)
+                }
+                
+                // Spinner (posting state)
+                if showSpinner {
+                    ProgressView()
+                        .tint(.primary)
+                        .scaleEffect(0.8)
+                        .transition(.scale.combined(with: .opacity))
+                }
+                
+                // Checkmark (sent state)
+                if showCheck {
+                    Image(systemName: "checkmark")
+                        .font(.systemScaled(14, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .frame(minWidth: 44)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showSpinner)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showCheck)
+        }
+        .buttonStyle(.plain)
+        .disabled(buttonState != .ready)
+        .scaleEffect(isPressed ? 0.95 : 1.0)
+        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if !isPressed && buttonState == .ready {
+                        isPressed = true
+                        HapticManager.impact(style: .light)
+                    }
+                }
+                .onEnded { _ in
+                    isPressed = false
+                }
+        )
+        .onChange(of: postText) { oldValue, newValue in
+            updateButtonState(for: newValue)
+        }
+    }
+    
+    private func updateButtonState(for text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if !trimmed.isEmpty && buttonState == .idle {
+            withAnimation(.easeOut(duration: 0.25)) {
+                buttonState = .ready
+            }
+        } else if trimmed.isEmpty && buttonState == .ready {
+            withAnimation(.easeOut(duration: 0.25)) {
+                buttonState = .idle
+            }
+        }
+    }
+    
+    private func triggerPost() {
+        guard buttonState == .ready else { return }
+        
+        // Transition to posting state
+        buttonState = .posting
+        
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+            showSpinner = true
+        }
+        
+        // Execute post action
+        Task {
+            await onPost()
+            
+            // Transition to sent state after posting completes
+            await MainActor.run {
+                transitionToSent()
+            }
+        }
+    }
+    
+    private func transitionToSent() {
+        buttonState = .sent
+        
+        // Hide spinner
+        withAnimation(.easeOut(duration: 0.2)) {
+            showSpinner = false
+        }
+        
+        // Show checkmark after brief delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6))) {
+                showCheck = true
+            }
+            
+            // Reset to idle after 1s
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                withAnimation(.easeOut(duration: 0.3)) {
+                    resetToIdle()
+                }
+            }
+        }
+    }
+    
+    private func resetToIdle() {
+        buttonState = .idle
+        showCheck = false
     }
 }
 
@@ -4113,6 +6279,8 @@ struct GlassCategoryBar: View {
     let namespace: Namespace.ID
     let onSelect: (CreatePostView.PostCategory) -> Void
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         HStack(spacing: 0) {
             ForEach(categories, id: \.self) { category in
@@ -4122,7 +6290,7 @@ struct GlassCategoryBar: View {
                     namespace: namespace
                 ) {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
                         selected = category
                     }
                     onSelect(category)
@@ -4135,27 +6303,9 @@ struct GlassCategoryBar: View {
         .padding(.vertical, 5)
         .frame(height: 48)
         // Outer pill — glass container
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.55),
-                                    Color.white.opacity(0.10)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 4)
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 1)
-        )
-        .clipShape(Capsule())
+        .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 4)
+        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+        .amenGlassEffect(in: Capsule())
         // Static neon-red border around the outer capsule
         .overlay(
             Capsule()
@@ -4176,6 +6326,7 @@ private struct GlassCategorySegment: View {
     let action: () -> Void
 
     @State private var isPressed = false
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     // Label always visible so users can read every category at a glance.
     private var showLabel: Bool { true }
@@ -4186,35 +6337,23 @@ private struct GlassCategorySegment: View {
                 // Sliding selection lens — matched geometry so it travels between segments
                 if isSelected {
                     Capsule()
-                        .fill(.regularMaterial)
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.80),
-                                            Color.white.opacity(0.20)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
+                        .fill(Color.clear)
                         .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 2)
+                        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+                        .amenGlassEffect(in: Capsule())
                         .matchedGeometryEffect(id: "selectionLens", in: namespace)
                 }
 
                 // Icon + optional label
                 HStack(spacing: 5) {
                     Image(systemName: category.icon)
-                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                        .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                         .foregroundStyle(isSelected ? .primary : .secondary)
                         .symbolRenderingMode(.hierarchical)
 
                     if showLabel {
                         Text(segmentLabel)
-                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                            .font(.systemScaled(11, weight: isSelected ? .semibold : .regular))
                             .foregroundStyle(isSelected ? .primary : .secondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
@@ -4237,10 +6376,10 @@ private struct GlassCategorySegment: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
                     guard !isPressed else { return }
-                    withAnimation(.spring(response: 0.18, dampingFraction: 0.7)) { isPressed = true }
+                    withAnimation(Motion.adaptive(.spring(response: 0.18, dampingFraction: 0.7))) { isPressed = true }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { isPressed = false }
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) { isPressed = false }
                 }
         )
         .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
@@ -4270,13 +6409,13 @@ struct EnhancedToolbarButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                 isPressed = true
             }
             
             // Button animation reset (non-critical, safe to use DispatchQueue)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isPressed = false
                 }
             }
@@ -4284,11 +6423,11 @@ struct EnhancedToolbarButton: View {
         }) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(isActive ? activeColor : Color.primary.opacity(0.6))
                 
                 Text(label)
-                    .font(.custom("OpenSans-SemiBold", size: 10))
+                    .font(AMENFont.semiBold(10))
                     .foregroundStyle(isActive ? activeColor : .secondary)
             }
             .frame(width: 54, height: 48)
@@ -4299,17 +6438,118 @@ struct EnhancedToolbarButton: View {
     }
 }
 
-// Topic Tag Sheet for #OPENTABLE and Prayer Types
+// MARK: - Tag Flow Layout
+struct TagFlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    struct CacheData {}
+
+    func makeCache(subviews: Subviews) -> CacheData { CacheData() }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout CacheData) -> CGSize {
+        let rows = buildRows(width: proposal.width ?? 0, subviews: subviews)
+        let height = rows.map { $0.map(\.1.height).max() ?? 0 }.reduce(into: CGFloat(0)) { acc, h in
+            acc += h + spacing
+        }
+        return CGSize(width: proposal.width ?? 0, height: max(0, height - spacing))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout CacheData) {
+        let rows = buildRows(width: bounds.width, subviews: subviews)
+        var y = bounds.minY
+        var idx = 0
+        for row in rows {
+            let rowHeight = row.map { $0.1.height }.max() ?? 0
+            var x = bounds.minX
+            for (_, size) in row {
+                subviews[idx].place(at: CGPoint(x: x, y: y), proposal: .unspecified)
+                x += size.width + spacing
+                idx += 1
+            }
+            y += rowHeight + spacing
+        }
+    }
+
+    private func buildRows(width: CGFloat, subviews: Subviews) -> [[(LayoutSubview, CGSize)]] {
+        var rows: [[(LayoutSubview, CGSize)]] = [[]]
+        var rowWidth: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if rowWidth + size.width > width && !rows[rows.count - 1].isEmpty {
+                rows.append([])
+                rowWidth = 0
+            }
+            rows[rows.count - 1].append((subview, size))
+            rowWidth += size.width + spacing
+        }
+        return rows
+    }
+}
+
+// MARK: - Topic Tag Pill
+struct TopicTagPill: View {
+    let title: String
+    let icon: String
+    let color: Color
+    let isSelected: Bool
+    let action: () -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(isSelected ? Color.white : color)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(.systemScaled(13, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.white : Color.primary)
+                    .lineLimit(1)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Color.white)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(isSelected ? color : (reduceTransparency ? Color(.systemGray6) : Color.white.opacity(0.80)))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .strokeBorder(
+                                isSelected ? color.opacity(0.25) : Color.black.opacity(contrast == .increased ? 0.20 : 0.08),
+                                lineWidth: contrast == .increased ? 1 : 0.75
+                            )
+                    )
+            )
+            .shadow(color: isSelected ? color.opacity(0.22) : .black.opacity(0.04), radius: isSelected ? 8 : 3, y: 2)
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(response: 0.3, dampingFraction: 0.72), value: isSelected)
+        .accessibilityLabel(Text(title))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityHint(Text(isSelected ? "Selected. Tap to deselect." : "Tap to select this tag."))
+    }
+}
+
+// MARK: - Topic Tag Sheet (Liquid Glass Pill Design)
 struct TopicTagSheet: View {
     @Binding var selectedTag: String
     @Binding var isPresented: Bool
     @Binding var selectedCategory: CreatePostView.PostCategory
     @State private var searchText = ""
-    
+    @FocusState private var searchFocused: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+
     // OpenTable topic tags
     var openTableTags: [(String, String, Color)] {
         var tags: [(String, String, Color)] = []
-        // Technical topics
         tags.append(("AI & Technology", "cpu", .blue))
         tags.append(("Machine Learning", "brain", .purple))
         tags.append(("Ethics & Morality", "scale.3d", .indigo))
@@ -4326,8 +6566,6 @@ struct TopicTagSheet: View {
         tags.append(("Artificial Intelligence", "sparkles", .yellow))
         tags.append(("Quantum Computing", "atom", .cyan))
         tags.append(("Biotechnology", "cross.vial.fill", .green))
-        
-        // Business & Career topics
         tags.append(("Entrepreneurship", "briefcase.circle.fill", .blue))
         tags.append(("Business Ethics", "building.2.fill", .green))
         tags.append(("Workplace Faith", "desktopcomputer", .purple))
@@ -4335,8 +6573,6 @@ struct TopicTagSheet: View {
         tags.append(("Leadership & Management", "person.crop.circle.badge.checkmark", .indigo))
         tags.append(("Marketing & Media", "megaphone.fill", .pink))
         tags.append(("Startups & Innovation", "rocket.fill", .orange))
-        
-        // Faith & Life topics
         tags.append(("Faith & Culture", "globe.americas.fill", .blue))
         tags.append(("Relationships", "heart.circle.fill", .pink))
         tags.append(("Family Life", "house.fill", .orange))
@@ -4362,15 +6598,13 @@ struct TopicTagSheet: View {
         tags.append(("Parenting", "figure.2.and.child.holdinghands", .orange))
         return tags
     }
-    
-    // Prayer types
-    let prayerTypes = [
+
+    let prayerTypes: [(String, String, Color)] = [
         ("Prayer Request", "hands.sparkles.fill", Color(red: 0.4, green: 0.7, blue: 1.0)),
         ("Praise Report", "hands.clap.fill", Color(red: 1.0, green: 0.7, blue: 0.4)),
         ("Answered Prayer", "checkmark.seal.fill", Color(red: 0.4, green: 0.85, blue: 0.7))
     ]
 
-    // Testimony category tags — must match TestimonyCategory.title values for filtering
     let testimonyTags: [(String, String, Color)] = [
         ("Healing", "heart.fill", .pink),
         ("Career", "briefcase.fill", .green),
@@ -4379,7 +6613,7 @@ struct TopicTagSheet: View {
         ("Spiritual Growth", "sparkles", .purple),
         ("Family", "house.fill", .blue)
     ]
-    
+
     var displayTags: [(String, String, Color)] {
         switch selectedCategory {
         case .prayer: return prayerTypes
@@ -4387,187 +6621,180 @@ struct TopicTagSheet: View {
         default: return openTableTags
         }
     }
-    
+
     var filteredTags: [(String, String, Color)] {
-        if searchText.isEmpty {
-            return displayTags
-        }
-        return displayTags.filter { tag in
-            tag.0.localizedCaseInsensitiveContains(searchText)
-        }
+        guard !searchText.isEmpty else { return displayTags }
+        return displayTags.filter { $0.0.localizedCaseInsensitiveContains(searchText) }
     }
-    
+
+    private var trimmedSearch: String {
+        var t = searchText.trimmingCharacters(in: .whitespaces)
+        if t.hasPrefix("#") { t = String(t.dropFirst()) }
+        return t
+    }
+
+    private var canCreateCustomTag: Bool {
+        guard selectedCategory == .openTable else { return false }
+        let t = trimmedSearch
+        guard t.count >= 2, t.count <= 40 else { return false }
+        return !displayTags.contains(where: { $0.0.localizedCaseInsensitiveCompare(t) == .orderedSame })
+    }
+
+    private var customTagIsSafe: Bool {
+        let blocked = ["hate", "porn", "kill", "suicide", "drug", "sex", "nsfw"]
+        let lower = trimmedSearch.lowercased()
+        return !blocked.contains(where: { lower.contains($0) })
+    }
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(selectedCategory == .prayer ? "Select Prayer Type" : selectedCategory == .testimonies ? "Testimony Category" : "Select a Topic Tag")
-                            .font(.custom("OpenSans-Bold", size: 20))
-                        
-                        Text(selectedCategory == .prayer ?
-                             "Let others know what kind of prayer this is" :
-                             selectedCategory == .testimonies ?
-                             "Choose a category so others can find your testimony" :
-                             "Help others discover your post in #OPENTABLE")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    
-                    // Search box - Liquid Glass design
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.black.opacity(0.4))
-                        
-                        TextField("Search topics...", text: $searchText)
-                            .font(.custom("OpenSans-Regular", size: 15))
-                            .autocorrectionDisabled()
-                        
-                        if !searchText.isEmpty {
-                            Button {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                                    searchText = ""
-                                }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(.black.opacity(0.3))
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(.black.opacity(0.1), lineWidth: 0.5)
-                            )
+            VStack(spacing: 0) {
+                // Search / create field
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    TextField(
+                        selectedCategory == .openTable ? "Search or create a tag…" : "Search topics…",
+                        text: $searchText
                     )
-                    .padding(.horizontal)
-                    
-                    if filteredTags.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 40))
-                                .foregroundStyle(.secondary.opacity(0.5))
-                            Text("No topics found")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(.systemScaled(15))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.words)
+                    .focused($searchFocused)
+                    if !searchText.isEmpty {
+                        Button {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { searchText = "" }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.secondary)
-                            Text("Try a different search term")
-                                .font(.custom("OpenSans-Regular", size: 14))
-                                .foregroundStyle(.secondary.opacity(0.7))
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 60)
                     }
-                    
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach(filteredTags, id: \.0) { tag in
-                            TopicTagCard(
-                                title: tag.0,
-                                icon: tag.1,
-                                color: tag.2,
-                                isSelected: selectedTag == tag.0
-                            ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    selectedTag = tag.0
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(reduceTransparency ? AnyShapeStyle(Color(.systemGray6)) : AnyShapeStyle(Color.clear))
+                .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // Create custom tag option (openTable only)
+                        if canCreateCustomTag {
+                            if customTagIsSafe {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Create new tag")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 16)
+                                    Button {
+                                        selectTag(trimmedSearch)
+                                    } label: {
+                                        HStack(spacing: 7) {
+                                            Image(systemName: "plus.circle.fill")
+                                                .font(.systemScaled(13, weight: .semibold))
+                                            Text("#\(trimmedSearch)")
+                                                .font(.systemScaled(14, weight: .semibold))
+                                        }
+                                        .foregroundStyle(.primary)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 9)
+                                        .background(
+                                            Capsule(style: .continuous)
+                                                .fill(reduceTransparency ? Color(.systemGray5) : Color.white.opacity(0.82))
+                                                .overlay(
+                                                    Capsule(style: .continuous)
+                                                        .strokeBorder(Color.primary.opacity(contrast == .increased ? 0.28 : 0.12), lineWidth: contrast == .increased ? 1 : 0.75)
+                                                )
+                                        )
+                                        .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.horizontal, 16)
                                 }
-                                // Animation reset (non-critical)
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    isPresented = false
+                            } else {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "exclamationmark.shield.fill")
+                                        .foregroundStyle(.orange)
+                                        .font(.subheadline)
+                                    Text("That tag doesn't meet our community guidelines.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                 }
+                                .padding(.horizontal, 16)
                             }
                         }
+
+                        // Preset tags as pills
+                        if !filteredTags.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                if selectedCategory == .openTable {
+                                    Text(searchText.isEmpty ? "All topics" : "Matching topics")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 16)
+                                }
+                                TagFlowLayout(spacing: 8) {
+                                    ForEach(filteredTags, id: \.0) { tag in
+                                        TopicTagPill(
+                                            title: tag.0,
+                                            icon: tag.1,
+                                            color: tag.2,
+                                            isSelected: selectedTag == tag.0,
+                                            action: { selectTag(tag.0) }
+                                        )
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                            }
+                        } else if !searchText.isEmpty && !canCreateCustomTag {
+                            VStack(spacing: 8) {
+                                Text("No matching topics")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                if selectedCategory == .openTable {
+                                    Text("Keep typing to create a new tag.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary.opacity(0.8))
+                                        .multilineTextAlignment(.center)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                            .padding(.horizontal, 32)
+                        }
                     }
-                    .padding(.horizontal)
+                    .padding(.bottom, 32)
                 }
-                .padding(.vertical)
             }
             .navigationTitle(selectedCategory == .prayer ? "Prayer Type" : "Topic Tag")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        isPresented = false
+                    Button("Cancel") { isPresented = false }
+                }
+                if !selectedTag.isEmpty {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { isPresented = false }
+                            .fontWeight(.semibold)
                     }
                 }
             }
         }
-        .presentationDetents([.large])
+        .presentationDetents([.large, .medium])
+        .presentationDragIndicator(.visible)
     }
-}
 
-struct TopicTagCard: View {
-    let title: String
-    let icon: String
-    let color: Color
-    let isSelected: Bool
-    let action: () -> Void
-    
-    @State private var isPressed = false
-    
-    var body: some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                isPressed = true
-            }
-            
-            // Button animation reset (non-critical)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    isPressed = false
-                }
-            }
-            
-            action()
-        }) {
-            VStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [color.opacity(0.2), color.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 56, height: 56)
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(color)
-                }
-                .scaleEffect(isPressed ? 0.9 : 1.0)
-                
-                Text(title)
-                    .font(.custom("OpenSans-Bold", size: 13))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemBackground))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(isSelected ? color : Color.clear, lineWidth: 2)
-                    )
-                    .shadow(color: isSelected ? color.opacity(0.3) : .black.opacity(0.05), radius: isSelected ? 12 : 8, y: 4)
-            )
-            .scaleEffect(isPressed ? 0.95 : 1.0)
+    private func selectTag(_ tag: String) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+            selectedTag = tag
         }
-        .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            isPresented = false
+        }
     }
 }
 
@@ -4618,14 +6845,14 @@ struct SchedulePostSheet: View {
                                 .fill(Color.black.opacity(0.06))
                                 .frame(width: 34, height: 34)
                             Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(ink)
                         }
                     }
                     .buttonStyle(.plain)
                     Spacer()
                     Text("Schedule Post")
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                         .foregroundStyle(ink)
                     Spacer()
                     // balance
@@ -4645,18 +6872,18 @@ struct SchedulePostSheet: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Spacer()
                         Text(dayOfWeek)
-                            .font(.custom("OpenSans-Bold", size: 11))
+                            .font(AMENFont.bold(11))
                             .foregroundStyle(Color.white.opacity(0.55))
                             .tracking(1.5)
 
                         Text(dayNumber)
-                            .font(.system(size: 64, weight: .black, design: .default))
+                            .font(.systemScaled(64, weight: .black, design: .default))
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
 
                         Text(monthYear)
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .font(AMENFont.semiBold(11))
                             .foregroundStyle(Color.white.opacity(0.55))
                             .tracking(1.0)
 
@@ -4665,10 +6892,10 @@ struct SchedulePostSheet: View {
                         // Time badge — accent block
                         HStack(spacing: 5) {
                             Image(systemName: "clock.fill")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .foregroundStyle(accentDark)
                             Text(timeString)
-                                .font(.custom("OpenSans-Bold", size: 13))
+                                .font(AMENFont.bold(13))
                                 .foregroundStyle(accentDark)
                         }
                         .padding(.horizontal, 10)
@@ -4680,10 +6907,10 @@ struct SchedulePostSheet: View {
 
                         HStack(spacing: 4) {
                             Image(systemName: "globe")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                                 .foregroundStyle(Color.white.opacity(0.45))
                             Text(timezoneString)
-                                .font(.custom("OpenSans-Regular", size: 10))
+                                .font(AMENFont.regular(10))
                                 .foregroundStyle(Color.white.opacity(0.45))
                         }
                         .padding(.top, 2)
@@ -4697,7 +6924,7 @@ struct SchedulePostSheet: View {
                     // RIGHT — light panel, native date picker
                     VStack(alignment: .leading, spacing: 0) {
                         Text("PICK DATE & TIME")
-                            .font(.custom("OpenSans-Bold", size: 10))
+                            .font(AMENFont.bold(10))
                             .foregroundStyle(subtext)
                             .tracking(1.2)
                             .padding(.horizontal, 14)
@@ -4730,15 +6957,15 @@ struct SchedulePostSheet: View {
                             .fill(accent.opacity(0.15))
                             .frame(width: 32, height: 32)
                         Image(systemName: "clock.badge.checkmark.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color(red: 0.55, green: 0.44, blue: 0.02))
                     }
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Auto-publishes at selected time")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(ink)
                         Text("Minimum 5 minutes from now · \(timezoneString)")
-                            .font(.custom("OpenSans-Regular", size: 11))
+                            .font(AMENFont.regular(11))
                             .foregroundStyle(subtext)
                     }
                     Spacer()
@@ -4760,18 +6987,18 @@ struct SchedulePostSheet: View {
                                 .fill(ink.opacity(0.06))
                                 .frame(width: 32, height: 32)
                             Image(systemName: "calendar.badge.clock")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(ink)
                         }
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Currently scheduled")
-                                .font(.custom("OpenSans-SemiBold", size: 12))
+                                .font(AMENFont.semiBold(12))
                                 .foregroundStyle(subtext)
                             if let sd = scheduledDate {
                                 Text("\(sd, style: .date)  \(sd, style: .time)")
                             }
                         }
-                        .font(.custom("OpenSans-Bold", size: 13))
+                        .font(AMENFont.bold(13))
                         .foregroundStyle(ink)
                         Spacer()
                     }
@@ -4800,9 +7027,9 @@ struct SchedulePostSheet: View {
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "calendar.badge.checkmark")
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.systemScaled(15, weight: .bold))
                             Text("Schedule Post")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                         }
                         .foregroundStyle(accentDark)
                         .frame(maxWidth: .infinity)
@@ -4823,7 +7050,7 @@ struct SchedulePostSheet: View {
                             isPresented = false
                         } label: {
                             Text("Remove Schedule")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                                 .foregroundStyle(ink.opacity(0.70))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -4862,13 +7089,13 @@ struct MinimalCategoryButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 action()
             }
         }) {
             VStack(spacing: 6) {
                 Text(category.displayName)
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.4))
                 
                 if isSelected {
@@ -4898,19 +7125,19 @@ struct GlassToolbarButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                 isPressed = true
             }
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isPressed = false
                 }
             }
             action()
         }) {
             Image(systemName: icon)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.systemScaled(22, weight: .semibold))
                 .foregroundStyle(Color.primary)
                 .frame(width: 48, height: 48)
                 .scaleEffect(isPressed ? 0.9 : 1.0)
@@ -4988,7 +7215,7 @@ struct EnhancedCategoryChip: View {
         Button(action: action) {
             VStack(spacing: 8) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(iconGradient)
                     .frame(width: 46, height: 46)
                     .background(
@@ -4997,7 +7224,7 @@ struct EnhancedCategoryChip: View {
                     )
                 
                 Text(category.displayName)
-                    .font(.custom("OpenSans-Bold", size: 13))
+                    .font(AMENFont.bold(13))
                     .foregroundStyle(textGradient)
             }
             .padding(.horizontal, 16)
@@ -5020,330 +7247,16 @@ struct EnhancedCategoryChip: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
                         isPressed = true
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
                         isPressed = false
                     }
                 }
         )
-    }
-}
-
-struct ImagePreviewGrid: View {
-    @Binding var images: [Data]
-    var onAddMore: (() -> Void)? = nil
-    @State private var draggingItem: Data?
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(images, id: \.self) { imageData in
-                    DraggableImageCell(
-                        imageData: imageData,
-                        images: $images,
-                        draggingItem: $draggingItem
-                    )
-                }
-
-                // "+" add more cell (up to 4 images)
-                if images.count < 4, let onAddMore {
-                    AddImageButton(onAddMore: onAddMore)
-                }
-            }
-        }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: images.count)
-    }
-}
-
-// MARK: - Draggable Image Cell
-
-private struct DraggableImageCell: View {
-    let imageData: Data
-    @Binding var images: [Data]
-    @Binding var draggingItem: Data?
-    
-    var body: some View {
-        if let uiImage = UIImage(data: imageData) {
-            ZStack(alignment: .topTrailing) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 120, height: 120)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .opacity(draggingItem == imageData ? 0.5 : 1.0)
-
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        images.removeAll { $0 == imageData }
-                    }
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(Color.black.opacity(0.7))
-                            .frame(width: 28, height: 28)
-
-                        Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
-                }
-                .padding(8)
-            }
-            .transition(.scale.combined(with: .opacity))
-            .onDrag {
-                draggingItem = imageData
-                let provider = NSItemProvider()
-                provider.suggestedName = UUID().uuidString
-                return provider
-            }
-            .onDrop(of: [.data], delegate: ImageDropDelegate(
-                item: imageData,
-                items: $images,
-                draggingItem: $draggingItem
-            ))
-        }
-    }
-}
-
-private struct AddImageButton: View {
-    let onAddMore: () -> Void
-    
-    var body: some View {
-        Button(action: onAddMore) {
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.primary.opacity(0.15), style: StrokeStyle(lineWidth: 1.5, dash: [6]))
-                .frame(width: 120, height: 120)
-                .overlay(
-                    Image(systemName: "plus")
-                        .font(.system(size: 24, weight: .light))
-                        .foregroundStyle(.secondary)
-                )
-        }
-        .buttonStyle(.plain)
-        .transition(.scale.combined(with: .opacity))
-    }
-}
-
-// Drag and drop delegate for image reordering
-struct ImageDropDelegate: DropDelegate {
-    let item: Data
-    @Binding var items: [Data]
-    @Binding var draggingItem: Data?
-    
-    func performDrop(info: DropInfo) -> Bool {
-        draggingItem = nil
-        return true
-    }
-    
-    func dropEntered(info: DropInfo) {
-        guard let draggingItem = draggingItem,
-              draggingItem != item,
-              let fromIndex = items.firstIndex(of: draggingItem),
-              let toIndex = items.firstIndex(of: item) else { return }
-        
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-            items.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
-        }
-    }
-}
-
-struct LinkInputSheet: View {
-    @Binding var url: String
-    @Binding var isPresented: Bool
-    @State private var inputURL = ""
-    var onLinkAdded: ((String) -> Void)?
-    
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                headerView
-                
-                urlInputField
-                
-                Spacer()
-                
-                addLinkButton
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        isPresented = false
-                    }
-                }
-            }
-        }
-        .presentationDetents([.height(300)])
-    }
-    
-    private var headerView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Add Link")
-                .font(.custom("OpenSans-Bold", size: 18))
-                .foregroundStyle(.primary)
-            
-            Text("Paste or enter a URL to add to your post")
-                .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
-    }
-    
-    private var urlInputField: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextField("https://example.com", text: $inputURL)
-                .font(.custom("OpenSans-Regular", size: 16))
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemGray6))
-                )
-                .autocapitalization(.none)
-                .keyboardType(.URL)
-                .textContentType(.URL)
-            
-            if !inputURL.isEmpty && !isValidURL(inputURL) {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.orange)
-                    
-                    Text("Please enter a valid URL")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.orange)
-                }
-            }
-        }
-        .padding(.horizontal, 20)
-    }
-    
-    private var addLinkButton: some View {
-        Button {
-            url = inputURL
-            onLinkAdded?(inputURL)
-            isPresented = false
-        } label: {
-            Text("Add Link")
-                .font(.custom("OpenSans-Bold", size: 16))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(isValidURL(inputURL) ? Color.black : Color.black.opacity(0.3))
-                        .shadow(color: isValidURL(inputURL) ? Color.black.opacity(0.2) : Color.clear, radius: 8, y: 2)
-                )
-        }
-        .disabled(!isValidURL(inputURL))
-        .padding(.horizontal, 20)
-        .padding(.bottom, 20)
-    }
-    
-    private func isValidURL(_ string: String) -> Bool {
-        guard !string.isEmpty,
-              let url = URL(string: string),
-              let scheme = url.scheme,
-              ["http", "https"].contains(scheme.lowercased()),
-              url.host != nil else {
-            return false
-        }
-        return true
-    }
-}
-
-struct LinkPreviewCardView: View {
-    let url: String
-    let metadata: LinkPreviewMetadata?
-    let isLoading: Bool
-    let onRemove: () -> Void
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Thumbnail or icon
-            if isLoading {
-                ProgressView()
-                    .frame(width: 60, height: 60)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(.systemGray6))
-                    )
-            } else if let imageURL = metadata?.imageURL {
-                CachedAsyncImage(url: imageURL) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 60, height: 60)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                } placeholder: {
-                    linkIconPlaceholder
-                }
-            } else {
-                linkIconPlaceholder
-            }
-            
-            // URL text and metadata
-            VStack(alignment: .leading, spacing: 4) {
-                if let title = metadata?.title {
-                    Text(title)
-                        .font(.custom("OpenSans-Bold", size: 14))
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                } else {
-                    Text("Link")
-                        .font(.custom("OpenSans-Bold", size: 14))
-                        .foregroundStyle(.primary)
-                }
-                
-                if let description = metadata?.description {
-                    Text(description)
-                        .font(.custom("OpenSans-Regular", size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                
-                Text(url)
-                    .font(.custom("OpenSans-Regular", size: 10))
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-            }
-            
-            Spacer()
-            
-            // Remove button
-            Button(action: {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    onRemove()
-                }
-            }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
-        )
-        .transition(.scale.combined(with: .opacity))
-    }
-    
-    private var linkIconPlaceholder: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.blue.opacity(0.1))
-                .frame(width: 60, height: 60)
-            
-            Image(systemName: "link")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(Color.blue)
-        }
     }
 }
 
@@ -5379,7 +7292,7 @@ struct ConsolidatedToolbar: View {
                 icon: "number",
                 isActive: showingSuggestions
             ) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     showingSuggestions.toggle()
                 }
             }
@@ -5435,10 +7348,12 @@ struct ConsolidatedToolbar: View {
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color.primary.opacity(0.6))
                     .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
@@ -5475,20 +7390,20 @@ struct CompactToolbarButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.6))) {
                 isPressed = true
             }
             
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.6))) {
                     isPressed = false
                 }
             }
             action()
         }) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(0.5))
                 .frame(width: 36, height: 36)
                 .scaleEffect(isPressed ? 0.9 : 1.0)
@@ -5514,13 +7429,13 @@ struct GlassmorphicButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                 isPressed = true
             }
             
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isPressed = false
                 }
             }
@@ -5550,7 +7465,7 @@ struct GlassmorphicButton: View {
                 
                 // Icon
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
             }
             .scaleEffect(isPressed ? 0.92 : 1.0)
@@ -5571,20 +7486,20 @@ struct GlassToolbarIcon: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.65)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.65))) {
                 isPressed = true
             }
             
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.65)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.65))) {
                     isPressed = false
                 }
             }
             action()
         }) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(0.4))
                 .frame(width: 36, height: 36)
                 .scaleEffect(isPressed ? 0.85 : 1.0)
@@ -5593,300 +7508,67 @@ struct GlassToolbarIcon: View {
     }
 }
 
-// MARK: - Camera Image Picker
+// MARK: - ComposerSchedulePill
+// Liquid Glass schedule pill — shows "Schedule" when idle, "Scheduled · Day Time ×" when set.
 
-/// Wraps UIImagePickerController to give instant camera access from SwiftUI.
-struct CameraImagePicker: UIViewControllerRepresentable {
-    @Binding var image: UIImage?
-    @Environment(\.dismiss) private var dismiss
+struct ComposerSchedulePill: View {
+    var scheduledDate: Date?
+    var onTap: () -> Void
+    var onClear: () -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    @State private var appeared = false
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
-        picker.allowsEditing = false
-        picker.delegate = context.coordinator
-        return picker
+    private var isScheduled: Bool { scheduledDate != nil }
+
+    private var formattedDate: String {
+        guard let date = scheduledDate else { return "" }
+        let df = DateFormatter()
+        df.dateFormat = "EEE h:mm a"
+        return df.string(from: date)
     }
-
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-
-    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: CameraImagePicker
-        init(_ parent: CameraImagePicker) { self.parent = parent }
-
-        func imagePickerController(_ picker: UIImagePickerController,
-                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            if let img = info[.originalImage] as? UIImage {
-                parent.image = img
-            }
-            parent.dismiss()
-        }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.dismiss()
-        }
-    }
-}
-
-// MARK: - Camera Attachment Preview
-
-/// Shows the captured photo inside the composer with a remove button.
-struct CameraAttachmentPreview: View {
-    let image: UIImage
-    let onRemove: () -> Void
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity)
-                .frame(height: 220)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        HStack(spacing: 0) {
+            Button(action: onTap) {
+                HStack(spacing: 5) {
+                    Image(systemName: isScheduled ? "calendar.badge.clock" : "calendar")
+                        .font(.systemScaled(12, weight: .medium))
+                        .foregroundStyle(isScheduled ? Color.black : Color(white: 0.45))
 
-            // Remove button
-            Button(action: onRemove) {
-                ZStack {
-                    Circle()
-                        .fill(Color(.systemBackground).opacity(0.92))
-                        .frame(width: 30, height: 30)
+                    Text(isScheduled ? "Scheduled · \(formattedDate)" : "Schedule")
+                        .font(AMENFont.semiBold(12))
+                        .foregroundStyle(isScheduled ? Color.black : Color(white: 0.45))
+                        .lineLimit(1)
+                }
+                .padding(.leading, isScheduled ? 10 : 8)
+                .padding(.trailing, isScheduled ? 6 : 8)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+
+            // X clear button — only when scheduled
+            if isScheduled {
+                Button(action: onClear) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.primary)
+                        .font(.systemScaled(9, weight: .bold))
+                        .foregroundStyle(Color(white: 0.50))
+                        .padding(.trailing, 8)
+                        .padding(.vertical, 6)
                 }
-            }
-            .padding(8)
-            .accessibilityLabel("Remove photo")
-        }
-    }
-}
-
-// MARK: - Poll Composer Card
-
-/// Inline poll creation card inserted beneath the text editor.
-struct PollComposerCard: View {
-    @Binding var options: [String]
-    @Binding var duration: CreatePostView.PollDuration
-    let onRemove: () -> Void
-
-    // Focus tracking for individual option fields
-    @FocusState private var focusedIndex: Int?
-
-    private let maxOptions = 4
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack {
-                Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Text("Poll")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button(action: onRemove) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityLabel("Remove poll")
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 10)
-
-            Divider()
-                .padding(.horizontal, 14)
-
-            // Poll options
-            VStack(spacing: 0) {
-                ForEach(options.indices, id: \.self) { index in
-                    HStack(spacing: 10) {
-                        // Option label circle
-                        ZStack {
-                            Circle()
-                                .strokeBorder(Color(.systemGray4), lineWidth: 1.5)
-                                .frame(width: 22, height: 22)
-                            Text(optionLabel(index))
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        TextField(index < 2 ? "Option \(index + 1)" : "Add option \(index + 1)",
-                                  text: $options[index])
-                            .font(.custom("OpenSans-Regular", size: 15))
-                            .focused($focusedIndex, equals: index)
-                            .submitLabel(index < options.count - 1 ? .next : .done)
-                            .onSubmit {
-                                if index < options.count - 1 {
-                                    focusedIndex = index + 1
-                                } else {
-                                    focusedIndex = nil
-                                }
-                            }
-
-                        // Remove button (only for options beyond the first 2)
-                        if index >= 2 {
-                            removeOptionButton(at: index)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-
-                    if index < options.count - 1 {
-                        Divider().padding(.leading, 50)
-                    }
-                }
-            }
-
-            // Add option button
-            if options.count < maxOptions {
-                Divider().padding(.horizontal, 14)
-
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        options.append("")
-                        focusedIndex = options.count - 1
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus.circle")
-                            .font(.system(size: 15, weight: .medium))
-                        Text("Add option")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                    }
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                }
-                .accessibilityLabel("Add poll option")
-            }
-
-            Divider().padding(.horizontal, 14)
-
-            // Duration picker
-            HStack {
-                Image(systemName: "clock")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                Text("Duration")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Picker("Duration", selection: $duration) {
-                    ForEach(CreatePostView.PollDuration.allCases) { d in
-                        Text(d.rawValue).tag(d)
-                    }
-                }
-                .pickerStyle(.menu)
-                .font(.custom("OpenSans-Regular", size: 14))
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color(.systemGray5), lineWidth: 1)
-        )
-    }
-
-    private func optionLabel(_ index: Int) -> String {
-        let labels = ["A", "B", "C", "D"]
-        return index < labels.count ? labels[index] : "\(index + 1)"
-    }
-
-    @ViewBuilder
-    private func removeOptionButton(at index: Int) -> some View {
-        let accessLabel = "Remove option \(index + 1)"
-        Button {
-            var copy = options
-            copy.remove(at: index)
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                options = copy
-            }
-        } label: {
-            Image(systemName: "minus.circle.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(Color(.systemGray3))
-        }
-        .accessibilityLabel(accessLabel)
-    }
-}
-
-// MARK: - Compact Glass Button (NEW - Smaller, Production-Ready)
-
-struct CompactGlassButton: View {
-    let icon: String
-    let isActive: Bool
-    var count: Int = 0
-    let action: () -> Void
-    
-    @State private var isPressed = false
-    
-    private var isClose: Bool { icon == "xmark" }
-
-    var body: some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                isPressed = true
-            }
-            action()
-            
-            // Button animation reset (non-critical)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                    isPressed = false
-                }
-            }
-        }) {
-            ZStack(alignment: .topTrailing) {
-                if isClose {
-                    // Close button: same gray-circle style as the Post button
-                    ZStack {
-                        Circle()
-                            .fill(Color(red: 0.91, green: 0.91, blue: 0.93))
-                            .frame(width: 38, height: 38)
-                            .shadow(color: Color.black.opacity(0.10), radius: 4, x: 0, y: 2)
-                        Image(systemName: icon)
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(Color.primary.opacity(0.75))
-                    }
-                    .scaleEffect(isPressed ? 0.88 : 1.0)
-                } else {
-                    Image(systemName: icon)
-                        .font(.system(size: 16, weight: .light))
-                        .foregroundStyle(isActive ? Color.primary.opacity(0.7) : Color.primary.opacity(0.3))
-                        .frame(width: 36, height: 36)
-                        .scaleEffect(isPressed ? 0.85 : 1.0)
-                    
-                    // Badge for count (e.g., image count)
-                    if count > 0 {
-                        Text("\(count)")
-                            .font(.custom("OpenSans-Bold", size: 9))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(Color.blue)
-                            )
-                            .offset(x: 8, y: -8)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                }
+                .buttonStyle(.plain)
             }
         }
-        .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isActive)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: count)
+        .shadow(color: isScheduled ? Color.black.opacity(0.08) : Color.black.opacity(0.04), radius: isScheduled ? 8 : 4, x: 0, y: 2)
+        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+        .amenGlassEffect(in: Capsule())
+        .scaleEffect(appeared ? 1.0 : 0.88)
+        .opacity(appeared ? 1.0 : 0)
+        .onAppear {
+            withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) { appeared = true }
+        }
+        .animation(.spring(response: 0.30, dampingFraction: 0.78), value: isScheduled)
+        .animation(.spring(response: 0.30, dampingFraction: 0.78), value: scheduledDate)
     }
 }
 
@@ -5902,13 +7584,13 @@ struct MinimalToolbarButton: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                 isPressed = true
             }
             
             // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                     isPressed = false
                 }
             }
@@ -5929,7 +7611,7 @@ struct MinimalToolbarButton: View {
                 
                 // Icon
                 Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(isActive ? activeColor : Color.primary.opacity(0.4))
                     .frame(width: 36, height: 36)
             }
@@ -5991,9 +7673,9 @@ struct LiquidGlassPostButton: View {
     var body: some View {
         Button(action: {
             guard isEnabled && !isPublishing else { return }
-            withAnimation(.spring(response: 0.20, dampingFraction: 0.65)) { isPressed = true }
+            withAnimation(Motion.adaptive(.spring(response: 0.20, dampingFraction: 0.65))) { isPressed = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) { isPressed = false }
+                withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.70))) { isPressed = false }
             }
             action()
         }) {
@@ -6010,7 +7692,7 @@ struct LiquidGlassPostButton: View {
                         .scaleEffect(1.1)
                 } else if isScheduled {
                     Image(systemName: "calendar.badge.clock")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(isEnabled ? red : red.opacity(0.30))
                 } else {
                     // Bold chunky upward arrow
@@ -6056,7 +7738,7 @@ struct AuthenticityPromptSheet: View {
     @FocusState private var isTextFieldFocused: Bool
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
                 // Header
                 VStack(alignment: .leading, spacing: 8) {
@@ -6067,23 +7749,23 @@ struct AuthenticityPromptSheet: View {
                                 .frame(width: 48, height: 48)
                             
                             Image(systemName: "sparkles")
-                                .font(.system(size: 22))
+                                .font(.systemScaled(22))
                                 .foregroundStyle(Color.orange)
                         }
                         
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Add a Personal Touch")
-                                .font(.custom("OpenSans-Bold", size: 20))
+                                .font(AMENFont.bold(20))
                                 .foregroundStyle(.primary)
                             
                             Text("Make it uniquely yours")
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     
                     Text(message)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundStyle(.secondary)
                         .padding(.top, 8)
                 }
@@ -6092,11 +7774,11 @@ struct AuthenticityPromptSheet: View {
                 // Text field
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Share your personal thoughts:")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.secondary)
                     
                     TextEditor(text: $personalContext)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .frame(height: 120)
                         .padding(12)
                         .background(Color(.systemGray6))
@@ -6108,7 +7790,7 @@ struct AuthenticityPromptSheet: View {
                         )
                     
                     Text("\(personalContext.count)/280")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(personalContext.count > 280 ? .red : .secondary)
                 }
                 .padding(.horizontal)
@@ -6121,7 +7803,7 @@ struct AuthenticityPromptSheet: View {
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
                             Text("Continue Posting")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .font(AMENFont.semiBold(16))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -6136,7 +7818,7 @@ struct AuthenticityPromptSheet: View {
                     
                     Button(action: onCancel) {
                         Text("Cancel")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -6168,17 +7850,17 @@ private struct VerseBadgeView: View {
         HStack(spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "text.book.closed.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.blue)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(reference)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.primary)
                     
                     if !text.isEmpty {
                         Text(text.prefix(50) + (text.count > 50 ? "..." : ""))
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -6188,7 +7870,7 @@ private struct VerseBadgeView: View {
                 
                 Button(action: onRemove) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -6213,20 +7895,20 @@ private struct TaggedUsersView: View {
                 ForEach(users, id: \.userId) { user in
                     HStack(spacing: 6) {
                         Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.purple)
                         
                         Text("@\(user.username)")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.primary)
                         
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 users.removeAll { $0.userId == user.userId }
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -6288,7 +7970,7 @@ private struct PostedPill: View {
             .frame(width: 26, height: 26)
 
             Text(labelText)
-                .font(.custom("OpenSans-SemiBold", size: 15))
+                .font(AMENFont.semiBold(15))
                 .foregroundStyle(.white)
                 .opacity(labelOpacity)
                 .offset(x: labelOffset)
@@ -6302,11 +7984,11 @@ private struct PostedPill: View {
         )
         .onAppear {
             // Phase 1: blocks fade + scale in
-            withAnimation(.spring(response: 0.30, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.72))) {
                 blocksOpacity = 1
                 blocksScale = 1
             }
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.78).delay(0.12)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.36, dampingFraction: 0.78)).delay(0.12)) {
                 labelOpacity = 1
                 labelOffset = 0
             }
@@ -6321,12 +8003,12 @@ private struct PostedPill: View {
                     labelOpacity = 0
                 }
                 // Blocks exit
-                withAnimation(.spring(response: 0.22, dampingFraction: 0.82).delay(0.08)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.82)).delay(0.08)) {
                     blocksOpacity = 0
                     blocksScale = 0.4
                 }
                 // Checkmark enters
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.70).delay(0.18)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.70)).delay(0.18)) {
                     checkmarkOpacity = 1
                     checkmarkScale = 1
                 }
@@ -6337,7 +8019,7 @@ private struct PostedPill: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
                     labelText = "Posted"
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.76)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.76))) {
                         labelOpacity = 1
                         labelOffset = 0
                     }
@@ -6446,6 +8128,7 @@ private struct BereanToneButton: View {
                 } else {
                     Image("amen-logo")
                         .resizable()
+                        .renderingMode(.original)
                         .scaledToFit()
                         .frame(width: 28, height: 28)
                         .blendMode(.multiply)
@@ -6471,110 +8154,10 @@ private struct BereanToneButton: View {
     }
 }
 
-// MARK: - Algolia Mention Suggestion Row
-
-/// Mention row for CreatePostView's inline @-trigger, which uses AlgoliaUser.
-struct AlgoliaMentionSuggestionRow: View {
-    let user: AlgoliaUser
-    let onTap: () -> Void
-
-    @State private var isPressed = false
-    // Fallback profile image URL fetched from Firestore when Algolia index lacks it
-    @State private var resolvedImageURL: String? = nil
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                // ── Avatar ─────────────────────────────────────────────
-                ZStack {
-                    Circle()
-                        .fill(Color(uiColor: .tertiarySystemFill))
-                        .frame(width: 40, height: 40)
-
-                    let effectiveURL = resolvedImageURL ?? user.profileImageURL
-
-                    if let urlStr = effectiveURL,
-                       !urlStr.isEmpty,
-                       let url = URL(string: urlStr) {
-                        CachedAsyncImage(url: url) { img in
-                            img.resizable().scaledToFill()
-                                .frame(width: 40, height: 40)
-                                .clipShape(Circle())
-                        } placeholder: {
-                            Text(user.displayName.prefix(1).uppercased())
-                                .font(.custom("OpenSans-Bold", size: 16))
-                                .foregroundStyle(.primary)
-                        }
-                    } else {
-                        Text(user.displayName.prefix(1).uppercased())
-                            .font(.custom("OpenSans-Bold", size: 16))
-                            .foregroundStyle(.primary)
-                    }
-                }
-                .task(id: user.objectID) {
-                    // Only fetch from Firestore when Algolia didn't return a profile image
-                    guard (user.profileImageURL ?? "").isEmpty else { return }
-                    if let url = await fetchProfileImageURL(userId: user.objectID) {
-                        resolvedImageURL = url
-                    }
-                }
-
-                // ── Name + username ────────────────────────────────────
-                VStack(alignment: .leading, spacing: 2) {
-                    // Display name with yellow marker highlight
-                    Text(user.displayName)
-                        .font(.custom("OpenSans-Bold", size: 15))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 1)
-                        .background(alignment: .center) {
-                            AlgoliaBrushstrokeHighlight()
-                                .foregroundStyle(Color(red: 1.0, green: 0.88, blue: 0.15, opacity: 0.75))
-                        }
-
-                    Text("@\(user.username)")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                // Subtle chevron affordance
-                Image(systemName: "arrow.up.left")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
-            .background(
-                isPressed
-                    ? Color(uiColor: .tertiarySystemFill)
-                    : Color.clear
-            )
-            .animation(.easeOut(duration: 0.1), value: isPressed)
-        }
-        .buttonStyle(PlainButtonStyle())
-        ._onButtonGesture { pressing in
-            isPressed = pressing
-        } perform: {}
-    }
-
-    /// Fetches profileImageURL from Firestore when Algolia's index doesn't have it.
-    private func fetchProfileImageURL(userId: String) async -> String? {
-        guard !userId.isEmpty else { return nil }
-        do {
-            let doc = try await Firestore.firestore().collection("users").document(userId).getDocument()
-            return doc.data()?["profileImageURL"] as? String
-        } catch {
-            return nil
-        }
-    }
-}
 
 // MARK: - Brushstroke highlight shape
 
-private struct AlgoliaBrushstrokeHighlight: Shape {
+struct AlgoliaBrushstrokeHighlight: Shape {
     func path(in rect: CGRect) -> Path {
         var p = Path()
         let w = rect.width, h = rect.height
@@ -6638,7 +8221,7 @@ private struct BereanTonePopup: View {
                             // Sticker-label title — tilted, on yellow strip
                             HStack(spacing: 8) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 17, weight: .black))
+                                    .font(.systemScaled(17, weight: .black))
                                     .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
                                     .rotationEffect(.degrees(sparkleRotation))
                                 Text("Tone Check")
@@ -6658,7 +8241,7 @@ private struct BereanTonePopup: View {
                             Text(suggestion != nil
                                  ? "Here's a kinder way to say this"
                                  : "Your post sounds great as-is!")
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .foregroundStyle(Color.secondary)
                         }
                         Spacer()
@@ -6669,7 +8252,7 @@ private struct BereanTonePopup: View {
                                     .fill(Color.black.opacity(0.08))
                                     .frame(width: 30, height: 30)
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.systemScaled(11, weight: .bold))
                                     .foregroundStyle(Color.secondary)
                             }
                         }
@@ -6684,10 +8267,10 @@ private struct BereanTonePopup: View {
                             // Context label — plain language explanation
                             HStack(spacing: 6) {
                                 Image(systemName: "lightbulb.fill")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(Color(red: 0.10, green: 0.45, blue: 0.35))
                                 Text("Suggested rewrite — tap \"Use this\" to replace your post")
-                                    .font(.custom("OpenSans-SemiBold", size: 11))
+                                    .font(AMENFont.semiBold(11))
                                     .foregroundStyle(Color(red: 0.10, green: 0.45, blue: 0.35))
                             }
                             .padding(.horizontal, 10)
@@ -6700,7 +8283,7 @@ private struct BereanTonePopup: View {
 
                             // Suggestion text on frosted glass card
                             Text(suggestion)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(Color.primary)
                                 .lineSpacing(5)
                                 .padding(16)
@@ -6728,9 +8311,9 @@ private struct BereanTonePopup: View {
                                 Button { onUse(suggestion) } label: {
                                     HStack(spacing: 6) {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .font(.systemScaled(15, weight: .semibold))
                                         Text("Use this")
-                                            .font(.custom("OpenSans-Bold", size: 15))
+                                            .font(AMENFont.bold(15))
                                     }
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
@@ -6759,9 +8342,9 @@ private struct BereanTonePopup: View {
                                 Button { onDismiss() } label: {
                                     HStack(spacing: 6) {
                                         Image(systemName: "pencil")
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .font(.systemScaled(13, weight: .semibold))
                                         Text("Keep mine")
-                                            .font(.custom("OpenSans-Bold", size: 15))
+                                            .font(AMENFont.bold(15))
                                     }
                                     .foregroundStyle(Color.primary)
                                     .frame(maxWidth: .infinity)
@@ -6788,15 +8371,15 @@ private struct BereanTonePopup: View {
                         // No rewrite needed — tone is already good
                         VStack(spacing: 16) {
                             Text("✅")
-                                .font(.system(size: 40))
+                                .font(.systemScaled(40))
                             Text("Your post has a great tone!\nNo changes needed.")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(Color.secondary)
                                 .multilineTextAlignment(.center)
                                 .lineSpacing(4)
                             Button { onDismiss() } label: {
                                 Text("Got it")
-                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .font(AMENFont.bold(15))
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 15)
@@ -6846,7 +8429,7 @@ private struct BereanTonePopup: View {
                 .scaleEffect(cardScale)
                 .opacity(cardOpacity)
                 .onAppear {
-                    withAnimation(.spring(response: 0.40, dampingFraction: 0.70)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.40, dampingFraction: 0.70))) {
                         cardScale = 1.0
                         cardOpacity = 1.0
                     }
@@ -6855,11 +8438,11 @@ private struct BereanTonePopup: View {
                         sparkleRotation = 8
                     }
                     // Label has a tiny playful wiggle on appear
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.4).delay(0.45)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.4)).delay(0.45)) {
                         labelWiggle = 2
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.5))) {
                             labelWiggle = 0
                         }
                     }
@@ -6908,7 +8491,7 @@ private struct SourceLabelPrompt: View {
                                 .fill(stickerOrange.opacity(0.2))
                                 .frame(width: 56, height: 56)
                             Text("🔍")
-                                .font(.system(size: 26))
+                                .font(.systemScaled(26))
                         }
 
                         // Title on orange sticker label
@@ -6925,7 +8508,7 @@ private struct SourceLabelPrompt: View {
                             .rotationEffect(.degrees(-1))
 
                         Text("AMEN values your authentic voice.\nIf this isn't fully your own writing, label it so your community knows.")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(Color.secondary)
                             .multilineTextAlignment(.center)
                             .lineSpacing(3)
@@ -6937,10 +8520,10 @@ private struct SourceLabelPrompt: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 5) {
                             Image(systemName: "tag.fill")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.systemScaled(10, weight: .bold))
                                 .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
                             Text("source label")
-                                .font(.custom("OpenSans-Bold", size: 10))
+                                .font(AMENFont.bold(10))
                                 .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
                                 .textCase(.uppercase)
                                 .kerning(0.8)
@@ -6959,7 +8542,7 @@ private struct SourceLabelPrompt: View {
                         HStack(spacing: 8) {
                             ForEach(sourceOptions, id: \.self) { opt in
                                 Button {
-                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
                                         selectedSource = opt
                                     }
                                 } label: {
@@ -6985,10 +8568,10 @@ private struct SourceLabelPrompt: View {
                     // ── Preview badge ─────────────────────────────────
                     HStack(spacing: 6) {
                         Image(systemName: "info.circle.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(Color.secondary)
                         Text("Your post will show a \"via \(selectedSource)\" label")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(Color.secondary)
                     }
                     .padding(.horizontal, 16)
@@ -7006,9 +8589,9 @@ private struct SourceLabelPrompt: View {
                         Button { onPostWithSource(selectedSource) } label: {
                             HStack(spacing: 7) {
                                 Image(systemName: "paperplane.fill")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                 Text("Post with source label")
-                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .font(AMENFont.bold(15))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -7037,9 +8620,9 @@ private struct SourceLabelPrompt: View {
                         Button { onEdit() } label: {
                             HStack(spacing: 7) {
                                 Image(systemName: "pencil")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                 Text("Write it myself")
-                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .font(AMENFont.bold(15))
                             }
                             .foregroundStyle(Color.primary)
                             .frame(maxWidth: .infinity)
@@ -7090,7 +8673,7 @@ private struct SourceLabelPrompt: View {
                 .scaleEffect(cardScale)
                 .opacity(cardOpacity)
                 .onAppear {
-                    withAnimation(.spring(response: 0.40, dampingFraction: 0.70)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.40, dampingFraction: 0.70))) {
                         cardScale = 1.0
                         cardOpacity = 1.0
                     }
@@ -7115,10 +8698,10 @@ struct PostAudienceSheet: View {
                 // Header description
                 VStack(spacing: 6) {
                     Text("Who can see this post?")
-                        .font(.custom("OpenSans-Bold", size: 17))
+                        .font(AMENFont.bold(17))
                         .foregroundStyle(.primary)
                     Text("Choose who will be able to view and interact with your post.")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
@@ -7138,16 +8721,16 @@ struct PostAudienceSheet: View {
                                         .fill(option.tintColor.opacity(0.12))
                                         .frame(width: 40, height: 40)
                                     Image(systemName: option.icon)
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                         .foregroundStyle(option.tintColor)
                                 }
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(option.displayName)
-                                        .font(.custom("OpenSans-SemiBold", size: 15))
+                                        .font(AMENFont.semiBold(15))
                                         .foregroundStyle(.primary)
                                     Text(option.audienceDescription)
-                                        .font(.custom("OpenSans-Regular", size: 12))
+                                        .font(AMENFont.regular(12))
                                         .foregroundStyle(.secondary)
                                 }
 
@@ -7156,7 +8739,7 @@ struct PostAudienceSheet: View {
                                 if selectedVisibility == option {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(option.tintColor)
-                                        .font(.system(size: 20))
+                                        .font(.systemScaled(20))
                                 }
                             }
                             .padding(.horizontal, 20)
@@ -7169,10 +8752,12 @@ struct PostAudienceSheet: View {
                         }
                     }
                 }
-                .background(
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemBackground))
+                        .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
                 )
+                .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 3)
                 .padding(.horizontal, 16)
 
                 Spacer()
@@ -7182,9 +8767,23 @@ struct PostAudienceSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                 }
             }
+        }
+        .presentationBackground(.thinMaterial)
+    }
+}
+
+private extension AmenPostAudience {
+    var defaultPostVisibility: Post.PostVisibility {
+        switch self {
+        case .everyone:
+            return .everyone
+        case .church, .space:
+            return .community
+        case .privateJournal, .family, .friends:
+            return .followers
         }
     }
 }
@@ -7218,7 +8817,7 @@ struct PostVersePickerSheet: View {
     @State private var searchTask: Task<Void, Never>? = nil
 
     // Version picker
-    @State private var selectedVersion: ScripturePassage.BibleVersion = .niv
+    @State private var selectedVersion: ScripturePassage.BibleVersion = .kjv // TODO(legal): was .niv (Biblica, copyrighted) — changed to KJV (public domain) per AMEN-CONTENT-001
 
     @FocusState private var searchFocused: Bool
 
@@ -7232,9 +8831,9 @@ struct PostVersePickerSheet: View {
                     HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(.secondary)
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                         TextField("Search a verse or type reference (e.g. John 3:16)", text: $searchQuery)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .focused($searchFocused)
                             .autocorrectionDisabled()
                             .submitLabel(.search)
@@ -7263,14 +8862,15 @@ struct PostVersePickerSheet: View {
                     // Version picker
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach([ScripturePassage.BibleVersion.niv,
-                                     .esv, .kjv, .nkjv, .nlt, .nasb], id: \.self) { version in
+                            // TODO(legal): NIV/ESV/NLT/NASB removed — copyrighted, no license (AMEN-CONTENT-001).
+                            ForEach([ScripturePassage.BibleVersion.kjv,
+                                     .web, .bsb], id: \.self) { version in
                                 Button {
                                     selectedVersion = version
                                     if !searchQuery.isEmpty { triggerSearch() }
                                 } label: {
                                     Text(version.rawValue.uppercased())
-                                        .font(.custom("OpenSans-SemiBold", size: 12))
+                                        .font(AMENFont.semiBold(12))
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 6)
                                         .background(
@@ -7301,7 +8901,7 @@ struct PostVersePickerSheet: View {
                                 Image(systemName: "exclamationmark.circle")
                                     .foregroundStyle(.orange)
                                 Text(error)
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.secondary)
                             }
                             .padding(16)
@@ -7317,7 +8917,7 @@ struct PostVersePickerSheet: View {
                                         HStack(alignment: .top, spacing: 12) {
                                             Image(systemName: selectedReference == passage.reference
                                                   ? "checkmark.circle.fill" : "book.closed")
-                                                .font(.system(size: 18))
+                                                .font(.systemScaled(18))
                                                 .foregroundStyle(selectedReference == passage.reference
                                                                  ? .indigo : .secondary)
                                                 .frame(width: 24)
@@ -7325,11 +8925,11 @@ struct PostVersePickerSheet: View {
 
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(passage.reference)
-                                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                                    .font(AMENFont.semiBold(15))
                                                     .foregroundStyle(.primary)
                                                 if !passage.text.isEmpty {
                                                     Text(passage.text)
-                                                        .font(.custom("OpenSans-Regular", size: 13))
+                                                        .font(AMENFont.regular(13))
                                                         .foregroundStyle(.secondary)
                                                         .lineLimit(3)
                                                         .italic()
@@ -7356,10 +8956,10 @@ struct PostVersePickerSheet: View {
                             // Empty state — hints
                             VStack(spacing: 16) {
                                 Image(systemName: "book.closed.fill")
-                                    .font(.system(size: 40))
+                                    .font(.systemScaled(40))
                                     .foregroundStyle(Color.indigo.opacity(0.4))
                                 Text("Search by keyword or reference")
-                                    .font(.custom("OpenSans-SemiBold", size: 16))
+                                    .font(AMENFont.semiBold(16))
                                     .foregroundStyle(.primary)
                                 VStack(spacing: 6) {
                                     ForEach(["\"strength\"", "\"peace\"", "\"Philippians 4:13\"", "\"John 3:16\""], id: \.self) { hint in
@@ -7368,7 +8968,7 @@ struct PostVersePickerSheet: View {
                                             triggerSearch()
                                         } label: {
                                             Text(hint)
-                                                .font(.custom("OpenSans-Regular", size: 14))
+                                                .font(AMENFont.regular(14))
                                                 .foregroundStyle(.indigo)
                                                 .padding(.horizontal, 14)
                                                 .padding(.vertical, 6)
@@ -7387,10 +8987,10 @@ struct PostVersePickerSheet: View {
                         } else if !searchQuery.isEmpty && searchResults.isEmpty && !isSearching {
                             VStack(spacing: 8) {
                                 Image(systemName: "magnifyingglass")
-                                    .font(.system(size: 32))
+                                    .font(.systemScaled(32))
                                     .foregroundStyle(.secondary.opacity(0.5))
                                 Text("No results for \"\(searchQuery)\"")
-                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .font(AMENFont.regular(15))
                                     .foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity)
@@ -7401,26 +9001,26 @@ struct PostVersePickerSheet: View {
                         if !selectedReference.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Selected Verse")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .font(AMENFont.semiBold(13))
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 16)
 
                                 VStack(alignment: .leading, spacing: 6) {
                                     HStack(spacing: 6) {
                                         Image(systemName: "book.closed.fill")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(.indigo)
                                         Text(selectedReference)
-                                            .font(.custom("OpenSans-Bold", size: 13))
+                                            .font(AMENFont.bold(13))
                                             .foregroundStyle(.indigo)
                                         Spacer()
                                         Text(selectedVersion.rawValue.uppercased())
-                                            .font(.custom("OpenSans-Regular", size: 11))
+                                            .font(AMENFont.regular(11))
                                             .foregroundStyle(Color.indigo.opacity(0.7))
                                     }
                                     if !selectedText.isEmpty {
                                         Text(selectedText)
-                                            .font(.custom("OpenSans-Regular", size: 13))
+                                            .font(AMENFont.regular(13))
                                             .foregroundStyle(.primary)
                                             .italic()
                                     }
@@ -7443,7 +9043,7 @@ struct PostVersePickerSheet: View {
                                     selectedText = ""
                                 } label: {
                                     Label("Remove", systemImage: "trash")
-                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .font(AMENFont.regular(13))
                                 }
                                 .padding(.horizontal, 16)
                                 .padding(.bottom, 8)
@@ -7459,7 +9059,7 @@ struct PostVersePickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { isPresented = false }
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Attach") {
@@ -7467,7 +9067,7 @@ struct PostVersePickerSheet: View {
                         verseText = selectedText
                         isPresented = false
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                     .disabled(selectedReference.isEmpty)
                 }
             }
@@ -7546,7 +9146,7 @@ struct PostChurchTagSheet: View {
     @State private var searchTask: Task<Void, Never>?
     @FocusState private var searchFocused: Bool
 
-    private let db = Firestore.firestore()
+    private var db: Firestore { Firestore.firestore() }
 
     var body: some View {
         NavigationStack {
@@ -7555,9 +9155,9 @@ struct PostChurchTagSheet: View {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(.secondary)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                     TextField("Search churches by name", text: $searchText)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .focused($searchFocused)
                         .onChange(of: searchText) { _, newValue in
                             triggerSearch(query: newValue)
@@ -7586,15 +9186,15 @@ struct PostChurchTagSheet: View {
                     if !taggedChurchId.isEmpty {
                         HStack(spacing: 12) {
                             Image(systemName: "building.columns.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.purple)
                                 .frame(width: 36, height: 36)
                                 .background(Circle().fill(Color.purple.opacity(0.1)))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(taggedChurchName)
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                    .font(AMENFont.semiBold(15))
                                 Text("Currently tagged")
-                                    .font(.custom("OpenSans-Regular", size: 12))
+                                    .font(AMENFont.regular(12))
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
@@ -7604,7 +9204,7 @@ struct PostChurchTagSheet: View {
                                 isPresented = false
                             } label: {
                                 Text("Remove")
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                             }
                         }
                         .padding(.horizontal, 20)
@@ -7615,10 +9215,10 @@ struct PostChurchTagSheet: View {
 
                     VStack(spacing: 8) {
                         Image(systemName: "building.columns")
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                         Text("Search for a church to tag")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -7631,10 +9231,10 @@ struct PostChurchTagSheet: View {
                 } else if searchResults.isEmpty {
                     VStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                         Text("No churches found for \"\(searchText)\"")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -7648,17 +9248,17 @@ struct PostChurchTagSheet: View {
                         } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "building.columns.fill")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundStyle(.purple)
                                     .frame(width: 32, height: 32)
                                     .background(Circle().fill(Color.purple.opacity(0.1)))
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(church.name)
-                                        .font(.custom("OpenSans-SemiBold", size: 14))
+                                        .font(AMENFont.semiBold(14))
                                         .foregroundStyle(.primary)
                                     if !church.city.isEmpty {
                                         Text(church.city)
-                                            .font(.custom("OpenSans-Regular", size: 12))
+                                            .font(AMENFont.regular(12))
                                             .foregroundStyle(.secondary)
                                     }
                                 }
@@ -7666,7 +9266,7 @@ struct PostChurchTagSheet: View {
                                 if taggedChurchId == church.id {
                                     Image(systemName: "checkmark")
                                         .foregroundStyle(.purple)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.systemScaled(14, weight: .semibold))
                                 }
                             }
                         }
@@ -7681,7 +9281,7 @@ struct PostChurchTagSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { isPresented = false }
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                 }
             }
             .onAppear {
@@ -7726,3 +9326,418 @@ struct PostChurchTagSheet: View {
     }
 }
 
+
+
+private extension String {
+    /// Returns nil if the string is empty, otherwise returns self.
+    var nilIfEmpty: String? { isEmpty ? nil : self }
+}
+
+// MARK: - Upload Visual State
+
+enum UploadVisualState: Equatable {
+    case idle
+    case pressed
+    case uploading(progress: CGFloat)
+    case success
+}
+
+// MARK: - Liquid Glass Post Button (Demo Version)
+
+struct LiquidGlassPostButtonAnimated: View {
+    let state: UploadVisualState
+    let action: () -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = min(max(geo.size.width * 0.46, 148), 178)
+            let height = min(max(width * 0.355, 54), 62)
+            let cornerRadius = height / 2
+
+            ZStack {
+                ambientAura(size: max(width * 1.7, 220))
+
+                switch state {
+                case .idle, .pressed:
+                    postCapsule(width: width, height: height, cornerRadius: cornerRadius)
+                        .scaleEffect(state == .pressed ? 0.95 : 1.0)
+
+                case .uploading(let progress):
+                    progressGlass(progress: progress, size: max(height + 8, 62))
+                        .transition(.scale(scale: 0.88).combined(with: .opacity))
+
+                case .success:
+                    successCapsule(width: width + 4, height: height, cornerRadius: cornerRadius)
+                        .transition(.scale(scale: 0.92).combined(with: .opacity))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                action()
+            }
+        }
+        .frame(height: 210)
+    }
+
+    // MARK: - Idle / Pressed Capsule
+
+    private func postCapsule(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(Color.black.opacity(0.08))
+                    .frame(width: 22, height: 22)
+                Image(systemName: "arrow.up")
+                    .font(.systemScaled(12, weight: .bold))
+                    .foregroundStyle(.primary)
+            }
+            Text("Post")
+                .font(.systemScaled(min(max(height * 0.30, 17), 19), weight: .bold))
+                .foregroundStyle(.primary)
+        }
+        .frame(width: width, height: height)
+        .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
+        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
+        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+        .amenGlassEffect(in: Capsule())
+    }
+
+    // MARK: - Uploading
+
+    private func progressGlass(progress: CGFloat, size: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .stroke(Color.black.opacity(0.10), lineWidth: 6)
+
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(Color.black, style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+                .rotationEffect(.degrees(-90))
+
+            Text("\(Int(progress * 100))%")
+                .font(.systemScaled(13, weight: .bold))
+                .foregroundStyle(.primary)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
+        .background { if reduceTransparency { Circle().fill(Color(.systemBackground)) } }
+        .amenGlassEffect(in: Circle())
+    }
+
+    // MARK: - Success
+
+    private func successCapsule(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(Color.black)
+                    .frame(width: 22, height: 22)
+                Image(systemName: "checkmark")
+                    .font(.systemScaled(11, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            Text("Posted")
+                .font(.systemScaled(min(max(height * 0.29, 16), 18), weight: .bold))
+                .foregroundStyle(.primary)
+        }
+        .frame(width: width, height: height)
+        .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
+        .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
+        .amenGlassEffect(in: Capsule())
+    }
+
+    // MARK: - Shared Visual Layers
+
+    private func ambientAura(size: CGFloat) -> some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [Color.white.opacity(0.75), Color.white.opacity(0.16), Color.clear],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: size * 0.45
+                )
+            )
+            .frame(width: size, height: size)
+    }
+}
+
+// MARK: - Composer Cue Pill
+
+private struct ComposerCuePill: View {
+    let action: ComposerSuggestedAction
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 5) {
+                Image(systemName: action.icon)
+                    .font(.systemScaled(11, weight: .semibold))
+                Text(action.label)
+                    .font(AMENFont.semiBold(12))
+            }
+            .foregroundStyle(Color.primary.opacity(0.72))
+            .padding(.horizontal, AmenSpacing.chipH)
+            .padding(.vertical, AmenSpacing.chipV)
+            .background(
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 0.5
+                            )
+                    )
+            )
+            .clipShape(Capsule())
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
+}
+
+// MARK: - Demo Preview Screen
+
+struct LiquidGlassPostButtonDemoView: View {
+    @State private var uploadState: UploadVisualState = .idle
+
+    var body: some View {
+        ZStack {
+            Color.white.ignoresSafeArea()
+            VStack(spacing: 28) {
+                Spacer()
+                VStack(spacing: 8) {
+                    Text("Liquid Glass Post Button")
+                        .font(.systemScaled(28, weight: .bold))
+                        .foregroundStyle(.primary)
+                    Text("White background, black text, native-feeling glass, responsive across phones.")
+                        .font(.systemScaled(15, weight: .medium))
+                        .foregroundStyle(.black.opacity(0.45))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 30)
+                }
+                LiquidGlassPostButtonAnimated(state: uploadState, action: runDemoSequence)
+                    .padding(.horizontal, 24)
+                Spacer()
+            }
+        }
+    }
+
+    private func runDemoSequence() {
+        guard uploadState == .idle else { return }
+        Task {
+            withAnimation(Motion.adaptive(.spring(response: 0.24, dampingFraction: 0.72))) { uploadState = .pressed }
+            try? await Task.sleep(for: .milliseconds(120))
+            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.82))) { uploadState = .uploading(progress: 0.08) }
+            let values: [CGFloat] = [0.16, 0.26, 0.38, 0.52, 0.66, 0.79, 0.91, 1.0]
+            for value in values {
+                try? await Task.sleep(for: .milliseconds(130))
+                withAnimation(.linear(duration: 0.12)) { uploadState = .uploading(progress: value) }
+            }
+            try? await Task.sleep(for: .milliseconds(180))
+            withAnimation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.84))) { uploadState = .success }
+            try? await Task.sleep(for: .milliseconds(1100))
+            withAnimation(Motion.adaptive(.spring(response: 0.36, dampingFraction: 0.9))) { uploadState = .idle }
+        }
+    }
+}
+
+// MARK: - Creator Draft Assistant Sheet
+
+/// Presents a compact form that calls AmenAIFeaturesService.generateCreatorDraft and
+/// returns the draft text to the caller. The user must approve before publishing.
+private struct CreatorDraftAssistantSheet: View {
+    let initialDraftType: String
+    let onApply: (String) -> Void
+    let onDismiss: () -> Void
+
+    @State private var selectedType: CreatorDraftType = .post
+    @State private var topic: String = ""
+    @State private var selectedTone: String = "warm"
+    @State private var isGenerating = false
+    @State private var errorMessage: String?
+
+    private let tones = ["warm", "encouraging", "teaching", "formal"]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    consentBanner
+                    typePickerSection
+                    topicSection
+                    toneSection
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 4)
+                    }
+                }
+                .padding(20)
+            }
+            .navigationTitle("AI Draft Assistant")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onDismiss)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        Task { await generate() }
+                    } label: {
+                        if isGenerating {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("Generate").fontWeight(.semibold)
+                        }
+                    }
+                    .disabled(topic.trimmingCharacters(in: .whitespacesAndNewlines).count < 5 || isGenerating)
+                }
+            }
+        }
+        .presentationBackground(.thinMaterial)
+        .onAppear {
+            selectedType = CreatorDraftType(rawValue: initialDraftType) ?? .post
+        }
+    }
+
+    private var consentBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(.secondary)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("AI-assisted draft")
+                    .font(.subheadline.weight(.semibold))
+                Text("Your draft is generated on Anthropic's servers via a Cloud Function. Review it before publishing — no draft is posted without your approval.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+    }
+
+    private var typePickerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Type").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(CreatorDraftType.allCases, id: \.self) { type in
+                        Button {
+                            withAnimation(.amenSnappy) { selectedType = type }
+                        } label: {
+                            Text(type.displayName)
+                                .font(.subheadline.weight(selectedType == type ? .semibold : .regular))
+                                .foregroundStyle(selectedType == type ? .primary : .secondary)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 9)
+                                .background {
+                                    if selectedType == type {
+                                        Capsule()
+                                            .fill(.ultraThinMaterial)
+                                            .overlay(Capsule().fill(Color.white.opacity(0.35)))
+                                            .overlay(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5))
+                                    } else {
+                                        Capsule().fill(Color.clear)
+                                    }
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .animation(.amenSnappy, value: selectedType)
+                    }
+                }
+                .padding(4)
+                .background(.ultraThinMaterial, in: Capsule())
+            }
+        }
+    }
+
+    private var topicSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Topic").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            TextField("What should this \(selectedType.displayName.lowercased()) be about? (5–300 chars)", text: $topic, axis: .vertical)
+                .font(.body)
+                .lineLimit(3...6)
+                .padding(12)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+    }
+
+    private var toneSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Tone").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                ForEach(tones, id: \.self) { tone in
+                    Button {
+                        withAnimation(.amenSnappy) { selectedTone = tone }
+                    } label: {
+                        Text(tone.capitalized)
+                            .font(.caption.weight(selectedTone == tone ? .semibold : .regular))
+                            .foregroundStyle(selectedTone == tone ? .primary : .secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background {
+                                if selectedTone == tone {
+                                    Capsule()
+                                        .fill(.ultraThinMaterial)
+                                        .overlay(Capsule().fill(Color.white.opacity(0.35)))
+                                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5))
+                                } else {
+                                    Capsule()
+                                        .fill(.regularMaterial)
+                                        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                                }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .animation(.amenSnappy, value: selectedTone)
+                }
+            }
+        }
+    }
+
+    private func generate() async {
+        guard !isGenerating else { return }
+        errorMessage = nil
+        isGenerating = true
+        do {
+            let response = try await AmenAIFeaturesService.shared.generateCreatorDraft(
+                type: selectedType.rawValue,
+                topic: topic.trimmingCharacters(in: .whitespacesAndNewlines),
+                tone: selectedTone
+            )
+            await MainActor.run { onApply(response.draft) }
+        } catch let error as AmenAIFeaturesError {
+            errorMessage = error.errorDescription
+        } catch {
+            errorMessage = "Something went wrong. Please try again."
+        }
+        isGenerating = false
+    }
+}
+
+// MARK: - Local Animation Tokens
+// .amenSnappy is defined privately in several files; redeclare here so
+// CreatorDraftAssistantSheet chip animations compile without importing the kit.
+private extension Animation {
+    static var amenSnappy: Animation {
+        .spring(response: 0.22, dampingFraction: 0.70)
+    }
+}
+
+#Preview("Liquid Glass Button Demo") {
+    LiquidGlassPostButtonDemoView()
+}

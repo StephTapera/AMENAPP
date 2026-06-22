@@ -73,9 +73,9 @@ struct ImportReviewSheet: View {
             // Platform icon pill
             HStack(spacing: 6) {
                 Image(systemName: service.detectedSource.icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 Text(service.detectedSource.displayName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
             }
             .foregroundStyle(.primary)
             .padding(.horizontal, 12)
@@ -88,7 +88,7 @@ struct ImportReviewSheet: View {
 
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: 30, height: 30)
                     .background(.thinMaterial, in: Circle())
@@ -126,7 +126,7 @@ struct ImportReviewSheet: View {
                 LazyVStack(spacing: 8) {
                     ForEach($service.items) { $item in
                         ImportItemRow(item: $item, isExpanded: expandedItemId == item.id) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 expandedItemId = expandedItemId == item.id ? nil : item.id
                             }
                         }
@@ -148,14 +148,14 @@ struct ImportReviewSheet: View {
     private var legalDisclosureCard: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "info.circle.fill")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.blue)
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Your data, your import")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 Text(service.detectedSource.legalNote)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -191,7 +191,7 @@ struct ImportReviewSheet: View {
                 }
             } label: {
                 Text(service.items.filter { !$0.isDuplicate }.allSatisfy { $0.isSelected } ? "Deselect All" : "Select All")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.blue)
             }
         }
@@ -202,7 +202,7 @@ struct ImportReviewSheet: View {
     private var destinationPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Import to")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .tracking(0.6)
@@ -229,9 +229,9 @@ struct ImportReviewSheet: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "square.and.arrow.down")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Text("Import \(count) Item\(count == 1 ? "" : "s")")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
@@ -258,7 +258,7 @@ struct ImportReviewSheet: View {
             ProgressView()
                 .scaleEffect(1.4)
             Text(progressLabel)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.secondary)
             Spacer()
         }
@@ -279,9 +279,9 @@ struct ImportReviewSheet: View {
                 .frame(width: 80, height: 80)
             VStack(spacing: 6) {
                 Text("Importing…")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                 Text("\(service.progress.currentItemIndex) of \(service.progress.totalItems)")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -292,20 +292,20 @@ struct ImportReviewSheet: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(.green)
                 .symbolEffect(.bounce, value: imported)
 
             VStack(spacing: 6) {
                 Text("Import Complete")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                 Text("\(imported) item\(imported == 1 ? "" : "s") imported" +
                      (skipped > 0 ? ", \(skipped) skipped" : ""))
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.secondary)
                 if destination == .importedPosts {
                     Text("Your posts are in review and will appear publicly soon.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.top, 4)
@@ -313,7 +313,7 @@ struct ImportReviewSheet: View {
             }
 
             Button("Done") { dismiss() }
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -327,17 +327,17 @@ struct ImportReviewSheet: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.red)
             Text("Import Failed")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
             Text(message)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button("Try Again") { dismiss() }
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.blue)
             Spacer()
         }
@@ -361,39 +361,39 @@ private struct ImportItemRow: View {
                         .frame(width: 48, height: 48)
                     if item.isDuplicate {
                         Image(systemName: "doc.on.doc")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.orange)
                     } else if !item.mediaURLs.isEmpty {
                         Image(systemName: "photo")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.secondary)
                     } else {
                         Image(systemName: "text.justify")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.previewText)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(item.isDuplicate ? .secondary : .primary)
                         .lineLimit(isExpanded ? 6 : 2)
 
                     HStack(spacing: 6) {
                         if let ts = item.timestamp {
                             Text(ts.formatted(date: .abbreviated, time: .omitted))
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(.tertiary)
                         }
                         if !item.mediaURLs.isEmpty {
                             Label("\(item.mediaURLs.count)", systemImage: "photo")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(.tertiary)
                         }
                         if item.isDuplicate {
                             Text("Already imported")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                                 .foregroundStyle(.orange)
                         }
                     }
@@ -435,10 +435,10 @@ private struct SummaryChip: View {
     var body: some View {
         VStack(spacing: 1) {
             Text(value)
-                .font(.system(size: 16, weight: .bold))
+                .font(.systemScaled(16, weight: .bold))
                 .foregroundStyle(color)
             Text(label)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(.secondary)
         }
     }
@@ -452,7 +452,7 @@ private struct DestinationChip: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(destination.displayName)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .lineLimit(1)
             }
             .padding(.horizontal, 14)
@@ -481,7 +481,7 @@ private struct ProgressCircle: View {
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 0.3), value: progress)
             Text("\(Int(progress * 100))%")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
         }
     }
 }
@@ -502,7 +502,7 @@ struct ImportLauncherView: View {
             // Glass header card
             HStack(spacing: 14) {
                 Image(systemName: "square.and.arrow.down.on.square")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(
                         LinearGradient(colors: [.blue, .purple], startPoint: .top, endPoint: .bottom)
                     )
@@ -515,9 +515,9 @@ struct ImportLauncherView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Import Your Content")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                     Text("Bring posts from Instagram, X, or others")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -532,7 +532,7 @@ struct ImportLauncherView: View {
 
             Text("Select your official data export file (.zip) from any platform. " +
                  "Only your own content will be imported — no third-party data.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -541,9 +541,9 @@ struct ImportLauncherView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "folder")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Choose Archive File…")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)

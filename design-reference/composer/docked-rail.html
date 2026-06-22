@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMEN Adaptive Composer — Docked Rail Animation Reference</title>
+<style>
+  /* ─── Reset & Base ──────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* Animation timing constants — these become the SwiftUI spec */
+    --spring-duration: 350ms;
+    --spring-curve: cubic-bezier(0.32, 0.72, 0, 1);
+    --predictive-duration: 180ms;
+    --predictive-curve: ease-out;
+    --icon-active-scale: 1.06;
+
+    /* Rail geometry */
+    --rail-compact-height: 52px;
+    --rail-expanded-height: 80px;
+
+    /* Glass surface */
+    --glass-bg: rgba(255, 255, 255, 0.12);
+    --glass-blur: blur(12px);
+    --glass-border: 0.5px solid rgba(255, 255, 255, 0.3);
+    --glass-shadow: 0 -1px 24px rgba(0, 0, 0, 0.35);
+
+    /* Palette */
+    --bg: #1C1C1E;
+    --surface: rgba(44, 44, 46, 0.8);
+    --text-primary: rgba(255, 255, 255, 0.92);
+    --text-secondary: rgba(255, 255, 255, 0.5);
+    --accent: #0A84FF;
+    --accent-bible: #BF5AF2;
+    --accent-link: #30D158;
+    --chip-bg: rgba(255, 255, 255, 0.16);
+    --chip-border: rgba(255, 255, 255, 0.22);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    color: var(--text-primary);
+    overflow: hidden;
+  }
+
+  /* ─── Layout Shell ───────────────────────────────────────────── */
+  .shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 430px;        /* iPhone 15 Pro width */
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* ─── Spec Sidebar (desktop only) ───────────────────────────── */
+  .spec-sidebar {
+    display: none;
+  }
+  @media (min-width: 900px) {
+    body { display: flex; gap: 0; }
+    .shell { flex: 0 0 430px; border-right: 1px solid rgba(255,255,255,0.08); }
+    .spec-sidebar {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      padding: 32px 28px;
+      overflow-y: auto;
+      gap: 20px;
+    }
+  }
+
+  /* ─── Status Bar Mockup ──────────────────────────────────────── */
+  .status-bar {
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    flex-shrink: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .status-time { letter-spacing: -0.3px; }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+  .status-icons svg { opacity: 0.9; }
+
+  /* ─── Content Area ───────────────────────────────────────────── */
+  .content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ─── Control Panel ──────────────────────────────────────────── */
+  .control-panel {
+    background: rgba(255,255,255,0.05);
+    border: var(--glass-border);
+    border-radius: 16px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .control-panel h3 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+  }
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .ctrl-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: var(--glass-border);
+    background: rgba(255,255,255,0.08);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 120ms ease, transform 80ms ease;
+    -webkit-tap-highlight-color: transparent;
+    text-align: center;
+  }
+  .ctrl-btn:hover { background: rgba(255,255,255,0.14); }
+  .ctrl-btn:active { transform: scale(0.96); background: rgba(255,255,255,0.06); }
+  .ctrl-btn.active-sim { background: rgba(10, 132, 255, 0.25); border-color: rgba(10, 132, 255, 0.5); }
+
+  /* ─── State Badge ────────────────────────────────────────────── */
+  .state-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 0 2px;
+  }
+  .state-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    transition: background var(--spring-duration) var(--spring-curve);
+    box-shadow: 0 0 6px currentColor;
+  }
+  .state-dot.expanded { background: #FF9F0A; }
+  .state-dot.predictive { background: var(--accent-bible); }
+  .state-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    transition: all 200ms ease;
+  }
+
+  /* ─── Textarea ───────────────────────────────────────────────── */
+  .compose-area {
+    flex: 1;
+    min-height: 120px;
+    background: rgba(255,255,255,0.06);
+    border: var(--glass-border);
+    border-radius: 16px;
+    padding: 14px 16px;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-family: inherit;
+    line-height: 1.5;
+    resize: none;
+    outline: none;
+    caret-color: var(--accent);
+    transition: border-color 200ms ease;
+  }
+  .compose-area::placeholder { color: rgba(255,255,255,0.28); }
+  .compose-area:focus { border-color: rgba(10, 132, 255, 0.5); }
+
+  /* ─── Keyboard Scrim ─────────────────────────────────────────── */
+  .keyboard-scrim {
+    background: #1C1C1E;
+    flex-shrink: 0;
+  }
+
+  /* ─── Docked Rail ────────────────────────────────────────────── */
+  .docked-rail {
+    position: relative;
+    flex-shrink: 0;
+    width: 100%;
+
+    /* Glass surface */
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-top: var(--glass-border);
+    box-shadow: var(--glass-shadow);
+
+    /* Geometry */
+    height: var(--rail-compact-height);
+    transition:
+      height var(--spring-duration) var(--spring-curve),
+      padding var(--spring-duration) var(--spring-curve);
+
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .docked-rail.expanded {
+    height: var(--rail-expanded-height);
+  }
+
+  /* ─── Compact Row ────────────────────────────────────────────── */
+  .compact-row {
+    height: var(--rail-compact-height);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 4px;
+  }
+
+  /* ─── Tool Icon Button ───────────────────────────────────────── */
+  .tool-btn {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background var(--spring-duration) var(--spring-curve),
+      transform 120ms ease;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .tool-btn svg { pointer-events: none; }
+  .tool-btn:hover { background: rgba(255,255,255,0.08); }
+  .tool-btn:active { transform: scale(var(--icon-active-scale)); }
+  .tool-btn.promoted {
+    background: rgba(191, 90, 242, 0.18);
+    border: 0.5px solid rgba(191, 90, 242, 0.4);
+  }
+  .tool-btn.promoted-link {
+    background: rgba(48, 209, 88, 0.18);
+    border: 0.5px solid rgba(48, 209, 88, 0.4);
+  }
+
+  /* Icon color theming */
+  .tool-btn .icon-default { color: rgba(255,255,255,0.7); }
+  .tool-btn.promoted .icon-default { color: var(--accent-bible); }
+  .tool-btn.promoted-link .icon-default { color: var(--accent-link); }
+
+  /* Promote animation */
+  @keyframes promoteSpring {
+    0%   { transform: scale(0.6) translateY(6px); opacity: 0; }
+    60%  { transform: scale(var(--icon-active-scale)) translateY(-2px); opacity: 1; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  .tool-btn.promoting {
+    animation: promoteSpring var(--spring-duration) var(--spring-curve) forwards;
+  }
+
+  .compact-spacer { flex: 1; }
+
+  /* Plus button */
+  .plus-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: var(--glass-border);
+    background: rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 150ms ease, transform 80ms ease;
+    margin-left: 4px;
+  }
+  .plus-btn:hover { background: rgba(255,255,255,0.18); }
+  .plus-btn:active { transform: scale(0.92); }
+
+  /* ─── Expanded Grid ──────────────────────────────────────────── */
+  .expanded-grid {
+    padding: 4px 14px 8px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity var(--spring-duration) var(--spring-curve),
+      transform var(--spring-duration) var(--spring-curve);
+    pointer-events: none;
+  }
+  .docked-rail.expanded .expanded-grid {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .grid-tool-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px 4px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 150ms ease, transform 120ms ease;
+    color: rgba(255,255,255,0.7);
+  }
+  .grid-tool-btn:hover { background: rgba(255,255,255,0.08); }
+  .grid-tool-btn:active { transform: scale(var(--icon-active-scale)); }
+  .grid-tool-btn span {
+    font-size: 10px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+    line-height: 1.2;
+  }
+  .grid-tool-btn.promoted-grid {
+    background: rgba(191, 90, 242, 0.12);
+    border: 0.5px solid rgba(191, 90, 242, 0.3);
+    color: var(--accent-bible);
+  }
+  .grid-tool-btn.promoted-grid span { color: rgba(191, 90, 242, 0.8); }
+  .grid-tool-btn.promoted-link-grid {
+    background: rgba(48, 209, 88, 0.12);
+    border: 0.5px solid rgba(48, 209, 88, 0.3);
+    color: var(--accent-link);
+  }
+  .grid-tool-btn.promoted-link-grid span { color: rgba(48, 209, 88, 0.8); }
+
+  /* ─── Predictive Chips ───────────────────────────────────────── */
+  .predictive-row {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--rail-compact-height);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 8px;
+    pointer-events: none;
+    opacity: 0;
+  }
+  .docked-rail.predictive .predictive-row {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .docked-rail.predictive .compact-row {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .pred-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 20px;
+    background: var(--chip-bg);
+    border: 0.5px solid var(--chip-border);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    /* Predictive slide in */
+    transform: translateX(-20px);
+    opacity: 0;
+    transition:
+      transform var(--predictive-duration) var(--predictive-curve),
+      opacity var(--predictive-duration) var(--predictive-curve),
+      background 120ms ease;
+  }
+  .pred-chip:hover { background: rgba(255,255,255,0.22); }
+  .pred-chip:active { background: rgba(255,255,255,0.1); transform: scale(0.97) translateX(0); }
+
+  .docked-rail.predictive .pred-chip {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  .docked-rail.predictive .pred-chip:nth-child(2) {
+    transition-delay: 40ms;
+  }
+
+  .pred-chip svg { flex-shrink: 0; }
+  .chip-bible { border-color: rgba(191, 90, 242, 0.4); }
+  .chip-bible svg { color: var(--accent-bible); }
+  .chip-link  { border-color: rgba(48, 209, 88, 0.4); }
+  .chip-link  svg { color: var(--accent-link); }
+
+  .pred-spacer { flex: 1; }
+
+  /* Persistent trailing icons in predictive mode */
+  .pred-trailing {
+    display: flex;
+    gap: 4px;
+  }
+
+  /* ─── Compact row visibility in predictive ───────────────────── */
+  .compact-row {
+    transition: opacity var(--predictive-duration) var(--predictive-curve);
+  }
+
+  /* ─── Home Indicator ─────────────────────────────────────────── */
+  .home-indicator {
+    height: 34px;
+    background: #1C1C1E;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .home-bar {
+    width: 134px; height: 5px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.3);
+  }
+
+  /* ─── Spec Sidebar Styles ────────────────────────────────────── */
+  .spec-sidebar h2 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+  }
+  .spec-sidebar .subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .spec-section {
+    background: rgba(255,255,255,0.04);
+    border: var(--glass-border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .spec-section h4 {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--text-secondary);
+  }
+  .spec-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding-bottom: 6px;
+    gap: 12px;
+  }
+  .spec-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .spec-key { color: var(--text-secondary); flex-shrink: 0; }
+  .spec-val {
+    font-family: "SF Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: #FF9F0A;
+    text-align: right;
+    word-break: break-all;
+  }
+
+  .state-flow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .state-pill {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    border: var(--glass-border);
+  }
+  .state-pill.compact   { background: rgba(10,132,255,0.2);   color: #0A84FF; }
+  .state-pill.expanded  { background: rgba(255,159,10,0.2);  color: #FF9F0A; }
+  .state-pill.predictive{ background: rgba(191,90,242,0.2);  color: #BF5AF2; }
+  .state-arrow { color: var(--text-secondary); font-size: 14px; }
+
+  .trigger-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  .trigger-note code {
+    font-family: "SF Mono", ui-monospace, monospace;
+    background: rgba(255,255,255,0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.75);
+  }
+
+  /* ─── Toast notification ─────────────────────────────────────── */
+  .toast {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: rgba(44,44,46,0.92);
+    border: var(--glass-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 200ms ease, transform 200ms ease;
+    white-space: nowrap;
+    z-index: 100;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     iPhone Shell
+══════════════════════════════════════════════════════ -->
+<div class="shell" id="shell">
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="status-time">9:41</span>
+    <div class="status-icons">
+      <!-- Signal -->
+      <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor">
+        <rect x="0"  y="6" width="3" height="6" rx="1" opacity="0.4"/>
+        <rect x="4"  y="4" width="3" height="8" rx="1" opacity="0.6"/>
+        <rect x="8"  y="2" width="3" height="10" rx="1" opacity="0.8"/>
+        <rect x="12" y="0" width="3" height="12" rx="1"/>
+      </svg>
+      <!-- WiFi -->
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor">
+        <path d="M8 9.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/>
+        <path d="M3.7 6.3a6 6 0 0 1 8.6 0l-1.4 1.4a4 4 0 0 0-5.8 0L3.7 6.3Z" opacity="0.7"/>
+        <path d="M0.8 3.2a10 10 0 0 1 14.4 0l-1.4 1.4a8 8 0 0 0-11.6 0L0.8 3.2Z" opacity="0.4"/>
+      </svg>
+      <!-- Battery -->
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="currentColor">
+        <rect x="0" y="1" width="21" height="10" rx="3" opacity="0.35"/>
+        <rect x="1" y="2" width="19" height="8" rx="2" fill="currentColor"/>
+        <rect x="22" y="4" width="3" height="4" rx="1" opacity="0.4"/>
+        <rect x="1.5" y="2.5" width="14" height="7" rx="1.5" fill="#1C1C1E"/>
+        <rect x="2" y="3" width="13" height="6" rx="1" fill="white"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Content Scroll Area -->
+  <div class="content-area">
+
+    <!-- State Indicator -->
+    <div class="state-indicator">
+      <div class="state-dot" id="stateDot"></div>
+      <span>Rail state:</span>
+      <span class="state-label" id="stateLabel">compact</span>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="control-panel">
+      <h3>Simulate Composer Events</h3>
+      <div class="btn-row">
+        <button class="ctrl-btn" id="btnTypeText" onclick="simTypeText()">Type text</button>
+        <button class="ctrl-btn" id="btnTypeBible" onclick="simTypeBible()">Type John 3:16</button>
+      </div>
+      <div class="btn-row">
+        <button class="ctrl-btn" id="btnPasteURL" onclick="simPasteURL()">Paste URL</button>
+        <button class="ctrl-btn" id="btnIdle" onclick="simIdle()">Idle 1.5s</button>
+      </div>
+    </div>
+
+    <!-- Compose Textarea -->
+    <textarea
+      class="compose-area"
+      id="composeArea"
+      placeholder="Start typing to compose a post…"
+      rows="5"
+    ></textarea>
+
+  </div><!-- /content-area -->
+
+  <!-- Keyboard Scrim (simulates iOS keyboard area above rail) -->
+  <div class="keyboard-scrim" style="height: 12px;"></div>
+
+  <!-- ═══════════════════════════════════════════════
+       DOCKED RAIL — THE MAIN ANIMATION SUBJECT
+  ════════════════════════════════════════════════ -->
+  <div class="docked-rail" id="dockedRail">
+
+    <!-- STATE: COMPACT / DEFAULT -->
+    <div class="compact-row" id="compactRow">
+
+      <!-- Slot 0 — dynamically promoted -->
+      <button class="tool-btn" id="slot0" title="Bible" onclick="onToolTap('bible')">
+        <svg class="icon-default" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+      </button>
+
+      <!-- Slot 1 — Image -->
+      <button class="tool-btn" id="slot1" title="Photo" onclick="onToolTap('photo')">
+        <svg class="icon-default" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+          <circle cx="9" cy="9" r="2"/>
+          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+        </svg>
+      </button>
+
+      <!-- Slot 2 — Link -->
+      <button class="tool-btn" id="slot2" title="Link" onclick="onToolTap('link')">
+        <svg class="icon-default" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+      </button>
+
+      <!-- Slot 3 — Mention -->
+      <button class="tool-btn" id="slot3" title="Mention" onclick="onToolTap('mention')">
+        <svg class="icon-default" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/>
+        </svg>
+      </button>
+
+      <div class="compact-spacer"></div>
+
+      <!-- Plus Button -->
+      <div class="plus-btn" id="plusBtn" onclick="toggleExpanded()" title="More tools">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="7" y1="1" x2="7" y2="13"/>
+          <line x1="1" y1="7" x2="13" y2="7"/>
+        </svg>
+      </div>
+    </div><!-- /compact-row -->
+
+    <!-- STATE: PREDICTIVE OVERLAY -->
+    <div class="predictive-row" id="predictiveRow">
+      <!-- Chip 0 — contextual primary action -->
+      <button class="pred-chip chip-bible" id="chip0" onclick="onChipTap('scripture')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+        <span id="chip0Label">Insert Scripture Card</span>
+      </button>
+      <!-- Chip 1 — contextual secondary action -->
+      <button class="pred-chip chip-bible" id="chip1" onclick="onChipTap('compare')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m18 6 4 4-4 4"/>
+          <path d="M2 10h20"/>
+          <path d="m6 18-4-4 4-4"/>
+        </svg>
+        <span id="chip1Label">Compare Translations</span>
+      </button>
+
+      <div class="pred-spacer"></div>
+
+      <!-- Trailing icons stay visible in predictive mode -->
+      <div class="pred-trailing">
+        <button class="tool-btn" title="Mention" onclick="onToolTap('mention')">
+          <svg class="icon-default" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/>
+          </svg>
+        </button>
+        <div class="plus-btn" onclick="toggleExpanded()" title="More tools">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="7" y1="1" x2="7" y2="13"/>
+            <line x1="1" y1="7" x2="13" y2="7"/>
+          </svg>
+        </div>
+      </div>
+    </div><!-- /predictive-row -->
+
+    <!-- STATE: EXPANDED GRID (visible below compact row) -->
+    <div class="expanded-grid" id="expandedGrid">
+      <!-- Row 1 of grid (3 cols) -->
+      <button class="grid-tool-btn" id="gridBible" onclick="onToolTap('bible')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+        <span>Scripture</span>
+      </button>
+      <button class="grid-tool-btn" onclick="onToolTap('photo')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+          <circle cx="9" cy="9" r="2"/>
+          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+        </svg>
+        <span>Photo</span>
+      </button>
+      <button class="grid-tool-btn" id="gridLink" onclick="onToolTap('link')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+        <span>Link</span>
+      </button>
+      <!-- Row 2 of grid -->
+      <button class="grid-tool-btn" onclick="onToolTap('poll')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" x2="18" y1="20" y2="10"/>
+          <line x1="12" x2="12" y1="20" y2="4"/>
+          <line x1="6"  x2="6"  y1="20" y2="14"/>
+        </svg>
+        <span>Poll</span>
+      </button>
+      <button class="grid-tool-btn" onclick="onToolTap('prayer')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/>
+          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/>
+          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/>
+          <path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+        </svg>
+        <span>Prayer</span>
+      </button>
+      <button class="grid-tool-btn" onclick="onToolTap('location')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+        <span>Location</span>
+      </button>
+    </div><!-- /expanded-grid -->
+
+  </div><!-- /docked-rail -->
+
+  <!-- Home Indicator -->
+  <div class="home-indicator">
+    <div class="home-bar"></div>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- ═══════════════════════════════════════════════════
+     Spec Sidebar (desktop only)
+══════════════════════════════════════════════════════ -->
+<div class="spec-sidebar">
+  <div>
+    <h2>AMEN Adaptive Composer</h2>
+    <p class="subtitle">Docked Rail — Animation Reference<br>SwiftUI spec values extracted from CSS constants</p>
+  </div>
+
+  <!-- State Flow -->
+  <div class="spec-section">
+    <h4>State Machine</h4>
+    <div class="state-flow">
+      <span class="state-pill compact">compact</span>
+      <span class="state-arrow">⇄</span>
+      <span class="state-pill expanded">expanded</span>
+      <span class="state-arrow">→</span>
+      <span class="state-pill predictive">predictive</span>
+    </div>
+    <div class="trigger-note">
+      <code>compact</code> — default while typing<br>
+      <code>expanded</code> — on <code>+</code> tap or idle ≥ 1.5s<br>
+      <code>predictive</code> — Bible ref detected / URL pasted
+    </div>
+  </div>
+
+  <!-- Timing Constants -->
+  <div class="spec-section">
+    <h4>Animation Constants → SwiftUI</h4>
+    <div class="spec-row">
+      <span class="spec-key">State morph spring</span>
+      <span class="spec-val">.spring(response: 0.35, dampingFraction: 0.82)</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">CSS equivalent</span>
+      <span class="spec-val">cubic-bezier(0.32, 0.72, 0, 1) 350ms</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">No bounce rule</span>
+      <span class="spec-val">dampingFraction ≥ 0.8</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Predictive slide</span>
+      <span class="spec-val">.easeOut(duration: 0.18) + offset -20 → 0</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Icon active scale</span>
+      <span class="spec-val">scaleEffect(1.06)</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Promote animation</span>
+      <span class="spec-val">.spring 350ms, matchedGeometryEffect</span>
+    </div>
+  </div>
+
+  <!-- Rail Geometry -->
+  <div class="spec-section">
+    <h4>Rail Geometry</h4>
+    <div class="spec-row">
+      <span class="spec-key">Compact height</span>
+      <span class="spec-val">52pt</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Expanded height</span>
+      <span class="spec-val">80pt</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Tool icon size</span>
+      <span class="spec-val">40×40pt tap target</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Plus button</span>
+      <span class="spec-val">32pt circle</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Grid columns</span>
+      <span class="spec-val">3-col, 6 tools</span>
+    </div>
+  </div>
+
+  <!-- Glass Surface -->
+  <div class="spec-section">
+    <h4>Liquid Glass Surface</h4>
+    <div class="spec-row">
+      <span class="spec-key">Fill</span>
+      <span class="spec-val">rgba(255,255,255,0.12)</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Blur</span>
+      <span class="spec-val">UIBlurEffect .systemUltraThinMaterial</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">CSS blur equiv</span>
+      <span class="spec-val">backdrop-filter: blur(12px)</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Top border</span>
+      <span class="spec-val">0.5px rgba(255,255,255,0.3)</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Shadow</span>
+      <span class="spec-val">0 -1 24px rgba(0,0,0,0.35)</span>
+    </div>
+  </div>
+
+  <!-- Predictive Chips -->
+  <div class="spec-section">
+    <h4>Predictive Chips</h4>
+    <div class="spec-row">
+      <span class="spec-key">Bible chip color</span>
+      <span class="spec-val">#BF5AF2 (systemPurple)</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Link chip color</span>
+      <span class="spec-val">#30D158 (systemGreen)</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Chip height</span>
+      <span class="spec-val">34pt (20pt corner radius)</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Stagger delay</span>
+      <span class="spec-val">chip1: +40ms</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-key">Dismiss</span>
+      <span class="spec-val">fade + translateX(-20) reverse</span>
+    </div>
+  </div>
+
+  <!-- Promote Logic -->
+  <div class="spec-section">
+    <h4>Icon Promote Logic</h4>
+    <div class="trigger-note">
+      <strong style="color: var(--text-primary);">Bible promote:</strong> Text contains verse pattern (e.g. "John 3:16") → Bible icon snaps to slot 0 with spring. Predictive chips: "Insert Scripture Card", "Compare Translations".<br><br>
+      <strong style="color: var(--text-primary);">Link promote:</strong> URL detected in paste → Link icon snaps to slot 0. Predictive chips: "Unfurl Preview", "Attach Link Card".
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ─── State ────────────────────────────────────────────────────── */
+const State = { COMPACT: 'compact', EXPANDED: 'expanded', PREDICTIVE: 'predictive' };
+let currentState = State.COMPACT;
+let promotedTool = null; // 'bible' | 'link' | null
+let idleTimer = null;
+let animBusy = false;
+
+/* ─── DOM Refs ─────────────────────────────────────────────────── */
+const rail      = document.getElementById('dockedRail');
+const stateDot  = document.getElementById('stateDot');
+const stateLbl  = document.getElementById('stateLabel');
+const textarea  = document.getElementById('composeArea');
+const chip0     = document.getElementById('chip0');
+const chip1     = document.getElementById('chip1');
+const chip0Lbl  = document.getElementById('chip0Label');
+const chip1Lbl  = document.getElementById('chip1Label');
+const slot0     = document.getElementById('slot0');
+const slot2     = document.getElementById('slot2');
+const gridBible = document.getElementById('gridBible');
+const gridLink  = document.getElementById('gridLink');
+
+/* ─── Apply State ──────────────────────────────────────────────── */
+function applyState(newState) {
+  currentState = newState;
+
+  // Rail classes
+  rail.classList.remove('expanded', 'predictive');
+  if (newState === State.EXPANDED)   rail.classList.add('expanded');
+  if (newState === State.PREDICTIVE) rail.classList.add('predictive');
+
+  // Dot + label
+  stateDot.className = 'state-dot ' + newState;
+  stateLbl.textContent = newState;
+}
+
+/* ─── Toggle Expanded ──────────────────────────────────────────── */
+function toggleExpanded() {
+  if (currentState === State.EXPANDED) {
+    applyState(State.COMPACT);
+  } else {
+    clearIdleTimer();
+    applyState(State.EXPANDED);
+  }
+}
+
+/* ─── Idle Timer ───────────────────────────────────────────────── */
+function resetIdleTimer() {
+  clearIdleTimer();
+  if (currentState === State.COMPACT) {
+    idleTimer = setTimeout(() => {
+      if (currentState === State.COMPACT) applyState(State.EXPANDED);
+    }, 1500);
+  }
+}
+function clearIdleTimer() {
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+}
+
+/* ─── Promote Icon to Slot 0 ───────────────────────────────────── */
+function promoteIcon(tool) {
+  if (promotedTool === tool) return;
+  promotedTool = tool;
+
+  // Reset all slot promotions
+  slot0.className = 'tool-btn';
+  slot2.className = 'tool-btn';
+  gridBible.className = 'grid-tool-btn';
+  gridLink.className = 'grid-tool-btn';
+
+  // Set slot0 icon to the promoted tool
+  if (tool === 'bible') {
+    slot0.innerHTML = bibleSVG(22);
+    slot0.classList.add('promoted', 'promoting');
+    gridBible.classList.add('promoted-grid');
+    // Set predictive chips for Bible
+    chip0.className = 'pred-chip chip-bible';
+    chip1.className = 'pred-chip chip-bible';
+    chip0.querySelector('svg').outerHTML; // keep icon
+    chip0Lbl.textContent = 'Insert Scripture Card';
+    chip1Lbl.textContent = 'Compare Translations';
+    // Swap chip0 icon to Bible
+    chip0.innerHTML = bibleSVG(14) + '<span id="chip0Label">Insert Scripture Card</span>';
+    chip1.innerHTML = compareArrowsSVG(14) + '<span id="chip1Label">Compare Translations</span>';
+  } else if (tool === 'link') {
+    slot0.innerHTML = linkSVG(22);
+    slot0.classList.add('promoted-link', 'promoting');
+    gridLink.classList.add('promoted-link-grid');
+    // Set predictive chips for Link
+    chip0.className = 'pred-chip chip-link';
+    chip1.className = 'pred-chip chip-link';
+    chip0.innerHTML = linkSVG(14) + '<span id="chip0Label">Unfurl Preview</span>';
+    chip1.innerHTML = attachLinkSVG(14) + '<span id="chip1Label">Attach Link Card</span>';
+  }
+
+  // Remove animation class after it fires
+  setTimeout(() => slot0.classList.remove('promoting'), 400);
+}
+
+function resetPromotion() {
+  if (!promotedTool) return;
+  promotedTool = null;
+  slot0.className = 'tool-btn';
+  slot0.innerHTML = bibleSVG(22); // restore default icon (Bible is default slot 0)
+  slot2.className = 'tool-btn';
+  gridBible.className = 'grid-tool-btn';
+  gridLink.className = 'grid-tool-btn';
+}
+
+/* ─── SVG Helpers ──────────────────────────────────────────────── */
+function bibleSVG(sz) {
+  return `<svg class="icon-default" width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
+}
+function linkSVG(sz) {
+  return `<svg class="icon-default" width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+}
+function compareArrowsSVG(sz) {
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 6 4 4-4 4"/><path d="M2 10h20"/><path d="m6 18-4-4 4-4"/></svg>`;
+}
+function attachLinkSVG(sz) {
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>`;
+}
+
+/* ─── Simulation Buttons ───────────────────────────────────────── */
+function simTypeText() {
+  clearIdleTimer();
+  resetPromotion();
+  if (currentState === State.PREDICTIVE || currentState === State.EXPANDED) {
+    applyState(State.COMPACT);
+  }
+  textarea.value = 'This is such a blessing and a reminder that God is always working in our lives.';
+  textarea.focus();
+  showToast('Typing... rail in compact mode');
+  flashBtn('btnTypeText');
+  resetIdleTimer();
+}
+
+function simTypeBible() {
+  clearIdleTimer();
+  // First go compact (simulate typing)
+  applyState(State.COMPACT);
+  textarea.value = 'Reflecting on John 3:16 today — such powerful truth.';
+  textarea.focus();
+  flashBtn('btnTypeBible');
+
+  // After brief delay, Bible icon promotes + predictive shows
+  setTimeout(() => {
+    promoteIcon('bible');
+    applyState(State.PREDICTIVE);
+    showToast('Bible reference detected → predictive mode');
+  }, 420);
+}
+
+function simPasteURL() {
+  clearIdleTimer();
+  applyState(State.COMPACT);
+  textarea.value = 'Check out this article: https://www.bible.com/verse-of-the-day';
+  textarea.focus();
+  flashBtn('btnPasteURL');
+
+  // Immediate URL detection on paste
+  setTimeout(() => {
+    promoteIcon('link');
+    applyState(State.PREDICTIVE);
+    showToast('URL detected → link icon promoted');
+  }, 200);
+}
+
+function simIdle() {
+  clearIdleTimer();
+  resetPromotion();
+  applyState(State.COMPACT);
+  textarea.value = 'Paused mid-thought…';
+  textarea.focus();
+  flashBtn('btnIdle');
+  showToast('Idle timer started — expanding in 1.5s');
+
+  // Simulate the 1.5s idle → expanded transition
+  idleTimer = setTimeout(() => {
+    applyState(State.EXPANDED);
+    showToast('1.5s elapsed → expanded');
+  }, 1500);
+}
+
+function onToolTap(tool) {
+  showToast('Tapped: ' + tool);
+}
+
+function onChipTap(action) {
+  showToast('Action: ' + action);
+  // Return to compact after chip tap
+  setTimeout(() => applyState(State.COMPACT), 300);
+}
+
+/* ─── Textarea Listener ────────────────────────────────────────── */
+textarea.addEventListener('input', () => {
+  const val = textarea.value;
+  const biblePattern = /\b[1-3]?\s?[A-Za-z]+\s+\d+:\d+/;
+  const urlPattern   = /https?:\/\/[^\s]+/;
+
+  if (urlPattern.test(val) && promotedTool !== 'link') {
+    promoteIcon('link');
+    applyState(State.PREDICTIVE);
+  } else if (biblePattern.test(val) && promotedTool !== 'bible') {
+    promoteIcon('bible');
+    applyState(State.PREDICTIVE);
+  } else if (!biblePattern.test(val) && !urlPattern.test(val)) {
+    if (promotedTool) {
+      resetPromotion();
+      applyState(State.COMPACT);
+    }
+  }
+
+  if (currentState === State.COMPACT) resetIdleTimer();
+});
+
+/* ─── Button Flash ─────────────────────────────────────────────── */
+function flashBtn(id) {
+  const el = document.getElementById(id);
+  el.classList.add('active-sim');
+  setTimeout(() => el.classList.remove('active-sim'), 700);
+}
+
+/* ─── Toast ────────────────────────────────────────────────────── */
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ─── Init ─────────────────────────────────────────────────────── */
+// Start with compact state, default slot 0 = Bible
+applyState(State.COMPACT);
+showToast('Tap a simulation button to begin');
+</script>
+</body>
+</html>

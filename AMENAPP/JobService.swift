@@ -42,7 +42,7 @@ final class JobService: ObservableObject {
 
     // MARK: - Private State
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
     private var isListening = false
 
@@ -133,6 +133,8 @@ final class JobService: ObservableObject {
         // Job alerts listener
         let alertsListener = db.collection(JobCollections.jobAlerts)
             .whereField("userId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .limit(to: 50)  // ✅ FIX CR-4: Add pagination limit
             .addSnapshotListener { [weak self] snap, _ in
                 self?.myJobAlerts = snap?.documents.compactMap {
                     try? $0.data(as: JobAlert.self)
@@ -242,7 +244,7 @@ final class JobService: ObservableObject {
         defer { isSaving = false }
 
         // Safety check
-        let safetyDecision = await JobSafetyEngine.shared.evaluateJobPosting(listing)
+        let safetyDecision = JobSafetyEngine.shared.evaluateJobPosting(listing)
         guard safetyDecision.isAllowed || safetyDecision == .allow else {
             let msg = safetyDecision.displayMessage ?? "This listing cannot be published."
             throw JobServiceError.safetyViolation(msg)
@@ -252,7 +254,7 @@ final class JobService: ObservableObject {
         newListing.employerId = userId
         newListing.createdAt = Date()
         newListing.updatedAt = Date()
-        newListing.safetyScore = await JobSafetyEngine.shared.computeJobSafetyScore(listing)
+        newListing.safetyScore = JobSafetyEngine.shared.computeJobSafetyScore(listing)
 
         // Build search keywords
         newListing.searchKeywords = buildJobKeywords(listing)
@@ -274,7 +276,7 @@ final class JobService: ObservableObject {
 
         var updated = listing
         updated.updatedAt = Date()
-        updated.safetyScore = await JobSafetyEngine.shared.computeJobSafetyScore(listing)
+        updated.safetyScore = JobSafetyEngine.shared.computeJobSafetyScore(listing)
         updated.searchKeywords = buildJobKeywords(listing)
 
         let encoded = try Firestore.Encoder().encode(updated)
@@ -295,7 +297,7 @@ final class JobService: ObservableObject {
 
         // Safety check on cover note
         if let coverNote = application.coverNote, !coverNote.isEmpty {
-            let decision = await JobSafetyEngine.shared.evaluateApplication(text: coverNote, applicantId: userId)
+            let decision = JobSafetyEngine.shared.evaluateApplication(text: coverNote, applicantId: userId)
             if !decision.isAllowed {
                 throw JobServiceError.safetyViolation(decision.displayMessage ?? "Application content violates policies.")
             }
@@ -352,9 +354,13 @@ final class JobService: ObservableObject {
     }
 
     func markApplicationRead(_ applicationId: String) async {
-        try? await db.collection(JobCollections.jobApplications).document(applicationId).updateData([
-            "isRead": true
-        ])
+        do {
+            try await db.collection(JobCollections.jobApplications).document(applicationId).updateData([
+                "isRead": true
+            ])
+        } catch {
+            print("JobService: failed to mark application read — \(error.localizedDescription)")
+        }
     }
 
     func fetchApplicationsForJob(_ jobId: String) async -> [JobApplication] {
@@ -390,9 +396,13 @@ final class JobService: ObservableObject {
         try await db.collection(JobCollections.savedJobs).addDocument(data: encoded)
 
         // Increment save count on job
-        try? await db.collection(JobCollections.jobListings).document(jobId).updateData([
-            "saveCount": FieldValue.increment(Int64(1))
-        ])
+        do {
+            try await db.collection(JobCollections.jobListings).document(jobId).updateData([
+                "saveCount": FieldValue.increment(Int64(1))
+            ])
+        } catch {
+            print("JobService: failed to increment job saveCount — \(error.localizedDescription)")
+        }
     }
 
     func unsaveJob(_ savedJobId: String) async throws {
@@ -642,7 +652,11 @@ final class JobService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ]
         if let relatedId = relatedId { data["relatedId"] = relatedId }
-        try? await db.collection(JobCollections.notifications).addDocument(data: data)
+        do {
+            try await db.collection(JobCollections.notifications).addDocument(data: data)
+        } catch {
+            print("JobService: failed to send job notification — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Proximity Search (Geohash)
@@ -652,7 +666,7 @@ final class JobService: ObservableObject {
     /// whose geohash prefix matches the caller's 4-char prefix (~40 km bounding box),
     /// then filter the smaller result set for exact radius.
     ///
-    /// TODO: Deploy Firestore composite index: jobs(geohash ASC, isActive ASC)
+    /// Deploy: Requires Firestore composite index jobs(geohash ASC, isActive ASC).
     func fetchJobsNear(lat: Double, lon: Double, radiusKm: Double = 50) async throws -> [JobListing] {
         let prefix = String(JobService.geohash(lat: lat, lon: lon, precision: 4).prefix(4))
         let snapshot = try await db.collection(JobCollections.jobListings)

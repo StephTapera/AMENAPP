@@ -13,7 +13,7 @@ import FirebaseFirestore
 class SmartNotificationTimingService {
     static let shared = SmartNotificationTimingService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let cacheKey = "peakUsageHour"
 
     private init() {}

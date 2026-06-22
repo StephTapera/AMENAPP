@@ -60,7 +60,7 @@ enum SessionSignal: CustomStringConvertible {
 // MARK: - Content Exposure Record
 
 private struct ContentExposureRecord {
-    let category: ContentRiskCategory
+    let category: LocalRiskCategory
     let intensity: Double   // 0.0 – 1.0 (actual risk score from ContentRiskAnalyzer)
     let timestamp: Date
     var dwellSeconds: TimeInterval
@@ -93,7 +93,7 @@ final class BehavioralAwarenessEngine: ObservableObject {
     private var exposureHistory: [ContentExposureRecord] = []
     private var scrollSamples: [ScrollSample] = []
     private var activeContentStart: Date?
-    private var activeCategory: ContentRiskCategory = .none
+    private var activeCategory: LocalRiskCategory = .none
     private var activeContentIntensity: Double = 0.0  // actual score from ContentRiskAnalyzer
 
     // MARK: - Thresholds (safety-first — tuned to catch genuine distress)
@@ -150,7 +150,7 @@ final class BehavioralAwarenessEngine: ObservableObject {
     /// - Parameters:
     ///   - category: The primary risk category from ContentRiskAnalyzer.quickScan
     ///   - intensity: The risk score (0.0 – 1.0) — stored and used in dwell records
-    func noteContentExposure(category: ContentRiskCategory, intensity: Double) {
+    func noteContentExposure(category: LocalRiskCategory, intensity: Double) {
         guard category != .none, intensity >= minimumRecordableIntensity else { return }
 
         // Flush any previously active dwell first

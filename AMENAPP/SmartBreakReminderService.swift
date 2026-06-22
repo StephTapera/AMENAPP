@@ -160,6 +160,13 @@ class SmartBreakReminderService: ObservableObject {
         continuousMinutes: Int,
         totalMinutes: Int
     ) async {
+        guard await canDeliverNotifications() else {
+            lastUsageReminderTime = Date()
+            saveReminderData()
+            dlog("⏭️ Smart break reminder skipped — notifications are not authorized")
+            return
+        }
+
         let content = UNMutableNotificationContent()
         content.title = "Time for a Break"
         content.sound = .default
@@ -199,6 +206,18 @@ class SmartBreakReminderService: ObservableObject {
             dlog("✅ Sent smart break reminder (score: \(score), continuous: \(continuousMinutes)m, reminders today: \(usageRemindersToday))")
         } catch {
             dlog("❌ Failed to send smart break reminder: \(error)")
+        }
+    }
+
+    private func canDeliverNotifications() async -> Bool {
+        let settings = await center.notificationSettings()
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .denied, .notDetermined:
+            return false
+        @unknown default:
+            return false
         }
     }
     

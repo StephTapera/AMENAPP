@@ -68,7 +68,7 @@ struct BereanConversationManagementView: View {
                             .tint(.white)
                         
                         Text("Loading conversation...")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(.white)
                     }
                     .padding(32)
@@ -132,11 +132,11 @@ struct BereanConversationManagementView: View {
     private var searchBar: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.white.opacity(0.5))
             
             TextField("Search conversations...", text: $searchText)
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(.white)
                 .tint(Color(red: 1.0, green: 0.7, blue: 0.5))
             
@@ -145,7 +145,7 @@ struct BereanConversationManagementView: View {
                     searchText = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.white.opacity(0.5))
                 }
             }
@@ -196,7 +196,7 @@ struct BereanConversationManagementView: View {
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: searchText.isEmpty ? "clock" : "magnifyingglass")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.white.opacity(0.3))
             
             Text(searchText.isEmpty ? "No Saved Conversations" : "No Results")
@@ -310,7 +310,7 @@ struct ConversationManagementCard: View {
                     showingActions = true
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.white.opacity(0.5))
                         .frame(width: 32, height: 32)
                         .background(
@@ -505,7 +505,7 @@ struct ExportConversationSheet: View {
                             } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: format.icon)
-                                        .font(.system(size: 18))
+                                        .font(.systemScaled(18))
                                         .foregroundStyle(Color(red: 1.0, green: 0.7, blue: 0.5))
                                         .frame(width: 32)
                                     
@@ -517,7 +517,7 @@ struct ExportConversationSheet: View {
                                     
                                     if selectedFormat == format {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 20))
+                                            .font(.systemScaled(20))
                                             .foregroundStyle(Color(red: 0.4, green: 0.85, blue: 0.7))
                                     } else {
                                         Circle()
@@ -555,7 +555,7 @@ struct ExportConversationSheet: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "square.and.arrow.up.fill")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                             
                             Text("Export Conversation")
                                 .font(.custom("OpenSans-Bold", size: 16))

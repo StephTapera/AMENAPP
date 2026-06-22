@@ -135,7 +135,7 @@ struct HomeView_FloatingButtonExample: View {
                         .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
                     
                     Image(systemName: "bookmark.fill")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(.white)
                 }
             }

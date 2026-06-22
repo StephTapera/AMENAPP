@@ -8,7 +8,7 @@ struct NotificationDigestView: View {
     @State private var selectedDigest: NotificationDigest?
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
                     // Current Pending Digest
@@ -102,7 +102,7 @@ struct DigestItemRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: categoryIcon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundColor(categoryColor)
                 .frame(width: 32, height: 32)
             
@@ -186,7 +186,7 @@ struct DigestHistoryCard: View {
             if digest.opened {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.green)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
             } else {
                 Circle()
                     .fill(Color.blue)
@@ -208,7 +208,7 @@ struct DigestDetailView: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     headerView

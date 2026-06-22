@@ -114,12 +114,12 @@ struct ChristianMediaView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Christian Media")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .opacity(navTitleOpacity)
                 }
             }
         }
-        .preferredColorScheme(.light)
+        .preferredColorScheme(nil)
         .sheet(isPresented: $showBereanSheet) {
             BereanAIAssistantView(initialQuery: bereanQuery)
         }
@@ -138,10 +138,10 @@ struct ChristianMediaView: View {
     private var heroSection: some View {
         VStack(spacing: 4) {
             Text("Christian Media")
-                .font(.system(size: 28, weight: .bold))
+                .font(.systemScaled(28, weight: .bold))
                 .foregroundStyle(.primary)
             Text("Watch · Listen · Reflect")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -165,7 +165,7 @@ struct ChristianMediaView: View {
             HStack(spacing: 0) {
                 ForEach(MediaTab.allCases) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             vm.selectedTab = tab
                         }
                     } label: {
@@ -180,7 +180,7 @@ struct ChristianMediaView: View {
                             }
 
                             Text(tab.rawValue)
-                                .font(.system(size: 14, weight: vm.selectedTab == tab ? .semibold : .regular))
+                                .font(.systemScaled(14, weight: vm.selectedTab == tab ? .semibold : .regular))
                                 .foregroundStyle(vm.selectedTab == tab ? .primary : .secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -209,15 +209,15 @@ struct ChristianMediaView: View {
         let isActive = vm.selectedFilter == filter
 
         return Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                 vm.selectedFilter = filter
             }
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: filter.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(filter.label)
-                    .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                    .font(.systemScaled(13, weight: isActive ? .semibold : .regular))
             }
             .foregroundStyle(isActive ? .white : .primary.opacity(0.70))
             .padding(.horizontal, 12)
@@ -302,13 +302,13 @@ struct ChristianMediaView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: vm.selectedFilter.icon)
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(accentPurple.opacity(0.5))
             Text("No \(vm.selectedFilter.label) content yet")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(.primary)
             Text("Check back soon for new content")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -321,15 +321,15 @@ struct ChristianMediaView: View {
     private func errorBanner(message: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
             Text(message)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .lineLimit(2)
             Spacer()
             Button("Retry") {
                 Task { await vm.loadContent() }
             }
-            .font(.system(size: 13, weight: .semibold))
+            .font(.systemScaled(13, weight: .semibold))
         }
         .foregroundStyle(.white)
         .padding(12)
@@ -342,9 +342,9 @@ struct ChristianMediaView: View {
     private var cachedContentBanner: some View {
         HStack(spacing: 6) {
             Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
             Text("Showing cached content")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
         }
         .foregroundStyle(.secondary)
         .padding(.horizontal, 10)

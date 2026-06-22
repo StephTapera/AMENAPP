@@ -8,18 +8,43 @@
 //
 
 import SwiftUI
+import UIKit
 import FirebaseAuth
 import FirebaseFirestore
 import Combine  // Required for Timer.publish().autoconnect()
 import PhotosUI
 import Vision
+import NaturalLanguage
+
+private struct CommentsScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct CommentsBottomAnchorKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct CommentsScrollViewHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
 
 struct CommentsView: View {
     let post: Post
-    
+    let prefillText: String?
+
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var commentService = CommentService.shared  // P0 FIX: ObservedObject for singletons (faster init)
     @ObservedObject private var userService = UserService.shared  // P0 FIX: ObservedObject for singletons (faster init)
+    @ObservedObject private var commentBridge = CommentTranslationBridge.shared
     
     // P0 FIX: Lazy load AI services - only initialize when needed, not on sheet open
     @State private var summarizationService: AIThreadSummarizationService?
@@ -40,6 +65,11 @@ struct CommentsView: View {
     
     // P0-1 FIX: Prevent duplicate submissions
     @State private var isSubmittingComment = false
+    // FIX: Temporary ID for the optimistic placeholder inserted while a new top-level
+    // comment is in-flight; cleared when the RTDB listener delivers the real comment
+    // or when the write fails and the placeholder is rolled back.
+    @State private var optimisticCommentTempId: String?
+    @StateObject private var commentSeal = SuccessSealController()
     @State private var currentUserProfileImageURL: String?
     @State private var currentUserInitials: String = "U"
     @State private var selectedUserId: String?
@@ -74,10 +104,22 @@ struct CommentsView: View {
     // Smart reply chips
     @State private var smartReplySuggestions: [String] = []
     @State private var isLoadingSmartReplies = false
+
+    @StateObject private var successChips = SuccessChipCenter()
+    @State private var scrollViewHeight: CGFloat = 0
+    @State private var bottomAnchorY: CGFloat = 0
+    @State private var contentOffsetY: CGFloat = 0
+    @State private var lastContentOffsetY: CGFloat = 0
+    @State private var isScrollingDown: Bool = false
+    @State private var showJumpToLatest: Bool = false
+    @State private var sendSweepTrigger: Bool = false
     
     // Berean AI integration
     @State private var showBerean = false
     @State private var bereanQuery = ""
+
+    // Phase 4: Bilingual reply — detected language of the post being commented on
+    @State private var detectedPostLanguage: String?
 
     // Slow mode cooldown: store end date; remaining time is computed from currentTime
     @State private var cooldownEndDate: Date?
@@ -100,6 +142,12 @@ struct CommentsView: View {
     // Proactive rate limit banner (shown immediately if daily limit already hit)
     @State private var rateLimitMessage: String? = nil
     
+    init(post: Post, prefillText: String? = nil) {
+        self.post = post
+        self.prefillText = prefillText
+        _commentText = State(initialValue: prefillText ?? "")
+    }
+
     // Use full firestoreId — RTDB listener paths use the same full UUID as Firestore.
     // PostDetailView uses post.firestoreId directly; CommentsView must match.
     private var postId: String { post.firestoreId }
@@ -284,7 +332,7 @@ struct CommentsView: View {
                                             .frame(width: 16, height: 16)
                                             .overlay(
                                                 Image(systemName: "pencil")
-                                                    .font(.system(size: 8, weight: .bold))
+                                                    .font(.systemScaled(8, weight: .bold))
                                                     .foregroundStyle(.white)
                                             )
                                             .overlay(
@@ -352,7 +400,7 @@ struct CommentsView: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
                         .background(
@@ -361,7 +409,7 @@ struct CommentsView: View {
                                 Circle()
                                     .fill(.ultraThinMaterial)
                                     .opacity(0.8)
-                                
+
                                 // Subtle gradient overlay
                                 Circle()
                                     .fill(
@@ -374,7 +422,7 @@ struct CommentsView: View {
                                             endPoint: .bottomTrailing
                                         )
                                     )
-                                
+
                                 // Border with gradient
                                 Circle()
                                     .strokeBorder(
@@ -392,6 +440,7 @@ struct CommentsView: View {
                         )
                         .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
                 }
+                .accessibilityLabel("Close comments")
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
@@ -426,19 +475,19 @@ struct CommentsView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "clock.badge.questionmark")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("\(pendingComments.count) comment\(pendingComments.count == 1 ? "" : "s") waiting for approval")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.primary)
                         Text("Tap to review")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 16)
@@ -456,16 +505,26 @@ struct CommentsView: View {
         }
     }
 
-    var body: some View {
+    @ViewBuilder
+    private var mainStack: some View {
         ZStack {
         VStack(spacing: 0) {
             headerView
+                .modifier(SoftStickyHeaderModifier(isActive: true, intensity: 0.25))
 
             pendingApprovalBanner
             
             // Comments List with ScrollViewReader for smooth scrolling
             ScrollViewReader { proxy in
                 ScrollView {
+                    GeometryReader { geometry in
+                        Color.clear.preference(
+                            key: CommentsScrollOffsetKey.self,
+                            value: geometry.frame(in: .named("commentsScroll")).minY
+                        )
+                    }
+                    .frame(height: 0)
+
                     LazyVStack(spacing: 0) {
                         if isLoading {
                             // P0 FIX: Skeleton loading UI - shows immediately, no blocking
@@ -474,7 +533,7 @@ struct CommentsView: View {
                         } else if commentsWithReplies.isEmpty {
                             VStack(spacing: 12) {
                                 Image(systemName: "bubble.left")
-                                    .font(.system(size: 48))
+                                    .font(.systemScaled(48))
                                     .foregroundStyle(.black.opacity(0.3))
                                 
                                 Text("No comments yet")
@@ -489,14 +548,20 @@ struct CommentsView: View {
                             .padding(.top, 60)
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         } else {
+                            // Phase 6: Multilingual thread summary
+                            if let langSummary = commentBridge.threadLanguageSummary {
+                                ThreadLanguageSummaryView(summary: langSummary)
+                            }
+
                             ForEach(Array(commentsWithReplies.enumerated()), id: \.element.id) { index, commentWithReplies in
                                 VStack(alignment: .leading, spacing: 8) {
                                     // Main Comment with animation
                                     PostCommentRow(
+                                        post: post,
                                         comment: commentWithReplies.comment,
                                         isNew: newCommentIds.contains(commentWithReplies.comment.id ?? ""),
                                         onReply: {
-                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                                 replyingTo = commentWithReplies.comment
                                                 isInputFocused = true
                                             }
@@ -505,8 +570,15 @@ struct CommentsView: View {
                                             // haptic
                                             HapticManager.impact(style: .light)
                                         },
+                                        onReplyWithQuote: { quoteText in
+                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
+                                                replyingTo = commentWithReplies.comment
+                                                commentText = quoteText
+                                                isInputFocused = true
+                                            }
+                                        },
                                         onDelete: {
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                                 deleteComment(commentWithReplies.comment)
                                             }
                                         },
@@ -518,7 +590,7 @@ struct CommentsView: View {
                                             showUserProfile = true
                                         },
                                         onToggleThread: {
-                                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                                                 if expandedThreads.contains(commentWithReplies.comment.id ?? "") {
                                                     expandedThreads.remove(commentWithReplies.comment.id ?? "")
                                                 } else {
@@ -576,7 +648,7 @@ struct CommentsView: View {
                                                             .tint(.secondary)
                                                         
                                                         Text("Generating thread summary...")
-                                                            .font(.system(size: 13))
+                                                            .font(.systemScaled(13))
                                                             .foregroundStyle(.secondary)
                                                     }
                                                     .padding(.horizontal, 20)
@@ -595,11 +667,12 @@ struct CommentsView: View {
                                                         .transition(.scale(scale: 0.1, anchor: .top))
                                                     
                                                     PostCommentRow(
+                                                        post: post,
                                                         comment: reply,
                                                         isReply: true,
                                                         isNew: newCommentIds.contains(reply.id ?? ""),
                                                         onReply: {
-                                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                                                 replyingTo = commentWithReplies.comment
                                                                 isInputFocused = true
                                                             }
@@ -607,8 +680,15 @@ struct CommentsView: View {
                                                             // haptic
                                                             HapticManager.impact(style: .light)
                                                         },
+                                                        onReplyWithQuote: { quoteText in
+                                                            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
+                                                                replyingTo = commentWithReplies.comment
+                                                                commentText = quoteText
+                                                                isInputFocused = true
+                                                            }
+                                                        },
                                                         onDelete: {
-                                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                                                 deleteComment(reply)
                                                             }
                                                         },
@@ -642,9 +722,48 @@ struct CommentsView: View {
                             }
                         }
                     }
+                    Color.clear
+                        .frame(height: 1)
+                        .background(GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: CommentsBottomAnchorKey.self,
+                                value: proxy.frame(in: .named("commentsScroll")).maxY
+                            )
+                        })
+                        .id("commentsBottom")
+                }
+                .coordinateSpace(name: "commentsScroll")
+                .background(GeometryReader { proxy in
+                    Color.clear.preference(key: CommentsScrollViewHeightKey.self, value: proxy.size.height)
+                })
+                .onPreferenceChange(CommentsScrollOffsetKey.self) { value in
+                    contentOffsetY = value
+                    isScrollingDown = value < lastContentOffsetY - 4
+                    lastContentOffsetY = value
+                }
+                .onPreferenceChange(CommentsBottomAnchorKey.self) { value in
+                    bottomAnchorY = value
+                    let isAtBottom = bottomAnchorY <= scrollViewHeight + 24
+                    showJumpToLatest = !isAtBottom
+                }
+                .onPreferenceChange(CommentsScrollViewHeightKey.self) { value in
+                    scrollViewHeight = value
                 }
                 .onAppear {
                     scrollProxy = proxy
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if LiquidGlassEffectsFlags.jumpToLatestPill && showJumpToLatest {
+                    JumpToLatestPill {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            scrollProxy?.scrollTo("commentsBottom", anchor: .bottom)
+                            showJumpToLatest = false
+                        }
+                    }
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 140)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
             
@@ -652,6 +771,11 @@ struct CommentsView: View {
             
             // Input Area with Liquid Glass Buttons
             VStack(spacing: 0) {
+                if LiquidGlassEffectsFlags.floatingStatusPill && isSubmittingComment {
+                    FloatingStatusPillView(text: "Posting...", systemIcon: "arrow.up")
+                        .padding(.bottom, 6)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
                 // Replying indicator
                 if let replyingTo = replyingTo {
                     HStack {
@@ -662,20 +786,31 @@ struct CommentsView: View {
                         Spacer()
                         
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 self.replyingTo = nil
                             }
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.6))
                         }
+                        .accessibilityLabel("Cancel reply")
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(Color(red: 0.95, green: 0.95, blue: 0.95))
                 }
                 
+                // Phase 4: Bilingual reply preview — shown when replying to a post in a different language
+                if let postLang = detectedPostLanguage, !commentText.isEmpty {
+                    BilingualReplyComposer(
+                        replyText: commentText,
+                        postAuthorLanguage: postLang
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+                }
+
                 // Smart reply chips — shown when input is empty and suggestions exist
                 if commentText.isEmpty && !smartReplySuggestions.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -687,7 +822,7 @@ struct CommentsView: View {
                                     isInputFocused = true
                                 } label: {
                                     Text(suggestion)
-                                        .font(.system(size: 13, weight: .medium))
+                                        .font(.systemScaled(13, weight: .medium))
                                         .foregroundStyle(.primary)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 7)
@@ -704,6 +839,7 @@ struct CommentsView: View {
                     }
                     .padding(.top, 8)
                     .padding(.bottom, 2)
+                    .autoHideChips(isScrollingDown || isInputFocused)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
 
@@ -831,6 +967,7 @@ struct CommentsView: View {
                                 HStack(spacing: 6) {
                                     Image("amen-logo")
                                         .resizable()
+                                        .renderingMode(.original)
                                         .scaledToFit()
                                         .frame(width: 14, height: 14)
                                     Text("Berean suggested a rewrite")
@@ -843,9 +980,10 @@ struct CommentsView: View {
                                         }
                                     } label: {
                                         Image(systemName: "xmark")
-                                            .font(.system(size: 11, weight: .medium))
+                                            .font(.systemScaled(11, weight: .medium))
                                             .foregroundStyle(.secondary)
                                     }
+                                    .accessibilityLabel("Dismiss Berean suggestion")
                                 }
                                 // Divider between header and suggestion text
                                 Rectangle()
@@ -909,17 +1047,18 @@ struct CommentsView: View {
                                             .strokeBorder(Color(uiColor: .separator), lineWidth: 0.5)
                                     )
                                 Button {
-                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                         commentPhotoData = nil
                                         selectedPhotoItem = nil
                                     }
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 18))
+                                        .font(.systemScaled(18))
                                         .foregroundStyle(Color(uiColor: .secondaryLabel))
                                         .background(Color(uiColor: .systemBackground), in: Circle())
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityLabel("Remove attached photo")
                                 Spacer()
                             }
                             .transition(.scale(scale: 0.85).combined(with: .opacity))
@@ -929,10 +1068,10 @@ struct CommentsView: View {
                         if cooldownRemaining > 0 {
                             HStack(spacing: 6) {
                                 Image(systemName: "timer")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.orange)
                                 Text("Comment in \(Int(cooldownRemaining))s")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.orange)
                                 Spacer()
                             }
@@ -945,10 +1084,10 @@ struct CommentsView: View {
                         if let limitMsg = rateLimitMessage {
                             HStack(spacing: 6) {
                                 Image(systemName: "clock.badge.xmark")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.red.opacity(0.8))
                                 Text(limitMsg)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(.red.opacity(0.85))
                                     .fixedSize(horizontal: false, vertical: true)
                                 Spacer()
@@ -967,10 +1106,11 @@ struct CommentsView: View {
                                 HapticManager.impact(style: .light)
                             } label: {
                                 Image(systemName: "face.smiling")
-                                    .font(.system(size: 18, weight: .medium))
+                                    .font(.systemScaled(18, weight: .medium))
                                     .foregroundStyle(.black.opacity(0.7))
                                     .frame(width: 24, height: 24)
                             }
+                            .accessibilityLabel("Add emoji")
                             
                             // Photo button — opens picker with AI moderation gate
                             PhotosPicker(selection: $selectedPhotoItem,
@@ -983,18 +1123,19 @@ struct CommentsView: View {
                                             .scaleEffect(0.7)
                                     } else if commentPhotoData != nil {
                                         Image(systemName: "photo.fill")
-                                            .font(.system(size: 18, weight: .medium))
+                                            .font(.systemScaled(18, weight: .medium))
                                             .foregroundStyle(.blue)
                                             .frame(width: 24, height: 24)
                                     } else {
                                         Image(systemName: "photo")
-                                            .font(.system(size: 18, weight: .medium))
+                                            .font(.systemScaled(18, weight: .medium))
                                             .foregroundStyle(.black.opacity(0.7))
                                             .frame(width: 24, height: 24)
                                     }
                                 }
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(commentPhotoData != nil ? "Change attached photo" : "Attach a photo")
                             .onChange(of: selectedPhotoItem) { _, newItem in
                                 guard let newItem else { return }
                                 isModeratingPhoto = true
@@ -1039,6 +1180,7 @@ struct CommentsView: View {
                                         } else {
                                             Image("amen-logo")
                                                 .resizable()
+                                                .renderingMode(.original)
                                                 .scaledToFit()
                                                 .frame(width: 16, height: 16)
                                                 .blendMode(.multiply)
@@ -1056,19 +1198,31 @@ struct CommentsView: View {
                             GlassCircularButton(
                                 icon: "paperplane.fill",
                                 action: {
+                                    sendSweepTrigger = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                                        sendSweepTrigger = false
+                                    }
                                     submitComment()
                                 },
                                 isDisabled: commentText.isEmpty || isSubmittingComment || rateLimitMessage != nil
+                            )
+                            .highlightSweep(trigger: sendSweepTrigger)
+                            .successSeal(
+                                isActive: commentSeal.isVisible,
+                                label: "Sent",
+                                yOffset: -46
                             )
                         }
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
-                .background(Color.white)
+                .composerCompression(isInputFocused || !commentText.isEmpty)
+                .background(Color(.systemBackground))
             }
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
+        .successChips(successChips)
         .gesture(
             // Tap to dismiss keyboard
             TapGesture()
@@ -1137,6 +1291,18 @@ struct CommentsView: View {
                 }
             }
 
+            // Phase 4: Detect post language for bilingual reply composer
+            Task(priority: .background) {
+                let recognizer = NLLanguageRecognizer()
+                recognizer.processString(post.content)
+                if let lang = recognizer.dominantLanguage {
+                    let code = lang.rawValue.components(separatedBy: "-").first ?? lang.rawValue
+                    await MainActor.run {
+                        detectedPostLanguage = code
+                    }
+                }
+            }
+
             // ✅ Start real-time listener FIRST so it picks up cached data immediately
             startRealtimeListener()
 
@@ -1153,6 +1319,7 @@ struct CommentsView: View {
             stopRealtimeListener()
             participantsRebuildTask?.cancel()
             participantsRebuildTask = nil
+            commentBridge.reset()
         }
         // P1 PERF FIX: Rebuild top participants only when comments actually change.
         // Debounced — rapid streaming inserts batch into one rebuild instead of N.
@@ -1168,6 +1335,8 @@ struct CommentsView: View {
             }
             // Refresh smart reply chips when a new comment arrives
             if newCount > oldCount { refreshSmartReplies() }
+            let isAtBottom = bottomAnchorY <= scrollViewHeight + 24
+            showJumpToLatest = !isAtBottom
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("commentsUpdated"))) { notification in
             // Check if this notification is for our post
@@ -1209,6 +1378,10 @@ struct CommentsView: View {
         ReactionTrayOverlay(state: ReactionPresentationState.shared)
         } // end ZStack
     }
+
+    var body: some View {
+        mainStack
+    }
     
     // MARK: - Load Current User Data
     
@@ -1248,7 +1421,7 @@ struct CommentsView: View {
                 for s in [result.suggestion1, result.suggestion2, result.suggestion3] {
                     if !s.isEmpty, !chips.contains(s) { chips.append(s) }
                 }
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                     smartReplySuggestions = chips
                 }
                 isLoadingSmartReplies = false
@@ -1272,11 +1445,10 @@ struct CommentsView: View {
                     userId: userId
                 )
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                         bereanSuggestion = suggestion
                         isLoadingBereanSuggestion = false
                     }
-                    let haptic = UIImpactFeedbackGenerator(style: .soft)
                     HapticManager.impact(style: .light)
                 }
             } catch {
@@ -1461,6 +1633,45 @@ struct CommentsView: View {
                 bereanSuggestion = nil  // Dismiss any pending Berean suggestion
                 // Keep isSubmittingComment = true until the write completes to prevent duplicates
             }
+
+            // FIX: Insert an optimistic placeholder for top-level comments so the user
+            // sees their comment immediately while the RTDB write is in-flight.
+            // Replies expand an existing thread row, so they don't need a separate placeholder.
+            // The placeholder is removed: (a) on success — the RTDB listener delivers the real
+            //   comment and the listener's de-duplication by commentId replaces it naturally,
+            //   or (b) on error — we roll back by filtering it out and restoring commentText.
+            let optimisticId: String? = replyingTo == nil ? UUID().uuidString : nil
+            if let oid = optimisticId {
+                let uid = FirebaseManager.shared.currentUser?.uid ?? ""
+                let displayName = UserDefaults.standard.string(forKey: "currentUserDisplayName")
+                    ?? Auth.auth().currentUser?.displayName
+                    ?? ""
+                let username = UserDefaults.standard.string(forKey: "currentUserUsername") ?? ""
+                let placeholder = Comment(
+                    id: oid,
+                    postId: postId,
+                    authorId: uid,
+                    authorName: displayName,
+                    authorUsername: username,
+                    authorInitials: currentUserInitials,
+                    authorProfileImageURL: currentUserProfileImageURL,
+                    content: text,
+                    createdAt: Date(),
+                    updatedAt: Date(),
+                    isEdited: false,
+                    amenCount: 0,
+                    lightbulbCount: 0,
+                    replyCount: 0,
+                    amenUserIds: [],
+                    parentCommentId: nil,
+                    mentionedUserIds: nil,
+                    approvalStatus: nil
+                )
+                await MainActor.run {
+                    optimisticCommentTempId = oid
+                    commentsWithReplies.append(CommentWithReplies(comment: placeholder))
+                }
+            }
             
             do {
                 var newCommentId: String?
@@ -1488,7 +1699,7 @@ struct CommentsView: View {
                     
                     // ✅ DON'T add reply to local UI - let the real-time listener handle it
                     await MainActor.run {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             // Expand parent thread and clear reply state
                             expandedThreads.insert(parentCommentId)
                             self.replyingTo = nil
@@ -1525,7 +1736,7 @@ struct CommentsView: View {
                 // Track new comment for highlight animation
                 if let id = newCommentId {
                     await MainActor.run {
-                        _ = withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                        _ = withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.6))) {
                             newCommentIds.insert(id)
                         }
                         
@@ -1546,14 +1757,31 @@ struct CommentsView: View {
                     }
                 }
                 
-                // Haptic feedback
+                // Haptic feedback + success seal
                 await MainActor.run {
+                    // Remove the optimistic placeholder now that the write succeeded.
+                    // The RTDB real-time listener will deliver the authoritative comment
+                    // within milliseconds; removing the placeholder first prevents a
+                    // brief duplicate row while the listener catches up.
+                    if let oid = optimisticId {
+                        commentsWithReplies.removeAll { $0.id == oid }
+                        optimisticCommentTempId = nil
+                    }
                     // haptic
                     HapticManager.notification(type: .success)
+                    commentSeal.trigger()
+                    successChips.show("Comment sent")
+                    AMENAnalyticsService.shared.track(.commentSubmitted(postId: postId))
                     isSubmittingComment = false  // Re-enable after write completes
                 }
             } catch {
                 await MainActor.run {
+                    // Roll back the optimistic placeholder and restore text so the user
+                    // can edit and retry.
+                    if let oid = optimisticId {
+                        commentsWithReplies.removeAll { $0.id == oid }
+                        optimisticCommentTempId = nil
+                    }
                     let nsError = error as NSError
                     if nsError.domain == "CommentService" && nsError.code == -11 {
                         // Rate limit hit — show inline banner and disable send button
@@ -1643,7 +1871,7 @@ struct CommentsView: View {
                 
                 // Optimistic UI update
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         if comment.isReply {
                             // Find and update reply
                             for i in 0..<commentsWithReplies.count {
@@ -1670,7 +1898,7 @@ struct CommentsView: View {
             } catch {
                 // Revert on error
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         if comment.isReply {
                             for i in 0..<commentsWithReplies.count {
                                 if let replyIndex = commentsWithReplies[i].replies.firstIndex(where: { $0.id == commentId }) {
@@ -1825,6 +2053,13 @@ struct CommentsView: View {
             // replacement in withAnimation from inside an async Task caused reentrancy
             // into LazyVStack's internal cell recycling buffer → SIGABRT heap corruption.
             commentsWithReplies = newCommentsWithReplies
+
+            // Phase 6: Analyze thread languages for multilingual bridge
+            if AMENFeatureFlags.shared.conversationBridgeEnabled {
+                let allComments = newCommentsWithReplies.flatMap { [$0.comment] + $0.replies }
+                Task { await commentBridge.analyzeThread(comments: allComments) }
+            }
+
             return true
         }
         
@@ -1930,7 +2165,7 @@ struct CommentsView: View {
         // but we check a synthetic descriptor for future extensibility)
         // Image passes — attach it
         await MainActor.run {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                 commentPhotoData = data
             }
             // haptic
@@ -1977,10 +2212,12 @@ struct CommentsView: View {
 // MARK: - Comment Row
 
 private struct PostCommentRow: View {
+    let post: Post
     let comment: Comment
     var isReply: Bool = false
     var isNew: Bool = false
     let onReply: () -> Void
+    let onReplyWithQuote: (String) -> Void
     let onDelete: () -> Void
     let onAmen: () -> Void
     let onProfileTap: () -> Void
@@ -1996,7 +2233,28 @@ private struct PostCommentRow: View {
     @State private var localAmenCount: Int = 0
     @State private var didJustFollow = false  // Optimistic follow state
     @State private var showReportSheet = false  // Report reason picker
+    @State private var activeCommentSheet: CommentSheet?
+    @State private var textSelection: PostTextSelection?
+    @State private var isTextSelecting = false
+    @State private var showSoftReactions = false
     // reaction picker is handled by AMENReactionSystem (.reactionPicker modifier on MentionTextView)
+    
+    private enum CommentSheet: Identifiable {
+        case quoteComposer(QuoteComposerContext)
+        case share(String)
+        case berean(String)
+
+        var id: String {
+            switch self {
+            case .quoteComposer(let context):
+                return "quoteComposer_\(context.id.uuidString)"
+            case .share(let text):
+                return "share_\(text.hashValue)"
+            case .berean(let query):
+                return "berean_\(query.hashValue)"
+            }
+        }
+    }
     
     private var isOwnComment: Bool {
         comment.authorId == FirebaseManager.shared.currentUser?.uid
@@ -2008,231 +2266,323 @@ private struct PostCommentRow: View {
         guard !didJustFollow else { return false }
         return !followService.following.contains(comment.authorId)
     }
-    
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Avatar - Tappable to view profile with cached image loading
-            Button {
-                onProfileTap()
-                
-                // Haptic feedback
-                // haptic
-                HapticManager.impact(style: .light)
-            } label: {
-                if let imageURL = comment.authorProfileImageURL,
-                   !imageURL.isEmpty,
-                   let url = URL(string: imageURL) {
-                    CachedAsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                            .clipShape(Circle())
-                    } placeholder: {
-                        Circle()
-                            .fill(.black)
-                            .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                            .overlay(
-                                Text(comment.authorInitials)
-                                    .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
-                                    .foregroundStyle(.white)
-                            )
-                    }
-                } else {
-                    Circle()
-                        .fill(.black)
-                        .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                        .overlay(
-                            Text(comment.authorInitials)
-                                .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
-                                .foregroundStyle(.white)
-                        )
+
+    @ViewBuilder
+    private var commentSelectableText: some View {
+        let base = SelectablePostTextView(
+            text: comment.content,
+            mentions: nil,
+            font: UIFont(name: "OpenSans-Regular", size: isReply ? 13 : 14) ?? .systemFont(ofSize: isReply ? 13 : 14),
+            lineSpacing: 3,
+            lineLimit: nil,
+            onMentionTap: { _ in },
+            onTextTap: {
+                if textSelection != nil {
+                    clearTextSelection()
                 }
-            }
-            .buttonStyle(PlainButtonStyle())
-            
-            VStack(alignment: .leading, spacing: 6) {
-                // Author and time
-                HStack(spacing: 8) {
-                    HStack(spacing: 4) {
-                        Text(comment.authorName)
-                            .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
-                            .foregroundStyle(.black)
+            },
+            selection: $textSelection,
+            isSelecting: $isTextSelecting
+        )
 
-                        // ✅ Verified badge
-                        if VerifiedBadgeHelper.isVerified(userId: comment.authorId) {
-                            VerifiedBadge(size: isReply ? 12 : 13)
-                        }
-                    }
-
-                    Text(comment.authorUsername.hasPrefix("@") ? comment.authorUsername : "@\(comment.authorUsername)")
-                        .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
-                        .foregroundStyle(.black.opacity(0.5))
-
-                    // Subtle follow chip — only shown when not yet following this commenter
-                    if showFollowChip {
-                        Button {
-                            didJustFollow = true
-                            // haptic
-                            HapticManager.impact(style: .light)
-                            Task {
-                                try? await FollowService.shared.followUser(userId: comment.authorId)
-                            }
-                        } label: {
-                            HStack(spacing: 2) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: isReply ? 8 : 9, weight: .semibold))
-                                Text("Follow")
-                                    .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 11))
-                            }
-                            .foregroundStyle(.black.opacity(0.55))
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .strokeBorder(Color.black.opacity(0.2), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
-                        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: didJustFollow)
-                    }
-
-                    Text("•")
-                        .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
-                        .foregroundStyle(.black.opacity(0.3))
-
-                    // ✅ Timestamp auto-refresh: Recomputes when currentTime changes
-                    Text(timeAgoString(for: comment.createdAt, currentTime: currentTime))
-                        .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
-                        .foregroundStyle(.black.opacity(0.5))
-                }
-                
-                // Content with @mention highlight + link detection
-                // Long-press opens the AMEN reaction tray (AMENReactionSystem)
-                MentionTextView(
-                    text: comment.content,
-                    autoDetectMentions: true,
-                    font: .custom("OpenSans-Regular", size: isReply ? 13 : 14),
-                    fontSize: isReply ? 13 : 14,
-                    lineSpacing: 3
-                )
-                .fixedSize(horizontal: false, vertical: true)
-                .reactionPicker(
-                    id: comment.id ?? UUID().uuidString,
-                    isFromCurrentUser: false,
-                    context: .comment,
-                    selectedEmoji: hasAmened ? "❤️" : nil,
-                    onSelect: { emoji in
-                        if emoji == "❤️" || emoji == "🙏" {
-                            // Map heart/amen reactions to the existing amen toggle
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                                hasAmened.toggle()
-                            }
-                            onAmen()
-                        }
-                        // Future: route other emoji reactions to their own handlers
-                    }
-                )
-
-                // Translation affordance (lightweight, inline, non-blocking)
-                CommentTranslationRow(
-                    text: comment.content,
-                    commentId: comment.id ?? "unknown",
-                    isPublicContent: true
-                )
-
-                // Actions
-                HStack(spacing: 20) {
-                    // Amen with animation (heart icon like reference)
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+        if isTextSelecting {
+            base
+        } else {
+            base.reactionPicker(
+                id: comment.id ?? UUID().uuidString,
+                isFromCurrentUser: false,
+                context: .comment,
+                selectedEmoji: hasAmened ? "❤️" : nil,
+                onSelect: { emoji in
+                    if emoji == "❤️" || emoji == "🙏" {
+                        // Map heart/amen reactions to the existing amen toggle
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                             hasAmened.toggle()
                         }
                         onAmen()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: hasAmened ? "heart.fill" : "heart")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
-                                .scaleEffect(hasAmened ? 1.15 : 1.0)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
-                            
-                            if comment.amenCount > 0 {
-                                Text("\(comment.amenCount)")
-                                    .font(.custom("OpenSans-Medium", size: 13))
-                                    .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
-                                    .contentTransition(.numericText())
-                            }
-                        }
                     }
-                    
-                    // Reply with count badge
-                    if !isReply {
-                        Button {
-                            onReply()
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrowshape.turn.up.left")
-                                    .font(.system(size: 12))
-                                
-                                if comment.replyCount > 0 {
-                                    Text("\(comment.replyCount)")
-                                        .font(.custom("OpenSans-Regular", size: 12))
-                                }
-                            }
-                            .foregroundStyle(.black.opacity(0.6))
-                        }
-                        
-                        // Thread expand/collapse button
-                        if replyCount > 0, let onToggleThread = onToggleThread {
-                            Button {
-                                onToggleThread()
-                                
-                                // haptic
-                                HapticManager.impact(style: .light)
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: isThreadExpanded ? "chevron.up" : "chevron.down")
-                                        .font(.system(size: 10, weight: .semibold))
-                                    
-                                    Text(isThreadExpanded ? "Hide" : "View")
-                                        .font(.custom("OpenSans-SemiBold", size: 11))
-                                }
-                                .foregroundStyle(.black.opacity(0.5))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.black.opacity(0.05))
-                                )
-                            }
-                        }
+                    // Future: route other emoji reactions to their own handlers
+                }
+            )
+        }
+    }
+
+    private var avatarButton: some View {
+        Button {
+            onProfileTap()
+
+            // haptic
+            HapticManager.impact(style: .light)
+        } label: {
+            if let imageURL = comment.authorProfileImageURL,
+               !imageURL.isEmpty,
+               let url = URL(string: imageURL) {
+                CachedAsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
+                        .clipShape(Circle())
+                } placeholder: {
+                    commentInitialsAvatar
+                }
+            } else {
+                commentInitialsAvatar
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel("View \(comment.authorName)'s profile")
+    }
+
+    private var commentInitialsAvatar: some View {
+        Circle()
+            .fill(.black)
+            .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
+            .overlay(
+                Text(comment.authorInitials)
+                    .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
+                    .foregroundStyle(.white)
+            )
+    }
+
+    private var authorHeaderRow: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Text(comment.authorName)
+                    .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
+                    .foregroundStyle(.primary)
+
+                // ✅ Verified badge
+                if VerifiedBadgeHelper.shared.isVerified(userId: comment.authorId) {
+                    VerifiedBadge(
+                        type: VerifiedBadgeHelper.shared.getVerificationType(userId: comment.authorId),
+                        size: isReply ? 12 : 13
+                    )
+                }
+            }
+
+            Text(comment.authorUsername.hasPrefix("@") ? comment.authorUsername : "@\(comment.authorUsername)")
+                .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
+                .foregroundStyle(.black.opacity(0.5))
+
+            // Subtle follow chip — only shown when not yet following this commenter
+            if showFollowChip {
+                Button {
+                    didJustFollow = true
+                    // haptic
+                    HapticManager.impact(style: .light)
+                    Task {
+                        try? await FollowService.shared.followUser(userId: comment.authorId)
                     }
-                    
-                    Spacer()
-                    
-                    // Options (delete if own comment)
-                    if isOwnComment {
-                        Button {
-                            showOptions = true
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.black.opacity(0.6))
-                        }
-                        .confirmationDialog("Comment Options", isPresented: $showOptions) {
-                            Button("Delete Comment", role: .destructive) {
-                                onDelete()
-                            }
-                        }
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "plus")
+                            .font(.systemScaled(isReply ? 8 : 9, weight: .semibold))
+                        Text("Follow")
+                            .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 11))
+                    }
+                    .foregroundStyle(.black.opacity(0.55))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .strokeBorder(Color.black.opacity(0.2), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: didJustFollow)
+            }
+
+            Text("•")
+                .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
+                .foregroundStyle(.black.opacity(0.3))
+
+            // ✅ Timestamp auto-refresh: Recomputes when currentTime changes
+            Text(timeAgoString(for: comment.createdAt, currentTime: currentTime))
+                .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
+                .foregroundStyle(.black.opacity(0.5))
+        }
+    }
+
+    private var contentBlock: some View {
+        ZStack(alignment: .topLeading) {
+            commentSelectableText
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let selection = textSelection {
+                GeometryReader { proxy in
+                    HighlightActionCapsule(
+                        onQuote: { handleQuoteSelection(selection) },
+                        onReply: { handleReplyWithQuote(selection) },
+                        onSave: { handleSaveSelection(selection) },
+                        onShare: { handleShareSelection(selection) },
+                        onBerean: { handleBereanSelection(selection) }
+                    )
+                    .position(actionCapsulePosition(for: selection.rect, in: proxy.size))
+                    .transition(.opacity.combined(with: .scale))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var actionsRow: some View {
+        HStack(spacing: 20) {
+            // Amen with animation (heart icon like reference)
+            Button {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
+                    hasAmened.toggle()
+                }
+                onAmen()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: hasAmened ? "heart.fill" : "heart")
+                        .font(.systemScaled(14, weight: .medium))
+                        .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
+                        .scaleEffect(hasAmened ? 1.15 : 1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
+
+                    if comment.amenCount > 0 {
+                        Text("\(comment.amenCount)")
+                            .font(.custom("OpenSans-Medium", size: 13))
+                            .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
+                            .contentTransition(.numericText())
                     }
                 }
-                .padding(.top, 4)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel(hasAmened ? "Remove Amen from comment" : "Amen this comment")
+
+            // Reply with count badge
+            if !isReply {
+                Button {
+                    onReply()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrowshape.turn.up.left")
+                            .font(.systemScaled(12))
+
+                        if comment.replyCount > 0 {
+                            MorphingBadgeView(count: comment.replyCount, useDot: isThreadExpanded)
+                        }
+                    }
+                    .foregroundStyle(.black.opacity(0.6))
+                }
+                .accessibilityLabel("Reply to comment")
+
+                // Thread expand/collapse button
+                if replyCount > 0, let onToggleThread = onToggleThread {
+                    Button {
+                        onToggleThread()
+
+                        // haptic
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: isThreadExpanded ? "chevron.up" : "chevron.down")
+                                .font(.systemScaled(10, weight: .semibold))
+
+                            Text(isThreadExpanded ? "Hide" : "View")
+                                .font(.custom("OpenSans-SemiBold", size: 11))
+                        }
+                        .foregroundStyle(.black.opacity(0.5))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color.black.opacity(0.05))
+                        )
+                    }
+                }
+            }
+
+            // Check against Scripture — Requires DiscernmentActionButton.swift in target (see SelahScripture/)
+            DiscernmentActionButton(
+                inputText: comment.content,
+                sourceType: "comment",
+                sourceRef: comment.id
+            )
+
+            Spacer()
+
+            // Options (delete if own comment)
+            if isOwnComment {
+                Button {
+                    showOptions = true
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.systemScaled(12))
+                        .foregroundStyle(.black.opacity(0.6))
+                }
+                .accessibilityLabel("Comment options")
+                .confirmationDialog("Comment Options", isPresented: $showOptions) {
+                    Button("Delete Comment", role: .destructive) {
+                        onDelete()
+                    }
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private var contentColumn: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Author and time
+            authorHeaderRow
+
+            // Content with highlight-to-quote support
+            contentBlock
+
+            // Phase 6: Language indicator for foreign-language comments
+            CommentBridgeRow(comment: comment)
+
+            // Translation affordance (lightweight, inline, non-blocking)
+            CommentTranslationRow(
+                text: comment.content,
+                commentId: comment.id ?? "unknown",
+                isPublicContent: true
+            )
+
+            // Actions
+            actionsRow
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            avatarButton
+            contentColumn
         }
         .padding(.horizontal, isReply ? 12 : 16)
+        .onLongPressGesture(minimumDuration: 0.35) {
+            guard LiquidGlassEffectsFlags.reactionSheet, !isTextSelecting else { return }
+            withAnimation(.easeOut(duration: 0.2)) {
+                showSoftReactions = true
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if showSoftReactions {
+                SoftReactionSheet(actions: ["❤️", "🙏", "👍"]) { action in
+                    if action == "❤️" || action == "🙏" {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
+                            hasAmened.toggle()
+                        }
+                        onAmen()
+                    }
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showSoftReactions = false
+                    }
+                }
+                .offset(x: isReply ? 44 : 52, y: -8)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .onTapGesture {
+            if showSoftReactions {
+                withAnimation(.easeOut(duration: 0.2)) { showSoftReactions = false }
+            }
+        }
         .contextMenu {
             // Copy comment text
             Button {
@@ -2282,6 +2632,8 @@ private struct PostCommentRow: View {
                             ToastManager.shared.success("User blocked")
                         } catch {
                             dlog("❌ Failed to block user: \(error)")
+                            // Don't leave the user falsely confident they're protected.
+                            ToastManager.shared.failure("Couldn’t block this user. Please try again.")
                         }
                     }
                 } label: {
@@ -2296,6 +2648,7 @@ private struct PostCommentRow: View {
                             ToastManager.shared.success("User muted")
                         } catch {
                             dlog("❌ Failed to mute user: \(error)")
+                            ToastManager.shared.failure("Couldn’t mute this user. Please try again.")
                         }
                     }
                 } label: {
@@ -2308,6 +2661,16 @@ private struct PostCommentRow: View {
                 } label: {
                     Label("Report Comment", systemImage: "exclamationmark.triangle")
                 }
+            }
+        }
+        .sheet(item: $activeCommentSheet) { sheet in
+            switch sheet {
+            case .quoteComposer(let context):
+                QuoteComposerView(context: context)
+            case .share(let text):
+                ShareSheet(items: [text])
+            case .berean(let query):
+                BereanAIAssistantView(initialQuery: query.isEmpty ? nil : query)
             }
         }
         .sheet(isPresented: $showReportSheet) {
@@ -2330,6 +2693,89 @@ private struct PostCommentRow: View {
         }
         .onChange(of: comment.amenCount) { _, newCount in
             localAmenCount = newCount
+        }
+    }
+
+    private func clearTextSelection() {
+        textSelection = nil
+        isTextSelecting = false
+    }
+
+    private func actionCapsulePosition(for rect: CGRect, in size: CGSize) -> CGPoint {
+        guard !rect.isNull, !rect.isEmpty else {
+            return CGPoint(x: size.width * 0.5, y: 24)
+        }
+
+        let clampedX = min(max(rect.midX, 90), size.width - 90)
+        let capsuleY = max(rect.minY - 26, 22)
+        return CGPoint(x: clampedX, y: capsuleY)
+    }
+
+    private func handleQuoteSelection(_ selection: PostTextSelection) {
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let context = QuoteComposerContext(
+            sourcePost: post,
+            sourceAuthorId: comment.authorId,
+            sourceAuthorName: comment.authorName,
+            sourceAuthorUsername: comment.authorUsername,
+            selection: selection
+        )
+        activeCommentSheet = .quoteComposer(context)
+        clearTextSelection()
+    }
+
+    private func handleReplyWithQuote(_ selection: PostTextSelection) {
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let excerpt = "“\(selection.text)” — \(comment.authorName)"
+        onReplyWithQuote(excerpt + "\n\n")
+        clearTextSelection()
+    }
+
+    private func handleSaveSelection(_ selection: PostTextSelection) {
+        let excerpt = SavedExcerpt(
+            postId: post.firestoreId,
+            authorId: comment.authorId,
+            authorName: comment.authorName,
+            excerpt: selection.text
+        )
+        ExcerptStore.shared.save(excerpt)
+        HapticManager.notification(type: .success)
+        ToastManager.shared.success("Saved excerpt")
+        clearTextSelection()
+    }
+
+    private func handleShareSelection(_ selection: PostTextSelection) {
+        let excerpt = "“\(selection.text)” — \(comment.authorName)"
+        activeCommentSheet = .share(excerpt)
+        clearTextSelection()
+    }
+
+    private func handleBereanSelection(_ selection: PostTextSelection) {
+        let query = "Explain and reflect on: \"\(selection.text)\""
+        activeCommentSheet = .berean(query)
+        clearTextSelection()
+    }
+
+    private func canQuote(_ post: Post) -> Bool {
+        let permission = post.quotesAllowed ?? .everyone
+        switch permission {
+        case .none:
+            return false
+        case .followers:
+            let isUserPost = post.authorId == FirebaseManager.shared.currentUser?.uid
+            return followService.following.contains(post.authorId) || isUserPost
+        case .everyone:
+            return true
         }
     }
 
@@ -2356,12 +2802,12 @@ struct PendingCommentsQueueView: View {
                 if pendingComments.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 52))
+                            .font(.systemScaled(52))
                             .foregroundStyle(.green)
                         Text("All caught up!")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                         Text("No comments waiting for review.")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -2370,14 +2816,14 @@ struct PendingCommentsQueueView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Text(comment.authorName)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                 Spacer()
                                 Text(comment.createdAt.timeAgoDisplay())
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                             }
                             Text(comment.content)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.primary)
                                 .lineLimit(4)
                             HStack(spacing: 12) {
@@ -2385,7 +2831,7 @@ struct PendingCommentsQueueView: View {
                                     onApprove(comment)
                                 } label: {
                                     Label("Approve", systemImage: "checkmark.circle.fill")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.systemScaled(13, weight: .semibold))
                                         .foregroundStyle(.green)
                                 }
                                 .buttonStyle(.plain)
@@ -2393,7 +2839,7 @@ struct PendingCommentsQueueView: View {
                                     onReject(comment)
                                 } label: {
                                     Label("Reject", systemImage: "xmark.circle.fill")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.systemScaled(13, weight: .semibold))
                                         .foregroundStyle(.red)
                                 }
                                 .buttonStyle(.plain)
@@ -2502,7 +2948,7 @@ struct EmojiQuickPickerView: View {
                         HapticManager.impact(style: .light)
                     } label: {
                         Text(emoji)
-                            .font(.system(size: 40))
+                            .font(.systemScaled(40))
                             .frame(width: 60, height: 60)
                             .background(
                                 ZStack {
@@ -2607,7 +3053,7 @@ struct CommentReportSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Cancel") { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
             }
         }
@@ -2617,7 +3063,7 @@ struct CommentReportSheet: View {
         List {
             Section {
                 Text("Why are you reporting this comment?")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .listRowBackground(Color.clear)
                     .listRowInsets(.init(top: 8, leading: 0, bottom: 4, trailing: 0))
@@ -2630,18 +3076,18 @@ struct CommentReportSheet: View {
                     } label: {
                         HStack(spacing: 14) {
                             Image(systemName: reason.icon)
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.primary)
                                 .frame(width: 22)
                             Text(reason.rawValue)
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.primary)
                             Spacer()
                             if isSubmitting {
                                 ProgressView().scaleEffect(0.7)
                             } else {
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
                             }
                         }
@@ -2659,17 +3105,17 @@ struct CommentReportSheet: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(.green)
             Text("Report Submitted")
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
             Text("Thank you for helping keep AMEN safe. We review every report.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button("Done") { dismiss() }
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .padding(.horizontal, 40)
                 .padding(.vertical, 12)
                 .background(Color(uiColor: .label), in: Capsule())
@@ -2692,7 +3138,7 @@ struct CommentReportSheet: View {
                 )
                 await MainActor.run {
                     isSubmitting = false
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                         submitted = true
                     }
                 }
@@ -2727,51 +3173,50 @@ struct CommentReactionPicker: View {
     @State private var appeared = false
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(Array(reactions.enumerated()), id: \.offset) { index, reaction in
-                Button {
-                    onReact(reaction.emoji)
-                    // haptic
-                    HapticManager.impact(style: .light)
-                } label: {
-                    Text(reaction.emoji)
-                        .font(.system(size: 26))
-                        .frame(width: 42, height: 42)
-                        .background(Color(uiColor: .systemBackground).opacity(0.01), in: Circle())
-                }
-                .buttonStyle(EmojiButtonStyle())
-                .scaleEffect(appeared ? 1.0 : 0.4)
-                .opacity(appeared ? 1.0 : 0.0)
-                .animation(
-                    reduceMotion
-                        ? .easeOut(duration: 0.15)
-                        : .spring(response: 0.32, dampingFraction: 0.65).delay(Double(index) * 0.03),
-                    value: appeared
-                )
-                .accessibilityLabel(reaction.label)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 4)
-        .onAppear {
-            withAnimation { appeared = true }
-        }
-        // Dismiss on tap outside
-        .onTapGesture { }
-        .background(
-            Color.clear
+        ZStack {
+            Color.black.opacity(0.001)
+                .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                         isPresented = false
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .ignoresSafeArea()
-        )
+
+            HStack(spacing: 4) {
+                ForEach(Array(reactions.enumerated()), id: \.offset) { index, reaction in
+                    Button {
+                        onReact(reaction.emoji)
+                        // haptic
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Text(reaction.emoji)
+                            .font(.systemScaled(26))
+                            .frame(width: 42, height: 42)
+                            .background(Color(uiColor: .systemBackground).opacity(0.01), in: Circle())
+                    }
+                    .buttonStyle(EmojiButtonStyle())
+                    .scaleEffect(appeared ? 1.0 : 0.4)
+                    .opacity(appeared ? 1.0 : 0.0)
+                    .animation(
+                        reduceMotion
+                            ? .easeOut(duration: 0.15)
+                            : .spring(response: 0.32, dampingFraction: 0.65).delay(Double(index) * 0.03),
+                        value: appeared
+                    )
+                    .accessibilityLabel(reaction.label)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 4)
+            .onTapGesture { }
+        }
+        .onAppear {
+            withAnimation { appeared = true }
+        }
     }
 }
 

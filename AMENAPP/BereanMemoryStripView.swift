@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-struct BereanMemoryNode: Identifiable {
+struct BereanMemoryStripNode: Identifiable {
     let id: UUID
     let emoji: String
     let label: String
@@ -15,31 +15,31 @@ struct BereanMemoryNode: Identifiable {
 }
 
 struct BereanMemoryStripView: View {
-    let nodes: [BereanMemoryNode]
-    let onNodeTap: (BereanMemoryNode) -> Void
+    let nodes: [BereanMemoryStripNode]
+    let onNodeTap: (BereanMemoryStripNode) -> Void
     @State private var isExpanded = true
 
     var body: some View {
         VStack(spacing: 0) {
             // Expand/collapse header
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72))) {
                     isExpanded.toggle()
                 }
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
                 HStack(spacing: 6) {
                     Text("🧠")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                     Text("Context window")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(Color(.secondaryLabel))
                     Text("·  \(nodes.count) topic\(nodes.count == 1 ? "" : "s")")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color(.tertiaryLabel))
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .padding(.horizontal, 16)
@@ -58,13 +58,13 @@ struct BereanMemoryStripView: View {
                                         .fill(node.color)
                                         .frame(width: 36, height: 36)
                                         .overlay(Circle().strokeBorder(node.borderColor, lineWidth: 1.5))
-                                        .overlay(Text(node.emoji).font(.system(size: 15)))
+                                        .overlay(Text(node.emoji).font(.systemScaled(15)))
                                         .onTapGesture {
                                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                             onNodeTap(node)
                                         }
                                     Text(node.label)
-                                        .font(.system(size: 9, weight: .medium))
+                                        .font(.systemScaled(9, weight: .medium))
                                         .foregroundStyle(Color(.secondaryLabel))
                                         .lineLimit(1)
                                         .frame(width: 44)

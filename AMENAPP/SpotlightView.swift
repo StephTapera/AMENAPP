@@ -86,11 +86,11 @@ struct SpotlightView: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Spotlight")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.systemScaled(28, weight: .bold))
                     .foregroundColor(.white)
                 
                 Text("Curated for you")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundColor(.white.opacity(0.7))
             }
             
@@ -100,7 +100,7 @@ struct SpotlightView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(.white.opacity(0.6), .white.opacity(0.15))
             }
         }
@@ -118,7 +118,7 @@ struct SpotlightView: View {
                         icon: filter.icon,
                         isSelected: selectedFilter == filter,
                         action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 selectedFilter = filter
                             }
                             let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -172,16 +172,16 @@ struct SpotlightView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "star.circle")
-                .font(.system(size: 60, weight: .light))
+                .font(.systemScaled(60, weight: .light))
                 .foregroundColor(.white.opacity(0.5))
                 .padding(.top, 80)
             
             Text("No Spotlight content yet")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundColor(.white)
             
             Text("Check back soon for meaningful posts from your community")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundColor(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -191,15 +191,15 @@ struct SpotlightView: View {
     private var caughtUpMessage: some View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundColor(.white.opacity(0.8))
             
             Text("You're all caught up")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundColor(.white)
             
             Text("Check back later for more")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(.white.opacity(0.7))
         }
         .frame(maxWidth: .infinity)
@@ -362,10 +362,10 @@ struct SpotlightCategoryChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
             }
             .foregroundColor(isSelected ? .white : .white.opacity(0.7))
             .padding(.horizontal, 16)

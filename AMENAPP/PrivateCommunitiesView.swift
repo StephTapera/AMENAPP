@@ -160,13 +160,13 @@ struct PrivateCommunitiesView: View {
             if showOnboarding && !hasCompletedOnboarding {
                 CommunityOnboardingView(
                     onComplete: {
-                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8))) {
                             hasCompletedOnboarding = true
                             showOnboarding = false
                         }
                     },
                     onSkip: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                             hasCompletedOnboarding = true
                             showOnboarding = false
                         }
@@ -282,7 +282,7 @@ struct PrivateCommunitiesView: View {
                             )
                         
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -310,85 +310,16 @@ struct PrivateCommunitiesView: View {
                     
                     Divider()
                     
-                    // ✅ Coming Soon Features
-                    Button {
-                        showEventCalendar = true
-                    } label: {
-                        HStack {
-                            Label("Event Calendar", systemImage: "calendar")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    
-                    Button {
-                        showModerationDashboard = true
-                    } label: {
-                        HStack {
-                            Label("Moderation Dashboard", systemImage: "shield.checkered")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    
-                    Button {
-                        showDonationCenter = true
-                    } label: {
-                        HStack {
-                            Label("Donation Center", systemImage: "heart.circle.fill")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    
-                    Button {
-                        showVolunteerHub = true
-                    } label: {
-                        HStack {
-                            Label("Volunteer Hub", systemImage: "hand.raised.fill")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    
+                    // Event Calendar, Moderation Dashboard, Donation Center,
+                    // Volunteer Hub, Community Insights, and Language Settings
+                    // will appear here when those screens are built.
+
                     Divider()
-                    
+
                     Button {
                         showContactSales = true
                     } label: {
                         Label("Contact Sales Team", systemImage: "envelope.fill")
-                    }
-                    
-                    Button {
-                        showCommunityInsights = true
-                    } label: {
-                        HStack {
-                            Label("Community Insights", systemImage: "chart.bar.fill")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    
-                    Button {
-                        showLanguageSettings = true
-                    } label: {
-                        HStack {
-                            Label("Language Settings", systemImage: "globe")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
                     }
                 } label: {
                     ZStack {
@@ -411,7 +342,7 @@ struct PrivateCommunitiesView: View {
                             )
                         
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -456,7 +387,7 @@ struct PrivateCommunitiesView: View {
         HStack(spacing: 0) {
             ForEach(CommunityTab.allCases, id: \.self) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                         selectedTab = tab
                         let haptic = UIImpactFeedbackGenerator(style: .medium)
                         haptic.impactOccurred()
@@ -464,7 +395,7 @@ struct PrivateCommunitiesView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(selectedTab == tab ? .white : .primary)
                         
                         if selectedTab == tab {
@@ -508,7 +439,7 @@ struct PrivateCommunitiesView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.3")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(.secondary)
             
             Text(selectedTab == .myCommunities ? "No Communities Yet" : "No Results")
@@ -523,7 +454,7 @@ struct PrivateCommunitiesView: View {
     
     // MARK: - Actions
     private func joinCommunity(_ community: PrivateCommunity) {
-        _ = withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        _ = withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
             joinedCommunities.insert(community.id)
         }
         
@@ -533,14 +464,14 @@ struct PrivateCommunitiesView: View {
         
         // After joining, switch to My Communities tab after a short delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 selectedTab = .myCommunities
             }
         }
     }
     
     private func toggleJoin(_ community: PrivateCommunity) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
             if joinedCommunities.contains(community.id) {
                 joinedCommunities.remove(community.id)
             } else {
@@ -569,7 +500,7 @@ struct SmartInsightsCard: View {
                         .frame(width: 48, height: 48)
                     
                     Image(systemName: "lightbulb.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.white)
                 }
                 
@@ -639,7 +570,7 @@ struct SmartFeatureBadge: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(color)
                 .frame(width: 20)
             
@@ -688,7 +619,7 @@ struct PrivateCommunityCard: View {
                     Spacer()
                     HStack {
                         Image(systemName: community.type.icon)
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.white.opacity(0.3))
                         Spacer()
                     }
@@ -720,7 +651,7 @@ struct PrivateCommunityCard: View {
                     HStack(spacing: 12) {
                         HStack(spacing: 6) {
                             Image(systemName: community.type.icon)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text(community.type.rawValue)
                                 .font(.custom("OpenSans-SemiBold", size: 13))
                         }
@@ -734,7 +665,7 @@ struct PrivateCommunityCard: View {
                         
                         HStack(spacing: 6) {
                             Image(systemName: "person.2.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text("\(community.memberCount) members")
                                 .font(.custom("OpenSans-SemiBold", size: 13))
                         }
@@ -771,7 +702,7 @@ struct PrivateCommunityCard: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: isJoined ? "checkmark.circle.fill" : "plus.circle.fill")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                             
                             Text(isJoined ? "Joined" : "Join Community")
                                 .font(.custom("OpenSans-Bold", size: 16))
@@ -808,14 +739,14 @@ struct PrivateCommunityCard: View {
                     .buttonStyle(PlainButtonStyle())
                     
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             isExpanded.toggle()
                         }
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
                     } label: {
                         Image(systemName: isExpanded ? "chevron.up" : "info.circle")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(.primary)
                             .frame(width: 50, height: 50)
                             .background(
@@ -844,7 +775,7 @@ struct Badge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "star.fill")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             Text(text)
                 .font(.custom("OpenSans-Bold", size: 11))
         }
@@ -864,7 +795,7 @@ struct FeatureBadge: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: feature.icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(feature.color)
             
             Text(feature.name)
@@ -1168,7 +1099,7 @@ struct CommunityOnboardingView: View {
                     haptic.impactOccurred()
                     
                     if currentPage < pages.count - 1 {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                             currentPage += 1
                         }
                     } else {
@@ -1180,7 +1111,7 @@ struct CommunityOnboardingView: View {
                             .font(.custom("OpenSans-Bold", size: 18))
                         
                         Image(systemName: currentPage < pages.count - 1 ? "arrow.right" : "checkmark")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -1276,7 +1207,7 @@ struct OnboardingPageView: View {
                     .shadow(color: page.gradientColors[0].opacity(0.4), radius: 20, y: 10)
                 
                 Image(systemName: page.icon)
-                    .font(.system(size: 48, weight: .semibold))
+                    .font(.systemScaled(48, weight: .semibold))
                     .foregroundStyle(.white)
             }
             .padding(.top, 40)
@@ -1344,7 +1275,7 @@ struct CommunityCodeEntryView: View {
                             .shadow(color: community.gradientColors[0].opacity(0.4), radius: 20, y: 10)
                         
                         Image(systemName: community.type.icon)
-                            .font(.system(size: 40, weight: .semibold))
+                            .font(.systemScaled(40, weight: .semibold))
                             .foregroundStyle(.white)
                     }
                     
@@ -1364,7 +1295,7 @@ struct CommunityCodeEntryView: View {
                     VStack(spacing: 16) {
                         HStack(spacing: 12) {
                             Image(systemName: "lock.shield.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(community.type.color)
                             
                             TextField("ACCESS CODE", text: $code)
@@ -1393,7 +1324,7 @@ struct CommunityCodeEntryView: View {
                         if showError {
                             HStack(spacing: 8) {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                 Text(errorMessage)
                                     .font(.custom("OpenSans-SemiBold", size: 14))
                             }
@@ -1407,7 +1338,7 @@ struct CommunityCodeEntryView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 10) {
                             Image(systemName: "info.circle.fill")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(.blue)
                             
                             Text("How to get your code")
@@ -1440,7 +1371,7 @@ struct CommunityCodeEntryView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 10) {
                             Image(systemName: "key.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.purple)
                             
                             Text("Demo Codes (Testing Only)")
@@ -1485,7 +1416,7 @@ struct CommunityCodeEntryView: View {
                                 Text("Validating...")
                             } else {
                                 Image(systemName: "checkmark.shield.fill")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                 Text("Verify & Join")
                             }
                         }
@@ -1524,7 +1455,7 @@ struct CommunityCodeEntryView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1559,7 +1490,7 @@ struct CommunityCodeEntryView: View {
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
                 
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isValidating = false
                     showError = true
                     errorMessage = "Invalid code. Please check and try again."
@@ -1639,7 +1570,7 @@ struct CreateCommunityView: View {
                                 .frame(width: 80, height: 80)
                             
                             Image(systemName: selectedType.icon)
-                                .font(.system(size: 36, weight: .semibold))
+                                .font(.systemScaled(36, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                         
@@ -1686,7 +1617,7 @@ struct CreateCommunityView: View {
                             HStack(spacing: 12) {
                                 ForEach(CommunityType.allCases, id: \.self) { type in
                                     Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                             selectedType = type
                                         }
                                         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1694,7 +1625,7 @@ struct CreateCommunityView: View {
                                     } label: {
                                         VStack(spacing: 8) {
                                             Image(systemName: type.icon)
-                                                .font(.system(size: 24))
+                                                .font(.systemScaled(24))
                                             
                                             Text(type.rawValue)
                                                 .font(.custom("OpenSans-SemiBold", size: 12))
@@ -1774,7 +1705,7 @@ struct CreateCommunityView: View {
                                     haptic.impactOccurred()
                                 } label: {
                                     Image(systemName: "arrow.clockwise")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                         .foregroundStyle(selectedType.color)
                                 }
                             }
@@ -1851,7 +1782,7 @@ struct CreateCommunityView: View {
                                 Text("Creating...")
                             } else {
                                 Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                 Text("Create Community")
                             }
                         }
@@ -1893,7 +1824,7 @@ struct CreateCommunityView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1935,7 +1866,7 @@ struct FeatureToggle: View {
                     .frame(width: 44, height: 44)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(color)
             }
             
@@ -1982,7 +1913,7 @@ struct ContactSalesCTACard: View {
                         .frame(width: 56, height: 56)
                     
                     Image(systemName: "person.2.badge.gearshape.fill")
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(.white)
                 }
                 
@@ -2000,7 +1931,7 @@ struct ContactSalesCTACard: View {
                 Spacer()
                 
                 Image(systemName: "arrow.right.circle.fill")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(.blue)
             }
             .padding(20)
@@ -2066,7 +1997,7 @@ struct ContactSalesView: View {
                                 .frame(width: 100, height: 100)
                             
                             Image(systemName: "person.2.badge.gearshape.fill")
-                                .font(.system(size: 48))
+                                .font(.systemScaled(48))
                                 .foregroundStyle(.white)
                         }
                         
@@ -2178,13 +2109,13 @@ struct ContactSalesView: View {
                             HStack(spacing: 12) {
                                 ForEach(CommunityType.allCases, id: \.self) { type in
                                     Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                             organizationType = type
                                         }
                                     } label: {
                                         VStack(spacing: 6) {
                                             Image(systemName: type.icon)
-                                                .font(.system(size: 20))
+                                                .font(.systemScaled(20))
                                             Text(type.rawValue)
                                                 .font(.custom("OpenSans-SemiBold", size: 11))
                                         }
@@ -2262,7 +2193,7 @@ struct ContactSalesView: View {
                                 Text("Sending...")
                             } else {
                                 Image(systemName: "paperplane.fill")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                 Text("Send Inquiry")
                             }
                         }
@@ -2300,7 +2231,7 @@ struct ContactSalesView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -2335,7 +2266,7 @@ struct SalesBenefitRow: View {
                     .frame(width: 36, height: 36)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(color)
             }
             
@@ -2376,7 +2307,7 @@ struct CommunityInsightsView: View {
                                 .frame(width: 80, height: 80)
                             
                             Image(systemName: "chart.bar.fill")
-                                .font(.system(size: 36))
+                                .font(.systemScaled(36))
                                 .foregroundStyle(.white)
                         }
                         
@@ -2473,7 +2404,7 @@ struct CommunityInsightsView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -2496,7 +2427,7 @@ struct InsightStatCard: View {
                     .frame(width: 50, height: 50)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(color)
             }
             
@@ -2693,13 +2624,13 @@ struct EventCalendarView: View {
                     HStack(spacing: 12) {
                         ForEach(EventType.allCases, id: \.self) { type in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedEventType = type
                                 }
                             } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: type.icon)
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                     Text(type.rawValue)
                                         .font(.custom("OpenSans-SemiBold", size: 14))
                                 }
@@ -2736,7 +2667,7 @@ struct EventCalendarView: View {
                                 }
                             } label: {
                                 Image(systemName: "chevron.left")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(.primary)
                                     .frame(width: 32, height: 32)
                                     .background(Circle().fill(Color(.systemGray6)))
@@ -2748,7 +2679,7 @@ struct EventCalendarView: View {
                                 }
                             } label: {
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(.primary)
                                     .frame(width: 32, height: 32)
                                     .background(Circle().fill(Color(.systemGray6)))
@@ -2777,7 +2708,7 @@ struct EventCalendarView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -2787,7 +2718,7 @@ struct EventCalendarView: View {
                         showCreateEvent = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -2895,7 +2826,7 @@ struct EventCard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
                         Image(systemName: event.type.icon)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text(event.type.rawValue)
                             .font(.custom("OpenSans-SemiBold", size: 12))
                     }
@@ -2919,7 +2850,7 @@ struct EventCard: View {
             HStack(spacing: 16) {
                 HStack(spacing: 6) {
                     Image(systemName: "clock")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                     Text(event.date.formatted(.dateTime.hour().minute()))
                         .font(.custom("OpenSans-Regular", size: 13))
                 }
@@ -2927,7 +2858,7 @@ struct EventCard: View {
                 
                 HStack(spacing: 6) {
                     Image(systemName: "mappin.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                     Text(event.location)
                         .font(.custom("OpenSans-Regular", size: 13))
                 }
@@ -2937,7 +2868,7 @@ struct EventCard: View {
                 
                 HStack(spacing: 6) {
                     Image(systemName: "person.2.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                     Text("\(event.attendees)")
                         .font(.custom("OpenSans-SemiBold", size: 13))
                     if let max = event.maxAttendees {
@@ -2950,7 +2881,7 @@ struct EventCard: View {
             }
             
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isRSVPed.toggle()
                 }
                 let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -2958,7 +2889,7 @@ struct EventCard: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: isRSVPed ? "checkmark.circle.fill" : "calendar.badge.plus")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                     Text(isRSVPed ? "RSVP'd" : "RSVP")
                         .font(.custom("OpenSans-Bold", size: 15))
                 }
@@ -3018,7 +2949,7 @@ struct ModerationDashboardView: View {
                                 .frame(width: 80, height: 80)
                             
                             Image(systemName: "shield.checkered")
-                                .font(.system(size: 36))
+                                .font(.systemScaled(36))
                                 .foregroundStyle(.white)
                         }
                         
@@ -3081,7 +3012,7 @@ struct ModerationDashboardView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -3104,7 +3035,7 @@ struct ModerationStatCard: View {
                     .frame(width: 50, height: 50)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(color)
             }
             
@@ -3151,7 +3082,7 @@ struct DonationCenterView: View {
                                 .frame(width: 80, height: 80)
                             
                             Image(systemName: "heart.circle.fill")
-                                .font(.system(size: 36))
+                                .font(.systemScaled(36))
                                 .foregroundStyle(.white)
                         }
                         
@@ -3200,7 +3131,7 @@ struct DonationCenterView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -3215,11 +3146,14 @@ struct DonationCampaignCard: View {
     let raised: Int
     let goal: Int
     let color: Color
-    
+    var donationURL: String? = nil
+
+    @State private var showDonateSheet = false
+
     var progress: Double {
         Double(raised) / Double(goal)
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
@@ -3229,7 +3163,7 @@ struct DonationCampaignCard: View {
                         .frame(width: 48, height: 48)
                     
                     Image(systemName: "heart.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(color)
                 }
                 
@@ -3277,7 +3211,12 @@ struct DonationCampaignCard: View {
             }
             
             Button {
-                // Donate action
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                if let urlStr = donationURL, let url = URL(string: urlStr) {
+                    UIApplication.shared.open(url)
+                } else {
+                    showDonateSheet = true
+                }
             } label: {
                 HStack {
                     Image(systemName: "heart.fill")
@@ -3308,6 +3247,36 @@ struct DonationCampaignCard: View {
                         .stroke(color.opacity(0.3), lineWidth: 1)
                 )
         )
+        .sheet(isPresented: $showDonateSheet) {
+            NavigationStack {
+                VStack(spacing: 20) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(color)
+                        .padding(.top, 32)
+
+                    Text(title)
+                        .font(.custom("OpenSans-Bold", size: 22))
+                        .multilineTextAlignment(.center)
+
+                    Text("Online giving is coming soon. Please contact your community administrator to donate to this campaign.")
+                        .font(.custom("OpenSans-Regular", size: 15))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+
+                    Spacer()
+                }
+                .navigationTitle("Donate")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showDonateSheet = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
     }
 }
 
@@ -3332,7 +3301,7 @@ struct VolunteerHubView: View {
                                 .frame(width: 80, height: 80)
                             
                             Image(systemName: "hand.raised.fill")
-                                .font(.system(size: 36))
+                                .font(.systemScaled(36))
                                 .foregroundStyle(.white)
                         }
                         
@@ -3384,7 +3353,7 @@ struct VolunteerHubView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -3411,7 +3380,7 @@ struct VolunteerOpportunityCard: View {
                         .frame(width: 48, height: 48)
                     
                     Image(systemName: "hand.raised.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(color)
                 }
                 
@@ -3429,7 +3398,7 @@ struct VolunteerOpportunityCard: View {
             
             HStack(spacing: 8) {
                 Image(systemName: "clock")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text(time)
                     .font(.custom("OpenSans-Regular", size: 14))
             }
@@ -3437,7 +3406,7 @@ struct VolunteerOpportunityCard: View {
             
             HStack {
                 Image(systemName: "person.2.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text("\(volunteers) / \(needed) volunteers")
                     .font(.custom("OpenSans-SemiBold", size: 14))
                 
@@ -3460,7 +3429,7 @@ struct VolunteerOpportunityCard: View {
             .foregroundStyle(.primary)
             
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isSignedUp.toggle()
                 }
             } label: {
@@ -3529,7 +3498,7 @@ struct LanguageSettingsView: View {
                                 .frame(width: 80, height: 80)
                             
                             Image(systemName: "globe")
-                                .font(.system(size: 36))
+                                .font(.systemScaled(36))
                                 .foregroundStyle(.white)
                         }
                         
@@ -3545,7 +3514,7 @@ struct LanguageSettingsView: View {
                     VStack(spacing: 12) {
                         ForEach(languages, id: \.self) { language in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedLanguage = language
                                 }
                             } label: {
@@ -3558,7 +3527,7 @@ struct LanguageSettingsView: View {
                                     
                                     if selectedLanguage == language {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 22))
+                                            .font(.systemScaled(22))
                                             .foregroundStyle(.blue)
                                     }
                                 }
@@ -3594,7 +3563,7 @@ struct LanguageSettingsView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -3645,7 +3614,7 @@ struct CreateEventView: View {
                                 .frame(width: 80, height: 80)
                             
                             Image(systemName: selectedType.icon)
-                                .font(.system(size: 36))
+                                .font(.systemScaled(36))
                                 .foregroundStyle(.white)
                         }
                         
@@ -3680,13 +3649,13 @@ struct CreateEventView: View {
                                 HStack(spacing: 10) {
                                     ForEach([EventCalendarView.EventType.worship, .study, .service, .social, .mission], id: \.self) { type in
                                         Button {
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                                 selectedType = type
                                             }
                                         } label: {
                                             VStack(spacing: 6) {
                                                 Image(systemName: type.icon)
-                                                    .font(.system(size: 20))
+                                                    .font(.systemScaled(20))
                                                 Text(type.rawValue)
                                                     .font(.custom("OpenSans-SemiBold", size: 12))
                                             }
@@ -3799,7 +3768,7 @@ struct CreateEventView: View {
                                 Text("Creating...")
                             } else {
                                 Image(systemName: "calendar.badge.plus")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                 Text("Create Event")
                             }
                         }
@@ -3833,7 +3802,7 @@ struct CreateEventView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -3877,6 +3846,7 @@ struct CommunityResource: Identifiable {
 }
 
 // MARK: - Sample Data
+#if DEBUG
 let sampleMessages: [ChatMessage] = [
     ChatMessage(
         id: UUID(),
@@ -3921,6 +3891,7 @@ let samplePrayerRequests: [CommunityPrayerRequest] = [
         prayerCount: 42
     )
 ]
+#endif
 
 let sampleResources: [CommunityResource] = [
     CommunityResource(
@@ -3955,6 +3926,9 @@ struct CommunityDetailView: View {
     @State private var messageText = ""
     @State private var messages: [ChatMessage] = sampleMessages
     @Namespace private var detailTabAnimation
+    @State private var showCommunityInfo = false
+    @State private var notificationsEnabled = false
+    @State private var showNotificationSettings = false
     
     enum DetailTab: String, CaseIterable {
         case chat = "Chat"
@@ -3998,9 +3972,69 @@ struct CommunityDetailView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
             .navigationBarHidden(true)
+            .sheet(isPresented: $showCommunityInfo) {
+                NavigationStack {
+                    List {
+                        Section("About") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(community.name)
+                                    .font(.custom("OpenSans-Bold", size: 18))
+                                Text(community.description)
+                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                            LabeledContent("Members", value: "\(community.memberCount)")
+                            LabeledContent("Type", value: community.type.rawValue)
+                        }
+                        if !community.features.isEmpty {
+                            Section("Features") {
+                                ForEach(community.features) { feature in
+                                    Label(feature.name, systemImage: feature.icon)
+                                        .foregroundStyle(feature.color)
+                                }
+                            }
+                        }
+                    }
+                    .navigationTitle("Community Info")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showCommunityInfo = false }
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showNotificationSettings) {
+                NavigationStack {
+                    List {
+                        Section {
+                            Toggle("All Notifications", isOn: $notificationsEnabled)
+                            Toggle("New Posts", isOn: .constant(notificationsEnabled))
+                                .disabled(!notificationsEnabled)
+                            Toggle("Events & Reminders", isOn: .constant(notificationsEnabled))
+                                .disabled(!notificationsEnabled)
+                            Toggle("Chat Messages", isOn: .constant(notificationsEnabled))
+                                .disabled(!notificationsEnabled)
+                        } header: {
+                            Text("Notification Preferences")
+                        } footer: {
+                            Text("Changes apply to this community only.")
+                        }
+                    }
+                    .navigationTitle("Notification Settings")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showNotificationSettings = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium])
+            }
         }
     }
-    
+
     // MARK: - Header
     private var headerView: some View {
         VStack(spacing: 0) {
@@ -4015,7 +4049,7 @@ struct CommunityDetailView: View {
                             .frame(width: 40, height: 40)
                         
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -4042,15 +4076,17 @@ struct CommunityDetailView: View {
                 
                 Menu {
                     Button {
-                        // Community info
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        showCommunityInfo = true
                     } label: {
                         Label("Community Info", systemImage: "info.circle")
                     }
-                    
+
                     Button {
-                        // Notifications
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        showNotificationSettings = true
                     } label: {
-                        Label("Notifications", systemImage: "bell")
+                        Label("Notification Settings", systemImage: "bell.badge")
                     }
                     
                     Divider()
@@ -4067,7 +4103,7 @@ struct CommunityDetailView: View {
                             .frame(width: 40, height: 40)
                         
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -4092,13 +4128,13 @@ struct CommunityDetailView: View {
             HStack(spacing: 8) {
                 ForEach(DetailTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedTab = tab
                         }
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: tab.icon)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                             
                             Text(tab.rawValue)
                                 .font(.custom("OpenSans-Bold", size: 14))
@@ -4163,7 +4199,7 @@ struct CommunityDetailView: View {
                             .frame(width: 44, height: 44)
                         
                         Image(systemName: "arrow.up")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -4402,13 +4438,13 @@ struct CommunityPrayerRequestCard: View {
             
             HStack(spacing: 16) {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         hasPrayed.toggle()
                     }
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: hasPrayed ? "hands.sparkles.fill" : "hands.sparkles")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                         Text(hasPrayed ? "Prayed" : "Pray")
                             .font(.custom("OpenSans-SemiBold", size: 14))
                     }
@@ -4444,7 +4480,7 @@ struct CommunityResourceCard: View {
                     .frame(width: 60, height: 60)
                 
                 Image(systemName: resource.icon)
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(communityColor)
             }
             
@@ -4461,7 +4497,7 @@ struct CommunityResourceCard: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(16)
@@ -4488,7 +4524,7 @@ struct ComingSoonOverlay: View {
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 36, weight: .semibold))
+                    .font(.systemScaled(36, weight: .semibold))
                     .foregroundStyle(iconColor)
                     .symbolEffect(.pulse, options: .repeating)
             }
@@ -4496,7 +4532,7 @@ struct ComingSoonOverlay: View {
             VStack(spacing: 8) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.systemScaled(12, weight: .bold))
                     Text("COMING SOON")
                         .font(.custom("OpenSans-Bold", size: 12))
                         .tracking(1.5)
@@ -4581,7 +4617,7 @@ struct ComingSoonPlaceholder: View {
                                 )
                             
                             Image(systemName: icon)
-                                .font(.system(size: 48, weight: .semibold))
+                                .font(.systemScaled(48, weight: .semibold))
                                 .foregroundStyle(iconColor)
                                 .symbolEffect(.pulse, options: .repeating)
                         }
@@ -4590,7 +4626,7 @@ struct ComingSoonPlaceholder: View {
                             // Coming Soon Badge
                             HStack(spacing: 8) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.systemScaled(14, weight: .bold))
                                     .foregroundStyle(.orange)
                                 
                                 Text("COMING SOON")
@@ -4673,7 +4709,7 @@ struct ComingSoonPlaceholder: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "arrow.left")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                 Text("Back to Communities")
                                     .font(.custom("OpenSans-Bold", size: 16))
                             }
@@ -4700,7 +4736,7 @@ struct ComingSoonPlaceholder: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -4719,7 +4755,7 @@ struct FeatureHighlightRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(color)
                 .frame(width: 24)
             

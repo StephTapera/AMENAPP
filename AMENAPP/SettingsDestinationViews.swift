@@ -13,60 +13,87 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import SafariServices
 
 // MARK: - Account Type Settings
 
 struct AccountTypeSettingsView: View {
-    @AppStorage("accountType") private var accountType: String = "personal"
+    @AppStorage("amen_account_type") private var accountType: String = AMENSettingsAccountType.personal.rawValue
     @Environment(\.dismiss) var dismiss
 
     private let types: [(id: String, label: String, icon: String, description: String)] = [
-        ("personal", "Personal", "person.fill", "For individuals sharing faith, reflections, and testimonies."),
-        ("creator", "Creator", "megaphone.fill", "For content creators, pastors, and ministry voices."),
-        ("organization", "Organization", "building.2.fill", "For churches, ministries, and faith-based organizations.")
+        (AMENSettingsAccountType.personal.rawValue, "Personal", "person.fill", "For individuals sharing faith, reflections, and testimonies."),
+        (AMENSettingsAccountType.church.rawValue, "Church", "building.columns.fill", "For churches, ministries, and faith communities."),
+        (AMENSettingsAccountType.business.rawValue, "Business", "briefcase.fill", "For faith-based teams, nonprofits, and organizations.")
     ]
 
     var body: some View {
-        List {
-            Section {
-                ForEach(types, id: \.id) { type in
-                    Button {
-                        HapticManager.impact(style: .light)
-                        accountType = type.id
-                    } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: type.icon)
-                                .font(.system(size: 18))
-                                .foregroundStyle(accountType == type.id ? .blue : .secondary)
-                                .frame(width: 28)
+        ScrollView {
+            VStack(spacing: 0) {
 
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(type.label)
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                    .foregroundStyle(.primary)
-                                Text(type.description)
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.secondary)
+                Text("ACCOUNT TYPE")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(types.enumerated()), id: \.element.id) { index, type in
+                        Button {
+                            HapticManager.impact(style: .light)
+                            accountType = type.id
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: type.icon)
+                                    .font(.systemScaled(18))
+                                    .foregroundStyle(accountType == type.id ? .blue : .secondary)
+                                    .frame(width: 28)
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(type.label)
+                                        .font(AMENFont.semiBold(15))
+                                        .foregroundStyle(.primary)
+                                    Text(type.description)
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                if accountType == type.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.blue)
+                                }
                             }
-
-                            Spacer()
-
-                            if accountType == type.id {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.blue)
-                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
-                        .padding(.vertical, 4)
+                        .buttonStyle(.plain)
+
+                        if index < types.count - 1 {
+                            Divider().padding(.leading, 16)
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
-            } header: {
-                Text("Account Type")
-            } footer: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 Text("Changing account type affects what features and analytics are available to you.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Account Type")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -86,55 +113,75 @@ struct MutedAccountsView: View {
     }
 
     var body: some View {
-        List {
-            if isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .listRowBackground(Color.clear)
-            } else if mutedUsers.isEmpty {
-                ContentUnavailableView(
-                    "No Muted Accounts",
-                    systemImage: "speaker.slash",
-                    description: Text("Accounts you mute won't appear in your feed.")
-                )
-                .listRowBackground(Color.clear)
-            } else {
-                Section {
-                    ForEach(mutedUsers) { user in
-                        HStack(spacing: 12) {
-                            // Avatar
-                            Circle()
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 44, height: 44)
-                                .overlay(
-                                    Text(String(user.displayName.prefix(1)).uppercased())
-                                        .font(.system(size: 18, weight: .semibold))
-                                        .foregroundStyle(.white)
-                                )
+        ScrollView {
+            VStack(spacing: 0) {
+                if isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 40)
+                } else if mutedUsers.isEmpty {
+                    ContentUnavailableView(
+                        "No Muted Accounts",
+                        systemImage: "speaker.slash",
+                        description: Text("Accounts you mute won't appear in your feed.")
+                    )
+                    .padding(.top, 40)
+                } else {
+                    Text("\(mutedUsers.count) MUTED ACCOUNT\(mutedUsers.count == 1 ? "" : "S")")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(user.displayName)
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                Text("@\(user.username)")
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.secondary)
+                    VStack(spacing: 0) {
+                        ForEach(mutedUsers.indices, id: \.self) { index in
+                            let user = mutedUsers[index]
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(Color.gray.opacity(0.3))
+                                    .frame(width: 44, height: 44)
+                                    .overlay(
+                                        Text(String(user.displayName.prefix(1)).uppercased())
+                                            .font(.systemScaled(18, weight: .semibold))
+                                            .foregroundStyle(.white)
+                                    )
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(user.displayName)
+                                        .font(AMENFont.semiBold(15))
+                                    Text("@\(user.username)")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Button("Unmute") {
+                                    unmute(userId: user.id)
+                                }
+                                .font(AMENFont.semiBold(13))
+                                .foregroundStyle(.blue)
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
 
-                            Spacer()
-
-                            Button("Unmute") {
-                                unmute(userId: user.id)
+                            if index < mutedUsers.count - 1 {
+                                Divider().padding(.leading, 16)
                             }
-                            .font(.custom("OpenSans-SemiBold", size: 13))
-                            .foregroundStyle(.blue)
                         }
-                        .padding(.vertical, 4)
                     }
-                } header: {
-                    Text("\(mutedUsers.count) muted account\(mutedUsers.count == 1 ? "" : "s")")
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
                 }
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Muted Accounts")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadMutedUsers() }
@@ -142,7 +189,7 @@ struct MutedAccountsView: View {
 
     private func loadMutedUsers() async {
         guard let uid = Auth.auth().currentUser?.uid else { isLoading = false; return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let doc = try await db.collection("users").document(uid).getDocument()
             let ids = doc.data()?["mutedUsers"] as? [String] ?? []
@@ -159,14 +206,16 @@ struct MutedAccountsView: View {
                 }
             }
             mutedUsers = entries
-        } catch {}
+        } catch {
+            dlog("⚠️ [SettingsDestination] loadMutedUsers failed: \(error.localizedDescription)")
+        }
         isLoading = false
     }
 
     private func unmute(userId: String) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         mutedUsers.removeAll { $0.id == userId }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         db.collection("users").document(uid).updateData([
             "mutedUsers": FieldValue.arrayRemove([userId])
         ])
@@ -184,44 +233,97 @@ struct HiddenWordsSettingsView: View {
     @State private var isLoading = true
 
     var body: some View {
-        List {
-            Section {
-                Toggle("Filter from posts", isOn: $filterPosts)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .tint(.blue)
-                Toggle("Filter from comments", isOn: $filterComments)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .tint(.blue)
-            } header: {
-                Text("Apply filters to")
-            }
+        ScrollView {
+            VStack(spacing: 0) {
 
-            Section {
-                if hiddenWords.isEmpty {
-                    Text("No words added yet")
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(hiddenWords, id: \.self) { word in
-                        Text(word)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                // Apply filters to section
+                Text("APPLY FILTERS TO")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle("Filter from posts", isOn: $filterPosts)
+                        .font(AMENFont.semiBold(15))
+                        .tint(.blue)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle("Filter from comments", isOn: $filterComments)
+                        .font(AMENFont.semiBold(15))
+                        .tint(.blue)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                // Hidden words section
+                Text("HIDDEN WORDS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    if hiddenWords.isEmpty {
+                        Text("No words added yet")
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+                    } else {
+                        ForEach(Array(hiddenWords.enumerated()), id: \.element) { index, word in
+                            Text(word)
+                                .font(AMENFont.regular(15))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+                        }
+                        .onDelete { offsets in
+                            deleteWord(at: offsets)
+                        }
                     }
-                    .onDelete(perform: deleteWord)
-                }
 
-                Button {
-                    showAddWord = true
-                } label: {
-                    Label("Add keyword or phrase", systemImage: "plus.circle.fill")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
-                        .foregroundStyle(.blue)
+                    Button {
+                        showAddWord = true
+                    } label: {
+                        Label("Add keyword or phrase", systemImage: "plus.circle.fill")
+                            .font(AMENFont.semiBold(14))
+                            .foregroundStyle(.blue)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
-            } header: {
-                Text("Hidden words")
-            } footer: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 Text("Posts and comments containing these words will be hidden from your feed and comments.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Hidden Words")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { EditButton() }
@@ -250,7 +352,7 @@ struct HiddenWordsSettingsView: View {
 
     private func load() async {
         guard let uid = Auth.auth().currentUser?.uid else { isLoading = false; return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let doc = try? await db.collection("users").document(uid).getDocument()
         hiddenWords = doc?.data()?["hiddenWords"] as? [String] ?? []
         filterPosts = doc?.data()?["hiddenWordFilterPosts"] as? Bool ?? true
@@ -282,41 +384,84 @@ struct MessageControlsSettingsView: View {
     ]
 
     var body: some View {
-        List {
-            Section {
-                ForEach(options, id: \.0) { (id, label, description) in
-                    Button {
-                        HapticManager.impact(style: .light)
-                        dmPermission = id
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(label)
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                    .foregroundStyle(.primary)
-                                Text(description)
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if dmPermission == id {
-                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.blue)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                    .buttonStyle(.plain)
-                }
-            } header: { Text("Who can message you") }
+        ScrollView {
+            VStack(spacing: 0) {
 
-            Section {
-                Toggle("Message requests", isOn: $messageRequestsEnabled)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .tint(.blue)
-            } header: { Text("Message requests") } footer: {
+                Text("WHO CAN MESSAGE YOU")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(options.enumerated()), id: \.element.0) { index, option in
+                        let (id, label, description) = option
+                        Button {
+                            HapticManager.impact(style: .light)
+                            dmPermission = id
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(label)
+                                        .font(AMENFont.semiBold(15))
+                                        .foregroundStyle(.primary)
+                                    Text(description)
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if dmPermission == id {
+                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.blue)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(.plain)
+
+                        if index < options.count - 1 {
+                            Divider().padding(.leading, 16)
+                        }
+                    }
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("MESSAGE REQUESTS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle("Message requests", isOn: $messageRequestsEnabled)
+                        .font(AMENFont.semiBold(15))
+                        .tint(.blue)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 Text("People you don't follow will appear in Requests instead of your main inbox.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Message Controls")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -330,44 +475,77 @@ struct ActivityStatusSettingsView: View {
     @AppStorage("showTypingIndicator") private var showTypingIndicator: Bool = true
 
     var body: some View {
-        List {
-            Section {
-                Toggle(isOn: $showOnlineStatus) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Show activity status")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Let others see when you were last active")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.blue)
+        ScrollView {
+            VStack(spacing: 0) {
 
-                Toggle(isOn: $showReadReceipts) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Read receipts")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Show when you've read messages")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.blue)
+                Text("VISIBILITY")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
 
-                Toggle(isOn: $showTypingIndicator) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Typing indicator")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Show \"typing…\" in conversations")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
+                VStack(spacing: 0) {
+                    Toggle(isOn: $showOnlineStatus) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Show activity status")
+                                .font(AMENFont.semiBold(15))
+                            Text("Let others see when you were last active")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $showReadReceipts) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Read receipts")
+                                .font(AMENFont.semiBold(15))
+                            Text("Show when you've read messages")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $showTypingIndicator) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Typing indicator")
+                                .font(AMENFont.semiBold(15))
+                            Text("Show \"typing…\" in conversations")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
-                .tint(.blue)
-            } header: { Text("Visibility") } footer: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 Text("Turning off activity status also hides other people's status from you.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Activity Status")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -385,35 +563,63 @@ struct SensitiveContentSettingsView: View {
     ]
 
     var body: some View {
-        List {
-            Section {
-                ForEach(levels, id: \.id) { level in
-                    Button {
-                        HapticManager.impact(style: .light)
-                        sensitiveContentLevel = level.id
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(level.label)
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                    .foregroundStyle(.primary)
-                                Text(level.description)
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(spacing: 0) {
+
+                Text("CONTENT LEVEL")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(levels.enumerated()), id: \.element.id) { index, level in
+                        Button {
+                            HapticManager.impact(style: .light)
+                            sensitiveContentLevel = level.id
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(level.label)
+                                        .font(AMENFont.semiBold(15))
+                                        .foregroundStyle(.primary)
+                                    Text(level.description)
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if sensitiveContentLevel == level.id {
+                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.blue)
+                                }
                             }
-                            Spacer()
-                            if sensitiveContentLevel == level.id {
-                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.blue)
-                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
-                        .padding(.vertical, 2)
+                        .buttonStyle(.plain)
+
+                        if index < levels.count - 1 {
+                            Divider().padding(.leading, 16)
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
-            } header: { Text("Content level") } footer: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 Text("AMEN is a faith-centered community. All content is held to our Community Guidelines regardless of this setting.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Sensitive Content")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -429,26 +635,68 @@ struct QuietModeSettingsView: View {
     var endHour: Int { (quietModeStartHour + quietModeDuration) % 24 }
 
     var body: some View {
-        List {
-            Section {
-                Toggle("Quiet mode", isOn: $quietModeEnabled)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .tint(.blue)
-            } header: { Text("Schedule") } footer: {
+        ScrollView {
+            VStack(spacing: 0) {
+
+                Text("SCHEDULE")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle("Quiet mode", isOn: $quietModeEnabled)
+                        .font(AMENFont.semiBold(15))
+                        .tint(.blue)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 if quietModeEnabled {
                     Text("Notifications will be silenced from \(formatted(quietModeStartHour)) to \(formatted(endHour)).")
-                }
-            }
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
 
-            if quietModeEnabled {
-                Section {
-                    Stepper("Start: \(formatted(quietModeStartHour))", value: $quietModeStartHour, in: 0...23)
-                        .font(.custom("OpenSans-Regular", size: 15))
-                    Stepper("Duration: \(quietModeDuration) hr\(quietModeDuration == 1 ? "" : "s")", value: $quietModeDuration, in: 1...12)
-                        .font(.custom("OpenSans-Regular", size: 15))
-                } header: { Text("Window") }
+                    Text("WINDOW")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Stepper("Start: \(formatted(quietModeStartHour))", value: $quietModeStartHour, in: 0...23)
+                            .font(AMENFont.regular(15))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
+                        Stepper("Duration: \(quietModeDuration) hr\(quietModeDuration == 1 ? "" : "s")", value: $quietModeDuration, in: 1...12)
+                            .font(AMENFont.regular(15))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+                }
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Quiet Mode")
         .navigationBarTitleDisplayMode(.inline)
         .animation(.easeInOut(duration: 0.2), value: quietModeEnabled)
@@ -465,60 +713,129 @@ struct QuietModeSettingsView: View {
 // MARK: - Download Your Data
 
 struct DownloadDataView: View {
-    @State private var isRequesting = false
-    @State private var requested = false
+    @State private var isExporting = false
+    @State private var exportError: String?
+    @State private var showError = false
+    @State private var shareItem: URL?
 
     var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Your data export will include:")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                    ForEach(["Posts and testimonies", "Comments and replies", "Messages (yours)", "Prayer entries", "Church notes", "Profile information", "Followed/following lists"], id: \.self) { item in
-                        Label(item, systemImage: "checkmark.circle")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 4)
-            } header: { Text("What's included") }
+        ScrollView {
+            VStack(spacing: 0) {
 
-            Section {
-                Button {
-                    guard !isRequesting else { return }
-                    isRequesting = true
-                    if let uid = Auth.auth().currentUser?.uid {
-                        Firestore.firestore().collection("dataExportRequests").document(uid).setData([
-                            "userId": uid,
-                            "requestedAt": FieldValue.serverTimestamp(),
-                            "status": "pending"
-                        ], merge: true) { _ in
-                            isRequesting = false
-                            requested = true
+                Text("WHAT'S INCLUDED")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Your data export will include:")
+                            .font(AMENFont.semiBold(15))
+                        ForEach(["Posts and testimonies", "Comments and replies", "Messages (yours)", "Prayer entries", "Church notes", "Profile information", "Followed/following lists"], id: \.self) { item in
+                            Label(item, systemImage: "checkmark.circle")
+                                .font(AMENFont.regular(14))
+                                .foregroundStyle(.secondary)
                         }
                     }
-                } label: {
-                    if isRequesting {
-                        ProgressView().frame(maxWidth: .infinity, alignment: .center)
-                    } else if requested {
-                        Label("Request submitted", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    } else {
-                        Text("Request Data Export")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
-                .disabled(isRequesting || requested)
-            } footer: {
-                Text("You'll receive a secure download link by email within 72 hours.")
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                VStack(spacing: 0) {
+                    Button {
+                        guard !isExporting else { return }
+                        Task { await requestExport() }
+                    } label: {
+                        if isExporting {
+                            HStack(spacing: 8) {
+                                ProgressView().tint(.primary)
+                                Text("Preparing export…")
+                                    .font(AMENFont.semiBold(15))
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
+                        } else {
+                            Label("Download My Data", systemImage: "arrow.down.circle")
+                                .font(AMENFont.semiBold(15))
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        }
+                    }
+                    .disabled(isExporting)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+                .padding(.top, 24)
+
+                Text("Your data is exported immediately as a JSON file you can save or share.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Download Your Data")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $shareItem) { url in
+            SettingsShareSheet(items: [url])
+        }
+        .alert("Export Failed", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(exportError ?? "An error occurred. Please try again.")
+        }
     }
+
+    private func requestExport() async {
+        isExporting = true
+        defer { isExporting = false }
+
+        do {
+            let functions = Functions.functions(region: "us-central1")
+            let result = try await functions.httpsCallable("exportUserData").call()
+
+            guard let dict = result.data as? [String: Any] else {
+                throw NSError(domain: "DataExport", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response from server"])
+            }
+
+            let data = try JSONSerialization.data(withJSONObject: dict, options: .prettyPrinted)
+            let filename = "AMEN_data_export_\(Int(Date().timeIntervalSince1970)).json"
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+            try data.write(to: url)
+
+            await MainActor.run { shareItem = url }
+        } catch {
+            await MainActor.run {
+                exportError = error.localizedDescription
+                showError = true
+            }
+        }
+    }
+}
+
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
+}
+
+private struct SettingsShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ uvc: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Default Post Settings
@@ -530,113 +847,217 @@ struct DefaultPostSettingsView: View {
     @AppStorage("holdCommentsForReview") private var holdCommentsForReview: Bool = false
     @AppStorage("slowModeSeconds") private var slowModeSeconds: Int = 0
 
-    // Keyword blocklist — loaded from Firestore
     @State private var blockedKeywords: [String] = []
     @State private var showAddKeyword = false
     @State private var newKeyword = ""
     @State private var isLoading = true
 
     var body: some View {
-        List {
-            Section {
-                Picker("Who can reply", selection: $defaultReplyAudience) {
-                    Text("Everyone").tag("everyone")
-                    Text("Followers").tag("followers")
-                    Text("People I follow").tag("following")
-                    Text("No one").tag("none")
-                }
-                .font(.custom("OpenSans-Regular", size: 15))
-            } header: { Text("Default reply audience") }
+        ScrollView {
+            VStack(spacing: 0) {
 
-            Section {
-                Toggle("Allow reposts/shares", isOn: $defaultAllowRepost)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .tint(.blue)
-            } header: { Text("Sharing") }
+                // Default reply audience
+                Text("DEFAULT REPLY AUDIENCE")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
 
-            // Comment safety controls
-            Section {
-                Picker("Comment filter level", selection: $defaultCommentFilter) {
-                    Text("Off").tag("off")
-                    Text("Standard").tag("standard")
-                    Text("Strict").tag("strict")
-                }
-                .font(.custom("OpenSans-Regular", size: 15))
-
-                Toggle(isOn: $holdCommentsForReview) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Hold Comments for Review")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("New comments must be approved before they appear publicly")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
+                VStack(spacing: 0) {
+                    Picker("Who can reply", selection: $defaultReplyAudience) {
+                        Text("Everyone").tag("everyone")
+                        Text("Followers").tag("followers")
+                        Text("People I follow").tag("following")
+                        Text("No one").tag("none")
                     }
+                    .font(AMENFont.regular(15))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
-                .tint(.blue)
-                .onChange(of: holdCommentsForReview) { _, enabled in
-                    Task { await syncCommentApprovalSetting(enabled) }
-                }
-            } header: { Text("Comment safety") } footer: {
-                Text("Standard filters obvious spam and harassment. Strict applies additional AI moderation.")
-                    .font(.custom("OpenSans-Regular", size: 12))
-            }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
 
-            // Slow mode
-            Section {
-                Picker("Slow mode interval", selection: $slowModeSeconds) {
-                    Text("Off").tag(0)
-                    Text("30 seconds").tag(30)
-                    Text("1 minute").tag(60)
-                    Text("5 minutes").tag(300)
-                    Text("15 minutes").tag(900)
-                }
-                .font(.custom("OpenSans-Regular", size: 15))
-                .onChange(of: slowModeSeconds) { _, val in
-                    Task { await syncSlowMode(val) }
-                }
-            } header: { Text("Slow mode") } footer: {
-                Text("Limits how often a single user can comment. Helps prevent spam in active discussions.")
-                    .font(.custom("OpenSans-Regular", size: 12))
-            }
+                // Sharing
+                Text("SHARING")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
 
-            // Keyword blocklist
-            Section {
-                if isLoading {
-                    ProgressView().frame(maxWidth: .infinity, alignment: .center)
-                } else {
-                    ForEach(blockedKeywords, id: \.self) { kw in
-                        HStack {
-                            Text(kw)
-                                .font(.custom("OpenSans-Regular", size: 15))
-                            Spacer()
-                            Button {
-                                removeKeyword(kw)
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.red)
-                            }
+                VStack(spacing: 0) {
+                    Toggle("Allow reposts/shares", isOn: $defaultAllowRepost)
+                        .font(AMENFont.semiBold(15))
+                        .tint(.blue)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                // Comment safety
+                Text("COMMENT SAFETY")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Picker("Comment filter level", selection: $defaultCommentFilter) {
+                        Text("Off").tag("off")
+                        Text("Standard").tag("standard")
+                        Text("Strict").tag("strict")
+                    }
+                    .font(AMENFont.regular(15))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $holdCommentsForReview) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Hold Comments for Review")
+                                .font(AMENFont.semiBold(15))
+                            Text("New comments must be approved before they appear publicly")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
                         }
                     }
-
-                    if blockedKeywords.isEmpty {
-                        Text("No blocked keywords added yet")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.secondary)
+                    .tint(.blue)
+                    .onChange(of: holdCommentsForReview) { _, enabled in
+                        Task { await syncCommentApprovalSetting(enabled) }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
 
-                    Button {
-                        showAddKeyword = true
-                    } label: {
-                        Label("Add keyword", systemImage: "plus.circle.fill")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
-                            .foregroundStyle(.blue)
+                Text("Standard filters obvious spam and harassment. Strict applies additional AI moderation.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                // Slow mode
+                Text("SLOW MODE")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Picker("Slow mode interval", selection: $slowModeSeconds) {
+                        Text("Off").tag(0)
+                        Text("30 seconds").tag(30)
+                        Text("1 minute").tag(60)
+                        Text("5 minutes").tag(300)
+                        Text("15 minutes").tag(900)
+                    }
+                    .font(AMENFont.regular(15))
+                    .onChange(of: slowModeSeconds) { _, val in
+                        Task { await syncSlowMode(val) }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Limits how often a single user can comment. Helps prevent spam in active discussions.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                // Keyword blocklist
+                Text("BLOCKED COMMENT KEYWORDS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    if isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    } else {
+                        ForEach(Array(blockedKeywords.enumerated()), id: \.element) { index, kw in
+                            HStack {
+                                Text(kw)
+                                    .font(AMENFont.regular(15))
+                                Spacer()
+                                Button {
+                                    removeKeyword(kw)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.red)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+                        }
+
+                        if blockedKeywords.isEmpty {
+                            Text("No blocked keywords added yet")
+                                .font(AMENFont.regular(14))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+                        }
+
+                        Button {
+                            showAddKeyword = true
+                        } label: {
+                            Label("Add keyword", systemImage: "plus.circle.fill")
+                                .font(AMENFont.semiBold(14))
+                                .foregroundStyle(.blue)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
                 }
-            } header: { Text("Blocked comment keywords") } footer: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 Text("Comments containing these words are automatically held for your review, regardless of the filter level above.")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Default Post Settings")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadSettings() }
@@ -657,11 +1078,9 @@ struct DefaultPostSettingsView: View {
         }
     }
 
-    // MARK: - Load / Save
-
     private func loadSettings() async {
         guard let uid = Auth.auth().currentUser?.uid else { isLoading = false; return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let doc = try? await db.collection("users").document(uid).getDocument()
         let data = doc?.data()
         blockedKeywords = data?["commentBlockedKeywords"] as? [String] ?? []
@@ -699,54 +1118,100 @@ struct SundayFocusModeSettingsView: View {
     @ObservedObject private var focusManager = SundayChurchFocusManager.shared
 
     var body: some View {
-        List {
-            Section {
-                // Use setEnabled() so the change persists to Firestore and syncs across devices
-                Toggle(isOn: Binding(
-                    get: { focusManager.isEnabled },
-                    set: { focusManager.setEnabled($0) }
-                )) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Shabbat Mode (Sundays)")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Restricts social features all day Sunday to encourage church focus. Church Notes and Find a Church remain available.")
-                            .font(.custom("OpenSans-Regular", size: 13))
+        ScrollView {
+            VStack(spacing: 0) {
+
+                Text("FEATURE")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: Binding(
+                        get: { focusManager.isEnabled },
+                        set: { focusManager.setEnabled($0) }
+                    )) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Shabbat Mode (Sundays)")
+                                .font(AMENFont.semiBold(15))
+                            Text("Restricts social features all day Sunday to encourage church focus. Church Notes and Find a Church remain available.")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("SCHEDULE")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("Active on")
+                            .font(AMENFont.regular(15))
+                        Spacer()
+                        Text("Every Sunday")
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
-                }
-                .tint(.blue)
-            } header: { Text("Feature") }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
 
-            Section {
-                HStack {
-                    Text("Active on")
-                        .font(.custom("OpenSans-Regular", size: 15))
-                    Spacer()
-                    Text("Every Sunday")
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.secondary)
-                }
+                    Divider().padding(.leading, 16)
 
-                HStack {
-                    Text("Allowed features")
-                        .font(.custom("OpenSans-Regular", size: 15))
-                    Spacer()
-                    Text("Church Notes, Find a Church")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.trailing)
-                }
+                    HStack {
+                        Text("Allowed features")
+                            .font(AMENFont.regular(15))
+                        Spacer()
+                        Text("Church Notes, Find a Church")
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
 
-                if focusManager.isInChurchFocusWindow && focusManager.isEnabled {
-                    Label("Currently active", systemImage: "building.columns.fill")
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.orange)
+                    if focusManager.isInChurchFocusWindow && focusManager.isEnabled {
+                        Divider().padding(.leading, 16)
+
+                        Label("Currently active", systemImage: "building.columns.fill")
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.orange)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    }
                 }
-            } header: { Text("Schedule") } footer: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 Text("Shabbat Mode is ON by default. You can turn it off at any time. Changes sync across your devices.")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Shabbat Mode")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -759,28 +1224,67 @@ struct TakeABreakSettingsView: View {
     @AppStorage("takeABreakInterval") private var intervalMinutes: Int = 30
 
     var body: some View {
-        List {
-            Section {
-                Toggle("Take a break reminders", isOn: $takeABreakEnabled)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .tint(.blue)
-            } header: { Text("Reminders") }
+        ScrollView {
+            VStack(spacing: 0) {
 
-            if takeABreakEnabled {
-                Section {
-                    Picker("Remind me every", selection: $intervalMinutes) {
-                        Text("15 minutes").tag(15)
-                        Text("30 minutes").tag(30)
-                        Text("45 minutes").tag(45)
-                        Text("1 hour").tag(60)
-                        Text("2 hours").tag(120)
-                    }
-                    .font(.custom("OpenSans-Regular", size: 15))
-                } header: { Text("Interval") } footer: {
-                    Text("A gentle nudge will appear after you've been scrolling for this long.")
+                Text("REMINDERS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle("Take a break reminders", isOn: $takeABreakEnabled)
+                        .font(AMENFont.semiBold(15))
+                        .tint(.blue)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                 }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                if takeABreakEnabled {
+                    Text("INTERVAL")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        Picker("Remind me every", selection: $intervalMinutes) {
+                            Text("15 minutes").tag(15)
+                            Text("30 minutes").tag(30)
+                            Text("45 minutes").tag(45)
+                            Text("1 hour").tag(60)
+                            Text("2 hours").tag(120)
+                        }
+                        .font(AMENFont.regular(15))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("A gentle nudge will appear after you've been scrolling for this long.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                }
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Take a Break")
         .navigationBarTitleDisplayMode(.inline)
         .animation(.easeInOut(duration: 0.2), value: takeABreakEnabled)
@@ -797,59 +1301,177 @@ struct BereanAISettingsView: View {
     @AppStorage("berean_focus_topics") private var focusTopicsRaw: String = ""
 
     var body: some View {
-        List {
-            Section {
-                Toggle(isOn: $conciseMode) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Concise answers")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Shorter, focused responses by default")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.blue)
+        ScrollView {
+            VStack(spacing: 0) {
 
-                Toggle(isOn: $sourcesRequired) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Require scripture sources")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Berean will always cite a verse — never guess")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.blue)
-            } header: { Text("Response style") }
+                Text("RESPONSE STYLE")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
 
-            Section {
-                Toggle(isOn: $voiceEnabled) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Allow voice input")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Use microphone for hands-free questions")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
+                VStack(spacing: 0) {
+                    Toggle(isOn: $conciseMode) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Concise answers")
+                                .font(AMENFont.semiBold(15))
+                            Text("Shorter, focused responses by default")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                }
-                .tint(.blue)
-            } header: { Text("Voice") }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
 
-            Section {
-                Toggle(isOn: $personalizationEnabled) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Personalize using my content")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Use your posts, prayers, and notes to tailor responses (opt-in)")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $sourcesRequired) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Require scripture sources")
+                                .font(AMENFont.semiBold(15))
+                            Text("Berean will always cite a verse — never guess")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
-                .tint(.blue)
-            } header: { Text("Data usage") } footer: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("VOICE")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: $voiceEnabled) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Allow voice input")
+                                .font(AMENFont.semiBold(15))
+                            Text("Use microphone for hands-free questions")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("DATA USAGE")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: $personalizationEnabled) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Personalize using my content")
+                                .font(AMENFont.semiBold(15))
+                            Text("Use your posts, prayers, and notes to tailor responses (opt-in)")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "berean_spiritual_profile_consent") },
+                        set: { UserDefaults.standard.set($0, forKey: "berean_spiritual_profile_consent") }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Personalised Berean responses")
+                                .font(AMENFont.semiBold(15))
+                            Text("Allow Berean to use your spiritual growth patterns to personalise responses. Your patterns are shared with Anthropic AI.")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 Text("Your content is never used to train external models. Personalization runs on-device.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                // P1-M: Conversation history section — retention disclosure + clear control.
+                Text("CONVERSATION HISTORY")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Button(role: .destructive) {
+                        BereanConstitutionalPipeline.shared.clearHistory()
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Clear Conversation History")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.red)
+                                Text("Removes your Berean chat history from this device")
+                                    .font(AMENFont.regular(13))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "trash")
+                                .foregroundStyle(.red)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Berean conversation memory is kept for 90 days to improve context, then deleted automatically. Memory is also deleted when you delete your account.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Berean AI")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -858,17 +1480,41 @@ struct BereanAISettingsView: View {
 // MARK: - Creator Insights View
 
 struct CreatorInsightsView: View {
+    @AppStorage("amen_creator_weekly_digest") private var weeklyDigest: Bool = true
+    @AppStorage("amen_creator_prayerful_metrics") private var prayerfulMetrics: Bool = true
+    @AppStorage("amen_creator_growth_prompts") private var growthPrompts: Bool = true
+
     var body: some View {
-        List {
-            Section {
-                ContentUnavailableView(
-                    "Coming Soon",
-                    systemImage: "chart.line.uptrend.xyaxis",
-                    description: Text("Creator insights and analytics will be available in an upcoming update.")
-                )
-                .listRowBackground(Color.clear)
+        ScrollView {
+            VStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Dignified Insights", systemImage: "chart.line.uptrend.xyaxis")
+                        .font(AMENFont.semiBold(17))
+                    Text("Amen summarizes reach, saves, replies, and prayerful responses without ranking people by addictive engagement loops.")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+
+                VStack(spacing: 0) {
+                    Toggle("Weekly creator digest", isOn: $weeklyDigest)
+                        .padding(16)
+                    Divider().padding(.leading, 16)
+                    Toggle("Prayerful metrics", isOn: $prayerfulMetrics)
+                        .padding(16)
+                    Divider().padding(.leading, 16)
+                    Toggle("Gentle growth prompts", isOn: $growthPrompts)
+                        .padding(16)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
             }
+            .padding(16)
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Insights & Analytics")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -877,17 +1523,41 @@ struct CreatorInsightsView: View {
 // MARK: - Drafts Settings
 
 struct DraftsSettingsView: View {
+    @AppStorage("amen_draft_autosave") private var autosave: Bool = true
+    @AppStorage("amen_draft_berean_resume") private var bereanResume: Bool = true
+
     var body: some View {
-        List {
-            Section {
-                ContentUnavailableView(
-                    "No Drafts",
-                    systemImage: "doc.text",
-                    description: Text("Save posts as drafts when composing to continue later.")
-                )
-                .listRowBackground(Color.clear)
+        ScrollView {
+            VStack(spacing: 16) {
+                VStack(spacing: 8) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 34, weight: .light))
+                        .foregroundStyle(.secondary)
+                    Text("No Drafts")
+                        .font(AMENFont.semiBold(18))
+                    Text("Saved drafts will appear here. Autosave can preserve unfinished posts and Berean can help resume the intent later.")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(24)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+
+                VStack(spacing: 0) {
+                    Toggle("Autosave drafts", isOn: $autosave)
+                        .padding(16)
+                    Divider().padding(.leading, 16)
+                    Toggle("Berean resume suggestions", isOn: $bereanResume)
+                        .padding(16)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
             }
+            .padding(16)
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Drafts")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -910,44 +1580,90 @@ struct ReportProblemView: View {
     ]
 
     var body: some View {
-        List {
-            Section {
-                Picker("Category", selection: $category) {
-                    ForEach(categories, id: \.0) { id, label in
-                        Text(label).tag(id)
-                    }
-                }
-                .font(.custom("OpenSans-Regular", size: 15))
-            } header: { Text("What's the issue?") }
+        ScrollView {
+            VStack(spacing: 0) {
 
-            Section {
-                TextEditor(text: $description)
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .frame(minHeight: 120)
-            } header: { Text("Description") } footer: {
+                Text("WHAT'S THE ISSUE?")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Picker("Category", selection: $category) {
+                        ForEach(categories, id: \.0) { id, label in
+                            Text(label).tag(id)
+                        }
+                    }
+                    .font(AMENFont.regular(15))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("DESCRIPTION")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    TextEditor(text: $description)
+                        .font(AMENFont.regular(14))
+                        .frame(minHeight: 120)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 Text("Please describe what happened. Include steps to reproduce if it's a bug.")
-            }
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
 
-            Section {
-                Button {
-                    Task { await submit() }
-                } label: {
-                    if isSubmitting {
-                        ProgressView().frame(maxWidth: .infinity, alignment: .center)
-                    } else if submitted {
-                        Label("Submitted — thank you!", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    } else {
-                        Text("Submit Report")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                            .frame(maxWidth: .infinity, alignment: .center)
+                VStack(spacing: 0) {
+                    Button {
+                        Task { await submit() }
+                    } label: {
+                        if isSubmitting {
+                            ProgressView().frame(maxWidth: .infinity, alignment: .center)
+                        } else if submitted {
+                            Label("Submitted — thank you!", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(AMENFont.semiBold(15))
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        } else {
+                            Text("Submit Report")
+                                .font(AMENFont.semiBold(15))
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        }
                     }
+                    .disabled(isSubmitting || submitted || description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
-                .disabled(isSubmitting || submitted || description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+                .padding(.top, 24)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Report a Problem")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -979,7 +1695,18 @@ struct LegalDocView: View {
                 SafariViewWrapper(url: url)
                     .ignoresSafeArea()
             } else {
-                ContentUnavailableView("Not available", systemImage: "doc.text")
+                VStack(spacing: 10) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 32, weight: .light))
+                        .foregroundStyle(.secondary)
+                    Text("Document link is invalid")
+                        .font(AMENFont.semiBold(16))
+                    Text("Amen could not open this policy URL. Please try again from the Support & Transparency screen.")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
             }
         }
         .navigationTitle(title)
@@ -1002,60 +1729,156 @@ struct AccessibilitySettingsView: View {
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
 
     var body: some View {
-        List {
-            Section {
-                HStack {
-                    Text("System Reduce Motion")
-                        .font(.custom("OpenSans-Regular", size: 15))
-                    Spacer()
-                    Text(systemReduceMotion ? "On" : "Off")
-                        .font(.custom("OpenSans-Regular", size: 14))
+        ScrollView {
+            VStack(spacing: 0) {
+
+                Text("MOTION")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("System Reduce Motion")
+                            .font(AMENFont.regular(15))
+                        Spacer()
+                        Text(systemReduceMotion ? "On" : "Off")
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $reduceMotionOverride) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Reduce motion (in-app)")
+                                .font(AMENFont.semiBold(15))
+                            Text("Replaces animations with simpler fades")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("DISPLAY & INPUT")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: $highContrastMode) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("High contrast")
+                                .font(AMENFont.semiBold(15))
+                            Text("Increase text and UI contrast")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $hapticFeedback) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Haptic feedback")
+                                .font(AMENFont.semiBold(15))
+                            Text("Vibration feedback for buttons and actions")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("TEXT")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    NavigationLink(destination: TextSizeSettingsView()) {
+                        HStack {
+                            Text("Text Size")
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                // Accessibility Intelligence Layer — Reading & Understanding
+                if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled {
+                    Text("READING & UNDERSTANDING")
+                        .font(AMENFont.bold(11))
                         .foregroundStyle(.secondary)
-                }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
 
-                Toggle(isOn: $reduceMotionOverride) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Reduce motion (in-app)")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Replaces animations with simpler fades")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
+                    VStack(spacing: 0) {
+                        NavigationLink(destination: AILReadingUnderstandingSettingsView()) {
+                            HStack {
+                                Text("Reading & Understanding")
+                                    .font(AMENFont.regular(15))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
                 }
-                .tint(.blue)
-            } header: { Text("Motion") }
 
-            Section {
-                Toggle(isOn: $highContrastMode) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("High contrast")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Increase text and UI contrast")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.blue)
-
-                Toggle(isOn: $hapticFeedback) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Haptic feedback")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Vibration feedback for buttons and actions")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.blue)
-            } header: { Text("Display & Input") }
-
-            Section {
-                NavigationLink("Text Size") {
-                    TextSizeSettingsView()
-                }
-                .font(.custom("OpenSans-Regular", size: 15))
-            } header: { Text("Text") }
+                Spacer(minLength: 32)
+            }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Accessibility")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -1063,21 +1886,41 @@ struct AccessibilitySettingsView: View {
 
 struct TextSizeSettingsView: View {
     var body: some View {
-        List {
-            Section {
-                Label("Text size follows your iOS Dynamic Type setting.", systemImage: "textformat.size")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.secondary)
-            }
-            Section {
-                Button("Open iOS Text Size Settings") {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
+        ScrollView {
+            VStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    Label("Text size follows your iOS Dynamic Type setting.", systemImage: "textformat.size")
+                        .font(AMENFont.regular(14))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                 }
-                .font(.custom("OpenSans-SemiBold", size: 15))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+                .padding(.top, 24)
+
+                VStack(spacing: 0) {
+                    Button("Open iOS Text Size Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .font(AMENFont.semiBold(15))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Text Size")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -1090,35 +1933,74 @@ struct CaptionsAltTextSettingsView: View {
     @AppStorage("altTextPromptsEnabled") private var altTextPrompts: Bool = true
 
     var body: some View {
-        List {
-            Section {
-                Toggle(isOn: $autoCaptions) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Auto-captions on video")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Automatically show captions when available")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.blue)
-            } header: { Text("Video captions") }
+        ScrollView {
+            VStack(spacing: 0) {
 
-            Section {
-                Toggle(isOn: $altTextPrompts) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Prompt to add alt text")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Remind me to describe images when posting")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
+                Text("VIDEO CAPTIONS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: $autoCaptions) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Auto-captions on video")
+                                .font(AMENFont.semiBold(15))
+                            Text("Automatically show captions when available")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
-                .tint(.blue)
-            } header: { Text("Images") } footer: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("IMAGES")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: $altTextPrompts) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Prompt to add alt text")
+                                .font(AMENFont.semiBold(15))
+                            Text("Remind me to describe images when posting")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 Text("Alt text makes your posts accessible to people using screen readers.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Captions & Alt Text")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -1131,33 +2013,62 @@ struct ProfileVisibilitySettingsView: View {
     @AppStorage("showProfileInSuggestions") private var showProfileInSuggestions: Bool = true
 
     var body: some View {
-        List {
-            Section {
-                Toggle(isOn: $showProfileInSearch) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Searchable profile")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Allow others to find your profile in search")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.blue)
+        ScrollView {
+            VStack(spacing: 0) {
 
-                Toggle(isOn: $showProfileInSuggestions) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Suggested profiles")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                        Text("Allow your profile to appear in suggestions")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
+                Text("DISCOVERABILITY")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Toggle(isOn: $showProfileInSearch) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Searchable profile")
+                                .font(AMENFont.semiBold(15))
+                            Text("Allow others to find your profile in search")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().padding(.leading, 16)
+
+                    Toggle(isOn: $showProfileInSuggestions) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Suggested profiles")
+                                .font(AMENFont.semiBold(15))
+                            Text("Allow your profile to appear in suggestions")
+                                .font(AMENFont.regular(13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
-                .tint(.blue)
-            } header: { Text("Discoverability") } footer: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
                 Text("Control how others can discover your profile on AMEN.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 32)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Profile Visibility")
         .navigationBarTitleDisplayMode(.inline)
     }

@@ -47,7 +47,7 @@ struct NotificationUserProfileView: View {
     private var errorView: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.crop.circle.badge.exclamationmark")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             Text("Unable to load profile")
@@ -224,7 +224,7 @@ class NotificationProfileViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: Error?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     func loadProfile(userId: String) async {
         isLoading = true

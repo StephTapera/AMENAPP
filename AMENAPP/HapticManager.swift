@@ -2,93 +2,95 @@
 //  HapticManager.swift
 //  AMENAPP
 //
-//  Centralized haptic feedback utility with pre-warmed shared generators.
-//  Using shared, pre-warmed generators eliminates the latency of
-//  instantiating a new generator on every tap.
+//  Centralized haptic feedback with pre-warmed generators and debouncing.
+//
+//  Design rules for AMEN haptics:
+//    - Use haptics only for meaningful user-initiated outcomes:
+//        follow/unfollow, send message, save post, submit form,
+//        success/error on important async actions.
+//    - Do NOT use haptics for: navigation taps, row selection,
+//        filter changes, scroll events, or loading completions.
+//    - Max intensity is .medium — .heavy and .rigid are excluded
+//        (too jarring for a calm, faith-centered social app).
+//    - Debouncing: same key cannot fire within 80 ms to prevent stacking.
 //
 
 import UIKit
 
 final class HapticManager {
-    // MARK: - Shared pre-warmed generators
-    // Generators are created once and kept alive, avoiding per-call allocation.
+
+    // MARK: - Pre-warmed generators
 
     private static let lightImpact: UIImpactFeedbackGenerator = {
-        let g = UIImpactFeedbackGenerator(style: .light)
-        g.prepare()
-        return g
+        let g = UIImpactFeedbackGenerator(style: .light); g.prepare(); return g
     }()
 
     private static let mediumImpact: UIImpactFeedbackGenerator = {
-        let g = UIImpactFeedbackGenerator(style: .medium)
-        g.prepare()
-        return g
-    }()
-
-    private static let heavyImpact: UIImpactFeedbackGenerator = {
-        let g = UIImpactFeedbackGenerator(style: .heavy)
-        g.prepare()
-        return g
-    }()
-
-    private static let rigidImpact: UIImpactFeedbackGenerator = {
-        let g = UIImpactFeedbackGenerator(style: .rigid)
-        g.prepare()
-        return g
+        let g = UIImpactFeedbackGenerator(style: .medium); g.prepare(); return g
     }()
 
     private static let softImpact: UIImpactFeedbackGenerator = {
-        let g = UIImpactFeedbackGenerator(style: .soft)
-        g.prepare()
-        return g
+        let g = UIImpactFeedbackGenerator(style: .soft); g.prepare(); return g
     }()
 
     private static let notificationGenerator: UINotificationFeedbackGenerator = {
-        let g = UINotificationFeedbackGenerator()
-        g.prepare()
-        return g
+        let g = UINotificationFeedbackGenerator(); g.prepare(); return g
     }()
 
     private static let selectionGenerator: UISelectionFeedbackGenerator = {
-        let g = UISelectionFeedbackGenerator()
-        g.prepare()
-        return g
+        let g = UISelectionFeedbackGenerator(); g.prepare(); return g
     }()
+
+    // MARK: - Debounce (80 ms minimum interval per key)
+
+    private static var lastFiredAt: [String: Date] = [:]
+    private static let minimumInterval: TimeInterval = 0.08
+
+    private static func canFire(key: String) -> Bool {
+        let now = Date()
+        if let last = lastFiredAt[key], now.timeIntervalSince(last) < minimumInterval {
+            return false
+        }
+        lastFiredAt[key] = now
+        return true
+    }
 
     // MARK: - Public API
 
-    /// Fire an impact haptic. Call `prepare()` before a known interaction
-    /// (e.g. in button `onHover`/`onLongPressGesture` began) for zero-latency playback.
+    /// Subtle confirmatory tap for follow, save, send, etc.
+    /// `.heavy` and `.rigid` are capped to `.medium` — keep the experience calm.
     static func impact(style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        guard canFire(key: "impact-\(style.rawValue)") else { return }
+
         switch style {
-        case .light:   lightImpact.impactOccurred();  lightImpact.prepare()
-        case .medium:  mediumImpact.impactOccurred(); mediumImpact.prepare()
-        case .heavy:   heavyImpact.impactOccurred();  heavyImpact.prepare()
-        case .rigid:   rigidImpact.impactOccurred();  rigidImpact.prepare()
-        case .soft:    softImpact.impactOccurred();   softImpact.prepare()
-        @unknown default:
-            mediumImpact.impactOccurred()
-            mediumImpact.prepare()
+        case .light:  lightImpact.impactOccurred();  lightImpact.prepare()
+        case .medium: mediumImpact.impactOccurred(); mediumImpact.prepare()
+        case .soft:   softImpact.impactOccurred();   softImpact.prepare()
+        default:      mediumImpact.impactOccurred(); mediumImpact.prepare()
         }
     }
 
+    /// Use only for important async outcomes: post sent, sign-in success, network error.
+    /// Do NOT use for routine row taps or filter changes.
     static func notification(type: UINotificationFeedbackGenerator.FeedbackType) {
+        guard canFire(key: "notification-\(type.rawValue)") else { return }
+
         notificationGenerator.notificationOccurred(type)
         notificationGenerator.prepare()
     }
 
+    /// Use only for meaningful segmented-control or picker changes.
     static func selection() {
+        guard canFire(key: "selection") else { return }
+
         selectionGenerator.selectionChanged()
         selectionGenerator.prepare()
     }
 
-    // MARK: - Convenience pre-warm
-    /// Call on app launch or before a view is about to appear to prime the taptic engine.
+    // MARK: - Pre-warm on launch
     static func prepareAll() {
         lightImpact.prepare()
         mediumImpact.prepare()
-        heavyImpact.prepare()
-        rigidImpact.prepare()
         softImpact.prepare()
         notificationGenerator.prepare()
         selectionGenerator.prepare()

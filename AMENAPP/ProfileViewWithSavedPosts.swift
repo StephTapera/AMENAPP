@@ -64,7 +64,7 @@ struct SavedPostsFloatingButton: View {
                     .shadow(color: .blue.opacity(0.4), radius: 12, y: 6)
                 
                 Image(systemName: "bookmark.fill")
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.systemScaled(24, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 60, height: 60)
                 

@@ -1,0 +1,17 @@
+// worldResponseRules.txt
+// Firestore security rules for the World Response system.
+// Agent 1 should append these blocks to firestore.rules inside
+// the top-level `match /databases/{database}/documents` block.
+
+// world_response_queue — admin-curated events, read/write via CF only.
+// No client reads or writes are allowed.
+match /world_response_queue/{eventId} {
+    allow read, write: if false; // Cloud Function (admin SDK) only
+}
+
+// worldResponseSources — trusted source registry.
+// Signed-in users may read; only admins may write (via admin SDK or console).
+match /worldResponseSources/{sourceId} {
+    allow read: if request.auth != null;
+    allow write: if false; // admin SDK only
+}

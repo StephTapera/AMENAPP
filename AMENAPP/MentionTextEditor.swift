@@ -189,7 +189,7 @@ struct MentionSuggestionRow: View {
                 Spacer()
 
                 Image(systemName: "arrow.up.left")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 14)

@@ -70,7 +70,7 @@ final class WalkWithChristViewModel: ObservableObject {
     func loadUserData() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isLoading = true
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let doc = try await db.collection("users").document(uid).getDocument()
             let data = doc.data() ?? [:]
@@ -116,7 +116,7 @@ final class WalkWithChristViewModel: ObservableObject {
     func markReflectionComplete(promptId: String) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         completedReflections.insert(promptId)
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             try await db.collection("users").document(uid).updateData([
                 "completed_reflections": FieldValue.arrayUnion([promptId])
@@ -129,7 +129,7 @@ final class WalkWithChristViewModel: ObservableObject {
     func markQuizComplete(quizId: String) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         completedQuizzes.insert(quizId)
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             try await db.collection("users").document(uid).updateData([
                 "completed_quizzes": FieldValue.arrayUnion([quizId])

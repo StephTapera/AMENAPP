@@ -15,7 +15,7 @@ import FirebaseFirestore
 @MainActor
 class HarassmentPatternDetector: ObservableObject {
     static let shared = HarassmentPatternDetector()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private init() {}
 
     struct PatternAnalysis {

@@ -31,7 +31,7 @@ struct PrivacyDashboardView: View {
                     // Header
                     VStack(spacing: 12) {
                         Image(systemName: "shield.checkered")
-                            .font(.system(size: 50))
+                            .font(.systemScaled(50))
                             .foregroundColor(.blue)
                         
                         Text("Privacy Dashboard")
@@ -153,7 +153,7 @@ struct PrivacyDashboardView: View {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             
             // Get user doc
             let userDoc = try await db.collection("users").document(userId).getDocument()
@@ -193,11 +193,15 @@ struct PrivacyDashboardView: View {
         isExporting = true
         
         Task {
-            try? await Firestore.firestore().collection("dataExportRequests").document().setData([
-                "userId": userId,
-                "requestedAt": FieldValue.serverTimestamp(),
-                "status": "pending"
-            ])
+            do {
+                try await Firestore.firestore().collection("dataExportRequests").document().setData([
+                    "userId": userId,
+                    "requestedAt": FieldValue.serverTimestamp(),
+                    "status": "pending"
+                ])
+            } catch {
+                print("PrivacyDashboardView: failed to write dataExportRequest — \(error.localizedDescription)")
+            }
             
             await MainActor.run {
                 isExporting = false

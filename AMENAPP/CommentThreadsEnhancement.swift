@@ -76,7 +76,7 @@ struct ThreadedCommentsView: View {
             HStack {
                 Text("Comments")
                     .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Text("\(commentsWithReplies.count)")
                     .font(.custom("OpenSans-Regular", size: 14))
@@ -90,7 +90,7 @@ struct ThreadedCommentsView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: sortOption.icon)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text(sortOption.rawValue)
                             .font(.custom("OpenSans-Medium", size: 13))
                     }
@@ -170,7 +170,7 @@ struct ThreadedCommentsView: View {
                 onSubmit: submitComment
             )
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .task {
             await loadComments()
         }
@@ -296,7 +296,7 @@ struct ThreadedCommentCell: View {
                         onToggleCollapse()
                     } label: {
                         Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.5))
                             .frame(width: 24, height: 24)
                     }
@@ -390,7 +390,7 @@ struct EnhancedCommentContent: View {
                 HStack(spacing: 8) {
                     Text(comment.authorName)
                         .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     if isOP {
                         Text("OP")
@@ -456,7 +456,7 @@ struct CommentContentText: View {
     var body: some View {
         Text(content)
             .font(.custom("OpenSans-Regular", size: isReply ? 13 : 14))
-            .foregroundStyle(.black)
+            .foregroundStyle(.primary)
             .fixedSize(horizontal: false, vertical: true)
             .textSelection(.enabled) // Allow text selection
     }
@@ -482,7 +482,7 @@ struct CommentActions: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "hands.clap.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     
                     if comment.amenCount > 0 {
                         Text("\(comment.amenCount)")
@@ -499,7 +499,7 @@ struct CommentActions: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "arrowshape.turn.up.left.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         
                         if comment.replyCount > 0 {
                             Text("\(comment.replyCount)")
@@ -518,7 +518,7 @@ struct CommentActions: View {
                     showOptions = true
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.black.opacity(0.6))
                 }
                 .confirmationDialog("Comment Options", isPresented: $showOptions) {
@@ -538,7 +538,7 @@ struct EmptyCommentsState: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "bubble.left")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.black.opacity(0.3))
             
             Text("No comments yet")
@@ -578,7 +578,7 @@ struct CommentInputBar: View {
                         self.replyingTo = nil
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.black.opacity(0.6))
                     }
                 }
@@ -607,14 +607,14 @@ struct CommentInputBar: View {
                     onSubmit()
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(commentText.isEmpty ? .black.opacity(0.3) : .black)
                 }
                 .disabled(commentText.isEmpty)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.white)
+            .background(Color(.systemBackground))
         }
     }
 }

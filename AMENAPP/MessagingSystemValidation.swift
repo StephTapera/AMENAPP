@@ -13,6 +13,7 @@ import FirebaseAuth
 #if DEBUG
 
 /// Validates that all critical messaging components are present and functional
+@MainActor
 struct MessagingSystemValidator {
     
     // MARK: - Validation Results

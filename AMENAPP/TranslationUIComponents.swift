@@ -75,7 +75,7 @@ struct TranslatableTextBlock: View {
                     icon: "globe",
                     style: .secondary
                 ) {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                         showingOriginal = false
                     }
                 }
@@ -87,7 +87,7 @@ struct TranslatableTextBlock: View {
                         icon: nil,
                         style: .ghost
                     ) {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             showingOriginal = true
                         }
                     }
@@ -149,7 +149,7 @@ struct TranslatableTextBlock: View {
             isPublicContent: isPublicContent
         )
 
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
             uiState = result
             if case .translated = result {
                 showingOriginal = false

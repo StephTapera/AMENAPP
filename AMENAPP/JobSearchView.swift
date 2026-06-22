@@ -23,27 +23,31 @@ struct JobSearchView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: 0) {
-                    // Search bar
-                    searchBarSection
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(spacing: 0) {
+                        // Search bar
+                        searchBarSection
 
-                    // Active filter chips
-                    if !filters.isEmpty {
-                        activeFilterChipsSection
-                    }
+                        // Active filter chips
+                        if !filters.isEmpty {
+                            activeFilterChipsSection
+                        }
 
-                    // Content
-                    if !searchText.isEmpty || !filters.isEmpty {
-                        searchResultsSection
-                    } else {
-                        landingContent
+                        // Content
+                        if !searchText.isEmpty || !filters.isEmpty {
+                            searchResultsSection
+                        } else {
+                            landingContent
+                        }
                     }
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle("")
             .toolbar {
+
                 ToolbarItem(placement: .navigationBarLeading) {
                     jobsHeaderTitle
                 }
@@ -94,7 +98,7 @@ struct JobSearchView: View {
 
     private var jobsHeaderTitle: some View {
         Text("Jobs & Opportunities")
-            .font(.custom("OpenSans-Bold", size: 17))
+            .font(AMENFont.bold(17))
             .foregroundStyle(.primary)
     }
 
@@ -103,7 +107,7 @@ struct JobSearchView: View {
             showSavedAndApplied = true
         } label: {
             Image(systemName: "bookmark.fill")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.primary)
         }
     }
@@ -113,7 +117,7 @@ struct JobSearchView: View {
             showPostJob = true
         } label: {
             Image(systemName: "plus.circle.fill")
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
         }
     }
@@ -124,11 +128,11 @@ struct JobSearchView: View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.secondary)
 
                 TextField("Job title, keyword, or skill", text: $searchText)
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .focused($isSearchFocused)
                     .submitLabel(.search)
                     .onSubmit { performSearch() }
@@ -136,14 +140,16 @@ struct JobSearchView: View {
                 if !searchText.isEmpty {
                     Button { searchText = ""; service.searchResults = [] } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                     }
                 }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(.regularMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
 
             // Filter button
             Button {
@@ -151,14 +157,16 @@ struct JobSearchView: View {
             } label: {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.primary)
                         .padding(10)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
 
                     if filters.activeFilterCount > 0 {
                         Text("\(filters.activeFilterCount)")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(3)
                             .background(Color(red: 0.20, green: 0.55, blue: 0.95), in: Circle())
@@ -203,7 +211,7 @@ struct JobSearchView: View {
                 Button("Clear all") {
                     filters = JobSearchFilters()
                 }
-                .font(.custom("OpenSans-SemiBold", size: 12))
+                .font(AMENFont.semiBold(12))
                 .foregroundStyle(Color(red: 0.80, green: 0.35, blue: 0.35))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -316,13 +324,13 @@ struct JobSearchView: View {
     private var jobEmptySearchState: some View {
         VStack(spacing: 16) {
             Image(systemName: "briefcase")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary.opacity(0.5))
             Text("No jobs found")
-                .font(.custom("OpenSans-SemiBold", size: 16))
+                .font(AMENFont.semiBold(16))
                 .foregroundStyle(.primary)
             Text("Try different keywords or adjust your filters.")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -341,28 +349,29 @@ struct JobSearchView: View {
                         .fill(Color(red: 0.20, green: 0.55, blue: 0.95).opacity(0.15))
                         .frame(width: 44, height: 44)
                     Image(systemName: "person.badge.key.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Set up your job seeker profile")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.primary)
                     Text("Let opportunities find you")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(16)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color(red: 0.20, green: 0.55, blue: 0.95).opacity(0.25), lineWidth: 1)
+                    .strokeBorder(Color(red: 0.20, green: 0.55, blue: 0.95).opacity(0.25), lineWidth: 0.5)
             )
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
@@ -388,19 +397,19 @@ struct JobSectionHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.custom("OpenSans-Bold", size: 16))
-                .foregroundStyle(.primary)
+            Text(title.uppercased())
+                .font(AMENFont.bold(11))
+                .foregroundStyle(.secondary)
             if let subtitle = subtitle {
                 Text(subtitle)
-                    .font(.custom("OpenSans-Regular", size: 12))
-                    .foregroundStyle(.secondary)
+                    .font(AMENFont.regular(11))
+                    .foregroundStyle(.secondary.opacity(0.7))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.top, 20)
-        .padding(.bottom, 10)
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .padding(.bottom, 8)
     }
 }
 
@@ -423,21 +432,21 @@ struct JobListingCard: View {
                             .fill(job.category.color.opacity(0.15))
                             .frame(width: 40, height: 40)
                         Image(systemName: job.category.icon)
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(job.category.color)
                     }
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(job.employerName)
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                         if job.employerVerified {
                             HStack(spacing: 3) {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 9))
+                                    .font(.systemScaled(9))
                                 Text("Verified")
-                                    .font(.custom("OpenSans-Regular", size: 10))
+                                    .font(AMENFont.regular(10))
                             }
                             .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                         }
@@ -447,7 +456,7 @@ struct JobListingCard: View {
                     // Save button
                     Button(action: onSave) {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(isSaved ? Color(red: 0.20, green: 0.55, blue: 0.95) : .secondary)
                     }
                     .buttonStyle(.plain)
@@ -455,7 +464,7 @@ struct JobListingCard: View {
 
                 // Job title
                 Text(job.title)
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
 
@@ -472,30 +481,30 @@ struct JobListingCard: View {
                 HStack(spacing: 12) {
                     if job.compensationType != .undisclosed {
                         Label(job.formattedSalary, systemImage: "dollarsign.circle")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                     if let city = job.city {
                         Label(city, systemImage: "mappin")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                     Spacer()
                     // Posted time
                     Text(relativeTime(job.createdAt))
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary.opacity(0.7))
                 }
             }
             .padding(14)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(.white.opacity(0.08), lineWidth: 0.5)
+                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
             )
-            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         }
         .buttonStyle(.plain)
     }
@@ -525,13 +534,13 @@ struct FeaturedJobCard: View {
                             .fill(job.category.color.opacity(0.20))
                             .frame(width: 44, height: 44)
                         Image(systemName: job.category.icon)
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(job.category.color)
                     }
                     Spacer()
                     if job.isPromoted {
                         Text("Promoted")
-                            .font(.custom("OpenSans-SemiBold", size: 9))
+                            .font(AMENFont.semiBold(9))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
@@ -540,7 +549,7 @@ struct FeaturedJobCard: View {
                             )
                     } else {
                         Text("Featured")
-                            .font(.custom("OpenSans-SemiBold", size: 9))
+                            .font(AMENFont.semiBold(9))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
@@ -551,13 +560,13 @@ struct FeaturedJobCard: View {
                 }
 
                 Text(job.title)
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text(job.employerName)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
@@ -568,7 +577,7 @@ struct FeaturedJobCard: View {
                     Spacer()
                     if job.compensationType != .undisclosed && job.compensationType != .volunteer {
                         Text(job.formattedSalary)
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .font(AMENFont.semiBold(11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -576,12 +585,12 @@ struct FeaturedJobCard: View {
             }
             .padding(14)
             .frame(width: 200, height: 160)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(job.category.color.opacity(0.25), lineWidth: 1)
+                    .strokeBorder(job.category.color.opacity(0.25), lineWidth: 0.5)
             )
-            .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         }
         .buttonStyle(.plain)
     }
@@ -602,13 +611,13 @@ struct JobMatchRecommendationCard: View {
                             .fill(result.job.category.color.opacity(0.18))
                             .frame(width: 40, height: 40)
                         Image(systemName: result.job.category.icon)
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(result.job.category.color)
                     }
                     Spacer()
                     // Match score pill
                     Text("\(Int(result.overallScore * 100))% match")
-                        .font(.custom("OpenSans-Bold", size: 10))
+                        .font(AMENFont.bold(10))
                         .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -618,13 +627,13 @@ struct JobMatchRecommendationCard: View {
                 }
 
                 Text(result.job.title)
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text(result.job.employerName)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
@@ -634,10 +643,10 @@ struct JobMatchRecommendationCard: View {
                 if let topReason = result.matchReasons.first {
                     HStack(spacing: 5) {
                         Image(systemName: topReason.icon)
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(Color(red: 0.35, green: 0.80, blue: 0.35))
                         Text(topReason.text)
-                            .font(.custom("OpenSans-Regular", size: 11))
+                            .font(AMENFont.regular(11))
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
@@ -645,12 +654,12 @@ struct JobMatchRecommendationCard: View {
             }
             .padding(14)
             .frame(width: 200, height: 170)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color(red: 0.20, green: 0.55, blue: 0.95).opacity(0.20), lineWidth: 1)
+                    .strokeBorder(Color(red: 0.20, green: 0.55, blue: 0.95).opacity(0.20), lineWidth: 0.5)
             )
-            .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         }
         .buttonStyle(.plain)
     }
@@ -726,74 +735,156 @@ struct JobFilterSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                // Job Types
-                Section("Type") {
-                    ForEach(JobType.allCases) { type in
-                        Toggle(isOn: Binding(
-                            get: { filters.jobTypes.contains(type) },
-                            set: { if $0 { filters.jobTypes.insert(type) } else { filters.jobTypes.remove(type) } }
-                        )) {
-                            Label(type.label, systemImage: type.icon)
-                                .font(.custom("OpenSans-Regular", size: 14))
-                        }
-                    }
-                }
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        // Job Types
+                        Text("TYPE")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Work Arrangement
-                Section("Arrangement") {
-                    ForEach(WorkArrangement.allCases) { arr in
-                        Toggle(isOn: Binding(
-                            get: { filters.arrangements.contains(arr) },
-                            set: { if $0 { filters.arrangements.insert(arr) } else { filters.arrangements.remove(arr) } }
-                        )) {
-                            Label(arr.label, systemImage: arr.icon)
-                                .font(.custom("OpenSans-Regular", size: 14))
-                        }
-                    }
-                }
-
-                // Classification
-                Section("Organization Type") {
-                    ForEach(JobClassification.allCases) { cls in
-                        Toggle(isOn: Binding(
-                            get: { filters.classifications.contains(cls) },
-                            set: { if $0 { filters.classifications.insert(cls) } else { filters.classifications.remove(cls) } }
-                        )) {
-                            Label(cls.label, systemImage: cls.icon)
-                                .font(.custom("OpenSans-Regular", size: 14))
-                        }
-                    }
-                }
-
-                // Posted Within
-                Section("Posted Within") {
-                    ForEach(PostedWithin.allCases) { pw in
-                        Button {
-                            filters.postedWithin = filters.postedWithin == pw ? nil : pw
-                        } label: {
-                            HStack {
-                                Text(pw.label)
-                                    .font(.custom("OpenSans-Regular", size: 14))
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                if filters.postedWithin == pw {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
+                        VStack(spacing: 0) {
+                            ForEach(Array(JobType.allCases.enumerated()), id: \.element) { idx, type in
+                                Toggle(isOn: Binding(
+                                    get: { filters.jobTypes.contains(type) },
+                                    set: { if $0 { filters.jobTypes.insert(type) } else { filters.jobTypes.remove(type) } }
+                                )) {
+                                    Label(type.label, systemImage: type.icon)
+                                        .font(AMENFont.regular(14))
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                                if idx < JobType.allCases.count - 1 {
+                                    Divider().padding(.leading, 16)
                                 }
                             }
                         }
-                    }
-                }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
 
-                // Clear
-                Section {
-                    Button("Clear All Filters") {
-                        filters = JobSearchFilters()
+                        // Work Arrangement
+                        Text("ARRANGEMENT")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(WorkArrangement.allCases.enumerated()), id: \.element) { idx, arr in
+                                Toggle(isOn: Binding(
+                                    get: { filters.arrangements.contains(arr) },
+                                    set: { if $0 { filters.arrangements.insert(arr) } else { filters.arrangements.remove(arr) } }
+                                )) {
+                                    Label(arr.label, systemImage: arr.icon)
+                                        .font(AMENFont.regular(14))
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                                if idx < WorkArrangement.allCases.count - 1 {
+                                    Divider().padding(.leading, 16)
+                                }
+                            }
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+
+                        // Classification
+                        Text("ORGANIZATION TYPE")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(JobClassification.allCases.enumerated()), id: \.element) { idx, cls in
+                                Toggle(isOn: Binding(
+                                    get: { filters.classifications.contains(cls) },
+                                    set: { if $0 { filters.classifications.insert(cls) } else { filters.classifications.remove(cls) } }
+                                )) {
+                                    Label(cls.label, systemImage: cls.icon)
+                                        .font(AMENFont.regular(14))
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                                if idx < JobClassification.allCases.count - 1 {
+                                    Divider().padding(.leading, 16)
+                                }
+                            }
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+
+                        // Posted Within
+                        Text("POSTED WITHIN")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(PostedWithin.allCases.enumerated()), id: \.element) { idx, pw in
+                                Button {
+                                    filters.postedWithin = filters.postedWithin == pw ? nil : pw
+                                } label: {
+                                    HStack {
+                                        Text(pw.label)
+                                            .font(AMENFont.regular(14))
+                                            .foregroundStyle(.primary)
+                                        Spacer()
+                                        if filters.postedWithin == pw {
+                                            Image(systemName: "checkmark")
+                                                .font(.systemScaled(12, weight: .bold))
+                                                .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 14)
+                                }
+                                if idx < PostedWithin.allCases.count - 1 {
+                                    Divider().padding(.leading, 16)
+                                }
+                            }
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+
+                        // Clear
+                        VStack(spacing: 0) {
+                            Button("Clear All Filters") {
+                                filters = JobSearchFilters()
+                            }
+                            .foregroundStyle(Color(red: 0.80, green: 0.35, blue: 0.35))
+                            .font(AMENFont.semiBold(14))
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 24)
+                        .padding(.bottom, 32)
                     }
-                    .foregroundStyle(Color(red: 0.80, green: 0.35, blue: 0.35))
-                    .font(.custom("OpenSans-SemiBold", size: 14))
                 }
             }
             .navigationTitle("Filters")
@@ -801,7 +892,7 @@ struct JobFilterSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                 }
             }
         }
@@ -816,7 +907,7 @@ struct JobTagPill: View {
 
     var body: some View {
         Text(label)
-            .font(.custom("OpenSans-SemiBold", size: 10))
+            .font(AMENFont.semiBold(10))
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -834,12 +925,12 @@ struct JobActiveFilterChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             Text(label)
-                .font(.custom("OpenSans-SemiBold", size: 11))
+                .font(AMENFont.semiBold(11))
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
             }
         }
         .foregroundStyle(.primary)
@@ -856,16 +947,18 @@ struct JobCategoryEmptyState: View {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(.secondary.opacity(0.4))
             Text(message)
-                .font(.custom("OpenSans-Regular", size: 12))
+                .font(AMENFont.regular(12))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(24)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
     }

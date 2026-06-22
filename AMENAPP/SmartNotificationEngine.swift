@@ -16,7 +16,7 @@ final class SmartNotificationEngine {
     
     static let shared = SmartNotificationEngine()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - User Engagement Data
     
@@ -107,10 +107,18 @@ final class SmartNotificationEngine {
             return 12.0  // Helpful but not urgent
         case .prayerAnswered:
             return 20.0  // Meaningful but not immediate
-        case .churchNoteShared:
+        case .churchNoteShared, .churchNoteReplied:
             return 21.0  // Shared church notes are meaningful content
+        case .prayerSupported:
+            return 18.0  // Prayer support is meaningful engagement
         case .message, .messageRequest:
             return 0.0  // ✅ P0-1: These are filtered from feed, should never appear here
+        case .actionThreadInvite:
+            return 24.0  // Support flow invites are high priority
+        case .actionThreadUpdate:
+            return 16.0  // Thread progress updates are helpful
+        case .actionThreadReminder:
+            return 14.0  // Reminders are lower urgency
         case .unknown:
             return 5.0
         }
@@ -236,12 +244,12 @@ final class SmartNotificationEngine {
     // MARK: - Persistence
     
     private func loadEngagementData() {
-        if let data = UserDefaults.standard.data(forKey: "notificationEngagementScores"),
+        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.NotificationEngagement.scores),
            let scores = try? JSONDecoder().decode([String: Double].self, from: data) {
             userEngagementScores = scores
         }
-        
-        if let data = UserDefaults.standard.data(forKey: "notificationInteractionHistory"),
+
+        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.NotificationEngagement.interactionHistory),
            let history = try? JSONDecoder().decode([String: [Date]].self, from: data) {
             notificationInteractionHistory = history
         }
@@ -249,11 +257,11 @@ final class SmartNotificationEngine {
     
     private func saveEngagementData() {
         if let data = try? JSONEncoder().encode(userEngagementScores) {
-            UserDefaults.standard.set(data, forKey: "notificationEngagementScores")
+            UserDefaults.standard.set(data, forKey: UserDefaultsKeys.NotificationEngagement.scores)
         }
-        
+
         if let data = try? JSONEncoder().encode(notificationInteractionHistory) {
-            UserDefaults.standard.set(data, forKey: "notificationInteractionHistory")
+            UserDefaults.standard.set(data, forKey: UserDefaultsKeys.NotificationEngagement.interactionHistory)
         }
     }
     

@@ -37,7 +37,7 @@ final class ChurchNeighborhoodService: ObservableObject {
     @Published var isLoading = false
     @Published var topNeighborhoodName: String?
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     var totalCount: Int { zipData.reduce(0) { $0 + $1.count } }
 
@@ -46,7 +46,7 @@ final class ChurchNeighborhoodService: ObservableObject {
         defer { isLoading = false }
         do {
             let snap = try await db.collection("churches/\(churchId)/memberZips").getDocuments()
-            var entries: [(zip: String, count: Int)] = snap.documents.compactMap { doc in
+            let entries: [(zip: String, count: Int)] = snap.documents.compactMap { doc in
                 guard let count = doc.data()["count"] as? Int else { return nil }
                 return (zip: doc.documentID, count: count)
             }
@@ -72,8 +72,12 @@ final class ChurchNeighborhoodService: ObservableObject {
     func shareZip(churchId: String) async {
         guard let uid = Auth.auth().currentUser?.uid,
               let zip = await fetchUserZip(uid: uid) else { return }
-        try? await db.collection("churches/\(churchId)/memberZips").document(zip)
-            .setData(["count": FieldValue.increment(Int64(1))], merge: true)
+        do {
+            try await db.collection("churches/\(churchId)/memberZips").document(zip)
+                .setData(["count": FieldValue.increment(Int64(1))], merge: true)
+        } catch {
+            print("ChurchNeighborhoodMapView: failed to share zip — \(error.localizedDescription)")
+        }
     }
 
     private func fetchUserZip(uid: String) async -> String? {
@@ -127,27 +131,29 @@ struct ChurchNeighborhoodMapView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Community Map")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(Color(.label))
                     Spacer()
                     Button {
                         showPrivacyInfo = true
                     } label: {
                         Image(systemName: "questionmark.circle")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(Color(.secondaryLabel))
                     }
                 }
                 .padding(.horizontal, 20)
 
                 // Map
-                Map(coordinateRegion: $region, annotationItems: service.zipData) { entry in
-                    MapAnnotation(coordinate: entry.coordinate) {
-                        let maxCount = service.zipData.max(by: { $0.count < $1.count })?.count ?? 1
-                        let size     = CGFloat(60 + (entry.count * 40 / maxCount))
-                        Circle()
-                            .fill(Color.accentColor.opacity(0.3))
-                            .frame(width: size, height: size)
+                Map(initialPosition: .region(region)) {
+                    ForEach(service.zipData) { entry in
+                        Annotation("", coordinate: entry.coordinate) {
+                            let maxCount = service.zipData.max(by: { $0.count < $1.count })?.count ?? 1
+                            let size     = CGFloat(60 + (entry.count * 40 / maxCount))
+                            Circle()
+                                .fill(Color.accentColor.opacity(0.3))
+                                .frame(width: size, height: size)
+                        }
                     }
                 }
                 .frame(height: 200)
@@ -158,7 +164,7 @@ struct ChurchNeighborhoodMapView: View {
                 if !service.zipData.isEmpty {
                     let neighborhood = service.topNeighborhoodName ?? "nearby areas"
                     Text("Members live across \(service.zipData.count) neighborhoods · Most concentrated in \(neighborhood)")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(.secondaryLabel))
                         .padding(.horizontal, 20)
                 }

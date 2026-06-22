@@ -76,8 +76,12 @@ struct CommunityGroupsView: View {
     @State private var searchText = ""
     @State private var isLoading = true
     @State private var showCreateSheet = false
+    @State private var joiningGroupId: String?
+    @State private var joinedGroupIds: Set<String> = []
+    @State private var groupPendingJoin: CommunityGroup?
+    @State private var showJoinConfirmation = false
 
-    private let db = Firestore.firestore()
+    private var db: Firestore { Firestore.firestore() }
 
     var filteredGroups: [CommunityGroup] {
         var result = groups
@@ -123,7 +127,7 @@ struct CommunityGroupsView: View {
                 if !myGroups.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("My Groups")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .padding(.horizontal, 16)
 
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -140,16 +144,16 @@ struct CommunityGroupsView: View {
                 // Discover groups
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Discover Groups")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                         .padding(.horizontal, 16)
 
                     if filteredGroups.isEmpty && !isLoading {
                         VStack(spacing: 12) {
                             Image(systemName: "person.3.fill")
-                                .font(.system(size: 36))
+                                .font(.systemScaled(36))
                                 .foregroundStyle(.secondary.opacity(0.5))
                             Text("No groups found")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -173,7 +177,7 @@ struct CommunityGroupsView: View {
                     Image(systemName: "plus")
                     Text("Create Group")
                 }
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 14)
@@ -186,18 +190,64 @@ struct CommunityGroupsView: View {
         .sheet(isPresented: $showCreateSheet) {
             CreateCommunityGroupSheet()
         }
+        .confirmationDialog(
+            "Join \(groupPendingJoin?.name ?? "this group")?",
+            isPresented: $showJoinConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Join Group") {
+                if let group = groupPendingJoin {
+                    joinGroup(group)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                groupPendingJoin = nil
+            }
+        } message: {
+            if let group = groupPendingJoin {
+                Text("You'll be added to \(group.name) (\(group.memberCount) members).")
+            }
+        }
         .navigationTitle("Community Groups")
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    private func joinGroup(_ group: CommunityGroup) {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        joiningGroupId = group.id
+        let groupRef = db.collection("communityGroups").document(group.id)
+        let membershipRef = db.collection("groupMemberships").document("\(uid)_\(group.id)")
+
+        let batch = db.batch()
+        batch.updateData(["memberIds": FieldValue.arrayUnion([uid]), "memberCount": FieldValue.increment(Int64(1))], forDocument: groupRef)
+        batch.setData([
+            "userId": uid,
+            "groupId": group.id,
+            "groupName": group.name,
+            "joinedAt": FieldValue.serverTimestamp()
+        ], forDocument: membershipRef)
+
+        batch.commit { error in
+            DispatchQueue.main.async {
+                joiningGroupId = nil
+                if error == nil {
+                    joinedGroupIds.insert(group.id)
+                    if !myGroups.contains(where: { $0.id == group.id }) {
+                        myGroups.append(group)
+                    }
+                }
+            }
+        }
+    }
+
     private func categoryPill(_ category: CommunityGroup.GroupCategory?, label: String) -> some View {
         Button {
-            withAnimation(.spring(response: 0.25)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25))) {
                 selectedCategory = category
             }
         } label: {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(selectedCategory == category ? .white : .primary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
@@ -218,11 +268,11 @@ struct CommunityGroupsView: View {
                 )
 
             Text(group.name)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .lineLimit(1)
 
             Text("\(group.memberCount) members")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
         }
         .frame(width: 120)
@@ -237,37 +287,47 @@ struct CommunityGroupsView: View {
                 .frame(width: 48, height: 48)
                 .overlay(
                     Image(systemName: group.category.icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(group.category.color)
                 )
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
                     Text(group.name)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                     if group.isPrivate {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.secondary)
                     }
                 }
                 Text(group.description)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Text("\(group.memberCount) members")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.tertiary)
             }
 
             Spacer()
 
-            Button("Join") {}
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.blue)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(Capsule().stroke(Color.blue, lineWidth: 1.5))
+            Button(joinedGroupIds.contains(group.id) ? "Joined" : "Join") {
+                if !joinedGroupIds.contains(group.id) {
+                    groupPendingJoin = group
+                    showJoinConfirmation = true
+                }
+            }
+            .font(.systemScaled(13, weight: .semibold))
+            .foregroundStyle(joinedGroupIds.contains(group.id) ? Color(uiColor: .secondaryLabel) : .blue)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(
+                joinedGroupIds.contains(group.id)
+                    ? Capsule().stroke(Color(uiColor: .separator), lineWidth: 1.5)
+                    : Capsule().stroke(Color.blue, lineWidth: 1.5)
+            )
+            .disabled(joiningGroupId == group.id)
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(.systemGray6)))

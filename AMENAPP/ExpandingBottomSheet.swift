@@ -217,7 +217,7 @@ struct ReadMoreText: View {
 
             if isTruncated {
                 Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
                         expanded.toggle()
                     }
                 } label: {
@@ -240,7 +240,7 @@ struct SheetAttributeRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
 

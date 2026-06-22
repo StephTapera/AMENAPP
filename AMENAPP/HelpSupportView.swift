@@ -17,191 +17,265 @@ struct HelpSupportView: View {
     @State private var showMailError = false
     @State private var showFeedbackForm = false
     @State private var showBugReportForm = false
-    
+
     var body: some View {
-        List {
-            // Quick Help Section
-            Section {
-                ForEach(HelpTopic.allCases, id: \.self) { topic in
-                    Button {
-                        selectedHelpTopic = topic
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: topic.icon)
-                                .font(.system(size: 20))
-                                .foregroundStyle(topic.color)
-                                .frame(width: 32)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(topic.title)
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                    .foregroundStyle(.primary)
-                                
-                                Text(topic.subtitle)
-                                    .font(.custom("OpenSans-Regular", size: 13))
+        ScrollView {
+            VStack(spacing: 0) {
+
+                // MARK: Help Topics Section
+                Text("HELP TOPICS")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(HelpTopic.allCases.enumerated()), id: \.element.id) { index, topic in
+                        Button {
+                            selectedHelpTopic = topic
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: topic.icon)
+                                    .font(.systemScaled(20))
+                                    .foregroundStyle(topic.color)
+                                    .frame(width: 32)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(topic.title)
+                                        .font(AMENFont.semiBold(15))
+                                        .foregroundStyle(.primary)
+
+                                    Text(topic.subtitle)
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
-                            
-                            Spacer()
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
-                        .padding(.vertical, 4)
+                        .buttonStyle(PlainButtonStyle())
+
+                        if index < HelpTopic.allCases.count - 1 {
+                            Divider().padding(.leading, 16)
+                        }
                     }
                 }
-            } header: {
-                Text("HELP TOPICS")
-                    .font(.custom("OpenSans-Bold", size: 12))
-            }
-            
-            // Contact Support Section
-            Section {
-                Button {
-                    if MFMailComposeViewController.canSendMail() {
-                        showMailComposer = true
-                    } else {
-                        showMailError = true
-                    }
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "envelope.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.blue)
-                            .frame(width: 32)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Email Support")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.primary)
-                            
-                            Text("support@amenapp.com")
-                                .font(.custom("OpenSans-Regular", size: 13))
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        Spacer()
-                    }
-                    .padding(.vertical, 4)
-                }
-                
-                Link(destination: URL(string: "https://amenapp.com/support")!) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "safari.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.cyan)
-                            .frame(width: 32)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Visit Help Center")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.primary)
-                            
-                            Text("Browse our knowledge base")
-                                .font(.custom("OpenSans-Regular", size: 13))
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                }
-            } header: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                // MARK: Contact Us Section
                 Text("CONTACT US")
-                    .font(.custom("OpenSans-Bold", size: 12))
-            }
-            
-            // Community Section
-            Section {
-                Link(destination: URL(string: "https://amenapp.com/community")!) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "person.3.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.purple)
-                            .frame(width: 32)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Community Forum")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.primary)
-                            
-                            Text("Connect with other users")
-                                .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Button {
+                        if MFMailComposeViewController.canSendMail() {
+                            showMailComposer = true
+                        } else {
+                            showMailError = true
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "envelope.fill")
+                                .font(.systemScaled(20))
+                                .foregroundStyle(.blue)
+                                .frame(width: 32)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Email Support")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.primary)
+
+                                Text("support@amenapp.com")
+                                    .font(AMENFont.regular(13))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
-                        
-                        Spacer()
-                        
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
-                    .padding(.vertical, 4)
+                    .buttonStyle(PlainButtonStyle())
+
+                    Divider().padding(.leading, 16)
+
+                    Link(destination: URL(string: "https://amenapp.com/support")!) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "safari.fill")
+                                .font(.systemScaled(20))
+                                .foregroundStyle(.cyan)
+                                .frame(width: 32)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Visit Help Center")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.primary)
+
+                                Text("Browse our knowledge base")
+                                    .font(AMENFont.regular(13))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "arrow.up.right")
+                                .font(.systemScaled(12, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-            } header: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                // MARK: Community Section
                 Text("COMMUNITY")
-                    .font(.custom("OpenSans-Bold", size: 12))
-            }
-            
-            // Feedback Section
-            Section {
-                Button {
-                    showFeedbackForm = true
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "lightbulb.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.yellow)
-                            .frame(width: 32)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Send Feedback")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.primary)
-                            
-                            Text("Help us improve AMEN")
-                                .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Link(destination: URL(string: "https://amenapp.com/community")!) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.3.fill")
+                                .font(.systemScaled(20))
+                                .foregroundStyle(.purple)
+                                .frame(width: 32)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Community Forum")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.primary)
+
+                                Text("Connect with other users")
+                                    .font(AMENFont.regular(13))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "arrow.up.right")
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
-                        
-                        Spacer()
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
-                    .padding(.vertical, 4)
+                    .buttonStyle(PlainButtonStyle())
                 }
-                
-                Button {
-                    showBugReportForm = true
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "ladybug.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.red)
-                            .frame(width: 32)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Report a Bug")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.primary)
-                            
-                            Text("Let us know about issues")
-                                .font(.custom("OpenSans-Regular", size: 13))
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        Spacer()
-                    }
-                    .padding(.vertical, 4)
-                }
-            } header: {
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                // MARK: Feedback Section
                 Text("FEEDBACK")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Button {
+                        showFeedbackForm = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "lightbulb.fill")
+                                .font(.systemScaled(20))
+                                .foregroundStyle(.yellow)
+                                .frame(width: 32)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Send Feedback")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.primary)
+
+                                Text("Help us improve AMEN")
+                                    .font(AMENFont.regular(13))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.systemScaled(12, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Divider().padding(.leading, 16)
+
+                    Button {
+                        showBugReportForm = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "ladybug.fill")
+                                .font(.systemScaled(20))
+                                .foregroundStyle(.red)
+                                .frame(width: 32)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Report a Bug")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.primary)
+
+                                Text("Let us know about issues")
+                                    .font(AMENFont.regular(13))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.systemScaled(12, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Spacer(minLength: 40)
             }
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Help & Support")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedHelpTopic) { topic in
@@ -235,10 +309,10 @@ enum HelpTopic: String, CaseIterable, Identifiable {
     case messaging = "Messaging"
     case prayer = "Prayer Requests"
     case troubleshooting = "Troubleshooting"
-    
+
     var id: String { rawValue }
     var title: String { rawValue }
-    
+
     var subtitle: String {
         switch self {
         case .gettingStarted: return "Learn the basics"
@@ -251,7 +325,7 @@ enum HelpTopic: String, CaseIterable, Identifiable {
         case .troubleshooting: return "Fix common issues"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .gettingStarted: return "flag.fill"
@@ -264,7 +338,7 @@ enum HelpTopic: String, CaseIterable, Identifiable {
         case .troubleshooting: return "wrench.and.screwdriver.fill"
         }
     }
-    
+
     var color: Color {
         switch self {
         case .gettingStarted: return .green
@@ -277,173 +351,173 @@ enum HelpTopic: String, CaseIterable, Identifiable {
         case .troubleshooting: return .gray
         }
     }
-    
+
     var content: String {
         switch self {
         case .gettingStarted:
             return """
             Welcome to AMEN! Here's how to get started:
-            
+
             1. Complete Your Profile
             • Add a profile photo
             • Write a bio
             • Share your faith journey
-            
+
             2. Follow Others
             • Search for friends
             • Discover communities
             • Connect with believers
-            
+
             3. Share Your Story
             • Post testimonies
             • Share prayer requests
             • Encourage others
-            
+
             4. Join Communities
             • Find groups that interest you
             • Participate in discussions
             • Build meaningful connections
             """
-        
+
         case .account:
             return """
             Managing Your Account:
-            
+
             Profile Settings
             • Update your display name and username
             • Add or change profile photo
             • Edit your bio and interests
-            
+
             Account Security
             • Change your password regularly
             • Enable two-factor authentication
             • Review login activity
-            
+
             Privacy Controls
             • Make your account private
             • Control who can message you
             • Manage blocked users
             """
-        
+
         case .privacy:
             return """
             Your Privacy & Safety:
-            
+
             Privacy Controls
             • Private account option
             • Control message permissions
             • Hide online status
-            
+
             Safety Features
             • Block and report users
             • Mute conversations
             • Filter comments
-            
+
             Content Safety
             • Report inappropriate content
             • Community guidelines
             • Moderation tools
             """
-        
+
         case .posts:
             return """
             Posts & Testimonies:
-            
+
             Creating Posts
             • Share text, photos, and videos
             • Add hashtags for discovery
             • Tag other users
-            
+
             Testimonies
             • Share answered prayers
             • Encourage others
             • Build your faith story
-            
+
             Engagement
             • Amen posts you love
             • Comment and discuss
             • Share with your community
             """
-        
+
         case .communities:
             return """
             Communities:
-            
+
             Finding Communities
             • Search by interests
             • Browse recommendations
             • Join public or private groups
-            
+
             Creating Communities
             • Start your own group
             • Set community guidelines
             • Invite members
-            
+
             Participating
             • Share in group discussions
             • Organize events
             • Support fellow members
             """
-        
+
         case .messaging:
             return """
             Messaging:
-            
+
             Direct Messages
             • Send private messages
             • Share photos and media
             • Create group chats
-            
+
             Message Settings
             • Control who can message you
             • Read receipts
             • Notification preferences
-            
+
             Safety
             • Block unwanted messages
             • Report spam or abuse
             • Mute conversations
             """
-        
+
         case .prayer:
             return """
             Prayer Requests:
-            
+
             Requesting Prayer
             • Share your prayer needs
             • Set privacy preferences
             • Update answered prayers
-            
+
             Praying for Others
             • Browse prayer requests
             • Commit to pray
             • Send encouragement
-            
+
             Prayer Groups
             • Join prayer circles
             • Schedule prayer times
             • Track prayer journeys
             """
-        
+
         case .troubleshooting:
             return """
             Common Issues:
-            
+
             App Not Loading
             • Check internet connection
             • Force quit and restart app
             • Update to latest version
-            
+
             Can't Post or Comment
             • Check content guidelines
             • Verify internet connection
             • Clear app cache
-            
+
             Notifications Not Working
             • Enable notifications in Settings
             • Check Do Not Disturb mode
             • Update notification preferences
-            
+
             Login Issues
             • Verify email and password
             • Reset password if needed
@@ -458,7 +532,7 @@ enum HelpTopic: String, CaseIterable, Identifiable {
 struct HelpTopicDetailView: View {
     let topic: HelpTopic
     @Environment(\.dismiss) var dismiss
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -467,34 +541,37 @@ struct HelpTopicDetailView: View {
                     HStack {
                         Spacer()
                         Image(systemName: topic.icon)
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(topic.color)
                             .padding(.top, 20)
                         Spacer()
                     }
-                    
+
                     // Content
                     Text(topic.content)
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                         .foregroundStyle(.primary)
                         .lineSpacing(8)
                         .padding(.horizontal)
-                    
+
                     // Still Need Help Button
                     VStack(spacing: 16) {
                         Divider()
                             .padding(.horizontal)
-                        
+
                         Text("Still need help?")
-                            .font(.custom("OpenSans-SemiBold", size: 16))
-                        
+                            .font(AMENFont.semiBold(16))
+
                         Button {
-                            // Open support email
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            if let url = URL(string: "mailto:support@amenapp.com") {
+                                UIApplication.shared.open(url)
+                            }
                         } label: {
                             HStack {
                                 Image(systemName: "envelope.fill")
                                 Text("Contact Support")
-                                    .font(.custom("OpenSans-SemiBold", size: 16))
+                                    .font(AMENFont.semiBold(16))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -516,7 +593,7 @@ struct HelpTopicDetailView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
         }
@@ -527,48 +604,48 @@ struct HelpTopicDetailView: View {
 
 struct MailComposeView: UIViewControllerRepresentable {
     @Environment(\.dismiss) var dismiss
-    
+
     init() {}
-    
+
     func makeUIViewController(context: Context) -> MFMailComposeViewController {
         let composer = MFMailComposeViewController()
         composer.mailComposeDelegate = context.coordinator
         composer.setToRecipients(["support@amenapp.com"])
         composer.setSubject("AMEN App Support Request")
-        
+
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
         let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
         let iosVersion = UIDevice.current.systemVersion
-        
+
         let body = """
-        
-        
+
+
         ---
         Please describe your issue or question above this line.
-        
+
         App Version: \(appVersion) (\(buildNumber))
         iOS Version: \(iosVersion)
         Device: \(UIDevice.current.model)
         """
-        
+
         composer.setMessageBody(body, isHTML: false)
-        
+
         return composer
     }
-    
+
     func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
-    
+
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
-    
+
     class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
         let parent: MailComposeView
-        
+
         init(_ parent: MailComposeView) {
             self.parent = parent
         }
-        
+
         func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
             parent.dismiss()
         }
@@ -585,13 +662,13 @@ struct FeedbackFormView: View {
     @State private var showSuccess = false
     @State private var showError = false
     @State private var errorMessage = ""
-    
+
     enum FeedbackType: String, CaseIterable {
         case general = "General Feedback"
         case feature = "Feature Request"
         case improvement = "Improvement"
         case compliment = "Compliment"
-        
+
         var icon: String {
             switch self {
             case .general: return "text.bubble.fill"
@@ -600,7 +677,7 @@ struct FeedbackFormView: View {
             case .compliment: return "heart.fill"
             }
         }
-        
+
         var color: Color {
             switch self {
             case .general: return .blue
@@ -610,7 +687,7 @@ struct FeedbackFormView: View {
             }
         }
     }
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -618,7 +695,7 @@ struct FeedbackFormView: View {
                     // Header
                     VStack(spacing: 12) {
                         Image(systemName: "lightbulb.fill")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [.yellow, .orange],
@@ -627,24 +704,24 @@ struct FeedbackFormView: View {
                                 )
                             )
                             .padding(.top, 20)
-                        
+
                         Text("Send Feedback")
-                            .font(.custom("OpenSans-Bold", size: 28))
-                        
+                            .font(AMENFont.bold(28))
+
                         Text("Help us make AMEN better for everyone")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     }
-                    
+
                     // Feedback Type Picker
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Feedback Type")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal)
-                        
+
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(FeedbackType.allCases, id: \.self) { type in
@@ -654,11 +731,11 @@ struct FeedbackFormView: View {
                                     } label: {
                                         VStack(spacing: 8) {
                                             Image(systemName: type.icon)
-                                                .font(.system(size: 24))
+                                                .font(.systemScaled(24))
                                                 .foregroundStyle(feedbackType == type ? type.color : .gray)
-                                            
+
                                             Text(type.rawValue)
-                                                .font(.custom("OpenSans-SemiBold", size: 12))
+                                                .font(AMENFont.semiBold(12))
                                                 .foregroundStyle(feedbackType == type ? .primary : .secondary)
                                         }
                                         .frame(width: 100, height: 80)
@@ -676,24 +753,24 @@ struct FeedbackFormView: View {
                             .padding(.horizontal)
                         }
                     }
-                    
+
                     // Feedback Text
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Your Feedback")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                             .foregroundStyle(.secondary)
-                        
+
                         ZStack(alignment: .topLeading) {
                             TextEditor(text: $feedbackText)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .frame(height: 150)
                                 .padding(8)
                                 .scrollContentBackground(.hidden)
                                 .background(Color(.systemBackground))
-                            
+
                             if feedbackText.isEmpty {
                                 Text("Tell us what you think...")
-                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .font(AMENFont.regular(15))
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 16)
@@ -704,13 +781,13 @@ struct FeedbackFormView: View {
                             RoundedRectangle(cornerRadius: 10)
                                 .stroke(Color.gray.opacity(0.2), lineWidth: 1)
                         )
-                        
+
                         Text("\(feedbackText.count)/500 characters")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal)
-                    
+
                     // Submit Button
                     Button {
                         submitFeedback()
@@ -722,7 +799,7 @@ struct FeedbackFormView: View {
                             } else {
                                 Image(systemName: "paperplane.fill")
                                 Text("Submit Feedback")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -746,7 +823,7 @@ struct FeedbackFormView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .alert("Thank You!", isPresented: $showSuccess) {
@@ -763,23 +840,23 @@ struct FeedbackFormView: View {
             }
         }
     }
-    
+
     private func submitFeedback() {
         guard feedbackText.count >= 10, feedbackText.count <= 500 else { return }
-        
+
         isLoading = true
-        
+
         Task {
             do {
                 guard let userId = Auth.auth().currentUser?.uid else {
                     throw NSError(domain: "Feedback", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
                 }
-                
+
                 let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
                 let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
                 let iosVersion = UIDevice.current.systemVersion
                 let deviceModel = UIDevice.current.model
-                
+
                 let feedbackData: [String: Any] = [
                     "userId": userId,
                     "type": feedbackType.rawValue,
@@ -791,9 +868,9 @@ struct FeedbackFormView: View {
                     "createdAt": FieldValue.serverTimestamp(),
                     "status": "new"
                 ]
-                
+
                 try await Firestore.firestore().collection("feedback").addDocument(data: feedbackData)
-                
+
                 await MainActor.run {
                     isLoading = false
                     showSuccess = true
@@ -824,13 +901,13 @@ struct BugReportFormView: View {
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var includeScreenshot = false
-    
+
     enum BugSeverity: String, CaseIterable {
         case low = "Low"
         case medium = "Medium"
         case high = "High"
         case critical = "Critical"
-        
+
         var color: Color {
             switch self {
             case .low: return .green
@@ -839,7 +916,7 @@ struct BugReportFormView: View {
             case .critical: return .red
             }
         }
-        
+
         var icon: String {
             switch self {
             case .low: return "info.circle.fill"
@@ -849,7 +926,7 @@ struct BugReportFormView: View {
             }
         }
     }
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -857,28 +934,28 @@ struct BugReportFormView: View {
                     // Header
                     VStack(spacing: 12) {
                         Image(systemName: "ladybug.fill")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(.red)
                             .padding(.top, 20)
-                        
+
                         Text("Report a Bug")
-                            .font(.custom("OpenSans-Bold", size: 28))
-                        
+                            .font(AMENFont.bold(28))
+
                         Text("Help us fix issues and improve stability")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     }
-                    
+
                     // Bug Title
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Bug Title")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                             .foregroundStyle(.secondary)
-                        
+
                         TextField("Brief description of the issue", text: $bugTitle)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .padding()
                             .background(
                                 RoundedRectangle(cornerRadius: 10)
@@ -886,13 +963,13 @@ struct BugReportFormView: View {
                             )
                     }
                     .padding(.horizontal)
-                    
+
                     // Severity Picker
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Severity Level")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                             .foregroundStyle(.secondary)
-                        
+
                         HStack(spacing: 12) {
                             ForEach(BugSeverity.allCases, id: \.self) { severity in
                                 Button {
@@ -901,11 +978,11 @@ struct BugReportFormView: View {
                                 } label: {
                                     VStack(spacing: 6) {
                                         Image(systemName: severity.icon)
-                                            .font(.system(size: 20))
+                                            .font(.systemScaled(20))
                                             .foregroundStyle(bugSeverity == severity ? severity.color : .gray)
-                                        
+
                                         Text(severity.rawValue)
-                                            .font(.custom("OpenSans-SemiBold", size: 11))
+                                            .font(AMENFont.semiBold(11))
                                             .foregroundStyle(bugSeverity == severity ? .primary : .secondary)
                                     }
                                     .frame(maxWidth: .infinity)
@@ -923,24 +1000,24 @@ struct BugReportFormView: View {
                         }
                     }
                     .padding(.horizontal)
-                    
+
                     // Bug Description
                     VStack(alignment: .leading, spacing: 12) {
                         Text("What happened?")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                             .foregroundStyle(.secondary)
-                        
+
                         ZStack(alignment: .topLeading) {
                             TextEditor(text: $bugDescription)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .frame(height: 120)
                                 .padding(8)
                                 .scrollContentBackground(.hidden)
                                 .background(Color(.systemBackground))
-                            
+
                             if bugDescription.isEmpty {
                                 Text("Describe the bug in detail...")
-                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .font(AMENFont.regular(15))
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 16)
@@ -953,24 +1030,24 @@ struct BugReportFormView: View {
                         )
                     }
                     .padding(.horizontal)
-                    
+
                     // Steps to Reproduce
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Steps to Reproduce")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                             .foregroundStyle(.secondary)
-                        
+
                         ZStack(alignment: .topLeading) {
                             TextEditor(text: $stepsToReproduce)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .frame(height: 120)
                                 .padding(8)
                                 .scrollContentBackground(.hidden)
                                 .background(Color(.systemBackground))
-                            
+
                             if stepsToReproduce.isEmpty {
                                 Text("1. Go to...\n2. Tap on...\n3. See error...")
-                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .font(AMENFont.regular(15))
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 16)
@@ -983,16 +1060,16 @@ struct BugReportFormView: View {
                         )
                     }
                     .padding(.horizontal)
-                    
+
                     // Device Info Card
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 8) {
                             Image(systemName: "info.circle.fill")
                                 .foregroundStyle(.blue)
                             Text("Device Information (Auto-included)")
-                                .font(.custom("OpenSans-Bold", size: 13))
+                                .font(AMENFont.bold(13))
                         }
-                        
+
                         VStack(alignment: .leading, spacing: 6) {
                             DeviceInfoRow(label: "App Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown")
                             DeviceInfoRow(label: "Build", value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown")
@@ -1006,7 +1083,7 @@ struct BugReportFormView: View {
                             .fill(Color.blue.opacity(0.05))
                     )
                     .padding(.horizontal)
-                    
+
                     // Submit Button
                     Button {
                         submitBugReport()
@@ -1018,7 +1095,7 @@ struct BugReportFormView: View {
                             } else {
                                 Image(systemName: "paperplane.fill")
                                 Text("Submit Bug Report")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -1042,7 +1119,7 @@ struct BugReportFormView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .alert("Thank You!", isPresented: $showSuccess) {
@@ -1059,27 +1136,27 @@ struct BugReportFormView: View {
             }
         }
     }
-    
+
     private var isValidReport: Bool {
         !bugTitle.isEmpty && !bugDescription.isEmpty && bugDescription.count >= 20
     }
-    
+
     private func submitBugReport() {
         guard isValidReport else { return }
-        
+
         isLoading = true
-        
+
         Task {
             do {
                 guard let userId = Auth.auth().currentUser?.uid else {
                     throw NSError(domain: "BugReport", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
                 }
-                
+
                 let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
                 let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
                 let iosVersion = UIDevice.current.systemVersion
                 let deviceModel = UIDevice.current.model
-                
+
                 let bugReportData: [String: Any] = [
                     "userId": userId,
                     "title": bugTitle,
@@ -1093,9 +1170,9 @@ struct BugReportFormView: View {
                     "createdAt": FieldValue.serverTimestamp(),
                     "status": "new"
                 ]
-                
+
                 try await Firestore.firestore().collection("bug_reports").addDocument(data: bugReportData)
-                
+
                 await MainActor.run {
                     isLoading = false
                     showSuccess = true
@@ -1116,15 +1193,15 @@ struct BugReportFormView: View {
 struct DeviceInfoRow: View {
     let label: String
     let value: String
-    
+
     var body: some View {
         HStack {
             Text(label)
-                .font(.custom("OpenSans-Regular", size: 12))
+                .font(AMENFont.regular(12))
                 .foregroundStyle(.secondary)
             Spacer()
             Text(value)
-                .font(.custom("OpenSans-SemiBold", size: 12))
+                .font(AMENFont.semiBold(12))
                 .foregroundStyle(.primary)
         }
     }

@@ -65,14 +65,14 @@ private enum WLToken {
     static let shelfH: CGFloat     = 158
 
     // Typography
-    static let heroTitle    = Font.system(size: 32, weight: .bold, design: .default)
-    static let heroSub      = Font.system(size: 14, weight: .regular)
-    static let sectionTitle = Font.system(size: 19, weight: .bold)
-    static let sectionSub   = Font.system(size: 12, weight: .regular)
-    static let cardTitle    = Font.system(size: 13, weight: .semibold)
-    static let cardAuthor   = Font.system(size: 11, weight: .regular)
-    static let chipLabel    = Font.system(size: 13, weight: .medium)
-    static let labelFont    = Font.system(size: 11, weight: .semibold)
+    static let heroTitle    = Font.systemScaled(32, weight: .bold, design: .default)
+    static let heroSub      = Font.systemScaled(14, weight: .regular)
+    static let sectionTitle = Font.systemScaled(19, weight: .bold)
+    static let sectionSub   = Font.systemScaled(12, weight: .regular)
+    static let cardTitle    = Font.systemScaled(13, weight: .semibold)
+    static let cardAuthor   = Font.systemScaled(11, weight: .regular)
+    static let chipLabel    = Font.systemScaled(13, weight: .medium)
+    static let labelFont    = Font.systemScaled(11, weight: .semibold)
 }
 
 // MARK: - Main View
@@ -179,11 +179,11 @@ private struct WLInlineSearchBar: View {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(WLToken.textSecondary)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
 
                 TextField("Books, authors, topics…", text: $query)
                     .focused($focused)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(WLToken.textPrimary)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
@@ -223,17 +223,17 @@ private struct WLInlineSearchBar: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(book.title)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.systemScaled(14, weight: .semibold))
                                         .foregroundStyle(WLToken.textPrimary)
                                         .lineLimit(2)
                                     Text(book.authorDisplayString)
-                                        .font(.system(size: 12))
+                                        .font(.systemScaled(12))
                                         .foregroundStyle(WLToken.textSecondary)
                                         .lineLimit(1)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(WLToken.textTertiary)
                             }
                             .padding(.horizontal, 14)
@@ -309,13 +309,13 @@ private struct WLHeroSection: View {
             VStack(alignment: .leading, spacing: 4) {
                 // Scripture label above title
                 Text("AMEN WISDOM LIBRARY")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(heroTextSecondary)
                     .kerning(1.4)
 
                 // Big serif title
                 Text(vm.heroHeadline)
-                    .font(.system(size: 34, weight: .bold, design: .serif))
+                    .font(.systemScaled(34, weight: .bold, design: .serif))
                     .foregroundStyle(heroTextPrimary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
@@ -323,24 +323,26 @@ private struct WLHeroSection: View {
 
                 // Subheadline
                 Text(vm.heroSubheadline)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(heroTextSecondary)
                     .animation(.easeOut(duration: 0.2), value: vm.heroSubheadline)
                     .padding(.top, 2)
 
-                // Streak pill (if applicable)
-                if let streak = vm.streakLabel {
-                    HStack(spacing: 5) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 10, weight: .bold))
-                        Text(streak)
-                            .font(.system(size: 11, weight: .semibold))
+                // REMOVED: streak display per product integrity rules (D-037)
+                if false {
+                    if let streak = vm.streakLabel {
+                        HStack(spacing: 5) {
+                            Image(systemName: "flame.fill")
+                                .font(.systemScaled(10, weight: .bold))
+                            Text(streak)
+                                .font(.systemScaled(11, weight: .semibold))
+                        }
+                        .foregroundStyle(heroTextSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(heroPillBg, in: Capsule())
+                        .padding(.top, 6)
                     }
-                    .foregroundStyle(heroTextSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(heroPillBg, in: Capsule())
-                    .padding(.top, 6)
                 }
             }
             .padding(.horizontal, WLToken.hPad)
@@ -352,9 +354,9 @@ private struct WLHeroSection: View {
                     Button(action: onBack) {
                         HStack(spacing: 5) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                             Text("Back")
-                                .font(.system(size: 15, weight: .regular))
+                                .font(.systemScaled(15, weight: .regular))
                         }
                         .foregroundStyle(heroTextPrimary)
                         .padding(.horizontal, 14)
@@ -367,13 +369,13 @@ private struct WLHeroSection: View {
 
                     // ── Top-right: Search button ──────────────────────────────
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.82))) {
                             showSearch.toggle()
                             if !showSearch { vm.clearSearch() }
                         }
                     } label: {
                         Image(systemName: showSearch ? "xmark" : "magnifyingglass")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(heroTextPrimary)
                             .frame(width: 36, height: 36)
                             .background(heroPillBg, in: Circle())
@@ -411,7 +413,6 @@ private struct WLFeaturedCarousel: View {
                 title: "Featured",
                 subtitle: "Curated for your walk"
             )
-            .padding(.horizontal, WLToken.hPad)
 
             // Horizontal scroll
             ScrollView(.horizontal, showsIndicators: false) {
@@ -482,7 +483,7 @@ private struct WLFeaturedCard: View {
                     if !isLoading {
                         Button(action: onSave) {
                             Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(isSaved ? WLToken.accent : .white)
                                 .frame(width: 30, height: 30)
                                 .background(.ultraThinMaterial, in: Circle())
@@ -512,7 +513,7 @@ private struct WLFeaturedCard: View {
 
                         if let tag = book.curatedTags.first ?? book.primaryCategory {
                             Text(tag.uppercased())
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.systemScaled(9, weight: .bold))
                                 .foregroundStyle(WLToken.accent)
                                 .kerning(0.6)
                                 .padding(.top, 2)
@@ -566,7 +567,11 @@ private struct WLCategoryBar: View {
                 }
             }
             .padding(.horizontal, WLToken.hPad)
-            .padding(.vertical, 2)
+            .padding(.vertical, 8)
+        }
+        .background(.regularMaterial)
+        .overlay(alignment: .bottom) {
+            Color.black.opacity(0.06).frame(height: 0.5)
         }
     }
 }
@@ -581,7 +586,7 @@ private struct WLCategoryChip: View {
             HStack(spacing: 5) {
                 if isSelected {
                     Image(systemName: category.icon)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .transition(.scale.combined(with: .opacity))
                 }
                 Text(category.rawValue)
@@ -715,30 +720,30 @@ private struct WLEditorialBanner: View {
                     VStack(alignment: .leading, spacing: 5) {
                         // "AMEN Recommends" label
                         Text("AMEN RECOMMENDS")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(WLToken.accent)
                             .kerning(1.2)
 
                         Text(book.title)
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .foregroundStyle(.white)
                             .lineLimit(2)
 
                         Text(book.authorDisplayString)
-                            .font(.system(size: 13, weight: .regular))
+                            .font(.systemScaled(13, weight: .regular))
                             .foregroundStyle(.white.opacity(0.75))
                             .lineLimit(1)
 
                         if let reason = book.recommendationReason ?? book.shortDescription {
                             Text(reason)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.white.opacity(0.65))
                                 .lineLimit(2)
                                 .padding(.top, 2)
                         }
 
                         Text("Explore")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(WLToken.accent)
                             .padding(.top, 4)
                     }
@@ -791,17 +796,17 @@ private struct WLVerseCard: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(prompt)
-                        .font(.system(size: 13, weight: .regular, design: .serif))
+                        .font(.systemScaled(13, weight: .regular, design: .serif))
                         .foregroundStyle(WLToken.textPrimary)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
 
                     HStack(spacing: 6) {
                         Text("Explore in")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(WLToken.textTertiary)
                         Text(book.title)
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(WLToken.accent)
                             .lineLimit(1)
                     }
@@ -810,7 +815,7 @@ private struct WLVerseCard: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(WLToken.textTertiary)
             }
             .padding(16)
@@ -837,7 +842,7 @@ private struct WLSectionRow: View {
                 HStack(spacing: 7) {
                     if let icon = shelf.icon {
                         Image(systemName: icon)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(shelf.accentColor)
                     }
                     VStack(alignment: .leading, spacing: 1) {
@@ -852,7 +857,7 @@ private struct WLSectionRow: View {
                     }
                     if shelf.isPremium {
                         Text("PRO")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
@@ -864,6 +869,10 @@ private struct WLSectionRow: View {
                     .font(WLToken.sectionSub)
                     .foregroundStyle(WLToken.textTertiary)
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5))
             .padding(.horizontal, WLToken.hPad)
 
             // Horizontal strip
@@ -906,7 +915,7 @@ private struct WLShelfCard: View {
                     // Bookmark
                     Button(action: onSave) {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(isSaved ? WLToken.accent : .white)
                             .frame(width: 26, height: 26)
                             .background(.ultraThinMaterial, in: Circle())
@@ -919,13 +928,13 @@ private struct WLShelfCard: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(book.title)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(WLToken.textPrimary)
                         .lineLimit(2)
                         .frame(width: WLToken.shelfW, alignment: .leading)
 
                     Text(book.primaryAuthor)
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(WLToken.textSecondary)
                         .lineLimit(1)
                         .frame(width: WLToken.shelfW, alignment: .leading)
@@ -967,7 +976,6 @@ private struct WLSavedSection: View {
         if !savedBooks.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
                 WLSectionHeader(title: "Saved for Later", subtitle: "\(savedBooks.count) books")
-                    .padding(.horizontal, WLToken.hPad)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -995,14 +1003,22 @@ private struct WLSectionHeader: View {
     let subtitle: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(WLToken.sectionTitle)
-                .foregroundStyle(WLToken.textPrimary)
-            Text(subtitle)
-                .font(WLToken.sectionSub)
-                .foregroundStyle(WLToken.textSecondary)
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(WLToken.sectionTitle)
+                    .foregroundStyle(WLToken.textPrimary)
+                Text(subtitle)
+                    .font(WLToken.sectionSub)
+                    .foregroundStyle(WLToken.textSecondary)
+            }
+            Spacer()
         }
+        .padding(.horizontal, WLToken.hPad)
+        .padding(.vertical, 10)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5))
+        .padding(.horizontal, WLToken.hPad)
     }
 }
 
@@ -1101,14 +1117,14 @@ struct WLBookCoverPlaceholder: View {
 
             VStack(spacing: 4) {
                 Text(book.title)
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .lineLimit(4)
                     .padding(.horizontal, 6)
 
                 Text(book.primaryAuthor)
-                    .font(.system(size: 8))
+                    .font(.systemScaled(8))
                     .foregroundStyle(.white.opacity(0.8))
                     .lineLimit(1)
                     .padding(.horizontal, 4)
@@ -1159,16 +1175,16 @@ private struct WLErrorRetryView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(WLToken.textTertiary)
             Text(message)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(WLToken.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Button(action: onRetry) {
                 Text("Try Again")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 28)
                     .padding(.vertical, 10)
@@ -1181,13 +1197,7 @@ private struct WLErrorRetryView: View {
     }
 }
 
-// MARK: - Safe Array Index
-
-private extension Array {
-    subscript(safe index: Index) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
+// subscript(safe:) — canonical definition lives in SafeSubscriptExtension.swift
 
 // MARK: - Analytics stub (defined in AffiliateLinkBuilder.swift)
 // WLBookAnalytics used above references the enum defined in AffiliateLinkBuilder.swift

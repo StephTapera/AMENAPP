@@ -65,7 +65,7 @@ final class TrueSourceService: ObservableObject {
     @Published private(set) var states: [String: TrueSourceState] = [:]
 
     private let functions = Functions.functions(region: "us-central1")
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var inFlight = Set<String>()
 
     private init() {}
@@ -160,14 +160,14 @@ struct TrueSourceBadge: View {
         case .verified(_, let isAI):
             HStack(spacing: 4) {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.teal)
                 Text("Verified Original")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.teal)
                 if isAI {
                     Text("· AI-Assisted")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -182,10 +182,10 @@ struct TrueSourceBadge: View {
         case .tampered:
             HStack(spacing: 4) {
                 Image(systemName: "exclamationmark.seal.fill")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.orange)
                 Text("Content Modified")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.orange)
             }
             .padding(.horizontal, 8)

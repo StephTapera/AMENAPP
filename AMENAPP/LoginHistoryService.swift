@@ -33,14 +33,39 @@ struct LoginSession: Identifiable, Codable {
     }
 }
 
+private struct LoginHistorySessionID: RawRepresentable, Equatable {
+    let rawValue: String
+}
+
+@MainActor
 class LoginHistoryService: ObservableObject {
     static let shared = LoginHistoryService()
-    
+
+    /// Single source of truth for the RTDB field names of a login session.
+    ///
+    /// The write path (`trackLogin`) and the read path (`parseSession`) must
+    /// agree on every key — a typo in one but not the other silently drops a
+    /// field at runtime. Centralizing the names here makes that a compile-time
+    /// concern instead.
+    private enum Field {
+        static let sessionId  = "sessionId"
+        static let deviceName = "deviceName"
+        static let deviceType = "deviceType"
+        static let osVersion  = "osVersion"
+        static let appVersion = "appVersion"
+        static let ipAddress  = "ipAddress"
+        static let location   = "location"
+        static let timestamp  = "timestamp"
+        static let lastActive = "lastActive"
+        static let isCurrent  = "isCurrent"
+    }
+
     private let database = Database.database()
     @Published var loginSessions: [LoginSession] = []
     @Published var isLoading = false
     
-    private var currentSessionId: String?
+    // Typed so a session id can't be silently confused with any other String id.
+    private var currentSessionId: LoginHistorySessionID?
     
     private init() {}
     
@@ -53,22 +78,22 @@ class LoginHistoryService: ObservableObject {
         }
         
         let sessionId = UUID().uuidString
-        currentSessionId = sessionId
+        currentSessionId = LoginHistorySessionID(rawValue: sessionId)
         
         let deviceInfo = getDeviceInfo()
         let timestamp = Date().timeIntervalSince1970
         
         let sessionData: [String: Any] = [
-            "sessionId": sessionId,
-            "deviceName": deviceInfo.deviceName,
-            "deviceType": deviceInfo.deviceType,
-            "osVersion": deviceInfo.osVersion,
-            "appVersion": deviceInfo.appVersion,
-            "ipAddress": "", // Will be filled by backend/cloud function if needed
-            "location": "", // Will be filled by backend/cloud function if needed
-            "timestamp": timestamp,
-            "lastActive": timestamp,
-            "isCurrent": true
+            Field.sessionId: sessionId,
+            Field.deviceName: deviceInfo.deviceName,
+            Field.deviceType: deviceInfo.deviceType,
+            Field.osVersion: deviceInfo.osVersion,
+            Field.appVersion: deviceInfo.appVersion,
+            Field.ipAddress: "", // Will be filled by backend/cloud function if needed
+            Field.location: "", // Will be filled by backend/cloud function if needed
+            Field.timestamp: timestamp,
+            Field.lastActive: timestamp,
+            Field.isCurrent: true
         ]
         
         // Add to user's login history
@@ -95,13 +120,13 @@ class LoginHistoryService: ObservableObject {
         dlog("✅ Login session tracked: \(sessionId)")
         
         // Store session ID locally
-        UserDefaults.standard.set(sessionId, forKey: "currentLoginSessionId")
+        UserDefaults.standard.set(sessionId, forKey: UserDefaultsKeys.currentLoginSessionId)
     }
     
     /// Update last active timestamp
     func updateLastActive() async {
         guard let userId = Auth.auth().currentUser?.uid,
-              let sessionId = currentSessionId ?? UserDefaults.standard.string(forKey: "currentLoginSessionId") else {
+              let sessionId = currentSessionId?.rawValue ?? UserDefaults.standard.string(forKey: UserDefaultsKeys.currentLoginSessionId) else {
             return
         }
         
@@ -188,7 +213,7 @@ class LoginHistoryService: ObservableObject {
             throw NSError(domain: "LoginHistoryService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
-        let currentSession = currentSessionId ?? UserDefaults.standard.string(forKey: "currentLoginSessionId")
+        let currentSession = currentSessionId?.rawValue ?? UserDefaults.standard.string(forKey: UserDefaultsKeys.currentLoginSessionId)
         
         let historyRef = database.reference()
             .child("user-login-history")
@@ -229,7 +254,7 @@ class LoginHistoryService: ObservableObject {
         try Auth.auth().signOut()
         
         // Clear local session
-        UserDefaults.standard.removeObject(forKey: "currentLoginSessionId")
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.currentLoginSessionId)
         currentSessionId = nil
     }
     
@@ -261,17 +286,17 @@ class LoginHistoryService: ObservableObject {
     }
     
     private func parseSession(id: String, data: [String: Any]) -> LoginSession? {
-        guard let deviceName = data["deviceName"] as? String,
-              let deviceType = data["deviceType"] as? String,
-              let osVersion = data["osVersion"] as? String,
-              let appVersion = data["appVersion"] as? String,
-              let timestamp = data["timestamp"] as? Double else {
+        guard let deviceName = data[Field.deviceName] as? String,
+              let deviceType = data[Field.deviceType] as? String,
+              let osVersion = data[Field.osVersion] as? String,
+              let appVersion = data[Field.appVersion] as? String,
+              let timestamp = data[Field.timestamp] as? Double else {
             return nil
         }
-        
-        let ipAddress = data["ipAddress"] as? String
-        let location = data["location"] as? String
-        let isCurrent = data["isCurrent"] as? Bool ?? false
+
+        let ipAddress = data[Field.ipAddress] as? String
+        let location = data[Field.location] as? String
+        let isCurrent = data[Field.isCurrent] as? Bool ?? false
         
         return LoginSession(
             id: id,

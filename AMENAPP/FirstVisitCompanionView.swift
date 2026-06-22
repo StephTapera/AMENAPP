@@ -23,11 +23,11 @@ private enum PVTokens {
     static let pillBorder   = Color.white.opacity(0.30)
 
     // Typography
-    static let labelFont    = Font.system(size: 11, weight: .semibold, design: .monospaced)
-    static let rowTitleFont = Font.system(size: 22, weight: .bold)
-    static let rowMetaFont  = Font.system(size: 11, weight: .medium, design: .monospaced)
-    static let bodyFont     = Font.system(size: 15, weight: .regular)
-    static let pillFont     = Font.system(size: 12, weight: .semibold, design: .monospaced)
+    static let labelFont    = Font.systemScaled(11, weight: .semibold, design: .monospaced)
+    static let rowTitleFont = Font.systemScaled(22, weight: .bold)
+    static let rowMetaFont  = Font.systemScaled(11, weight: .medium, design: .monospaced)
+    static let bodyFont     = Font.systemScaled(15, weight: .regular)
+    static let pillFont     = Font.systemScaled(12, weight: .semibold, design: .monospaced)
 
     // Metrics
     static let hPad: CGFloat        = 20
@@ -87,7 +87,7 @@ private struct OutlinePillButton: View {
             HStack(spacing: 6) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                 }
                 Text(label)
                     .font(PVTokens.pillFont)
@@ -134,7 +134,7 @@ private struct AccordionRow<Content: View>: View {
 
                     // Dash expander indicator (reference image uses "—" / "–" for expanded)
                     Text(isExpanded ? "—" : "+")
-                        .font(.system(size: 16, weight: .light, design: .monospaced))
+                        .font(.systemScaled(16, weight: .light, design: .monospaced))
                         .foregroundStyle(PVTokens.secondary)
                         .frame(width: 20, alignment: .trailing)
                 }
@@ -173,7 +173,7 @@ private struct MinimalCalendarView: View {
             HStack {
                 Button { shiftMonth(-1) } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: PVTokens.chevronSize, weight: .light))
+                        .font(.systemScaled(PVTokens.chevronSize, weight: .light))
                         .foregroundStyle(PVTokens.secondary)
                 }
                 .buttonStyle(.plain)
@@ -181,7 +181,7 @@ private struct MinimalCalendarView: View {
                 Spacer()
 
                 Text(monthLabel)
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .font(.systemScaled(14, weight: .semibold, design: .monospaced))
                     .foregroundStyle(PVTokens.primary)
                     .kerning(1)
 
@@ -189,7 +189,7 @@ private struct MinimalCalendarView: View {
 
                 Button { shiftMonth(1) } label: {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: PVTokens.chevronSize, weight: .light))
+                        .font(.systemScaled(PVTokens.chevronSize, weight: .light))
                         .foregroundStyle(PVTokens.secondary)
                 }
                 .buttonStyle(.plain)
@@ -200,7 +200,7 @@ private struct MinimalCalendarView: View {
             HStack(spacing: 0) {
                 ForEach(Array(dayNames.enumerated()), id: \.offset) { _, d in
                     Text(d)
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .font(.systemScaled(10, weight: .medium, design: .monospaced))
                         .foregroundStyle(PVTokens.tertiary)
                         .frame(maxWidth: .infinity)
                 }
@@ -234,7 +234,7 @@ private struct MinimalCalendarView: View {
                                         .padding(4)
                                 }
                                 Text("\(cal.component(.day, from: date))")
-                                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                                     .foregroundStyle(
                                         isSelected ? PVTokens.accent :
                                         isPast ? PVTokens.tertiary.opacity(0.4) :
@@ -295,7 +295,7 @@ struct FirstVisitCompanionView: View {
     @State private var expanded: AccordionSection? = .church
 
     private enum AccordionSection: Equatable {
-        case church, expect, service, date, reminders
+        case church, expect, service, date, reminders, checklist, createNote, preparePostCard
     }
 
     var body: some View {
@@ -355,6 +355,36 @@ struct FirstVisitCompanionView: View {
                         onTap: { toggle(.reminders) }
                     ) {
                         remindersExpanded
+                    }
+
+                    // ── YOUR CHECKLIST ──────────────────────────────────────
+                    AccordionRow(
+                        title: "Your Checklist",
+                        meta: "\(viewModel.checklist.completedCount)/\(viewModel.checklist.totalCount)",
+                        isExpanded: expanded == .checklist,
+                        onTap: { toggle(.checklist) }
+                    ) {
+                        checklistExpanded
+                    }
+
+                    // ── CREATE A NOTE ───────────────────────────────────────
+                    AccordionRow(
+                        title: "Create a Note",
+                        meta: nil,
+                        isExpanded: expanded == .createNote,
+                        onTap: { toggle(.createNote) }
+                    ) {
+                        createNoteExpanded
+                    }
+
+                    // ── PREPARE POSTCARD ────────────────────────────────────
+                    AccordionRow(
+                        title: "Prepare PostCard",
+                        meta: nil,
+                        isExpanded: expanded == .preparePostCard,
+                        onTap: { toggle(.preparePostCard) }
+                    ) {
+                        preparePostCardExpanded
                     }
 
                     // ── ACTION AREA ─────────────────────────────────────────
@@ -424,7 +454,7 @@ struct FirstVisitCompanionView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(PVTokens.secondary)
                     .frame(width: 32, height: 32)
                     .background(PVTokens.surface)
@@ -480,7 +510,7 @@ struct FirstVisitCompanionView: View {
                 if church.verified {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(PVTokens.accent)
                         Text("VERIFIED")
                             .font(PVTokens.rowMetaFont)
@@ -550,10 +580,10 @@ struct FirstVisitCompanionView: View {
             PVTokens.surface
             VStack(spacing: 8) {
                 Image(systemName: "building.2")
-                    .font(.system(size: 36, weight: .ultraLight))
+                    .font(.systemScaled(36, weight: .ultraLight))
                     .foregroundStyle(PVTokens.tertiary)
                 Text(church.name.prefix(1))
-                    .font(.system(size: 52, weight: .thin))
+                    .font(.systemScaled(52, weight: .thin))
                     .foregroundStyle(PVTokens.tertiary.opacity(0.4))
             }
         }
@@ -582,14 +612,14 @@ struct FirstVisitCompanionView: View {
                 ForEach(Array(items.enumerated()), id: \.offset) { idx, item in
                     HStack(alignment: .top, spacing: 16) {
                         Image(systemName: item.icon)
-                            .font(.system(size: 14, weight: .light))
+                            .font(.systemScaled(14, weight: .light))
                             .foregroundStyle(PVTokens.tertiary)
                             .frame(width: 20)
                             .padding(.top, 1)
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.title.uppercased())
-                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                                 .foregroundStyle(PVTokens.tertiary)
                                 .kerning(0.6)
                             Text(item.value)
@@ -617,7 +647,7 @@ struct FirstVisitCompanionView: View {
                         .tint(PVTokens.accent)
                         .scaleEffect(0.8)
                     Text("PREPARING YOUR VISIT GUIDE...")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                         .foregroundStyle(PVTokens.tertiary)
                         .kerning(0.6)
                 }
@@ -629,10 +659,10 @@ struct FirstVisitCompanionView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 6) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 10, weight: .light))
+                            .font(.systemScaled(10, weight: .light))
                             .foregroundStyle(PVTokens.accent)
                         Text("AI VISIT GUIDE")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                             .foregroundStyle(PVTokens.accent)
                             .kerning(0.6)
                     }
@@ -651,7 +681,7 @@ struct FirstVisitCompanionView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 13, weight: .light))
+                            .font(.systemScaled(13, weight: .light))
                         Text("Get AI Visit Guide")
                             .font(PVTokens.bodyFont)
                     }
@@ -685,7 +715,7 @@ struct FirstVisitCompanionView: View {
                         HStack(spacing: 0) {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(service.serviceType.uppercased())
-                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                    .font(.systemScaled(14, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(
                                         viewModel.selectedService?.id == service.id ?
                                         PVTokens.primary : PVTokens.secondary
@@ -694,16 +724,16 @@ struct FirstVisitCompanionView: View {
 
                                 HStack(spacing: 8) {
                                     Text("\(service.dayOfWeek)  \(service.startTime)")
-                                        .font(.system(size: 12, weight: .light, design: .monospaced))
+                                        .font(.systemScaled(12, weight: .light, design: .monospaced))
                                         .foregroundStyle(PVTokens.tertiary)
                                     if let lang = service.language, lang != "English" {
                                         Text("·  \(lang)")
-                                            .font(.system(size: 12, weight: .light, design: .monospaced))
+                                            .font(.systemScaled(12, weight: .light, design: .monospaced))
                                             .foregroundStyle(PVTokens.tertiary)
                                     }
                                     if service.streamingAvailable {
                                         Text("·  STREAM")
-                                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                            .font(.systemScaled(11, weight: .medium, design: .monospaced))
                                             .foregroundStyle(PVTokens.accent.opacity(0.7))
                                     }
                                 }
@@ -754,9 +784,9 @@ struct FirstVisitCompanionView: View {
             if !viewModel.isValidVisitDate() {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 12, weight: .light))
+                        .font(.systemScaled(12, weight: .light))
                     Text("Please select a future date")
-                        .font(.system(size: 12, weight: .light, design: .monospaced))
+                        .font(.systemScaled(12, weight: .light, design: .monospaced))
                 }
                 .foregroundStyle(Color.orange.opacity(0.85))
                 .padding(.horizontal, PVTokens.hPad)
@@ -798,7 +828,7 @@ struct FirstVisitCompanionView: View {
     private func reminderToggleRow(icon: String, label: String, binding: Binding<Bool>) -> some View {
         HStack(spacing: 16) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .light))
+                .font(.systemScaled(14, weight: .light))
                 .foregroundStyle(PVTokens.tertiary)
                 .frame(width: 20)
 
@@ -815,6 +845,209 @@ struct FirstVisitCompanionView: View {
         }
         .padding(.horizontal, PVTokens.hPad)
         .padding(.vertical, 14)
+    }
+
+    // MARK: - Checklist Expanded
+
+    private var checklistExpanded: some View {
+        VStack(spacing: 0) {
+            // Progress bar
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("\(Int(viewModel.checklist.completionPercentage * 100))% READY")
+                        .font(.systemScaled(10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(PVTokens.accent)
+                        .kerning(0.6)
+                    Spacer()
+                    Text("\(viewModel.checklist.completedCount) OF \(viewModel.checklist.totalCount)")
+                        .font(.systemScaled(10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(PVTokens.tertiary)
+                        .kerning(0.4)
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(PVTokens.surface)
+                            .frame(height: 4)
+                        Capsule()
+                            .fill(PVTokens.accent)
+                            .frame(width: geo.size.width * viewModel.checklist.completionPercentage, height: 4)
+                            .animation(PVTokens.expandSpring, value: viewModel.checklist.completionPercentage)
+                    }
+                }
+                .frame(height: 4)
+            }
+            .padding(.horizontal, PVTokens.hPad)
+            .padding(.bottom, 16)
+
+            // Checklist items
+            ForEach(Array(viewModel.checklist.displayItems.enumerated()), id: \.element.key) { idx, item in
+                Button {
+                    withAnimation(PVTokens.expandSpring) {
+                        viewModel.updateChecklistItem(key: item.key, value: !item.isComplete)
+                    }
+                } label: {
+                    HStack(spacing: 16) {
+                        Image(systemName: item.isComplete ? "checkmark.circle.fill" : "circle")
+                            .font(.systemScaled(18, weight: .light))
+                            .foregroundStyle(item.isComplete ? PVTokens.accent : PVTokens.tertiary)
+                            .frame(width: 24)
+
+                        HStack(spacing: 8) {
+                            Image(systemName: item.icon)
+                                .font(.systemScaled(13, weight: .light))
+                                .foregroundStyle(item.isComplete ? PVTokens.accent.opacity(0.7) : PVTokens.tertiary)
+                                .frame(width: 18)
+                            Text(item.label)
+                                .font(PVTokens.bodyFont)
+                                .foregroundStyle(item.isComplete ? PVTokens.secondary : PVTokens.primary)
+                                .strikethrough(item.isComplete, color: PVTokens.tertiary)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, PVTokens.hPad)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if idx < viewModel.checklist.totalCount - 1 {
+                    ThinDivider()
+                        .padding(.horizontal, PVTokens.hPad)
+                }
+            }
+        }
+    }
+
+    // MARK: - Create Note Expanded
+
+    private var createNoteExpanded: some View {
+        VStack(spacing: 0) {
+            Text("START WITH A TEMPLATE")
+                .font(.systemScaled(10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(PVTokens.tertiary)
+                .kerning(0.6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, PVTokens.hPad)
+                .padding(.bottom, 14)
+
+            // Pre-Visit Intentions
+            noteTemplateRow(
+                icon: "thought.bubble",
+                title: "Pre-Visit Intentions",
+                subtitle: "Set your prayer intention and expectations",
+                templateKey: "preVisit"
+            )
+
+            ThinDivider().padding(.horizontal, PVTokens.hPad)
+
+            // Sermon Capture
+            noteTemplateRow(
+                icon: "text.quote",
+                title: "Sermon Capture",
+                subtitle: "Key scriptures, takeaways, and action steps",
+                templateKey: "sermonCapture"
+            )
+        }
+    }
+
+    private func noteTemplateRow(icon: String, title: String, subtitle: String, templateKey: String) -> some View {
+        Button {
+            viewModel.selectedNoteTemplate = templateKey
+            viewModel.showNoteTemplateSheet = true
+            viewModel.didCreateNote()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.systemScaled(18, weight: .light))
+                    .foregroundStyle(PVTokens.accent)
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title.uppercased())
+                        .font(.systemScaled(13, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(PVTokens.primary)
+                        .kerning(0.4)
+                    Text(subtitle)
+                        .font(.systemScaled(12, weight: .regular))
+                        .foregroundStyle(PVTokens.tertiary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.systemScaled(11, weight: .light))
+                    .foregroundStyle(PVTokens.tertiary)
+            }
+            .padding(.horizontal, PVTokens.hPad)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Prepare PostCard Expanded
+
+    private var preparePostCardExpanded: some View {
+        VStack(spacing: 0) {
+            Text("CHOOSE A POSTCARD TYPE")
+                .font(.systemScaled(10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(PVTokens.tertiary)
+                .kerning(0.6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, PVTokens.hPad)
+                .padding(.bottom, 14)
+
+            ForEach(Array([ChurchPostCardType.invite, .recommend].enumerated()), id: \.element) { idx, type in
+                Button {
+                    viewModel.selectedPostCardType = type
+                    viewModel.showPostCardComposerSheet = true
+                    viewModel.didCreatePostCard()
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: type.icon)
+                            .font(.systemScaled(18, weight: .light))
+                            .foregroundStyle(PVTokens.accent)
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(type.displayName.uppercased())
+                                .font(.systemScaled(13, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(PVTokens.primary)
+                                .kerning(0.4)
+                            Text(postCardSubtitle(for: type))
+                                .font(.systemScaled(12, weight: .regular))
+                                .foregroundStyle(PVTokens.tertiary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .light))
+                            .foregroundStyle(PVTokens.tertiary)
+                    }
+                    .padding(.horizontal, PVTokens.hPad)
+                    .padding(.vertical, 14)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if idx < 1 {
+                    ThinDivider().padding(.horizontal, PVTokens.hPad)
+                }
+            }
+        }
+    }
+
+    private func postCardSubtitle(for type: ChurchPostCardType) -> String {
+        switch type {
+        case .invite:       return "Send a friend an invitation to join you"
+        case .recommend:    return "Share why you'd recommend this church"
+        case .gratitude:    return "Express gratitude for this community"
+        case .testimony:    return "Share your testimony about this church"
+        case .encouragement: return "Encourage others to visit"
+        }
     }
 
     // MARK: - Action Area
@@ -853,7 +1086,7 @@ struct FirstVisitCompanionView: View {
 
                     if !isReadyToCreate {
                         Text(readinessHint)
-                            .font(.system(size: 12, weight: .light, design: .monospaced))
+                            .font(.systemScaled(12, weight: .light, design: .monospaced))
                             .foregroundStyle(PVTokens.tertiary)
                             .multilineTextAlignment(.center)
                     }
@@ -864,7 +1097,7 @@ struct FirstVisitCompanionView: View {
                 VStack(spacing: 14) {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle")
-                            .font(.system(size: 14, weight: .light))
+                            .font(.systemScaled(14, weight: .light))
                             .foregroundStyle(PVTokens.accent)
                         Text("VISIT PLANNED")
                             .font(PVTokens.rowMetaFont)

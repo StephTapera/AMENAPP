@@ -32,7 +32,7 @@ final class TestimonyDraftManager: ObservableObject {
     @Published var isWeaving = false
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private var listener: ListenerRegistration?
 
     private init() {}
@@ -68,7 +68,7 @@ final class TestimonyDraftManager: ObservableObject {
     // MARK: - Mark ready and weave
 
     func markReadyAndWeave(draftId: String) async throws {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard Auth.auth().currentUser?.uid != nil else { return }
 
         // Fetch latest draft to get all perspectives
         let doc = try await db.collection("testimonyDrafts").document(draftId).getDocument()

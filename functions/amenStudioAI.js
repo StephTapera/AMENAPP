@@ -10,13 +10,15 @@
  * AI backend: Claude (via Vertex AI or Anthropic API key in Secret Manager).
  * Falls back to a GPT-4o-mini prompt if Claude is unavailable.
  */
-
 "use strict";
 
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {defineSecret} = require("firebase-functions/params");
 const {checkRateLimit} = require("./rateLimiter");
+
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 const db = () => admin.firestore();
 
@@ -26,7 +28,7 @@ function getAnthropic() {
   if (!_anthropic) {
     const Anthropic = require("@anthropic-ai/sdk");
     _anthropic = new Anthropic.default({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+      apiKey: ANTHROPIC_API_KEY.value(),
     });
   }
   return _anthropic;

@@ -19,8 +19,6 @@ struct DiscoveryTopicPageView: View {
 
     enum Segment: String, CaseIterable { case top = "Top", latest = "Latest" }
 
-    private let db = Firestore.firestore()
-
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
@@ -53,7 +51,7 @@ struct DiscoveryTopicPageView: View {
                         VStack(spacing: 12) {
                             Spacer(minLength: 40)
                             Image(systemName: topic.icon)
-                                .font(.system(size: 32))
+                                .font(.systemScaled(32))
                                 .foregroundStyle(topic.iconColor.opacity(0.5))
                             Text("No posts in \(topic.title) yet")
                                 .font(.custom("OpenSans-Regular", size: 15))
@@ -89,7 +87,7 @@ struct DiscoveryTopicPageView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         isFollowingTopic.toggle()
                     }
                 } label: {
@@ -116,30 +114,21 @@ struct DiscoveryTopicPageView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 14) {
                 Image(systemName: topic.icon)
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.systemScaled(28, weight: .medium))
                     .foregroundStyle(topic.iconColor)
                     .frame(width: 60, height: 60)
                     .background(topic.backgroundColor)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
 
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(topic.title)
-                            .font(.custom("OpenSans-Bold", size: 20))
-                            .foregroundStyle(.primary)
-                        if topic.isTrending {
-                            Text("Trending")
-                                .font(.custom("OpenSans-SemiBold", size: 11))
-                                .foregroundStyle(.orange)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 3)
-                                .background(Capsule().fill(Color.orange.opacity(0.12)))
-                        }
-                    }
-                    if topic.postCount > 0 {
-                        Text("\(topic.postCount) posts")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                    Text(topic.title)
+                        .font(.custom("OpenSans-Bold", size: 20))
+                        .foregroundStyle(.primary)
+                    if !topic.description.isEmpty {
+                        Text(topic.description)
+                            .font(.custom("OpenSans-Regular", size: 13))
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
                 }
             }
@@ -157,7 +146,7 @@ struct DiscoveryTopicPageView: View {
         HStack(spacing: 0) {
             ForEach(Segment.allCases, id: \.self) { seg in
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.85))) {
                         selectedSegment = seg
                     }
                 } label: {
@@ -207,14 +196,14 @@ struct DiscoveryTopicPageView: View {
     private func scriptureReference(_ ref: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "book.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.indigo)
             Text(ref)
                 .font(.custom("OpenSans-SemiBold", size: 14))
                 .foregroundStyle(.indigo)
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.tertiary)
         }
         .padding(12)
@@ -232,19 +221,19 @@ struct DiscoveryTopicPageView: View {
         isLoadingPosts = true
         defer { isLoadingPosts = false }
 
-        // Load top posts by engagement
+        // Load top posts — ordered by recency (no engagement ranking)
         do {
-            let topSnapshot = try await db.collection("posts")
+            let topSnapshot = try await Firestore.firestore().collection("posts")
                 .whereField("topicTag", isEqualTo: topic.canonicalSlug)
                 .whereField("visibility", isEqualTo: "everyone")
-                .order(by: "amenCount", descending: true)
+                .order(by: "createdAt", descending: true)
                 .limit(to: 10)
                 .getDocuments()
 
             topPosts = topSnapshot.documents.compactMap { makePost(from: $0) }
 
             // Load latest posts by date
-            let latestSnapshot = try await db.collection("posts")
+            let latestSnapshot = try await Firestore.firestore().collection("posts")
                 .whereField("topicTag", isEqualTo: topic.canonicalSlug)
                 .whereField("visibility", isEqualTo: "everyone")
                 .order(by: "createdAt", descending: true)

@@ -25,7 +25,7 @@ final class ChurchEnhancementStore: ObservableObject {
     // churchId → enhancement data
     @Published private var data: [String: ChurchEnhancementData] = [:]
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [String: ListenerRegistration] = [:]
 
     func data(for churchId: String) -> ChurchEnhancementData? {
@@ -150,7 +150,7 @@ struct ChurchLogoOverlay: View {
             }
         }
         .frame(width: 44, height: 44)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white, lineWidth: 1.5))
         .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
@@ -159,7 +159,7 @@ struct ChurchLogoOverlay: View {
 
     private var initialsView: some View {
         Text(initials)
-            .font(.system(size: 16, weight: .bold))
+            .font(.systemScaled(16, weight: .bold))
             .foregroundStyle(Color(.secondaryLabel))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(.secondarySystemBackground))
@@ -212,7 +212,7 @@ struct SundayVibePill: View {
     var body: some View {
         if let vibe = store.data(for: churchId)?.sundayVibe, !vibe.isEmpty {
             Text(vibe)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color(.secondaryLabel))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
@@ -233,7 +233,7 @@ struct SeasonRecommendationText: View {
         let specs = store.data(for: churchId)?.seasonSpecializations ?? []
         if !spiritualSeason.isEmpty && specs.contains(spiritualSeason) {
             Text("Recommended for your current season")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color(.tertiaryLabel))
         }
     }
@@ -295,7 +295,7 @@ struct PrayerMomentumBadge: View {
                     Text("·")
                         .foregroundStyle(Color(.tertiaryLabel))
                     Text(pm.label)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
             }
@@ -330,11 +330,11 @@ struct PrayerMomentumSheet: View {
         if let pm = store.data(for: churchId)?.prayerMomentum {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Community faith activity")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.systemScaled(18, weight: .bold))
                     .foregroundStyle(Color(.label))
 
                 Text("\(pm.sampleSize) answered prayers reported in the last 90 days")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color(.secondaryLabel))
 
                 if !pm.last6MonthCounts.isEmpty {
@@ -344,7 +344,7 @@ struct PrayerMomentumSheet: View {
                 }
 
                 Text("Based on anonymous reports from AMEN members who attend this church")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color(.tertiaryLabel))
 
                 Spacer()
@@ -386,13 +386,21 @@ struct FirstVisitGuideData {
     var serviceFlow: [String]
     var conversationStarters: [String]
     var cachedAt: Date?
+    var kidsProgramAvailable: Bool?
+    var expectedDurationMinutes: Int?
+    var serviceStyle: String?
+    var accessibilityFeatures: [String]?
 
     init(from d: [String: Any]) {
-        parking              = d["parking"]     as? String
-        arrivalTip           = d["arrivalTip"]  as? String
-        whatToWear           = d["whatToWear"]  as? String
-        serviceFlow          = (d["serviceFlow"]          as? [String]) ?? []
-        conversationStarters = (d["conversationStarters"] as? [String]) ?? []
+        parking                 = d["parking"]                 as? String
+        arrivalTip              = d["arrivalTip"]              as? String
+        whatToWear              = d["whatToWear"]              as? String
+        serviceFlow             = (d["serviceFlow"]            as? [String]) ?? []
+        conversationStarters    = (d["conversationStarters"]   as? [String]) ?? []
+        kidsProgramAvailable    = d["kidsProgramAvailable"]    as? Bool
+        expectedDurationMinutes = d["expectedDurationMinutes"] as? Int
+        serviceStyle            = d["serviceStyle"]            as? String
+        accessibilityFeatures   = d["accessibilityFeatures"]   as? [String]
         if let ts = d["cachedAt"] as? Timestamp { cachedAt = ts.dateValue() }
     }
 

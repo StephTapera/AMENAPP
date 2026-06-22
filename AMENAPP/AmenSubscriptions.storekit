@@ -1,0 +1,315 @@
+{
+  "identifier" : "AmenSubscriptions",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "com.amenapp.AMENAPP",
+    "_developerTeamID" : "FGLL559H83",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verify Receipts"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Restore Purchases"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Fetch Offers"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "AmenPlatformSubscriptions",
+      "localizations" : [
+
+      ],
+      "name" : "AMEN Platform",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familySharable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amenplus_monthly_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "AI writing coach, personal discovery agent, photo memory vault, and advanced search.",
+              "displayName" : "AMEN Plus",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.amenplus.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "AMEN Plus Monthly",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "9.99",
+          "familySharable" : false,
+          "groupNumber" : 2,
+          "internalID" : "amenpro_monthly_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "AI Memory OS, advanced camera automation, and Family Guardian Dashboard.",
+              "displayName" : "AMEN Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.amenpro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "AMEN Pro Monthly",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "19.99",
+          "familySharable" : false,
+          "groupNumber" : 3,
+          "internalID" : "creatorpro_monthly_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Live streaming with AI Producer, multi-cam editing, Clip Studio, community moderator AI, and impact analytics.",
+              "displayName" : "Creator Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.creatorpro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Creator Pro Monthly",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.99",
+          "familySharable" : false,
+          "groupNumber" : 4,
+          "internalID" : "churchpro_monthly_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Live services, giving, simulcast, safety dashboards, member management, and multi-campus tools.",
+              "displayName" : "Church Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.churchpro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Church Pro Monthly",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.99",
+          "familySharable" : false,
+          "groupNumber" : 5,
+          "internalID" : "amenplus_annual_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "AI writing coach, personal discovery agent, photo memory vault, and advanced search — billed annually.",
+              "displayName" : "AMEN Plus Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.amenplus.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "AMEN Plus Annual",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "99.99",
+          "familySharable" : false,
+          "groupNumber" : 6,
+          "internalID" : "amenpro_annual_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "AI Memory OS, advanced camera automation, and Family Guardian Dashboard — billed annually.",
+              "displayName" : "AMEN Pro Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.amenpro.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "AMEN Pro Annual",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "199.99",
+          "familySharable" : false,
+          "groupNumber" : 7,
+          "internalID" : "creatorpro_annual_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Live streaming with AI Producer, multi-cam editing, Clip Studio, community moderator AI, and impact analytics — billed annually.",
+              "displayName" : "Creator Pro Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.creatorpro.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Creator Pro Annual",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "499.99",
+          "familySharable" : false,
+          "groupNumber" : 8,
+          "internalID" : "churchpro_annual_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Live services, giving, simulcast, safety dashboards, member management, and multi-campus tools — billed annually.",
+              "displayName" : "Church Pro Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.churchpro.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Church Pro Annual",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "19.00",
+          "familySharable" : false,
+          "groupNumber" : 9,
+          "internalID" : "catalog_creator_pro_monthly_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Build your catalog, enable Ask This Creator, and host up to 500 works with full monetization tools.",
+              "displayName" : "Creator Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.catalog.creatorpro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Catalog Creator Pro Monthly",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.00",
+          "familySharable" : false,
+          "groupNumber" : 10,
+          "internalID" : "catalog_creator_studio_monthly_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited works, transcript indexing, Knowledge Map, and full creator analytics for serious catalog builders.",
+              "displayName" : "Creator Studio",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amenapp.subscription.catalog.creatorstudio.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Catalog Creator Studio Monthly",
+          "subscriptionGroupID" : "AmenPlatformSubscriptions",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

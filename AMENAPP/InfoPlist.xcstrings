@@ -1,0 +1,4686 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "comment" : "Bundle display name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN"
+          }
+        }
+      }
+    },
+    "CFBundleGetInfoString" : {
+      "comment" : "Get Info string",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — شبكة اجتماعية محورها الإيمان"
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Xarxa social centrada en la fe"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — sociální síť zaměřená na víru"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 – trosbaseret socialt netværk"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 – Glaubenszentriertes soziales Netzwerk"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Κοινωνικό δίκτυο με επίκεντρο την πίστη"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN 1.0 — Faith-centered social network"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Faith-centred social network"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0: red social centrada en la fe"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Red social centrada en la fe"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 – uskontokeskeinen yhteisöpalvelu"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Réseau social centré sur la foi"
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Réseau social axé sur la foi"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — רשת חברתית שבמרכזה האמונה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — आस्था-केंद्रित सोशल नेटवर्क"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Društvena mreža usmjerena na vjeru"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 – Hitközpontú közösségi háló"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Jejaring sosial yang berpusat pada iman"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0: social network incentrato sulla fede"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — 信仰を中心としたソーシャルネットワーク"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — 신앙 중심 소셜 네트워크"
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Rangkaian sosial berteraskan iman"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 – trosbasert sosialt nettverk"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Sociaal netwerk met het geloof als middelpunt"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — sieć społecznościowa skupiona na wierze"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Rede social centrada na fé"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Rede social centrada na fé"
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Rețea socială centrată pe credință"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — социальная сеть, основанная на вере"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 – sociálna sieť zameraná na vieru"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 – ett trosbaserat socialt nätverk"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — เครือข่ายสังคมที่มีศรัทธาเป็นศูนย์กลาง"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — İnanç odaklı sosyal ağ"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — соціальна мережа, що ставить віру в центр"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — Mạng xã hội lấy đức tin làm trọng tâm"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — 以信仰为中心的社交网络"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — 以信仰為核心的社群網路"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 1.0 — 以信仰為核心的社交網絡"
+          }
+        }
+      }
+    },
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMENAPP"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENAPP"
+          }
+        }
+      }
+    },
+    "NSAppleMusicUsageDescription" : {
+      "comment" : "Privacy - Media Library Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يستخدم AMEN تطبيق Apple Music لتشغيل أغاني العبادة في Church Notes الخاصة بك."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilitza Apple Music per reproduir cançons de lloança a les teves Church Notes."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používá Apple Music k přehrávání chválicích písní ve vašich poznámkách Church Notes."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruger Apple Music til at afspille lovsange i dine Church Notes."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN nutzt Apple Music, um Lobpreislieder in deinen Church Notes abzuspielen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN χρησιμοποιεί το Apple Music για την αναπαραγωγή ύμνων λατρείας στις Church Notes σας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN uses Apple Music to play worship songs in your Church Notes."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN uses Apple Music to play worship songs in your Church Notes."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa Apple Music para reproducir canciones de alabanza en tus Church Notes."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa Apple Music para reproducir canciones de adoración en tus Church Notes."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN käyttää Apple Musicia ylistyslaulujen toistamiseen Church Notes -muistiinpanoissasi."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise Apple Music pour lire des chants de louange dans vos Church Notes."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise Apple Music pour faire jouer des chants de louange dans vos Church Notes."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN משתמשת ב-Apple Music כדי להשמיע שירי הלל ב״Church Notes״."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN आपके Church Notes में आराधना गीत चलाने के लिए Apple Music का उपयोग करता है।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN koristi Apple Music za reprodukciju pjesama hvale u vašim bilješkama Church Notes."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN az Apple Music szolgáltatást használja, hogy dicsőítő dalokat játsszon le a Church Notes jegyzeteidben."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan Apple Music untuk memutar lagu pujian di Church Notes Anda."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa Apple Music per riprodurre canti di lode nei tuoi Church Notes."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、Apple Musicを使用して、Church Notes内で礼拝の楽曲を再生します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 Apple Music을 사용하여 Church Notes에서 찬양곡을 재생합니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan Apple Music untuk memainkan lagu penyembahan dalam Church Notes anda."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruker Apple Music til å spille av lovsanger i Church Notes."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN gebruikt Apple Music om lofprijzingsliederen af te spelen in je Church Notes."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN korzysta z Apple Music, aby odtwarzać pieśni uwielbienia w Twoich notatkach Church Notes."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN usa o Apple Music para tocar músicas de adoração nas suas Church Notes."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN utiliza o Apple Music para reproduzir músicas de louvor nas suas Church Notes."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN folosește Apple Music pentru a reda cântece de laudă în notițele dvs. din Church Notes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN использует Apple Music для воспроизведения хвалебных песен в ваших Church Notes."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používa Apple Music na prehrávanie chválových piesní vo vašich Church Notes."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN använder Apple Music för att spela lovsånger i dina Church Notes."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN ใช้ Apple Music เพื่อเล่นเพลงนมัสการในบันทึกคริสตจักร (Church Notes) ของคุณ"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, Church Notes’ta ibadet şarkıları çalmak için Apple Music’i kullanır."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN використовує Apple Music для відтворення прославлень у Church Notes."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN sử dụng Apple Music để phát các bài hát thờ phượng trong Church Notes của bạn."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 使用 Apple Music 在你的 Church Notes 中播放敬拜歌曲。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 透過 Apple Music 在你的 Church Notes 中播放敬拜詩歌。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會使用 Apple Music，在你的 Church Notes 中播放敬拜歌曲。"
+          }
+        }
+      }
+    },
+    "NSCalendarsUsageDescription" : {
+      "comment" : "Privacy - Calendars Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يضيف AMEN فعاليات الكنيسة وتذكيرات القداس إلى تقويمك حتى لا يفوتك أي لحظة."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN afegeix esdeveniments de l’església i recordatoris dels serveis al teu calendari perquè no et perdis cap moment."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN přidává církevní události a připomínky bohoslužeb do vašeho kalendáře, abyste nezmeškali žádný okamžik."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN føjer kirkebegivenheder og påmindelser om gudstjenester til din kalender, så du aldrig går glip af et øjeblik."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN fügt deinem Kalender Gemeindeveranstaltungen und Erinnerungen an Gottesdienste hinzu, damit du keinen Moment verpasst."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN προσθέτει εκκλησιαστικές εκδηλώσεις και υπενθυμίσεις λειτουργιών στο ημερολόγιό σας, ώστε να μη χάνετε ποτέ καμία στιγμή."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN adds church events and service reminders to your calendar so you never miss a moment."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN adds church events and service reminders to your calendar so you never miss a moment."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN añade eventos de la iglesia y recordatorios de servicios a tu calendario para que no te pierdas ningún momento."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN agrega eventos de la iglesia y recordatorios de los servicios a tu calendario para que nunca te pierdas un momento."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN lisää seurakunnan tapahtumat ja jumalanpalvelusmuistutukset kalenteriisi, jotta et jää paitsi yhdestäkään hetkestä."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN ajoute les événements de votre église et des rappels de cultes à votre calendrier pour que vous ne manquiez aucun moment."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN ajoute les événements de votre église et des rappels de service à votre calendrier pour que vous ne manquiez jamais un moment."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN מוסיפה אירועי קהילה ותזכורות לתפילות אל לוח השנה, כדי שלא יוחמץ אף רגע."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN आपके कैलेंडर में चर्च के कार्यक्रम और सेवा अनुस्मारक जोड़ता है, ताकि आप कोई भी पल न चूकें।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN dodaje crkvene događaje i podsjetnike na bogoslužja u vaš kalendar kako ne biste propustili nijedan trenutak."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN gyülekezeti eseményeket és istentiszteleti emlékeztetőket ad a naptáradhoz, hogy egyetlen alkalomról se maradj le."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menambahkan acara gereja dan pengingat ibadah ke kalender Anda agar Anda tidak melewatkan satu momen pun."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN aggiunge eventi della chiesa e promemoria delle funzioni al tuo calendario, così non perdi mai un momento."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、教会のイベントや礼拝のリマインダーをカレンダーに追加し、大切な瞬間を見逃さないようにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 교회 행사와 예배 알림을 캘린더에 추가하여 소중한 순간을 놓치지 않도록 도와줍니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menambahkan acara gereja dan peringatan kebaktian ke kalendar anda supaya anda tidak terlepas sebarang detik."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN legger menighetsarrangementer og påminnelser om gudstjenester i kalenderen, slik at du aldri går glipp av et øyeblikk."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN voegt kerkevenementen en herinneringen voor diensten toe aan je agenda, zodat je nooit een moment mist."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN dodaje wydarzenia kościelne i przypomnienia o nabożeństwach do Twojego kalendarza, abyś nie przegapił żadnej chwili."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN adiciona eventos da igreja e lembretes de culto ao seu calendário para que você nunca perca um momento."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN adiciona eventos da igreja e lembretes de cultos ao seu calendário para que nunca perca um momento."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN adaugă în calendarul dvs. evenimentele bisericii și mementouri pentru slujbe, ca să nu pierdeți niciun moment."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN добавляет церковные события и напоминания о служениях в ваш календарь, чтобы вы ничего не пропустили."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN pridáva cirkevné udalosti a pripomienky bohoslužieb do vášho kalendára, aby vám nič neuniklo."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN lägger till kyrkoevenemang och påminnelser om gudstjänster i din kalender så att du aldrig missar något."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN เพิ่มกิจกรรมของคริสตจักรและการแจ้งเตือนการนมัสการลงในปฏิทินของคุณ เพื่อให้คุณไม่พลาดทุกช่วงเวลาสำคัญ"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, hiçbir anı kaçırmamanız için kilise etkinliklerini ve ibadet hatırlatıcılarını takviminize ekler."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN додає церковні події та нагадування про богослужіння до календаря, щоб ви нічого не пропустили."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN thêm các sự kiện của hội thánh và lời nhắc giờ thờ phượng vào lịch của bạn để bạn không bỏ lỡ khoảnh khắc nào."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 会将教会活动和礼拜提醒添加到你的日历，让你不错过任何重要时刻。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會將教會活動與聚會提醒加入你的行事曆，讓你不錯過任何重要時刻。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會將教會活動及崇拜提醒加入你的日曆，讓你不會錯過任何時刻。"
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription" : {
+      "comment" : "Privacy - Camera Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يستخدم AMEN الكاميرا لتتمكن من التقاط الصور ومقاطع الفيديو للمنشورات والقصص وصور الملف الشخصي."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilitza la càmera perquè puguis fer fotos i vídeos per a publicacions, històries i fotos de perfil."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používá fotoaparát, abyste mohli pořizovat fotky a videa pro příspěvky, příběhy a profilové obrázky."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruger kameraet, så du kan tage billeder og videoer til opslag, historier og profilbilleder."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN nutzt die Kamera, damit du Fotos und Videos für Beiträge, Storys und Profilbilder aufnehmen kannst."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN χρησιμοποιεί την κάμερα για να τραβάτε φωτογραφίες και βίντεο για δημοσιεύσεις, στιγμιότυπα και φωτογραφίες προφίλ."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN uses the camera to let you take photos and videos for posts, stories, and profile pictures."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN uses the camera to let you take photos and videos for posts, stories and profile pictures."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa la cámara para que puedas tomar fotos y videos para tus publicaciones, historias y fotos de perfil."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa la cámara para que puedas tomar fotos y videos para publicaciones, historias y fotos de perfil."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN käyttää kameraa, jotta voit ottaa kuvia ja videoita julkaisuihin, tarinoihin ja profiilikuviin."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise l’appareil photo pour vous permettre de prendre des photos et des vidéos pour vos publications, vos stories et vos photos de profil."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise l’appareil photo pour vous permettre de prendre des photos et des vidéos destinées à vos publications, à vos stories et à votre photo de profil."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN משתמשת במצלמה כדי לצלם תמונות וסרטונים לפוסטים, לסטוריז ולתמונות פרופיל."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN कैमरे का उपयोग आपको पोस्ट, स्टोरी और प्रोफ़ाइल चित्रों के लिए फ़ोटो और वीडियो लेने देने के लिए करता है।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN koristi kameru kako biste mogli snimati fotografije i videozapise za objave, priče i profilne slike."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN a kamerát arra használja, hogy fényképeket és videókat készíthess bejegyzésekhez, történetekhez és profilképekhez."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan kamera agar Anda dapat mengambil foto dan video untuk postingan, cerita, dan foto profil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa la fotocamera per permetterti di scattare foto e registrare video per post, storie e immagini del profilo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、カメラを使用して、投稿、ストーリー、プロフィール写真のための写真やビデオを撮影できるようにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 카메라를 사용하여 게시물, 스토리, 프로필 사진에 쓸 사진과 동영상을 촬영합니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan kamera untuk membolehkan anda mengambil foto dan video bagi catatan, cerita, dan gambar profil."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruker kameraet slik at du kan ta bilder og videoer til innlegg, historier og profilbilder."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN gebruikt de camera zodat je foto’s en video’s kunt maken voor berichten, verhalen en profielfoto’s."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN używa aparatu, aby umożliwić Ci robienie zdjęć i nagrywanie filmów do postów, relacji i zdjęć profilowych."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN usa a câmera para que você tire fotos e grave vídeos para publicações, stories e fotos de perfil."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN utiliza a câmara para lhe permitir tirar fotografias e gravar vídeos para publicações, histórias e fotografias de perfil."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN folosește camera pentru a vă permite să realizați fotografii și videoclipuri pentru postări, povești și fotografii de profil."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN использует камеру, чтобы вы могли снимать фото и видео для публикаций, историй и фото профиля."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používa fotoaparát, aby ste mohli snímať fotografie a videá pre príspevky, príbehy a profilové fotky."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN använder kameran så att du kan ta foton och spela in videor till inlägg, stories och profilbilder."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN ใช้กล้องเพื่อให้คุณถ่ายภาพและวิดีโอสำหรับโพสต์ สตอรี และรูปโปรไฟล์"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, gönderiler, hikâyeler ve profil fotoğrafları için fotoğraf ve video çekmenize olanak tanımak amacıyla kamerayı kullanır."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN використовує камеру, щоб ви могли знімати фото й відео для дописів, історій і фото профілю."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN sử dụng camera để bạn chụp ảnh và quay video cho bài đăng, tin và ảnh đại diện."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 使用相机让你为帖子、快拍和头像拍摄照片和视频。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會使用相機，讓你拍攝相片與影片，用於貼文、限時動態及大頭貼。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會使用相機，讓你為帖文、限時動態及個人檔案相片拍攝照片和影片。"
+          }
+        }
+      }
+    },
+    "NSContactsUsageDescription" : {
+      "comment" : "Privacy - Contacts Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يستخدم AMEN جهات اتصالك لمساعدتك في العثور على الأصدقاء الموجودين بالفعل على التطبيق. لا يتم تخزين أي معلومات اتصال على خوادمنا."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilitza els teus contactes per ajudar-te a trobar amics que ja són a l’app. No es desa cap dada de contacte als nostres servidors."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN používá vaše kontakty, aby vám pomohl najít přátele, kteří už aplikaci používají. Žádné kontaktní údaje se neukládají na našich serverech."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN bruger dine kontakter til at hjælpe dig med at finde venner, der allerede er på appen. Ingen kontaktoplysninger gemmes på vores servere."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN nutzt deine Kontakte, damit du Freund:innen findest, die bereits in der App sind. Es werden keine Kontaktdaten auf unseren Servern gespeichert."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Το AMEN χρησιμοποιεί τις επαφές σας για να σας βοηθήσει να βρείτε φίλους που χρησιμοποιούν ήδη την εφαρμογή. Δεν αποθηκεύονται στοιχεία επαφών στους διακομιστές μας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN uses your contacts to help you find friends already in your faith community and to set up trusted contacts for account recovery."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN uses your contacts to help you find friends who are already on the app. No contact information is stored on our servers."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa tus contactos para ayudarte a encontrar amigos que ya están en la app. No se almacena ninguna información de contacto en nuestros servidores."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa tus contactos para ayudarte a encontrar amigos que ya están en la app. No se almacena ninguna información de contacto en nuestros servidores."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN käyttää yhteystietojasi auttaakseen sinua löytämään ystäviä, jotka jo käyttävät sovellusta. Yhteystietoja ei tallenneta palvelimillemme."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilise vos contacts pour vous aider à retrouver les amis qui utilisent déjà l’app. Aucune information de contact n’est conservée sur nos serveurs."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilise vos contacts pour vous aider à trouver des amis qui sont déjà sur l’application. Aucune information de contact n’est conservée sur nos serveurs."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN משתמשת באנשי הקשר כדי לעזור לאתר חברים שכבר נמצאים באפליקציה. פרטי אנשי הקשר אינם נשמרים בשרתים שלנו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN आपके संपर्कों का उपयोग उन दोस्तों को खोजने में मदद के लिए करता है जो पहले से ऐप पर हैं। कोई भी संपर्क जानकारी हमारे सर्वर पर संग्रहीत नहीं की जाती।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN koristi vaše kontakte kako bi vam pomogao pronaći prijatelje koji već koriste aplikaciju. Podaci o kontaktima ne pohranjuju se na našim poslužiteljima."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az AMEN a névjegyeidet arra használja, hogy megtaláld azokat az ismerőseidet, akik már használják az alkalmazást. Semmilyen névjegyadatot nem tárolunk a szervereinken."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN menggunakan kontak Anda untuk membantu Anda menemukan teman yang sudah menggunakan aplikasi ini. Tidak ada informasi kontak yang disimpan di server kami."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa i tuoi contatti per aiutarti a trovare amici che usano già l’app. Nessuna informazione di contatto viene memorizzata sui nostri server."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMENは、連絡先を使用して、すでにAMENを利用している友達を見つけやすくします。連絡先情報がサーバに保存されることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN은 연락처를 사용하여 이미 앱을 이용 중인 친구를 찾도록 도와줍니다. 연락처 정보는 서버에 저장되지 않습니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN menggunakan kenalan anda untuk membantu anda mencari rakan yang sudah berada dalam aplikasi ini. Tiada maklumat kenalan disimpan pada pelayan kami."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN bruker kontaktene dine til å hjelpe deg med å finne venner som allerede bruker appen. Ingen kontaktinformasjon lagres på serverne våre."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN gebruikt je contacten om vrienden te vinden die al op de app zitten. Er wordt geen contactgegevens opgeslagen op onze servers."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN korzysta z Twoich kontaktów, aby pomóc Ci znaleźć znajomych, którzy już korzystają z aplikacji. Żadne dane kontaktowe nie są przechowywane na naszych serwerach."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "O AMEN usa seus contatos para ajudar você a encontrar amigos que já estão no app. Nenhuma informação de contato é armazenada em nossos servidores."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A AMEN utiliza os seus contactos para o ajudar a encontrar amigos que já utilizam a app. Nenhuma informação de contacto é armazenada nos nossos servidores."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN folosește contactele dvs. pentru a vă ajuta să găsiți prieteni care folosesc deja aplicația. Nicio informație de contact nu este stocată pe serverele noastre."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN использует ваши контакты, чтобы помочь найти друзей, которые уже пользуются приложением. Контактные данные не сохраняются на наших серверах."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN používa vaše kontakty, aby vám pomohol nájsť priateľov, ktorí už aplikáciu používajú. Žiadne kontaktné údaje sa neukladajú na našich serveroch."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN använder dina kontakter för att hjälpa dig hitta vänner som redan finns i appen. Ingen kontaktinformation lagras på våra servrar."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN ใช้รายชื่อผู้ติดต่อของคุณเพื่อช่วยให้คุณค้นหาเพื่อนที่ใช้แอปนี้อยู่แล้ว ข้อมูลผู้ติดต่อจะไม่ถูกจัดเก็บไว้บนเซิร์ฟเวอร์ของเรา"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN, uygulamada zaten bulunan arkadaşlarınızı bulmanıza yardımcı olmak için kişilerinizi kullanır. Hiçbir kişi bilgisi sunucularımızda saklanmaz."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN використовує ваші контакти, щоб допомогти знайти друзів, які вже користуються програмою. Контактні дані не зберігаються на наших серверах."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN sử dụng danh bạ để giúp bạn tìm những người bạn đã có mặt trên ứng dụng. Không có thông tin liên hệ nào được lưu trữ trên máy chủ của chúng tôi."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 使用你的通讯录帮你找到已经在使用本 App 的好友。我们不会在服务器上存储任何联系人信息。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 會使用你的通訊錄，協助你找到已經在使用本 App 的朋友。我們不會將任何聯絡人資訊儲存在伺服器上。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 會使用你的通訊錄，協助你尋找已在應用程式上的朋友。我們不會在伺服器儲存任何聯絡資料。"
+          }
+        }
+      }
+    },
+    "NSFaceIDUsageDescription" : {
+      "comment" : "Privacy - Face ID Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يستخدم AMEN ميزة Face ID للحفاظ على أمان حسابك وتمكينك من تسجيل الدخول بسرعة."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilitza Face ID per mantenir el teu compte segur i permetre’t iniciar la sessió ràpidament."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN používá Face ID k zabezpečení vašeho účtu a k rychlému přihlášení."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN bruger Face ID til at holde din konto sikker og logge dig hurtigt ind."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN nutzt Face ID, um dein Konto zu schützen und dir eine schnelle Anmeldung zu ermöglichen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Το AMEN χρησιμοποιεί το Face ID για να διατηρεί τον λογαριασμό σας ασφαλή και να σας επιτρέπει να συνδέεστε γρήγορα."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN uses Face ID to securely unlock the app and protect your private prayers and account."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN uses Face ID to keep your account secure and let you sign in quickly."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa Face ID para mantener tu cuenta segura y permitirte iniciar sesión rápidamente."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa Face ID para mantener tu cuenta segura y permitirte iniciar sesión rápidamente."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN käyttää Face ID:tä pitääkseen tilisi turvassa ja nopeuttaakseen kirjautumista."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilise Face ID pour protéger votre compte et vous permettre de vous connecter rapidement."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilise Face ID pour protéger votre compte et vous permettre de vous connecter rapidement."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN משתמשת ב-Face ID כדי לשמור על אבטחת החשבון ולאפשר התחברות מהירה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN आपके खाते को सुरक्षित रखने और आपको शीघ्रता से साइन इन करने देने के लिए Face ID का उपयोग करता है।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN koristi Face ID kako bi zaštitio vaš račun i omogućio vam brzu prijavu."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az AMEN a Face ID-t a fiókod biztonságának megőrzésére és a gyors bejelentkezésre használja."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN menggunakan Face ID untuk menjaga keamanan akun Anda dan memungkinkan Anda masuk dengan cepat."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa Face ID per proteggere il tuo account e permetterti di accedere rapidamente."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMENは、Face IDを使用して、アカウントを安全に保護し、すばやくサインインできるようにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN은 Face ID를 사용하여 계정을 안전하게 보호하고 빠르게 로그인할 수 있도록 합니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN menggunakan Face ID untuk memastikan akaun anda selamat dan membolehkan anda log masuk dengan pantas."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN bruker Face ID til å holde kontoen sikker og la deg logge inn raskt."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN gebruikt Face ID om je account te beveiligen en je snel te laten inloggen."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN używa funkcji Face ID, aby chronić Twoje konto i umożliwić Ci szybkie logowanie."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "O AMEN usa o Face ID para manter sua conta protegida e permitir que você entre rapidamente."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A AMEN utiliza o Face ID para manter a sua conta segura e lhe permitir iniciar sessão rapidamente."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN folosește Face ID pentru a vă păstra contul în siguranță și pentru a vă permite să vă conectați rapid."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN использует Face ID, чтобы защитить вашу учётную запись и позволить быстро входить в приложение."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN používa Face ID na zabezpečenie vášho účtu a rýchle prihlásenie."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN använder Face ID för att skydda ditt konto och låta dig logga in snabbt."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN ใช้ Face ID เพื่อรักษาความปลอดภัยของบัญชีและให้คุณลงชื่อเข้าใช้ได้อย่างรวดเร็ว"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN, hesabınızı güvende tutmak ve hızlıca giriş yapmanızı sağlamak için Face ID’yi kullanır."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN використовує Face ID, щоб захистити ваш обліковий запис і дати змогу швидко входити."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN sử dụng Face ID để bảo mật tài khoản và giúp bạn đăng nhập nhanh chóng."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 使用 Face ID 保护你的账户安全，并让你快速登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 會使用 Face ID 保護你的帳號安全，並讓你快速登入。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 會使用 Face ID 保障你的帳戶安全，並讓你快速登入。"
+          }
+        }
+      }
+    },
+    "NSHealthShareUsageDescription" : {
+      "comment" : "Privacy - Health Share Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يقرأ AMEN معدل ضربات قلبك ونشاطك لمساعدة Synaptic Studio على صياغة صلوات وتأملات تتناسب مع شعورك في الوقت الحالي. لا يتم تخزين أي بيانات صحية."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN llegeix la teva freqüència cardíaca i activitat per ajudar Synaptic Studio a crear pregàries i reflexions que s’adaptin a com et sents en aquest moment. No es desa cap dada de salut."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN čte vaši tepovou frekvenci a aktivitu, aby Synaptic Studio mohlo vytvářet modlitby a zamyšlení, které odpovídají tomu, jak se právě cítíte. Žádná zdravotní data se neukládají."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN læser din puls og aktivitet for at hjælpe Synaptic Studio med at skabe bønner og refleksioner, der passer til, hvordan du har det lige nu. Ingen helbredsdata gemmes."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN liest deine Herzfrequenz und Aktivität, damit Synaptic Studio Gebete und Reflexionen gestalten kann, die zu deinem aktuellen Befinden passen. Es werden keine Gesundheitsdaten gespeichert."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN διαβάζει τους καρδιακούς σας παλμούς και τη δραστηριότητά σας για να βοηθήσει το Synaptic Studio να δημιουργεί προσευχές και στοχασμούς που ταιριάζουν με το πώς νιώθετε αυτή τη στιγμή. Δεν αποθηκεύονται δεδομένα υγείας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN reads your heart rate and activity to help Synaptic Studio craft prayers and reflections that match how you feel right now. No health data is stored."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN reads your heart rate and activity to help Synaptic Studio craft prayers and reflections that match how you feel right now. No health data is stored."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN lee tu frecuencia cardíaca y tu actividad para ayudar a Synaptic Studio a crear oraciones y reflexiones acordes con cómo te sientes en este momento. No se almacena ningún dato de salud."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN lee tu frecuencia cardíaca y tu actividad para ayudar a Synaptic Studio a crear oraciones y reflexiones acordes con cómo te sientes en este momento. No se almacena ningún dato de salud."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN lukee sykkeesi ja aktiivisuutesi, jotta Synaptic Studio voi laatia rukouksia ja mietteitä, jotka vastaavat tämänhetkistä olotilaasi. Terveystietoja ei tallenneta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN consulte votre fréquence cardiaque et votre activité pour aider Synaptic Studio à composer des prières et des réflexions adaptées à votre état du moment. Aucune donnée de santé n’est conservée."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN lit votre fréquence cardiaque et votre activité pour aider Synaptic Studio à composer des prières et des réflexions qui correspondent à ce que vous ressentez en ce moment. Aucune donnée de santé n’est conservée."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN קוראת את קצב הלב והפעילות כדי לעזור ל״Synaptic Studio״ ליצור תפילות והרהורים שמתאימים להרגשה ברגע הנוכחי. נתוני בריאות אינם נשמרים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN आपकी हृदय गति और गतिविधि को पढ़ता है, ताकि Synaptic Studio आपकी वर्तमान भावनाओं से मेल खाती प्रार्थनाएँ और मनन तैयार कर सके। कोई भी स्वास्थ्य डेटा संग्रहीत नहीं किया जाता।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN čita vaš puls i aktivnost kako bi Synaptic Studio mogao oblikovati molitve i razmišljanja koja odgovaraju tome kako se trenutačno osjećate. Zdravstveni podaci se ne pohranjuju."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN beolvassa a pulzusodat és a mozgási aktivitásodat, hogy a Synaptic Studio olyan imádságokat és elmélkedéseket állíthasson össze, amelyek illenek a pillanatnyi érzéseidhez. Egészségügyi adatokat nem tárolunk."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN membaca detak jantung dan aktivitas Anda untuk membantu Synaptic Studio menyusun doa dan renungan yang sesuai dengan perasaan Anda saat ini. Tidak ada data kesehatan yang disimpan."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN legge la frequenza cardiaca e l’attività per aiutare Synaptic Studio a creare preghiere e riflessioni in sintonia con come ti senti in questo momento. Nessun dato sulla salute viene memorizzato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、心拍数とアクティビティを読み取り、Synaptic Studioが今の気持ちに寄り添った祈りや黙想を作成できるようにします。ヘルスケアのデータが保存されることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 심박수와 활동 데이터를 읽어 Synaptic Studio가 지금 느끼는 감정에 맞는 기도와 묵상을 만들도록 돕습니다. 건강 데이터는 저장되지 않습니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN membaca kadar denyutan jantung dan aktiviti anda untuk membantu Synaptic Studio menghasilkan doa dan renungan yang sepadan dengan perasaan anda pada masa ini. Tiada data kesihatan disimpan."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN leser av pulsen og aktiviteten din slik at Synaptic Studio kan lage bønner og refleksjoner som passer til hvordan du føler deg akkurat nå. Ingen helsedata lagres."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN leest je hartslag en activiteit om Synaptic Studio te helpen gebeden en overdenkingen te maken die aansluiten bij hoe je je op dit moment voelt. Er worden geen gezondheidsgegevens opgeslagen."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN odczytuje Twoje tętno i aktywność, aby pomóc Synaptic Studio tworzyć modlitwy i refleksje dopasowane do Twojego obecnego samopoczucia. Żadne dane zdrowotne nie są przechowywane."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN lê sua frequência cardíaca e atividade para ajudar o Synaptic Studio a criar orações e reflexões que combinam com como você se sente agora. Nenhum dado de saúde é armazenado."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN lê a sua frequência cardíaca e atividade para ajudar o Synaptic Studio a criar orações e reflexões que correspondam ao que sente neste momento. Nenhum dado de saúde é armazenado."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN citește ritmul cardiac și activitatea dvs. pentru a ajuta Synaptic Studio să creeze rugăciuni și reflecții potrivite cu starea dvs. de moment. Nu sunt stocate date despre sănătate."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN считывает ваш пульс и активность, чтобы Synaptic Studio мог создавать молитвы и размышления, соответствующие вашему текущему состоянию. Данные о здоровье не сохраняются."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN číta vašu srdcovú frekvenciu a aktivitu, aby Synaptic Studio mohlo pripraviť modlitby a zamyslenia zodpovedajúce tomu, ako sa práve cítite. Žiadne zdravotné údaje sa neukladajú."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN läser av din puls och aktivitet så att Synaptic Studio kan utforma böner och reflektioner som passar hur du mår just nu. Inga hälsodata lagras."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN อ่านอัตราการเต้นของหัวใจและกิจกรรมของคุณ เพื่อช่วยให้ Synaptic Studio สร้างคำอธิษฐานและบทใคร่ครวญที่สอดคล้องกับความรู้สึกของคุณในขณะนี้ ข้อมูลสุขภาพจะไม่ถูกจัดเก็บไว้"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, Synaptic Studio’nun şu anki ruh hâlinize uygun dualar ve düşünceler oluşturmasına yardımcı olmak için kalp atış hızınızı ve aktivitenizi okur. Hiçbir sağlık verisi saklanmaz."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN зчитує частоту серцевих скорочень та активність, щоб Synaptic Studio добирала молитви й роздуми відповідно до вашого теперішнього стану. Дані про здоровʼя не зберігаються."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN đọc nhịp tim và hoạt động của bạn để giúp Synaptic Studio tạo nên những lời cầu nguyện và suy ngẫm phù hợp với cảm xúc hiện tại của bạn. Không có dữ liệu sức khỏe nào được lưu trữ."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 会读取你的心率和活动数据，帮助 Synaptic Studio 创作贴合你当下感受的祷告与省思内容。我们不会存储任何健康数据。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會讀取你的心率與活動資料，協助 Synaptic Studio 撰寫貼近你當下感受的禱告與省思。系統不會儲存任何健康資料。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會讀取你的心率及活動數據，協助 Synaptic Studio 配合你此刻的感受，編寫合適的禱文與反思。我們不會儲存任何健康數據。"
+          }
+        }
+      }
+    },
+    "NSHealthUpdateUsageDescription" : {
+      "comment" : "Privacy - Health Update Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "قد يسجّل AMEN دقائق اليقظة الذهنية من جلسات الصلاة والتأمل في Apple Health، مما يساعدك على تتبع عافيتك الروحية إلى جانب صحتك الجسدية."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN pot registrar minuts de consciència plena de les sessions de pregària i meditació a Apple Health, per ajudar-te a fer un seguiment del teu benestar espiritual juntament amb la teva salut física."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN může do aplikace Apple Health zaznamenávat minuty všímavosti z modliteb a meditací, abyste mohli sledovat svou duchovní pohodu spolu s fyzickým zdravím."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN kan registrere minutter med mindfulness fra bøn og meditation i Apple Health, så du kan følge dit åndelige velvære sammen med dit fysiske helbred."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN kann Achtsamkeitsminuten aus Gebets- und Meditationssitzungen in Apple Health protokollieren, damit du dein spirituelles Wohlbefinden gemeinsam mit deiner körperlichen Gesundheit verfolgen kannst."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN μπορεί να καταγράφει λεπτά ενσυνειδητότητας από συνεδρίες προσευχής και διαλογισμού στο Apple Health, βοηθώντας σας να παρακολουθείτε την πνευματική σας ευεξία παράλληλα με τη σωματική σας υγεία."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN may log mindfulness minutes from prayer and meditation sessions to Apple Health, helping you track your spiritual wellness alongside your physical health."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN may log mindfulness minutes from prayer and meditation sessions to Apple Health, helping you track your spiritual wellbeing alongside your physical health."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN puede registrar en Salud de Apple los minutos de plenitud mental de tus sesiones de oración y meditación, ayudándote a seguir tu bienestar espiritual junto con tu salud física."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN puede registrar en Apple Salud los minutos de plenitud mental de tus sesiones de oración y meditación, lo que te ayuda a llevar un seguimiento de tu bienestar espiritual junto con tu salud física."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN voi kirjata rukous- ja meditaatiohetkien tietoisuusminuutit Apple Healthiin, jotta voit seurata hengellistä hyvinvointiasi fyysisen terveytesi rinnalla."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN peut enregistrer dans Apple Santé les minutes de pleine conscience issues de vos séances de prière et de méditation, vous aidant ainsi à suivre votre bien-être spirituel en parallèle de votre santé physique."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN peut enregistrer dans Apple Santé les minutes de pleine conscience de vos séances de prière et de méditation, ce qui vous aide à suivre votre bien-être spirituel en parallèle de votre santé physique."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN עשויה לתעד דקות של קשב מתפילות וממדיטציות אל Apple Health, כדי לעזור במעקב אחר הבריאות הרוחנית לצד הבריאות הגופנית."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN प्रार्थना और ध्यान सत्रों के माइंडफुलनेस मिनटों को Apple Health में दर्ज कर सकता है, जिससे आप अपनी शारीरिक सेहत के साथ-साथ अपनी आध्यात्मिक भलाई पर भी नज़र रख सकें।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN može zabilježiti minute usredotočenosti iz molitve i meditacije u aplikaciju Apple Health, pomažući vam da pratite svoju duhovnu dobrobit usporedno s tjelesnim zdravljem."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN az imádság és meditáció során eltöltött tudatos perceket az Apple Health alkalmazásba rögzítheti, hogy lelki jólétedet a testi egészséged mellett is nyomon követhesd."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN dapat mencatat menit kesadaran penuh dari sesi doa dan meditasi ke Apple Health, membantu Anda memantau kesehatan rohani Anda bersama kesehatan fisik Anda."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN può registrare i minuti di mindfulness delle sessioni di preghiera e meditazione su Salute, aiutandoti a monitorare il tuo benessere spirituale insieme alla tua salute fisica."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、祈りや瞑想のセッションのマインドフルネスの時間を“ヘルスケア”に記録し、身体の健康とあわせて心の健やかさを把握できるようにする場合があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 기도와 명상 세션의 마음챙김 시간을 Apple 건강에 기록하여, 신체 건강과 함께 영적 건강을 관리할 수 있도록 도울 수 있습니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN mungkin merekodkan minit kesedaran minda daripada sesi doa dan meditasi ke Apple Health, membantu anda menjejaki kesejahteraan rohani bersama-sama kesihatan fizikal anda."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN kan loggføre minutter med oppmerksomt nærvær fra bønne- og meditasjonsøkter i Apple Health, slik at du kan følge med på den åndelige velværen sammen med den fysiske helsen."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN kan mindfulness-minuten uit gebeds- en meditatiesessies vastleggen in Apple Health, zodat je je spirituele welzijn naast je lichamelijke gezondheid kunt bijhouden."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN może zapisywać minuty uważności z sesji modlitwy i medytacji w aplikacji Apple Health, pomagając Ci śledzić swój dobrostan duchowy obok zdrowia fizycznego."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN pode registrar minutos de atenção plena de sessões de oração e meditação no Apple Health, ajudando você a acompanhar seu bem-estar espiritual junto com sua saúde física."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN pode registar minutos de mindfulness das sessões de oração e meditação na app Saúde, ajudando-o a acompanhar o seu bem-estar espiritual a par da sua saúde física."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN poate înregistra în Apple Health minutele de atenție conștientă din sesiunile de rugăciune și meditație, ajutându-vă să vă urmăriți starea de bine spirituală alături de sănătatea fizică."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN может записывать минуты осознанности из сеансов молитвы и медитации в Apple Health, помогая вам отслеживать духовное благополучие наряду с физическим здоровьем."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN môže zaznamenávať minúty všímavosti z modlitieb a meditácií do Apple Health, čo vám pomôže sledovať vaše duchovné aj fyzické zdravie."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN kan logga mindfulnessminuter från böne- och meditationspass i Apple Hälsa, vilket hjälper dig att följa ditt andliga välbefinnande tillsammans med din fysiska hälsa."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN อาจบันทึกจำนวนนาทีของการมีสติจากช่วงการอธิษฐานและการทำสมาธิลงใน Apple Health เพื่อช่วยให้คุณติดตามความเป็นอยู่ที่ดีทางจิตวิญญาณควบคู่ไปกับสุขภาพร่างกายของคุณ"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, dua ve meditasyon seanslarından elde edilen farkındalık dakikalarını Apple Health’e kaydedebilir; böylece ruhsal sağlığınızı fiziksel sağlığınızla birlikte takip edebilirsiniz."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN може записувати хвилини усвідомленості з молитов і медитацій до програми «Здоровʼя», допомагаючи відстежувати духовний добробут поряд із фізичним здоровʼям."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN có thể ghi lại số phút tĩnh tâm từ các buổi cầu nguyện và thiền định vào Apple Health, giúp bạn theo dõi sức khỏe tâm linh song song với sức khỏe thể chất."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 可能会将祷告和冥想过程中的正念分钟数记录到 Apple Health，帮助你在关注身体健康的同时追踪自己的灵性健康。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 可能會將禱告與冥想過程中的正念時間記錄到 Apple 健康，協助你同時掌握自己的心靈健康與身體健康。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 或會將禱告及冥想時段的靜觀分鐘數記錄至 Apple 健康，協助你同時追蹤靈性健康與身體健康。"
+          }
+        }
+      }
+    },
+    "NSLocationAlwaysAndWhenInUseUsageDescription" : {
+      "comment" : "Privacy - Location Always and When In Use Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "نحتاج إلى موقعك لإرسال تذكيرات إليك عندما تكون بالقرب من الكنائس المحفوظة لديك."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Necessitem la teva ubicació per enviar-te recordatoris quan siguis a prop de les esglésies que has desat."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Vaši polohu potřebujeme k tomu, abychom vám mohli posílat připomínky, když se nacházíte poblíž vašich uložených kostelů."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Vi har brug for din placering for at sende dig påmindelser, når du er i nærheden af dine gemte kirker."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Wir benötigen deinen Standort, um dir Erinnerungen zu senden, wenn du dich in der Nähe deiner gespeicherten Gemeinden befindest."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Χρειαζόμαστε την τοποθεσία σας για να σας στέλνουμε υπενθυμίσεις όταν βρίσκεστε κοντά στις αποθηκευμένες εκκλησίες σας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "We need your location to send you reminders when you're near your saved churches"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "We need your location to send you reminders when you’re near your saved churches."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Necesitamos tu ubicación para enviarte recordatorios cuando estés cerca de tus iglesias guardadas."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Necesitamos tu ubicación para enviarte recordatorios cuando estés cerca de tus iglesias guardadas."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Tarvitsemme sijaintiasi lähettääksemme sinulle muistutuksia, kun olet lähellä tallentamiasi seurakuntia."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Nous avons besoin de votre position pour vous envoyer des rappels lorsque vous êtes à proximité de vos églises enregistrées."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Nous avons besoin de votre position pour vous envoyer des rappels lorsque vous êtes à proximité de vos églises enregistrées."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "אנו זקוקים למיקום כדי לשלוח תזכורות כשנמצאים בקרבת הכנסיות השמורות."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "जब आप अपने सहेजे गए चर्चों के पास हों तो आपको अनुस्मारक भेजने के लिए हमें आपके स्थान की आवश्यकता है।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Vaša lokacija potrebna nam je kako bismo vam slali podsjetnike kada se nalazite blizu svojih spremljenih crkava."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A tartózkodási helyedre azért van szükségünk, hogy emlékeztetőket küldhessünk, amikor a mentett gyülekezeteid közelében jársz."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Kami memerlukan lokasi Anda untuk mengirimkan pengingat saat Anda berada di dekat gereja yang Anda simpan."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Abbiamo bisogno della tua posizione per inviarti promemoria quando sei vicino alle chiese che hai salvato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "保存した教会の近くにいるときにリマインダーを送信するため、位置情報が必要です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "저장한 교회 근처에 있을 때 알림을 보내기 위해 위치 정보가 필요합니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Kami memerlukan lokasi anda untuk menghantar peringatan apabila anda berada berhampiran gereja yang telah anda simpan."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Vi trenger posisjonen din for å sende deg påminnelser når du er i nærheten av menighetene du har lagret."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "We hebben je locatie nodig om je herinneringen te sturen wanneer je in de buurt bent van je opgeslagen kerken."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Potrzebujemy Twojej lokalizacji, aby wysyłać Ci przypomnienia, gdy znajdziesz się w pobliżu zapisanych kościołów."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Precisamos da sua localização para enviar lembretes quando você estiver perto das igrejas que você salvou."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Precisamos da sua localização para lhe enviar lembretes quando estiver perto das igrejas que guardou."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Avem nevoie de locația dvs. pentru a vă trimite mementouri când vă aflați în apropierea bisericilor salvate."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Нам нужна ваша геопозиция, чтобы отправлять напоминания, когда вы находитесь рядом с сохранёнными церквями."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Vašu polohu potrebujeme, aby sme vám mohli poslať pripomienky, keď sa nachádzate v blízkosti vašich uložených kostolov."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Vi behöver din plats för att skicka påminnelser när du är nära dina sparade kyrkor."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "เราต้องการตำแหน่งที่ตั้งของคุณเพื่อส่งการแจ้งเตือนเมื่อคุณอยู่ใกล้คริสตจักรที่คุณบันทึกไว้"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Kaydettiğiniz kiliselerin yakınındayken size hatırlatıcılar gönderebilmek için konumunuza ihtiyacımız var."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Геопозиція потрібна, щоб надсилати нагадування, коли ви перебуваєте поблизу збережених церков."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Chúng tôi cần vị trí của bạn để gửi lời nhắc khi bạn ở gần những hội thánh đã lưu."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "我们需要获取你的位置，以便在你靠近已收藏的教会时向你发送提醒。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "我們需要你的位置，以便在你接近已收藏的教會時傳送提醒給你。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "我們需要你的位置，以便在你接近已儲存的教會時向你發送提醒。"
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription" : {
+      "comment" : "Privacy - Location When In Use Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يستخدم AMEN موقعك لعرض الكنائس القريبة ومساعدتك في العثور على مجتمعات إيمانية في منطقتك."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilitza la teva ubicació per mostrar esglésies properes i ajudar-te a trobar comunitats de fe a la teva zona."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používá vaši polohu k zobrazení kostelů v okolí a pomáhá vám najít společenství věřících ve vašem okolí."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruger din placering til at vise kirker i nærheden og hjælpe dig med at finde trosfællesskaber i dit område."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN nutzt deinen Standort, um Gemeinden in der Nähe anzuzeigen und dir zu helfen, Glaubensgemeinschaften in deiner Umgebung zu finden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN χρησιμοποιεί την τοποθεσία σας για να εμφανίζει κοντινές εκκλησίες και να σας βοηθά να βρείτε κοινότητες πίστης στην περιοχή σας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN uses your location to show nearby churches and help you find faith communities in your area."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN uses your location to show nearby churches and help you find faith communities in your area."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa tu ubicación para mostrarte iglesias cercanas y ayudarte a encontrar comunidades de fe en tu zona."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa tu ubicación para mostrar iglesias cercanas y ayudarte a encontrar comunidades de fe en tu zona."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN käyttää sijaintiasi näyttääkseen lähellä olevia seurakuntia ja auttaakseen sinua löytämään uskonyhteisöjä alueeltasi."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise votre position pour afficher les églises à proximité et vous aider à trouver des communautés de foi dans votre région."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise votre position pour afficher les églises à proximité et vous aider à trouver des communautés de foi dans votre région."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN משתמשת במיקום כדי להציג כנסיות בקרבת מקום ולעזור למצוא קהילות אמונה באזור."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN आपके स्थान का उपयोग आस-पास के चर्च दिखाने और आपके क्षेत्र में आस्था समुदाय खोजने में मदद के लिए करता है।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN koristi vašu lokaciju za prikaz obližnjih crkava i pomoć u pronalaženju vjerskih zajednica u vašem području."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN a tartózkodási helyedet a közeli gyülekezetek megjelenítésére használja, és segít megtalálni a környékbeli hitközösségeket."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan lokasi Anda untuk menampilkan gereja terdekat dan membantu Anda menemukan komunitas iman di sekitar Anda."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa la tua posizione per mostrare le chiese vicine e aiutarti a trovare comunità di fede nella tua zona."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、位置情報を使用して、近くの教会を表示し、地域の信仰コミュニティを見つけやすくします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 위치 정보를 사용하여 주변 교회를 보여주고 내 지역의 신앙 공동체를 찾도록 도와줍니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan lokasi anda untuk menunjukkan gereja berhampiran dan membantu anda mencari komuniti iman di kawasan anda."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruker posisjonen din til å vise menigheter i nærheten og hjelpe deg med å finne trosfellesskap i området ditt."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN gebruikt je locatie om kerken in de buurt te tonen en je te helpen geloofsgemeenschappen in jouw omgeving te vinden."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN korzysta z Twojej lokalizacji, aby pokazywać pobliskie kościoły i pomagać Ci znaleźć wspólnoty wiary w Twojej okolicy."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN usa sua localização para mostrar igrejas próximas e ajudar você a encontrar comunidades de fé na sua região."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN utiliza a sua localização para mostrar igrejas próximas e o ajudar a encontrar comunidades de fé na sua área."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN folosește locația dvs. pentru a afișa bisericile din apropiere și a vă ajuta să găsiți comunități de credință în zona dvs."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN использует вашу геопозицию, чтобы показывать ближайшие церкви и помогать находить религиозные сообщества в вашем районе."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používa vašu polohu na zobrazenie kostolov v okolí a pomáha vám nájsť veriace spoločenstvá vo vašej oblasti."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN använder din plats för att visa kyrkor i närheten och hjälpa dig hitta trosgemenskaper i ditt område."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN ใช้ตำแหน่งที่ตั้งของคุณเพื่อแสดงคริสตจักรใกล้เคียงและช่วยให้คุณค้นพบชุมชนแห่งศรัทธาในพื้นที่ของคุณ"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, yakındaki kiliseleri göstermek ve bölgenizdeki inanç topluluklarını bulmanıza yardımcı olmak için konumunuzu kullanır."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN використовує геопозицію, щоб показувати церкви поблизу й допомагати знаходити спільноти віруючих у вашому районі."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN sử dụng vị trí của bạn để hiển thị các hội thánh gần đó và giúp bạn tìm cộng đồng đức tin trong khu vực của mình."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 使用你的位置来显示附近的教会，帮你在所在地区找到信仰群体。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會使用你的位置來顯示附近的教會，協助你尋找所在地區的信仰群體。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會使用你的位置，顯示附近的教會，並協助你尋找區內的信仰群體。"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "Privacy - Microphone Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يستخدم AMEN الميكروفون لتسجيلات الصلاة الصوتية والرسائل الصوتية وميزات الصوت بالذكاء الاصطناعي."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilitza el micròfon per a gravacions de pregària amb veu, missatges de veu i funcions de veu amb IA."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používá mikrofon pro hlasové nahrávky modliteb, hlasové zprávy a funkce hlasové AI."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruger mikrofonen til optagelser af bøn, talebeskeder og AI-stemmefunktioner."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN nutzt das Mikrofon für Sprachaufnahmen von Gebeten, Sprachnachrichten und KI-Sprachfunktionen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN χρησιμοποιεί το μικρόφωνο για ηχογραφήσεις φωνητικής προσευχής, φωνητικά μηνύματα και λειτουργίες φωνής με τεχνητή νοημοσύνη."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN uses the microphone for voice prayer recordings, voice messages, and AI voice features."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN uses the microphone for voice prayer recordings, voice messages and AI voice features."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa el micrófono para grabar oraciones de voz, mensajes de voz y funciones de voz con IA."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa el micrófono para grabar oraciones por voz, mensajes de voz y funciones de voz con IA."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN käyttää mikrofonia ääneen tallennettuihin rukouksiin, ääniviesteihin ja tekoälyn ääniominaisuuksiin."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise le microphone pour les enregistrements de prières vocales, les messages vocaux et les fonctionnalités vocales d’IA."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise le microphone pour les enregistrements de prière vocale, les messages vocaux et les fonctions vocales d’IA."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN משתמשת במיקרופון להקלטות תפילה קוליות, להודעות קוליות ולתכונות קול מבוססות בינה מלאכותית."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN माइक्रोफ़ोन का उपयोग आवाज़ से प्रार्थना रिकॉर्डिंग, वॉइस संदेश और AI वॉइस सुविधाओं के लिए करता है।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN koristi mikrofon za glasovne snimke molitvi, glasovne poruke i AI glasovne značajke."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN a mikrofont hangos imafelvételekhez, hangüzenetekhez és mesterséges intelligencián alapuló hangfunkciókhoz használja."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan mikrofon untuk rekaman doa suara, pesan suara, dan fitur suara AI."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa il microfono per le registrazioni vocali di preghiera, i messaggi vocali e le funzioni vocali con IA."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、音声による祈りの録音、ボイスメッセージ、AIの音声機能のためにマイクを使用します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 음성 기도 녹음, 음성 메시지, AI 음성 기능을 위해 마이크를 사용합니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan mikrofon untuk rakaman doa suara, mesej suara, dan ciri suara AI."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruker mikrofonen til lydopptak av bønner, talemeldinger og KI-stemmefunksjoner."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN gebruikt de microfoon voor gesproken gebedsopnames, spraakberichten en AI-spraakfuncties."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN używa mikrofonu do nagrywania modlitw głosowych, wiadomości głosowych oraz funkcji głosowych opartych na AI."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN usa o microfone para gravações de oração por voz, mensagens de voz e recursos de voz com IA."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN utiliza o microfone para gravações de oração por voz, mensagens de voz e funcionalidades de voz com IA."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN folosește microfonul pentru înregistrări vocale de rugăciune, mesaje vocale și funcții vocale bazate pe AI."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN использует микрофон для записи голосовых молитв, голосовых сообщений и голосовых функций ИИ."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používa mikrofón na hlasové nahrávky modlitieb, hlasové správy a funkcie hlasovej AI."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN använder mikrofonen för inspelade böner, röstmeddelanden och AI-röstfunktioner."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN ใช้ไมโครโฟนสำหรับการบันทึกเสียงอธิษฐาน ข้อความเสียง และฟีเจอร์เสียง AI"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, sesli dua kayıtları, sesli mesajlar ve yapay zekâ ses özellikleri için mikrofonu kullanır."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN використовує мікрофон для запису молитов голосом, голосових повідомлень і функцій голосового ШІ."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN sử dụng micrô để ghi âm lời cầu nguyện, tin nhắn thoại và các tính năng giọng nói AI."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 使用麦克风进行语音祷告录制、语音消息以及 AI 语音功能。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會使用麥克風進行語音禱告錄製、語音訊息及 AI 語音功能。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會使用麥克風，用於語音禱告錄音、語音訊息及 AI 語音功能。"
+          }
+        }
+      }
+    },
+    "NSMotionUsageDescription" : {
+      "comment" : "Privacy - Motion Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يستخدم AMEN نشاط الحركة لاكتشاف وقت قيادتك للسيارة حتى يتمكن من تفعيل وضع Berean Voice دون استخدام اليدين."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilitza l’activitat de moviment per detectar quan condueixes i així activar el mode mans lliures de Berean Voice."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN používá údaje o pohybu, aby rozpoznal, kdy řídíte, a mohl aktivovat hands-free režim Berean Voice."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN bruger bevægelsesaktivitet til at registrere, når du kører bil, så den kan aktivere håndfri Berean Voice-tilstand."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN nutzt Bewegungsdaten, um zu erkennen, wann du Auto fährst, damit der freihändige Berean Voice-Modus aktiviert werden kann."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Το AMEN χρησιμοποιεί τη δραστηριότητα κίνησης για να εντοπίζει πότε οδηγείτε, ώστε να ενεργοποιεί τη λειτουργία Berean Voice χωρίς χρήση των χεριών."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN uses motion data to detect when you arrive at or are near your saved churches."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN uses motion activity to detect when you’re driving so it can activate hands-free Berean Voice mode."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa la actividad de movimiento para detectar cuándo estás conduciendo y poder activar el modo manos libres de Berean Voice."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa la actividad de movimiento para detectar cuándo estás conduciendo y así activar el modo manos libres de Berean Voice."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN käyttää liiketietoja tunnistaakseen, milloin ajat autoa, jotta se voi ottaa käyttöön handsfree-tilan Berean Voice -toiminnolle."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilise l’activité de mouvement pour détecter lorsque vous conduisez et activer ainsi le mode mains libres Berean Voice."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilise les données de mouvement pour détecter lorsque vous conduisez afin d’activer le mode mains libres Berean Voice."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN משתמשת בנתוני תנועה כדי לזהות נהיגה ולהפעיל את מצב ״Berean Voice״ ללא מגע ידיים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN गति गतिविधि का उपयोग यह पता लगाने के लिए करता है कि आप कब गाड़ी चला रहे हैं, ताकि वह हैंड्स-फ़्री Berean Voice मोड सक्रिय कर सके।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN koristi podatke o kretanju kako bi prepoznao kada vozite te tako mogao aktivirati način rada Berean Voice bez upotrebe ruku."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az AMEN a mozgási aktivitást arra használja, hogy észlelje, amikor vezetsz, így aktiválhatja a kihangosított Berean Voice módot."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN menggunakan aktivitas gerak untuk mendeteksi saat Anda sedang menyetir sehingga dapat mengaktifkan mode Berean Voice bebas genggam."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa i dati di movimento per rilevare quando stai guidando, così da attivare la modalità a mani libere di Berean Voice."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMENは、モーションアクティビティを使用して運転中かどうかを検出し、ハンズフリーのBerean Voiceモードを有効にします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN은 동작 활동 데이터를 사용하여 운전 중인지 감지하고 핸즈프리 Berean Voice 모드를 활성화합니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN menggunakan aktiviti gerakan untuk mengesan apabila anda sedang memandu supaya ia boleh mengaktifkan mod Berean Voice bebas tangan."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN bruker bevegelsesaktivitet til å oppdage når du kjører, slik at den kan aktivere håndfrimodusen Berean Voice."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN gebruikt bewegingsactiviteit om te detecteren wanneer je aan het rijden bent, zodat de handsfree Berean Voice-modus kan worden ingeschakeld."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN korzysta z danych o aktywności ruchowej, aby wykryć, kiedy prowadzisz samochód, i wówczas włączyć tryb głosowy Berean Voice bez użycia rąk."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "O AMEN usa a atividade de movimento para detectar quando você está dirigindo e ativar o modo Berean Voice mãos-livres."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A AMEN utiliza a atividade de movimento para detetar quando está a conduzir, de modo a ativar o modo mãos-livres do Berean Voice."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN folosește activitatea de mișcare pentru a detecta când conduceți, astfel încât să poată activa modul Berean Voice fără utilizarea mâinilor."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN использует данные о движении, чтобы определить, когда вы за рулём, и включить режим Berean Voice для управления без рук."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN používa údaje o pohybe na rozpoznanie, kedy šoférujete, aby mohol aktivovať hands-free režim Berean Voice."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN använder rörelseaktivitet för att känna av när du kör bil så att det handsfree-läget Berean Voice kan aktiveras."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN ใช้กิจกรรมการเคลื่อนไหวเพื่อตรวจจับเมื่อคุณกำลังขับรถ เพื่อเปิดใช้งานโหมด Berean Voice แบบแฮนด์ฟรี"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN, araç kullandığınızı algılayıp eller serbest Berean Voice modunu etkinleştirebilmek için hareket etkinliğinizi kullanır."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN використовує дані про рух, щоб визначати, коли ви за кермом, і вмикати режим Berean Voice без рук."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN sử dụng dữ liệu chuyển động để nhận biết khi bạn đang lái xe nhằm kích hoạt chế độ Berean Voice rảnh tay."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 使用运动活动数据检测你何时在驾车，以便启用免提的 Berean Voice 模式。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 會使用動作活動資料來偵測你是否正在開車，以便啟用免持的 Berean Voice 模式。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 會使用動作活動數據偵測你是否正在駕駛，以便啟動免提的 Berean Voice 模式。"
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryAddUsageDescription" : {
+      "comment" : "Privacy - Photo Library Additions Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يحفظ AMEN الصور المشتركة ووسائط الكنيسة في مكتبة الصور الخاصة بك."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN desa les fotos compartides i el contingut de l’església a la teva fototeca."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN ukládá sdílené fotky a církevní média do vaší knihovny fotek."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN gemmer delte billeder og kirkemedier i dit billedbibliotek."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN sichert geteilte Fotos und Gemeindemedien in deiner Fotomediathek."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN αποθηκεύει κοινοποιημένες φωτογραφίες και εκκλησιαστικό υλικό στη βιβλιοθήκη φωτογραφιών σας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN saves shared photos and church media to your photo library."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN saves shared photos and church media to your photo library."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN guarda en tu fototeca las fotos compartidas y el contenido multimedia de la iglesia."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN guarda en tu biblioteca de fotos las fotos compartidas y el contenido de la iglesia."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN tallentaa jaetut kuvat ja seurakunnan median kuvakirjastoosi."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN enregistre les photos partagées et les contenus de votre église dans votre photothèque."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN enregistre dans votre photothèque les photos partagées et le contenu multimédia de votre église."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN שומרת תמונות משותפות ומדיה של הקהילה אל ספריית התמונות."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN साझा की गई फ़ोटो और चर्च मीडिया को आपकी फ़ोटो लाइब्रेरी में सहेजता है।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN sprema podijeljene fotografije i crkvene medijske sadržaje u vašu biblioteku fotografija."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN a megosztott fényképeket és gyülekezeti médiatartalmakat a fotótáradba menti."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menyimpan foto yang dibagikan dan media gereja ke pustaka foto Anda."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN salva nella tua libreria foto le immagini condivise e i contenuti multimediali della chiesa."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、共有された写真や教会のメディアを“写真”ライブラリに保存します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 공유된 사진과 교회 미디어를 사진 보관함에 저장합니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menyimpan foto yang dikongsi dan media gereja ke pustaka foto anda."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN lagrer delte bilder og menighetsmedier i bildebiblioteket ditt."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bewaart gedeelde foto’s en kerkmedia in je fotobibliotheek."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN zapisuje udostępnione zdjęcia i materiały kościelne w Twojej bibliotece zdjęć."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN salva fotos compartilhadas e mídias da igreja na sua biblioteca de fotos."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN guarda fotografias partilhadas e conteúdo multimédia da igreja na sua biblioteca de fotografias."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN salvează fotografiile partajate și materialele bisericii în biblioteca dvs. foto."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN сохраняет полученные фото и церковные медиафайлы в вашу медиатеку."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN ukladá zdieľané fotografie a cirkevné médiá do vašej knižnice fotografií."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN sparar delade foton och kyrkomedia i ditt bildbibliotek."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN บันทึกรูปภาพที่แชร์และสื่อของคริสตจักรลงในคลังรูปภาพของคุณ"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, paylaşılan fotoğrafları ve kilise medyasını fotoğraf kitaplığınıza kaydeder."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN зберігає надіслані фото й церковні медіа до вашої медіатеки."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN lưu ảnh được chia sẻ và phương tiện của hội thánh vào thư viện ảnh của bạn."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 会将分享的照片和教会媒体内容保存到你的照片图库。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會將分享的相片與教會媒體儲存到你的照片圖庫。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會將分享的相片及教會媒體儲存至你的相片圖庫。"
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryUsageDescription" : {
+      "comment" : "Privacy - Photo Library Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يصل AMEN إلى مكتبة الصور الخاصة بك لتتمكن من مشاركة الصور ومقاطع الفيديو في المنشورات وتعيين صورة ملفك الشخصي."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN accedeix a la teva fototeca perquè puguis compartir fotos i vídeos a les publicacions i establir la teva foto de perfil."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN přistupuje k vaší knihovně fotek, abyste mohli sdílet fotky a videa v příspěvcích a nastavit si profilový obrázek."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN får adgang til dit billedbibliotek, så du kan dele billeder og videoer i opslag og angive dit profilbillede."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN greift auf deine Fotomediathek zu, damit du Fotos und Videos in Beiträgen teilen und dein Profilbild festlegen kannst."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN αποκτά πρόσβαση στη βιβλιοθήκη φωτογραφιών σας για να μπορείτε να μοιράζεστε φωτογραφίες και βίντεο σε δημοσιεύσεις και να ορίζετε τη φωτογραφία προφίλ σας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN accesses your photo library to let you share photos and videos in posts and set your profile picture."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN accesses your photo library to let you share photos and videos in posts and set your profile picture."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN accede a tu fototeca para que puedas compartir fotos y videos en tus publicaciones y establecer tu foto de perfil."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN accede a tu biblioteca de fotos para que puedas compartir fotos y videos en publicaciones y establecer tu foto de perfil."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN käyttää kuvakirjastoasi, jotta voit jakaa kuvia ja videoita julkaisuissa ja asettaa profiilikuvasi."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN accède à votre photothèque pour vous permettre de partager des photos et des vidéos dans vos publications et de définir votre photo de profil."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN accède à votre photothèque pour vous permettre de partager des photos et des vidéos dans vos publications et de définir votre photo de profil."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN ניגשת לספריית התמונות כדי לאפשר שיתוף תמונות וסרטונים בפוסטים והגדרת תמונת פרופיל."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN आपकी फ़ोटो लाइब्रेरी तक पहुँचता है, ताकि आप पोस्ट में फ़ोटो और वीडियो साझा कर सकें और अपनी प्रोफ़ाइल तस्वीर सेट कर सकें।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN pristupa vašoj biblioteci fotografija kako biste mogli dijeliti fotografije i videozapise u objavama i postaviti svoju profilnu sliku."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN azért fér hozzá a fotótáradhoz, hogy fényképeket és videókat oszthass meg bejegyzésekben, és beállíthasd a profilképedet."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN mengakses pustaka foto Anda agar Anda dapat membagikan foto dan video di postingan serta mengatur foto profil Anda."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN accede alla tua libreria foto per permetterti di condividere foto e video nei post e di impostare l’immagine del profilo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、“写真”ライブラリにアクセスして、投稿で写真やビデオを共有したり、プロフィール写真を設定したりできるようにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 사진 보관함에 접근하여 게시물에 사진과 동영상을 공유하고 프로필 사진을 설정할 수 있도록 합니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN mengakses pustaka foto anda untuk membolehkan anda berkongsi foto dan video dalam catatan serta menetapkan gambar profil anda."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruker bildebiblioteket ditt slik at du kan dele bilder og videoer i innlegg og angi profilbildet ditt."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN heeft toegang tot je fotobibliotheek zodat je foto’s en video’s kunt delen in berichten en je profielfoto kunt instellen."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN uzyskuje dostęp do Twojej biblioteki zdjęć, aby umożliwić Ci udostępnianie zdjęć i filmów w postach oraz ustawienie zdjęcia profilowego."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN acessa sua biblioteca de fotos para que você compartilhe fotos e vídeos em publicações e defina sua foto de perfil."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN acede à sua biblioteca de fotografias para lhe permitir partilhar fotografias e vídeos em publicações e definir a sua fotografia de perfil."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN accesează biblioteca dvs. foto pentru a vă permite să partajați fotografii și videoclipuri în postări și să vă setați fotografia de profil."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN получает доступ к вашей медиатеке, чтобы вы могли делиться фото и видео в публикациях и устанавливать фото профиля."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN pristupuje k vašej knižnici fotografií, aby ste mohli zdieľať fotografie a videá v príspevkoch a nastaviť si profilovú fotku."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN använder ditt bildbibliotek så att du kan dela foton och videor i inlägg och ange din profilbild."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN เข้าถึงคลังรูปภาพของคุณเพื่อให้คุณแชร์รูปภาพและวิดีโอในโพสต์และตั้งค่ารูปโปรไฟล์ของคุณ"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, gönderilerde fotoğraf ve video paylaşmanıza ve profil fotoğrafınızı ayarlamanıza olanak tanımak için fotoğraf kitaplığınıza erişir."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN отримує доступ до медіатеки, щоб ви могли ділитися фото й відео в дописах і встановлювати фото профілю."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN truy cập thư viện ảnh để bạn chia sẻ ảnh và video trong bài đăng và đặt ảnh đại diện."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 访问你的照片图库，让你在帖子中分享照片和视频并设置头像。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會存取你的照片圖庫，讓你在貼文中分享相片與影片，並設定大頭貼。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會存取你的相片圖庫，讓你在帖文中分享相片和影片，並設定個人檔案相片。"
+          }
+        }
+      }
+    },
+    "NSRemindersUsageDescription" : {
+      "comment" : "Privacy - Reminders Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يُنشئ AMEN تذكيرات لالتزامات الصلاة وفعاليات الكنيسة والأهداف الروحية."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN crea recordatoris per a compromisos de pregària, esdeveniments de l’església i objectius espirituals."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN vytváří připomínky pro modlitební závazky, církevní události a duchovní cíle."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN opretter påmindelser om bønneløfter, kirkebegivenheder og åndelige mål."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN erstellt Erinnerungen für Gebetsvorsätze, Gemeindeveranstaltungen und spirituelle Ziele."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN δημιουργεί υπενθυμίσεις για δεσμεύσεις προσευχής, εκκλησιαστικές εκδηλώσεις και πνευματικούς στόχους."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN creates reminders for prayer commitments, church events, and spiritual goals."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN creates reminders for prayer commitments, church events and spiritual goals."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN crea recordatorios para tus compromisos de oración, eventos de la iglesia y metas espirituales."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN crea recordatorios para tus compromisos de oración, eventos de la iglesia y metas espirituales."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN luo muistutuksia rukoussitoumuksista, seurakunnan tapahtumista ja hengellisistä tavoitteista."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN crée des rappels pour vos engagements de prière, les événements de votre église et vos objectifs spirituels."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN crée des rappels pour vos engagements de prière, les événements de votre église et vos objectifs spirituels."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN יוצרת תזכורות למחויבויות תפילה, לאירועי קהילה וליעדים רוחניים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN प्रार्थना के संकल्पों, चर्च के कार्यक्रमों और आध्यात्मिक लक्ष्यों के लिए अनुस्मारक बनाता है।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN stvara podsjetnike za molitvene obveze, crkvene događaje i duhovne ciljeve."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN emlékeztetőket hoz létre imaszándékokhoz, gyülekezeti eseményekhez és lelki célokhoz."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN membuat pengingat untuk komitmen doa, acara gereja, dan tujuan rohani."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN crea promemoria per impegni di preghiera, eventi della chiesa e obiettivi spirituali."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、祈りの誓約、教会のイベント、霊的な目標のためのリマインダーを作成します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 기도 다짐, 교회 행사, 영적 목표에 대한 미리 알림을 생성합니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN mencipta peringatan untuk komitmen doa, acara gereja, dan matlamat rohani."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN oppretter påminnelser for bønneløfter, menighetsarrangementer og åndelige mål."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN maakt herinneringen aan voor gebedsverbintenissen, kerkevenementen en spirituele doelen."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN tworzy przypomnienia o zobowiązaniach modlitewnych, wydarzeniach kościelnych i celach duchowych."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN cria lembretes para compromissos de oração, eventos da igreja e metas espirituais."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN cria lembretes para compromissos de oração, eventos da igreja e objetivos espirituais."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN creează mementouri pentru angajamentele de rugăciune, evenimentele bisericii și obiectivele spirituale."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN создаёт напоминания о молитвенных обязательствах, церковных событиях и духовных целях."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN vytvára pripomienky pre modlitebné záväzky, cirkevné udalosti a duchovné ciele."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN skapar påminnelser för böneåtaganden, kyrkoevenemang och andliga mål."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN สร้างการเตือนความจำสำหรับคำมั่นในการอธิษฐาน กิจกรรมของคริสตจักร และเป้าหมายทางจิตวิญญาณ"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, dua sözleri, kilise etkinlikleri ve ruhsal hedefler için hatırlatıcılar oluşturur."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN створює нагадування про молитовні зобовʼязання, церковні події та духовні цілі."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN tạo lời nhắc cho các cam kết cầu nguyện, sự kiện của hội thánh và mục tiêu tâm linh."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 会为祷告承诺、教会活动和灵性目标创建提醒事项。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會為你的禱告承諾、教會活動及屬靈目標建立提醒事項。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會為禱告承諾、教會活動及靈性目標建立提醒事項。"
+          }
+        }
+      }
+    },
+    "NSSiriUsageDescription" : {
+      "comment" : "Privacy - Siri Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يستخدم AMEN ميزة Siri لتمكينك من فتح الصلوات والنصوص المقدسة وملاحظات الكنيسة دون استخدام اليدين، ولاستئناف جلسات القراءة في Selah على الأجهزة الأخرى."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilitza Siri perquè puguis obrir pregàries, escriptures i notes de l’església amb mans lliures, i reprendre les sessions de lectura de Selah en altres dispositius."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používá Siri, abyste mohli bez použití rukou otevírat modlitby, písmo a církevní poznámky a pokračovat ve čtení Selah na dalších zařízeních."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruger Siri, så du håndfrit kan åbne bønner, skriftsteder og kirkenoter og genoptage Selah-læsesessioner på andre enheder."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN nutzt Siri, damit du Gebete, Bibeltexte und Church Notes freihändig öffnen und Selah-Lesesitzungen auf anderen Geräten fortsetzen kannst."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN χρησιμοποιεί το Siri για να ανοίγετε προσευχές, εδάφια και εκκλησιαστικές σημειώσεις χωρίς χρήση των χεριών, καθώς και για να συνεχίζετε συνεδρίες ανάγνωσης Selah σε άλλες συσκευές."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN uses Siri to let you open prayers, scripture, and church notes hands-free, and to resume Selah reading sessions on other devices."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN uses Siri to let you open prayers, scripture and church notes hands-free, and to resume Selah reading sessions on other devices."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa Siri para que puedas abrir oraciones, pasajes bíblicos y notas de la iglesia con las manos libres, y para reanudar tus sesiones de lectura de Selah en otros dispositivos."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa Siri para que puedas abrir oraciones, pasajes bíblicos y notas de la iglesia con manos libres, y para retomar tus sesiones de lectura de Selah en otros dispositivos."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN käyttää Siriä, jotta voit avata rukoukset, raamatunkohdat ja seurakuntamuistiinpanot kädet vapaina sekä jatkaa Selah-lukuhetkiä muilla laitteilla."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise Siri pour vous permettre d’ouvrir vos prières, vos passages bibliques et vos notes d’église en mode mains libres, et de reprendre vos sessions de lecture Selah sur d’autres appareils."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise Siri pour vous permettre d’ouvrir vos prières, vos passages des Écritures et vos notes d’église en mode mains libres, et de reprendre vos séances de lecture Selah sur d’autres appareils."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN משתמשת ב-Siri כדי לאפשר פתיחת תפילות, כתבי קודש והערות קהילה ללא מגע ידיים, ולחידוש מפגשי קריאה ב״Selah״ במכשירים אחרים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN Siri का उपयोग आपको प्रार्थनाएँ, धर्मशास्त्र और चर्च नोट्स हैंड्स-फ़्री खोलने देने, और अन्य उपकरणों पर Selah पढ़ने के सत्र फिर से शुरू करने के लिए करता है।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN koristi Siri kako biste bez upotrebe ruku mogli otvarati molitve, Sveto pismo i crkvene bilješke te nastaviti Selah sesije čitanja na drugim uređajima."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN a Sirit arra használja, hogy kihangosítva nyithass meg imádságokat, szentírási részeket és gyülekezeti jegyzeteket, valamint hogy más eszközökön folytathasd a Selah olvasási alkalmaidat."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan Siri agar Anda dapat membuka doa, ayat Kitab Suci, dan catatan gereja secara bebas genggam, serta melanjutkan sesi membaca Selah di perangkat lain."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa Siri per permetterti di aprire preghiere, versetti e Church Notes a mani libere e di riprendere le sessioni di lettura Selah su altri dispositivi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、Siriを使用して、祈り、聖書、教会のメモをハンズフリーで開いたり、ほかのデバイスでSelahの読書セッションを再開したりできるようにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 Siri를 사용하여 기도, 성경, 교회 노트를 핸즈프리로 열고, 다른 기기에서 Selah 읽기 세션을 이어서 진행할 수 있도록 합니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan Siri untuk membolehkan anda membuka doa, ayat suci, dan nota gereja secara bebas tangan, serta menyambung semula sesi bacaan Selah pada peranti lain."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruker Siri slik at du kan åpne bønner, skriftsteder og menighetsnotater håndfritt, og gjenoppta Selah-leseøkter på andre enheter."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN gebruikt Siri zodat je handsfree gebeden, Bijbelteksten en kerknotities kunt openen en Selah-leessessies op andere apparaten kunt hervatten."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN korzysta z Siri, aby umożliwić Ci otwieranie modlitw, fragmentów Pisma i notatek kościelnych bez użycia rąk oraz wznawianie sesji czytania Selah na innych urządzeniach."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN usa a Siri para que você abra orações, versículos e notas da igreja com as mãos livres e retome sessões de leitura do Selah em outros dispositivos."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN utiliza a Siri para lhe permitir abrir orações, escrituras e notas da igreja em modo mãos-livres, e para retomar sessões de leitura do Selah noutros dispositivos."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN folosește Siri pentru a vă permite să deschideți rugăciuni, versete și notițe de biserică fără utilizarea mâinilor și pentru a relua sesiunile de citire Selah pe alte dispozitive."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN использует Siri, чтобы вы могли открывать молитвы, Писание и церковные заметки без помощи рук, а также возобновлять сеансы чтения Selah на других устройствах."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používa Siri, aby ste mohli otvárať modlitby, písmo a cirkevné poznámky bez použitia rúk a pokračovať v čítaní Selah na ďalších zariadeniach."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN använder Siri så att du handsfree kan öppna böner, bibeltexter och kyrkoanteckningar och återuppta Selah-lässessioner på andra enheter."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN ใช้ Siri เพื่อให้คุณเปิดคำอธิษฐาน พระคัมภีร์ และบันทึกคริสตจักรแบบแฮนด์ฟรี และเพื่อกลับมาอ่านช่วง Selah ต่อบนอุปกรณ์เครื่องอื่น"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, duaları, kutsal metinleri ve kilise notlarını eller serbest açmanıza ve Selah okuma seanslarınızı diğer aygıtlarda sürdürmenize olanak tanımak için Siri’yi kullanır."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN використовує Siri, щоб ви могли відкривати молитви, Писання й церковні нотатки без рук і продовжувати сеанси читання Selah на інших пристроях."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN sử dụng Siri để bạn mở lời cầu nguyện, Kinh Thánh và ghi chú hội thánh rảnh tay, và để tiếp tục các phiên đọc Selah trên những thiết bị khác."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 使用 Siri 让你免提打开祷告、经文和教会笔记，并在其他设备上继续 Selah 阅读会话。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會使用 Siri，讓你免持開啟禱告、經文與教會筆記，並在其他裝置上繼續 Selah 閱讀進度。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會使用 Siri，讓你免提開啟禱文、經文及教會筆記，並在其他裝置上繼續 Selah 閱讀時段。"
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription" : {
+      "comment" : "Privacy - Speech Recognition Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يستخدم AMEN التعرف على الكلام لتتمكن من كتابة المنشورات والصلوات والرسائل بصوتك."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilitza el reconeixement de veu perquè puguis redactar publicacions, pregàries i missatges amb la veu."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN používá rozpoznávání řeči, abyste mohli hlasem psát příspěvky, modlitby a zprávy."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN bruger talegenkendelse, så du kan skrive opslag, bønner og beskeder med stemmen."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN nutzt Spracherkennung, damit du Beiträge, Gebete und Nachrichten per Stimme verfassen kannst."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Το AMEN χρησιμοποιεί την αναγνώριση ομιλίας για να συνθέτετε δημοσιεύσεις, προσευχές και μηνύματα με τη φωνή σας."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN uses speech recognition to transcribe your voice prayers, sermon notes, and voice messages into text on your device."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN uses speech recognition to let you compose posts, prayers and messages by voice."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa el reconocimiento de voz para que puedas redactar publicaciones, oraciones y mensajes con la voz."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa el reconocimiento de voz para que puedas redactar publicaciones, oraciones y mensajes con tu voz."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN käyttää puheentunnistusta, jotta voit laatia julkaisuja, rukouksia ja viestejä äänelläsi."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilise la reconnaissance vocale pour vous permettre de rédiger vos publications, vos prières et vos messages à la voix."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN utilise la reconnaissance vocale pour vous permettre de rédiger des publications, des prières et des messages à la voix."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN משתמשת בזיהוי דיבור כדי לאפשר חיבור פוסטים, תפילות והודעות באמצעות הקול."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN वाक् पहचान का उपयोग आपको आवाज़ से पोस्ट, प्रार्थनाएँ और संदेश लिखने देने के लिए करता है।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN koristi prepoznavanje govora kako biste glasom mogli sastavljati objave, molitve i poruke."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az AMEN a beszédfelismerést arra használja, hogy hanggal írhass bejegyzéseket, imádságokat és üzeneteket."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN menggunakan pengenalan ucapan agar Anda dapat menulis postingan, doa, dan pesan dengan suara."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN usa il riconoscimento vocale per permetterti di comporre post, preghiere e messaggi con la voce."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMENは、音声認識を使用して、投稿、祈り、メッセージを音声で作成できるようにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN은 음성 인식을 사용하여 음성으로 게시물, 기도, 메시지를 작성할 수 있도록 합니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN menggunakan pengecaman pertuturan untuk membolehkan anda mengarang catatan, doa, dan mesej melalui suara."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN bruker talegjenkjenning slik at du kan skrive innlegg, bønner og meldinger med stemmen."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN gebruikt spraakherkenning zodat je berichten, gebeden en posts met je stem kunt opstellen."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN korzysta z rozpoznawania mowy, aby umożliwić Ci tworzenie postów, modlitw i wiadomości za pomocą głosu."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "O AMEN usa o reconhecimento de fala para que você escreva publicações, orações e mensagens por voz."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A AMEN utiliza o reconhecimento de fala para lhe permitir compor publicações, orações e mensagens por voz."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN folosește recunoașterea vocală pentru a vă permite să compuneți postări, rugăciuni și mesaje prin voce."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN использует распознавание речи, чтобы вы могли создавать публикации, молитвы и сообщения голосом."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN používa rozpoznávanie reči, aby ste mohli vytvárať príspevky, modlitby a správy hlasom."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN använder taligenkänning så att du kan skapa inlägg, böner och meddelanden med rösten."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN ใช้การรู้จำเสียงพูดเพื่อให้คุณเขียนโพสต์ คำอธิษฐาน และข้อความด้วยเสียง"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN, gönderileri, duaları ve mesajları sesinizle oluşturmanıza olanak tanımak için konuşma tanımayı kullanır."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN використовує розпізнавання мовлення, щоб ви могли створювати дописи, молитви й повідомлення голосом."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN sử dụng tính năng nhận dạng giọng nói để bạn soạn bài đăng, lời cầu nguyện và tin nhắn bằng giọng nói."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 使用语音识别让你通过语音撰写帖子、祷告和消息。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 會使用語音辨識，讓你以語音撰寫貼文、禱告與訊息。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "AMEN 會使用語音辨識，讓你以語音撰寫帖文、禱文及訊息。"
+          }
+        }
+      }
+    },
+    "NSUserTrackingUsageDescription" : {
+      "comment" : "Privacy - Tracking Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يستخدم AMEN معرّف الإعلانات لقياس عمليات تثبيت التطبيق والتفاعل معه عبر Firebase Analytics (app-measurement.com) وإسناد الأعطال في Crashlytics. تُستخدم هذه البيانات لتحسين المنتج فقط ولا تُباع لأطراف ثالثة."
+          }
+        },
+        "ca" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilitza l’identificador de publicitat per mesurar les instal·lacions i la interacció de l’app mitjançant Firebase Analytics (app-measurement.com) i l’atribució de fallades de Crashlytics. Aquestes dades només s’utilitzen per millorar el producte i no es venen a tercers."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používá reklamní identifikátor k měření instalací aplikace a zapojení uživatelů prostřednictvím Firebase Analytics (app-measurement.com) a přiřazování pádů ve službě Crashlytics. Tato data se používají pouze ke zlepšování produktu a neprodávají se třetím stranám."
+          }
+        },
+        "da" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruger annoncerings-id’et til at måle appinstallationer og engagement via Firebase Analytics (app-measurement.com) og Crashlytics-nedbrudsattribuering. Disse data bruges udelukkende til produktforbedring og sælges ikke til tredjeparter."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN nutzt den Werbe-Identifier, um App-Installationen und Interaktionen über Firebase Analytics (app-measurement.com) und die Crash-Zuordnung von Crashlytics zu messen. Diese Daten werden ausschließlich zur Produktverbesserung verwendet und nicht an Dritte verkauft."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Το AMEN χρησιμοποιεί το αναγνωριστικό διαφημίσεων για να μετρά τις εγκαταστάσεις της εφαρμογής και τη συμμετοχή των χρηστών μέσω του Firebase Analytics (app-measurement.com) και της απόδοσης σφαλμάτων του Crashlytics. Αυτά τα δεδομένα χρησιμοποιούνται αποκλειστικά για τη βελτίωση του προϊόντος και δεν πωλούνται σε τρίτους."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AMEN uses the advertising identifier to measure app installs and engagement via Firebase Analytics (app-measurement.com) and Crashlytics crash attribution. This data is used only for product improvement and is not sold to third parties."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN uses the advertising identifier to measure app installs and engagement via Firebase Analytics (app-measurement.com) and Crashlytics crash attribution. This data is used only for product improvement and is not sold to third parties."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa el identificador de publicidad para medir las instalaciones y la interacción con la app mediante Firebase Analytics (app-measurement.com) y la atribución de fallos de Crashlytics. Estos datos se utilizan únicamente para mejorar el producto y no se venden a terceros."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa el identificador de publicidad para medir las instalaciones y la interacción de la app mediante Firebase Analytics (app-measurement.com) y la atribución de fallos de Crashlytics. Estos datos se utilizan únicamente para mejorar el producto y no se venden a terceros."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN käyttää mainostunnistetta mitatakseen sovelluksen asennuksia ja käyttöä Firebase Analyticsin (app-measurement.com) ja Crashlyticsin kaatumisanalyysin avulla. Näitä tietoja käytetään vain tuotteen kehittämiseen, eikä niitä myydä kolmansille osapuolille."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise l’identifiant publicitaire pour mesurer les installations et l’engagement via Firebase Analytics (app-measurement.com) et l’attribution des plantages via Crashlytics. Ces données servent uniquement à améliorer le produit et ne sont pas vendues à des tiers."
+          }
+        },
+        "fr-CA" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN utilise l’identifiant publicitaire pour mesurer les installations et l’engagement de l’application au moyen de Firebase Analytics (app-measurement.com) et de l’attribution des plantages par Crashlytics. Ces données servent uniquement à améliorer le produit et ne sont pas vendues à des tiers."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN משתמשת במזהה הפרסום כדי למדוד התקנות אפליקציה ומעורבות באמצעות Firebase Analytics (app-measurement.com) ושיוך קריסות ב-Crashlytics. נתונים אלה משמשים אך ורק לשיפור המוצר ואינם נמכרים לצדדים שלישיים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN विज्ञापन पहचानकर्ता का उपयोग Firebase Analytics (app-measurement.com) और Crashlytics क्रैश एट्रिब्यूशन के माध्यम से ऐप इंस्टॉल और सहभागिता मापने के लिए करता है। इस डेटा का उपयोग केवल उत्पाद सुधार के लिए किया जाता है और इसे तीसरे पक्षों को नहीं बेचा जाता।"
+          }
+        },
+        "hr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN koristi reklamni identifikator za mjerenje instalacija i angažmana aplikacije putem usluga Firebase Analytics (app-measurement.com) i Crashlytics za pripisivanje rušenja. Ti se podaci koriste isključivo za poboljšanje proizvoda i ne prodaju se trećim stranama."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Az AMEN a hirdetésazonosítót az alkalmazástelepítések és az aktivitás mérésére használja a Firebase Analytics (app-measurement.com) és a Crashlytics összeomlás-elemzés révén. Ezeket az adatokat kizárólag a termék fejlesztésére használjuk, és nem adjuk el harmadik feleknek."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan pengidentifikasi iklan untuk mengukur pemasangan dan keterlibatan aplikasi melalui Firebase Analytics (app-measurement.com) dan atribusi kerusakan Crashlytics. Data ini hanya digunakan untuk peningkatan produk dan tidak dijual kepada pihak ketiga."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN usa l’identificatore pubblicitario per misurare le installazioni dell’app e l’interazione tramite Firebase Analytics (app-measurement.com) e l’attribuzione dei crash di Crashlytics. Questi dati sono usati solo per migliorare il prodotto e non vengono venduti a terze parti."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMENは、広告識別子を使用して、Firebase Analytics（app-measurement.com）およびCrashlyticsのクラッシュ要因分析を通じて、アプリのインストール数と利用状況を測定します。このデータは製品の改善のみに使用され、第三者に販売されることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN은 광고 식별자를 사용하여 Firebase Analytics(app-measurement.com)와 Crashlytics 충돌 분석을 통해 앱 설치 및 참여도를 측정합니다. 이 데이터는 제품 개선에만 사용되며 제3자에게 판매되지 않습니다."
+          }
+        },
+        "ms" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN menggunakan pengecam pengiklanan untuk mengukur pemasangan dan penglibatan aplikasi melalui Firebase Analytics (app-measurement.com) dan atribusi ranap Crashlytics. Data ini digunakan hanya untuk penambahbaikan produk dan tidak dijual kepada pihak ketiga."
+          }
+        },
+        "nb" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN bruker annonseidentifikatoren til å måle appinstallasjoner og engasjement via Firebase Analytics (app-measurement.com) og krasjattribusjon i Crashlytics. Disse dataene brukes bare til produktforbedring og selges ikke til tredjeparter."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN gebruikt de advertentie-identificatie om app-installaties en betrokkenheid te meten via Firebase Analytics (app-measurement.com) en crashtoewijzing van Crashlytics. Deze gegevens worden uitsluitend gebruikt voor productverbetering en worden niet verkocht aan derden."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN używa identyfikatora reklamowego do mierzenia instalacji aplikacji i zaangażowania za pośrednictwem Firebase Analytics (app-measurement.com) oraz atrybucji awarii w Crashlytics. Dane te są wykorzystywane wyłącznie do ulepszania produktu i nie są sprzedawane podmiotom trzecim."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O AMEN usa o identificador de publicidade para medir instalações e engajamento do app pelo Firebase Analytics (app-measurement.com) e pela atribuição de falhas do Crashlytics. Esses dados são usados apenas para melhorar o produto e não são vendidos a terceiros."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "A AMEN utiliza o identificador de publicidade para medir as instalações e a interação com a app através do Firebase Analytics (app-measurement.com) e da atribuição de falhas do Crashlytics. Estes dados são utilizados apenas para melhorar o produto e não são vendidos a terceiros."
+          }
+        },
+        "ro" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN folosește identificatorul de publicitate pentru a măsura instalările și interacțiunea cu aplicația prin Firebase Analytics (app-measurement.com) și pentru atribuirea erorilor prin Crashlytics. Aceste date sunt utilizate doar pentru îmbunătățirea produsului și nu sunt vândute terților."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN использует рекламный идентификатор для оценки установок и вовлечённости через Firebase Analytics (app-measurement.com) и атрибуции сбоев в Crashlytics. Эти данные используются только для улучшения продукта и не продаются третьим лицам."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN používa reklamný identifikátor na meranie inštalácií a zapojenia prostredníctvom Firebase Analytics (app-measurement.com) a priradenia pádov v Crashlytics. Tieto údaje sa používajú výlučne na zlepšovanie produktu a nepredávajú sa tretím stranám."
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN använder annonsidentifieraren för att mäta appinstallationer och engagemang via Firebase Analytics (app-measurement.com) och Crashlytics kraschanalys. Dessa data används endast för produktförbättring och säljs inte till tredje part."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN ใช้ตัวระบุสำหรับโฆษณาเพื่อวัดผลการติดตั้งแอปและการมีส่วนร่วมผ่าน Firebase Analytics (app-measurement.com) และการระบุสาเหตุการขัดข้องของ Crashlytics ข้อมูลนี้ใช้เพื่อการปรับปรุงผลิตภัณฑ์เท่านั้น และจะไม่ถูกขายให้แก่บุคคลที่สาม"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN, uygulama yüklemelerini ve etkileşimi Firebase Analytics (app-measurement.com) ve Crashlytics çökme ilişkilendirmesi aracılığıyla ölçmek için reklam tanımlayıcısını kullanır. Bu veriler yalnızca ürün geliştirme için kullanılır ve üçüncü taraflara satılmaz."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN використовує рекламний ідентифікатор, щоб вимірювати встановлення та залученість через Firebase Analytics (app-measurement.com) і визначати причини збоїв через Crashlytics. Ці дані використовуються лише для вдосконалення продукту й не продаються третім сторонам."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN sử dụng mã định danh quảng cáo để đo lường lượt cài đặt và mức độ tương tác của ứng dụng thông qua Firebase Analytics (app-measurement.com) và phân tích sự cố Crashlytics. Dữ liệu này chỉ được dùng để cải thiện sản phẩm và không được bán cho bên thứ ba."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 使用广告标识符，通过 Firebase Analytics（app-measurement.com）和 Crashlytics 崩溃归因来衡量 App 的安装量和互动情况。这些数据仅用于产品改进，绝不会出售给第三方。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會使用廣告識別碼，透過 Firebase Analytics（app-measurement.com）與 Crashlytics 當機歸因來評估 App 的安裝與使用情況。這些資料僅用於改善產品，不會出售給第三方。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "AMEN 會使用廣告識別碼，透過 Firebase Analytics（app-measurement.com）及 Crashlytics 當機歸因，衡量應用程式安裝量及互動情況。這些數據僅用於改善產品，不會出售予第三方。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.3"
+}

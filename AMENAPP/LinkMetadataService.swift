@@ -243,11 +243,11 @@ struct LinkCardView: View {
             VStack(alignment: .leading, spacing: 3) {
                 if let title = meta.title {
                     Text(title)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .lineLimit(2)
                 }
                 Text(meta.displayDomain)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
@@ -257,7 +257,7 @@ struct LinkCardView: View {
             if let remove = onRemove {
                 Button(action: remove) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 24, height: 24)
                         .background(Color(.tertiarySystemBackground), in: Circle())
@@ -288,17 +288,17 @@ struct LinkCardView: View {
     private func bareCard(url: URL?) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "link")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
             Text(url?.absoluteString ?? urlString)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer()
             if let remove = onRemove {
                 Button(action: remove) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -311,7 +311,7 @@ struct LinkCardView: View {
     private func domainInitialView(meta: LinkCardMetadata) -> some View {
         let letter = meta.displayDomain.first.map { String($0).uppercased() } ?? "L"
         return Text(letter)
-            .font(.system(size: 18, weight: .bold))
+            .font(.systemScaled(18, weight: .bold))
             .foregroundStyle(.white)
             .frame(width: 52, height: 52)
             .background(

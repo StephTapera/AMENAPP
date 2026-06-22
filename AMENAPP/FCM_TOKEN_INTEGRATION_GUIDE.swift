@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Combine
 import FirebaseAuth
 import FirebaseMessaging
 import FirebaseFirestore
@@ -202,7 +203,7 @@ func verifyFCMTokenInFirestore() async {
     }
     
     do {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let userDoc = try await db.collection("users").document(userId).getDocument()
         
         if let fcmToken = userDoc.data()?["fcmToken"] as? String {
@@ -442,7 +443,7 @@ class AuthenticationViewModelFCMGuide: ObservableObject {
             dlog("✅ Account created: \(result.user.uid)")
             
             // 2. Create user document in Firestore
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             try await db.collection("users").document(result.user.uid).setData([
                 "email": email,
                 "displayName": displayName,

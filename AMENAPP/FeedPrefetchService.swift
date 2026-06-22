@@ -17,14 +17,36 @@ class FeedPrefetchService: ObservableObject {
     @Published var prefetchedPosts: [Post] = []
     private var lastSyncTimestamp: Date?
     private var isPrefetching = false
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
+
+    // MARK: - Prefetch Budget Guard (2026-06-19)
+
+    /// Centralized gate for speculative prefetch. Fail-closed against thermal/power/data
+    /// pressure, Sabbath rest, and minor accounts (B-3 / B-6 / G-3 / G-4 / G-6 / NG-5).
+    ///
+    /// PRE-6 DOCTRINE (HUMAN gate): this service's trigger is NOT wired to a real scroll
+    /// position. These guards make the path safe-if-wired; they do NOT authorize wiring
+    /// infinite-feed prefetch. The founder must rule on intent-serving vs
+    /// compulsion-manufacturing prefetch before activation.
+    private var shouldPrefetch: Bool {
+        switch ProcessInfo.processInfo.thermalState {
+        case .serious, .critical: return false   // G-3 thermal backoff
+        default: break
+        }
+        if ProcessInfo.processInfo.isLowPowerModeEnabled { return false }   // G-4
+        if LowDataModeManager.shared.isEffectiveLowData { return false }    // G-6 data budget
+        if SabbathModeService.shared.currentState != .inactive { return false } // B-3 / PRE-6
+        if AgeAssuranceService.shared.currentUserTier != .adult { return false } // NG-5 minors
+        return true
+    }
 
     // MARK: - Prefetch Next Page
 
     /// When user reaches post N, prefetch posts N+1 to N+10.
     func prefetchIfNeeded(currentIndex: Int, totalPosts: Int) {
+        guard shouldPrefetch else { return }
         // Trigger prefetch when user is within 5 posts of the end
         guard currentIndex >= totalPosts - 5, !isPrefetching else { return }
 
@@ -36,6 +58,7 @@ class FeedPrefetchService: ObservableObject {
 
             guard let snapshot = try? await db.collection("posts")
                 .whereField("createdAt", isLessThan: Timestamp(date: lastTimestamp))
+                .whereField("visibility", isEqualTo: "everyone")
                 .order(by: "createdAt", descending: true)
                 .limit(to: 10)
                 .getDocuments() else { return }
@@ -81,10 +104,12 @@ class FeedPrefetchService: ObservableObject {
 
     /// Only fetch posts that changed since last sync, not the entire list.
     func deltaSync() async -> [Post] {
+        guard shouldPrefetch else { return [] }
         let since = lastSyncTimestamp ?? Calendar.current.date(byAdding: .hour, value: -1, to: Date()) ?? Date()
 
         guard let snapshot = try? await db.collection("posts")
             .whereField("updatedAt", isGreaterThan: Timestamp(date: since))
+            .whereField("visibility", isEqualTo: "everyone")
             .order(by: "updatedAt", descending: true)
             .limit(to: 50)
             .getDocuments() else { return [] }

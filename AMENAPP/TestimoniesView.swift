@@ -26,11 +26,17 @@ struct TestimoniesView: View {
     @State private var hasPersonalized = false
     @State private var scrollViewDelegate: ScrollViewDelegateHandler?
     @State private var showHeader = true
+    @State private var showShareTestimony = false
     
+    // ⚡️ PERFORMANCE FIX: Reduced initial load for faster first render
     // MARK: - Pagination State
-    @State private var visiblePostCount = 20
+    @State private var visiblePostCount = 15  // Reduced from 20 to 15
     @State private var isLoadingMore = false
-    
+
+    // MARK: - Debounce State
+    @State private var personalizationTask: Task<Void, Never>?
+    @State private var viewedPostIds: Set<UUID> = []
+
     @Environment(\.tabBarVisible) private var tabBarVisible
     
     // Animation timing constants
@@ -43,7 +49,7 @@ struct TestimoniesView: View {
     enum TestimonyFilter: String, CaseIterable {
         case all = "All"
         case recent = "Recent"
-        case popular = "Popular"
+        case popular = "Featured"  // B-020: Renamed from "Popular" — editorial curation intent
         case following = "Following"
     }
     
@@ -51,16 +57,8 @@ struct TestimoniesView: View {
     var filteredPosts: [Post] {
         var posts = postsManager.testimoniesPosts
 
-        // Apply category filter if selected.
-        // Match loosely: "Relationships" matches topicTag "relationship", "relationships", etc.
         if let category = selectedCategory {
-            let titleLower = category.title.lowercased()
-            posts = posts.filter { post in
-                guard let tag = post.topicTag?.lowercased() else { return false }
-                return tag == titleLower
-                    || titleLower.hasPrefix(tag)
-                    || tag.hasPrefix(titleLower)
-            }
+            posts = posts.filter { category.matches($0) }
         }
 
         // Apply sorting based on filter
@@ -72,7 +70,7 @@ struct TestimoniesView: View {
             // Already sorted by timestamp in RealtimePostService
             break
         case .popular:
-            // Intelligent popularity scoring (not just sum)
+            // AUDIT B-020: Replace engagement ranking with editorial curation before launch
             posts = testimonyAlgorithm.rankTestimonies(posts, for: testimonyAlgorithm.userPreferences)
         case .following:
             // Filter to posts from users the current user follows
@@ -87,20 +85,21 @@ struct TestimoniesView: View {
 
         return posts
     }
+
+    private var shouldShowFloatingShareButton: Bool {
+        !isInitialLoad && !isLoadingPosts && !filteredPosts.isEmpty
+    }
     
     var body: some View {
+        ZStack(alignment: .bottomTrailing) {
         VStack(alignment: .leading, spacing: 20) {
                 // Header
                 if showHeader {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Share your testimony, encourage others")
-                            .font(.custom("OpenSans-Regular", size: 12))
-                            .foregroundStyle(.secondary)
-
                         HStack {
                             Text("#Testimonies")
-                                .font(.custom("OpenSans-Bold", size: 24))
-                                .foregroundStyle(.black)
+                                .font(AMENFont.bold(24))
+                                .foregroundStyle(.primary)
 
                             Spacer()
 
@@ -117,9 +116,9 @@ struct TestimoniesView: View {
                                 } label: {
                                     HStack(spacing: 4) {
                                         Text("Clear filter")
-                                            .font(.custom("OpenSans-SemiBold", size: 12))
+                                            .font(AMENFont.semiBold(12))
                                         Image(systemName: "xmark.circle.fill")
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                     }
                                     .foregroundStyle(.blue)
                                 }
@@ -127,6 +126,10 @@ struct TestimoniesView: View {
                                 .animation(.easeOut(duration: fastAnimationDuration), value: selectedCategory)
                             }
                         }
+                        
+                        Text("Share your testimony, encourage others")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal)
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -139,20 +142,159 @@ struct TestimoniesView: View {
                     }
                 }
 
+                // Persistent segment control — always visible regardless of load/empty state
+                HStack {
+                    Spacer()
+                    HStack(spacing: 4) {
+                        ForEach(TestimonyFilter.allCases, id: \.self) { filter in
+                            let isActive = selectedFilter == filter
+                            Button {
+                                selectedFilter = filter
+                                filterHaptic.impactOccurred()
+                            } label: {
+                                Text(filter.rawValue)
+                                    .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                                    .foregroundStyle(isActive ? Color.primary : Color.secondary)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 7)
+                                    .background(
+                                        isActive
+                                            ? Color(UIColor.systemBackground).opacity(0.85)
+                                            : Color.clear,
+                                        in: Capsule()
+                                    )
+                                    .overlay(
+                                        Group {
+                                            if isActive {
+                                                Capsule()
+                                                    .strokeBorder(.white.opacity(0.25), lineWidth: 0.5)
+                                            }
+                                        }
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .animation(.easeOut(duration: fastAnimationDuration), value: selectedFilter)
+                        }
+                    }
+                    .padding(5)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.15), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+
                 // Loading state - show skeletons on initial load
+                // Snapshot once — avoids repeated filter+sort on every body re-evaluation.
+                let posts = filteredPosts
                 if isInitialLoad && isLoadingPosts {
                     PostListSkeletonView(count: 3)
-                } else if !isLoadingPosts && filteredPosts.isEmpty && selectedFilter != .following {
-                    // Only show full empty state for non-Following tabs when there's truly no data.
-                    // For the Following tab, contentView handles its own empty state so filter
-                    // buttons remain visible even when the user isn't following anyone yet.
-                    EmptyPostsView(category: "testimonies")
-                        .padding(.top, 40)
+                } else if !isLoadingPosts && posts.isEmpty && selectedFilter == .following {
+                    // Following tab with no results — tell user why
+                    VStack(spacing: 16) {
+                        Image(systemName: FollowService.shared.following.isEmpty ? "person.2.slash" : "sparkle")
+                            .font(.systemScaled(44))
+                            .foregroundStyle(.secondary.opacity(0.5))
+                        Text(FollowService.shared.following.isEmpty
+                             ? "Follow believers to see their testimonies"
+                             : "No testimonies from people you follow yet")
+                            .font(AMENFont.semiBold(15))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+                        Text(FollowService.shared.following.isEmpty
+                             ? "Discover and follow people in the community."
+                             : "Check back soon — your feed will fill up.")
+                            .font(AMENFont.regular(13))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.top, 48)
+                } else if !isLoadingPosts && posts.isEmpty {
+                    // Liquid Glass empty state
+                    VStack(spacing: 20) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.85, green: 0.67, blue: 0.25).opacity(0.85),
+                                            Color(red: 0.95, green: 0.82, blue: 0.40).opacity(0.60)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 80, height: 80)
+                                .shadow(color: Color(red: 0.85, green: 0.67, blue: 0.25).opacity(0.35), radius: 16, y: 6)
+                            if #available(iOS 18.0, *) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 32, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .symbolEffect(.bounce, options: .repeating)
+                            } else {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 32, weight: .semibold))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        VStack(spacing: 8) {
+                            Text("Be First to Testify")
+                                .font(AMENFont.bold(20))
+                                .foregroundStyle(.primary)
+                            Text("Your testimony encourages the whole community")
+                                .font(AMENFont.regular(14))
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        Button {
+                            showShareTestimony = true
+                        } label: {
+                            Text("Share My Testimony")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 12)
+                                .background(.regularMaterial, in: Capsule())
+                                .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+                                .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 60)
+                    .padding(.horizontal, 32)
                 } else {
                     contentView
                 }
+        } // end VStack
+
+        if shouldShowFloatingShareButton {
+            // Floating "Share Testimony" pill button
+            Button {
+                showShareTestimony = true
+            } label: {
+                Label("Share Testimony", systemImage: "sparkles")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(.regularMaterial, in: Capsule())
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 20)
+            .padding(.bottom, 20)
+            .transition(.scale.combined(with: .opacity))
+            .accessibilityLabel("Share your testimony")
         }
+
+        } // end ZStack
         .toast($currentToast)
+        .sheet(isPresented: $showShareTestimony) {
+            CreatePostView(initialCategory: .testimonies)
+        }
         .sheet(isPresented: $showEditSheet, onDismiss: { editingPost = nil }) {
             if let post = editingPost {
                 EditPostSheet(post: post)
@@ -169,6 +311,10 @@ struct TestimoniesView: View {
             }
             // Keep listener alive across tab switches — only starts if not already active
             FirebasePostService.shared.startListening(category: .testimonies)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .feedDidRefresh)) { note in
+            guard (note.userInfo?["category"] as? String) == "Testimonies" else { return }
+            visiblePostCount = 20
         }
         .onAppear {
             filterHaptic.prepare()
@@ -222,11 +368,11 @@ struct TestimoniesView: View {
             if let category = selectedCategory {
                 HStack(spacing: 6) {
                     Image(systemName: category.icon)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(category.color)
                     
                     Text(category.title)
-                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .font(AMENFont.semiBold(12))
                         .foregroundStyle(category.color)
                 }
                 .padding(.horizontal, 10)
@@ -240,33 +386,6 @@ struct TestimoniesView: View {
                 // Category subtitle removed — tagline lives in the header
             }
             
-            // Filters - Center Aligned
-            HStack {
-                Spacer()
-                HStack(spacing: 8) {
-                    ForEach(TestimonyFilter.allCases, id: \.self) { filter in
-                        Button {
-                            selectedFilter = filter
-                            filterHaptic.impactOccurred()
-                        } label: {
-                            Text(filter.rawValue)
-                                .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundStyle(selectedFilter == filter ? .white : .black)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(selectedFilter == filter ? Color.black : Color.gray.opacity(0.1))
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .animation(.easeOut(duration: fastAnimationDuration), value: selectedFilter)
-                Spacer()
-            }
-            .padding(.horizontal)
-            
             // Collapsible Categories Section
             VStack(alignment: .leading, spacing: 12) {
                 // Category Header Button
@@ -275,13 +394,13 @@ struct TestimoniesView: View {
                 } label: {
                     HStack {
                         Text("Browse by Category")
-                            .font(.custom("OpenSans-Bold", size: 16))
-                            .foregroundStyle(.black)
+                            .font(AMENFont.bold(16))
+                            .foregroundStyle(.primary)
                         
                         Spacer()
                         
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .rotationEffect(.degrees(isCategoryBrowseExpanded ? 180 : 0))
                     }
@@ -297,10 +416,20 @@ struct TestimoniesView: View {
                         GridItem(.flexible(), spacing: 12)
                     ], spacing: 12) {
                         let allPosts = postsManager.testimoniesPosts
+                        // Compute category counts once to avoid repeated filter operations
+                        let categoryCounts: [String: Int] = {
+                            var counts: [String: Int] = [:]
+                            for post in allPosts {
+                                guard let category = TestimonyCategory.category(for: post) else { continue }
+                                counts[category.id, default: 0] += 1
+                            }
+                            return counts
+                        }()
+
                         TestimonyCategoryCard(
                             category: .healing,
                             isSelected: selectedCategory?.title == TestimonyCategory.healing.title,
-                            count: allPosts.filter { $0.topicTag?.lowercased() == "healing" }.count
+                            count: categoryCounts["healing"] ?? 0
                         ) {
                             selectedCategory = .healing
                             isCategoryBrowseExpanded = false
@@ -308,7 +437,7 @@ struct TestimoniesView: View {
                         TestimonyCategoryCard(
                             category: .career,
                             isSelected: selectedCategory?.title == TestimonyCategory.career.title,
-                            count: allPosts.filter { $0.topicTag?.lowercased() == "career" }.count
+                            count: categoryCounts["career"] ?? 0
                         ) {
                             selectedCategory = .career
                             isCategoryBrowseExpanded = false
@@ -316,7 +445,7 @@ struct TestimoniesView: View {
                         TestimonyCategoryCard(
                             category: .relationship,
                             isSelected: selectedCategory?.title == TestimonyCategory.relationship.title,
-                            count: allPosts.filter { ["relationships", "relationship"].contains($0.topicTag?.lowercased() ?? "") }.count
+                            count: categoryCounts["relationship"] ?? 0
                         ) {
                             selectedCategory = .relationship
                             isCategoryBrowseExpanded = false
@@ -324,7 +453,7 @@ struct TestimoniesView: View {
                         TestimonyCategoryCard(
                             category: .financial,
                             isSelected: selectedCategory?.title == TestimonyCategory.financial.title,
-                            count: allPosts.filter { $0.topicTag?.lowercased() == "financial" }.count
+                            count: categoryCounts["financial"] ?? 0
                         ) {
                             selectedCategory = .financial
                             isCategoryBrowseExpanded = false
@@ -332,7 +461,7 @@ struct TestimoniesView: View {
                         TestimonyCategoryCard(
                             category: .spiritual,
                             isSelected: selectedCategory?.title == TestimonyCategory.spiritual.title,
-                            count: allPosts.filter { ["spiritual growth", "spiritual"].contains($0.topicTag?.lowercased() ?? "") }.count
+                            count: categoryCounts["spiritual"] ?? 0
                         ) {
                             selectedCategory = .spiritual
                             isCategoryBrowseExpanded = false
@@ -340,7 +469,7 @@ struct TestimoniesView: View {
                         TestimonyCategoryCard(
                             category: .family,
                             isSelected: selectedCategory?.title == TestimonyCategory.family.title,
-                            count: allPosts.filter { $0.topicTag?.lowercased() == "family" }.count
+                            count: categoryCounts["family"] ?? 0
                         ) {
                             selectedCategory = .family
                             isCategoryBrowseExpanded = false
@@ -352,12 +481,25 @@ struct TestimoniesView: View {
             }
             
             // Filtered testimonies feed
-            LazyVStack(spacing: 16) {
+            // P0 FIX: Changed from LazyVStack to VStack - LazyVStack doesn't work inside another ScrollView.
+            // The parent ScrollView in ContentView handles the scrolling.
+            VStack(spacing: 0) {
                 let allPosts = filteredPosts
                 let displayPosts = Array(allPosts.prefix(visiblePostCount))
 
-                ForEach(Array(displayPosts.enumerated()), id: \.element.id) { index, post in
+                ForEach(displayPosts, id: \.id) { post in
+                    let index = displayPosts.firstIndex(where: { $0.id == post.id }) ?? 0
                     testimonyRow(post: post, index: index, total: displayPosts.count, allCount: allPosts.count)
+
+                    // Suggested testimony voices rail — after the 3rd testimony
+                    if index == 2 {
+                        FeedPostDivider()
+                        TestimoniesSuggestedRailView()
+                            .background(Color(.systemBackground))
+                            .padding(.vertical, 8)
+                            .clipped()
+                        FeedPostDivider()
+                    }
                 }
 
                 // Loading indicator for pagination
@@ -371,40 +513,43 @@ struct TestimoniesView: View {
                     }
                 }
 
-                // Empty state
-                if filteredPosts.isEmpty {
+                // Empty state — use the snapshot already computed at line 414
+                if allPosts.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: selectedFilter == .following ? "person.2" : "hands.sparkles")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.secondary)
 
                         if selectedFilter == .following {
                             Text("No testimonies from people you follow")
-                                .font(.custom("OpenSans-Bold", size: 18))
+                                .font(AMENFont.bold(18))
                                 .foregroundStyle(.primary)
                                 .multilineTextAlignment(.center)
                             Text("Follow others to see their testimonies here.")
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                         } else if selectedCategory != nil {
                             Text("No testimonies in this category")
-                                .font(.custom("OpenSans-Bold", size: 18))
+                                .font(AMENFont.bold(18))
                                 .foregroundStyle(.primary)
                             Text("Be the first to share your story!")
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.secondary)
                         } else {
                             Text("No testimonies yet")
-                                .font(.custom("OpenSans-Bold", size: 18))
+                                .font(AMENFont.bold(18))
                                 .foregroundStyle(.primary)
                             Text("Share how God is working in your life!")
-                                .font(.custom("OpenSans-Regular", size: 14))
+                                .font(AMENFont.regular(14))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 60)
+                    .padding(40)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
                 }
             }
             .padding(.horizontal)
@@ -417,35 +562,49 @@ struct TestimoniesView: View {
         PostCard(post: post, isUserPost: post.authorId == Auth.auth().currentUser?.uid)
             .feedItemAppear(id: post.id, delay: min(Double(index) * 0.04, 0.20))
             .onAppear {
-                testimonyAlgorithm.recordInteraction(with: post, type: .view)
-                if index >= total - 3 && !isLoadingMore && visiblePostCount < allCount {
+                // Only record view once per post to avoid excessive preference updates during scroll
+                if !viewedPostIds.contains(post.id) {
+                    viewedPostIds.insert(post.id)
+                    testimonyAlgorithm.recordInteraction(with: post, type: .view)
+                }
+                // ⚡️ PERFORMANCE FIX: Load more only when 5 items from end (was 3)
+                // This reduces pagination thrashing during fast scrolls
+                if index >= total - 5 && !isLoadingMore && visiblePostCount < allCount {
                     loadMorePosts()
                 }
             }
     }
 
-    /// Personalize testimonies feed using algorithm
+    /// Personalize testimonies feed using algorithm with debouncing
     private func personalizeTestimoniesFeed() {
         guard !postsManager.testimoniesPosts.isEmpty else {
             personalizedPosts = []
             return
         }
 
+        // Cancel any pending personalization task
+        personalizationTask?.cancel()
+
         // Snapshot posts at call time to avoid capturing stale state during async work
         let snapshot = postsManager.testimoniesPosts
         let prefs = testimonyAlgorithm.userPreferences
 
-        Task.detached(priority: .userInitiated) {
-            let ranked = await testimonyAlgorithm.rankTestimonies(snapshot, for: prefs)
-            await MainActor.run {
-                personalizedPosts = ranked
-                dlog("✨ Testimonies personalized: \(personalizedPosts.count) posts ranked")
-            }
+        // Debounce with 500ms delay to avoid excessive re-ranking during rapid updates
+        personalizationTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+
+            let ranked = testimonyAlgorithm.rankTestimonies(snapshot, for: prefs)
+            guard !Task.isCancelled else { return }
+
+            personalizedPosts = ranked
+            dlog("✨ Testimonies personalized: \(personalizedPosts.count) posts ranked")
         }
     }
 
     /// Fetch posts from backend with current filters applied
     private func fetchPosts() {
+        guard !isLoadingPosts else { return }
         // Don't show loading for filter changes to avoid flickering
         // Only show loading on initial load
         if postsManager.testimoniesPosts.isEmpty {
@@ -573,8 +732,9 @@ struct TestimoniesView: View {
         
         isLoadingMore = true
         
-        // Simulate a brief delay for smooth loading
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        // ⚡️ PERFORMANCE FIX: Removed artificial 0.3s delay - instant pagination
+        // The delay was causing janky scrolling when user scrolled fast
+        DispatchQueue.main.async {
             let increment = 10
             let maxCount = filteredPosts.count
             visiblePostCount = min(visiblePostCount + increment, maxCount)
@@ -655,24 +815,24 @@ struct TestimonyCategoryCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: category.icon)
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(category.color)
                     
                     Spacer()
                     
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(category.color)
                     }
                 }
                 
                 Text(category.title)
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                 
                 Text(count != nil ? "\(count!) \(count == 1 ? "Story" : "Stories")" : category.subtitle)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -756,7 +916,7 @@ struct TestimonyPostCard: View {
                 .frame(width: 44, height: 44)
             
             Text(post.authorInitials)
-                .font(.custom("OpenSans-Bold", size: 16))
+                .font(AMENFont.bold(16))
                 .foregroundStyle(.white)
             
             // Follow button - only show if not user's post
@@ -767,7 +927,7 @@ struct TestimonyPostCard: View {
                     haptic.impactOccurred()
                 } label: {
                     Image(systemName: isFollowing ? "checkmark.circle.fill" : "plus.circle.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(isFollowing ? .black : .white)
                         .background(
                             Circle()
@@ -778,8 +938,11 @@ struct TestimonyPostCard: View {
                             Circle()
                                 .stroke(Color.black.opacity(0.15), lineWidth: isFollowing ? 1 : 0)
                         )
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(isFollowing ? "Unfollow" : "Follow")
                 .symbolEffect(.bounce, value: isFollowing)
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
                 .offset(x: 2, y: 2)
@@ -791,17 +954,16 @@ struct TestimonyPostCard: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
                 Text(post.authorName)
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                 
                 // Category badge
-                if let topicTag = post.topicTag,
-                   let category = [TestimonyCategory.healing, .career, .relationship, .financial, .spiritual, .family].first(where: { $0.title.lowercased() == topicTag.lowercased() }) {
+                if let category = TestimonyCategory.category(for: post) {
                     HStack(spacing: 3) {
                         Image(systemName: category.icon)
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                         Text(category.title)
-                            .font(.custom("OpenSans-Bold", size: 10))
+                            .font(AMENFont.bold(10))
                     }
                     .foregroundStyle(category.color)
                     .padding(.horizontal, 6)
@@ -814,7 +976,7 @@ struct TestimonyPostCard: View {
             }
             
             Text(post.timeAgo)
-                .font(.custom("OpenSans-Regular", size: 12))
+                .font(AMENFont.regular(12))
                 .foregroundStyle(.secondary)
         }
     }
@@ -886,10 +1048,13 @@ struct TestimonyPostCard: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.6))
                 .frame(width: 32, height: 32)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
+        .accessibilityLabel("More options")
     }
     
     private var headerView: some View {
@@ -919,9 +1084,9 @@ struct TestimonyPostCard: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text("\(amenCount)")
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
             }
             .foregroundStyle(hasAmened ? Color.black : Color.black.opacity(0.5))
             .contentTransition(.numericText())
@@ -937,6 +1102,7 @@ struct TestimonyPostCard: View {
                     .stroke(hasAmened ? Color.black.opacity(0.2) : Color.black.opacity(0.1), lineWidth: hasAmened ? 1.5 : 1)
             )
         }
+        .accessibilityLabel(hasAmened ? "Remove Amen" : "Say Amen")
     }
     
     private func toggleAmen() async {
@@ -945,7 +1111,7 @@ struct TestimonyPostCard: View {
         let previousCount = amenCount
         
         // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
             hasAmened.toggle()
             amenCount = hasAmened ? amenCount + 1 : amenCount - 1
         }
@@ -964,7 +1130,7 @@ struct TestimonyPostCard: View {
             
             // On error, revert the optimistic update
             await MainActor.run {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     hasAmened = previousAmened
                     amenCount = previousCount
                 }
@@ -983,9 +1149,9 @@ struct TestimonyPostCard: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "bubble.left.fill")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text("\(commentCount)")
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
             }
             .foregroundStyle(Color.black.opacity(0.5))
             .contentTransition(.numericText())
@@ -1001,6 +1167,7 @@ struct TestimonyPostCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Comment")
     }
     
     private var repostButton: some View {
@@ -1011,9 +1178,9 @@ struct TestimonyPostCard: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: hasReposted ? "arrow.2.squarepath.circle.fill" : "arrow.2.squarepath")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text("\(repostCount)")
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
             }
             .foregroundStyle(hasReposted ? Color.green : Color.black.opacity(0.5))
             .contentTransition(.numericText())
@@ -1028,6 +1195,7 @@ struct TestimonyPostCard: View {
                     .stroke(hasReposted ? Color.green.opacity(0.3) : Color.black.opacity(0.1), lineWidth: 1)
             )
         }
+        .accessibilityLabel(hasReposted ? "Undo repost" : "Repost")
     }
     
     private func toggleRepost() async {
@@ -1036,7 +1204,7 @@ struct TestimonyPostCard: View {
         let previousCount = repostCount
         
         // OPTIMISTIC UPDATE: Update UI immediately
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
             hasReposted.toggle()
             repostCount += hasReposted ? 1 : -1
         }
@@ -1058,7 +1226,7 @@ struct TestimonyPostCard: View {
             
             // On error, revert the optimistic update
             await MainActor.run {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     hasReposted = previousReposted
                     repostCount = previousCount
                 }
@@ -1074,7 +1242,7 @@ struct TestimonyPostCard: View {
             sharePost()
         } label: {
             Image(systemName: "square.and.arrow.up")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.5))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -1087,6 +1255,7 @@ struct TestimonyPostCard: View {
                         .stroke(Color.black.opacity(0.1), lineWidth: 1)
                 )
         }
+        .accessibilityLabel("Share")
     }
     
     var body: some View {
@@ -1237,6 +1406,8 @@ struct TestimonyCommentSection: View {
     
     @State private var commentText = ""
     @State private var showQuickResponses = false
+    @State private var isSubmittingComment = false
+    @State private var coachingMessage: String? = nil
     @FocusState private var isCommentFocused: Bool
     
     // Real comments - loaded from backend
@@ -1253,7 +1424,7 @@ struct TestimonyCommentSection: View {
             // Comments header
             HStack {
                 Text("Comments")
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(.black.opacity(0.9))
                 
                 Spacer()
@@ -1263,7 +1434,7 @@ struct TestimonyCommentSection: View {
                         .scaleEffect(0.7)
                 } else {
                     Text("\(commentCount)")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .font(AMENFont.semiBold(13))
                         .foregroundStyle(.black.opacity(0.5))
                 }
                 
@@ -1272,7 +1443,7 @@ struct TestimonyCommentSection: View {
                         onExpandComments?()
                     } label: {
                         Text("View all")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -1288,7 +1459,7 @@ struct TestimonyCommentSection: View {
                                 isCommentFocused = true
                             } label: {
                                 Text(response)
-                                    .font(.custom("OpenSans-SemiBold", size: 12))
+                                    .font(AMENFont.semiBold(12))
                                     .foregroundStyle(.black.opacity(0.7))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -1316,29 +1487,32 @@ struct TestimonyCommentSection: View {
                         .frame(width: 32, height: 32)
                         .overlay(
                             Text("ME")
-                                .font(.custom("OpenSans-Bold", size: 11))
+                                .font(AMENFont.bold(11))
                                 .foregroundStyle(.white)
                         )
                     
                     HStack {
                         TextField("Add an encouraging comment...", text: $commentText)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .focused($isCommentFocused)
                         
-                        if !commentText.isEmpty {
+                        if isSubmittingComment {
+                            ProgressView()
+                                .scaleEffect(0.75)
+                        } else if !commentText.isEmpty {
                             Button {
                                 postComment()
                             } label: {
                                 Image(systemName: "arrow.up.circle.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundStyle(.black)
+                                    .font(.systemScaled(24))
+                                    .foregroundStyle(.primary)
                             }
                         } else {
                             Button {
                                 showQuickResponses.toggle()
                             } label: {
                                 Image(systemName: showQuickResponses ? "sparkles.square.filled.on.square" : "sparkles")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundStyle(.black.opacity(0.5))
                             }
                             .buttonStyle(.plain)
@@ -1371,6 +1545,16 @@ struct TestimonyCommentSection: View {
             // Load comments when view appears
             await loadComments()
         }
+        .alert("Comment Coach", isPresented: Binding(
+            get: { coachingMessage != nil },
+            set: { if !$0 { coachingMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {
+                coachingMessage = nil
+            }
+        } message: {
+            Text(coachingMessage ?? "")
+        }
     }
     
     // MARK: - Helper Functions
@@ -1394,7 +1578,25 @@ struct TestimonyCommentSection: View {
     }
     
     var quickResponses: [String] {
-        [
+        let contextualResponses: [String]
+        switch TestimonyCategory.category(for: post)?.id {
+        case "healing":
+            contextualResponses = ["Praying for continued healing.", "Praise God for restoration."]
+        case "career":
+            contextualResponses = ["That is such a clear answer.", "Praying your calling keeps opening."]
+        case "relationship":
+            contextualResponses = ["Thank you for sharing this reconciliation.", "This gives me hope."]
+        case "financial":
+            contextualResponses = ["God is faithful to provide.", "Rejoicing with you for this provision."]
+        case "spiritual":
+            contextualResponses = ["This stirred my faith.", "Thank you for pointing us back to God."]
+        case "family":
+            contextualResponses = ["Praying blessing over your family.", "This is a beautiful family testimony."]
+        default:
+            contextualResponses = []
+        }
+
+        return contextualResponses + [
             "Amen! 🙏",
             "So encouraging!",
             "Praise God! 🙌",
@@ -1405,25 +1607,86 @@ struct TestimonyCommentSection: View {
     }
     
     private func postComment() {
-        guard !commentText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let draft = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !draft.isEmpty, !isSubmittingComment else { return }
 
         Task {
             do {
+                await MainActor.run {
+                    isSubmittingComment = true
+                }
+
+                if UserDefaults.standard.bool(forKey: "consentSmartComment") {
+                    let review = try await SmartCommentService.shared.reviewComment(
+                        commentText: draft,
+                        postContext: post.content
+                    )
+
+                    if review.isBlocked {
+                        await MainActor.run {
+                            coachingMessage = review.nudgeMessage ?? "This comment needs revision before it can be posted."
+                            isSubmittingComment = false
+                        }
+                        return
+                    }
+
+                    if review.action == .nudge {
+                        await MainActor.run {
+                            if let rewriteSuggestion = review.rewriteSuggestion, !rewriteSuggestion.isEmpty {
+                                commentText = rewriteSuggestion
+                            }
+                            coachingMessage = review.nudgeMessage ?? "Berean suggested a gentler wording before posting."
+                            isSubmittingComment = false
+                        }
+                        return
+                    }
+                }
+
                 let newComment = try await commentService.addComment(
                     postId: post.id.uuidString,
-                    content: commentText
+                    content: draft
                 )
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         comments.insert(newComment.toTestimonyFeedComment(), at: 0)
                         commentCount += 1
                         commentText = ""
                     }
+                    isSubmittingComment = false
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                 }
+            } catch SmartCommentError.consentRequired {
+                await publishWithoutCoaching(draft)
             } catch {
                 dlog("❌ Failed to post comment: \(error.localizedDescription)")
+                await MainActor.run {
+                    coachingMessage = error.localizedDescription
+                    isSubmittingComment = false
+                }
+            }
+        }
+    }
+
+    private func publishWithoutCoaching(_ draft: String) async {
+        do {
+            let newComment = try await commentService.addComment(
+                postId: post.id.uuidString,
+                content: draft
+            )
+            await MainActor.run {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    comments.insert(newComment.toTestimonyFeedComment(), at: 0)
+                    commentCount += 1
+                    commentText = ""
+                }
+                isSubmittingComment = false
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+        } catch {
+            await MainActor.run {
+                coachingMessage = error.localizedDescription
+                isSubmittingComment = false
             }
         }
     }
@@ -1437,14 +1700,15 @@ struct TestimonyCommentRow: View {
     let postId: String
     @State private var hasAmened = false
     @State private var amenCount: Int
-    
+    @State private var showReplyComposer = false
+
     init(comment: TestimonyFeedComment, commentId: String, postId: String) {
         self.comment = comment
         self.commentId = commentId
         self.postId = postId
         _amenCount = State(initialValue: comment.amenCount)
     }
-    
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Circle()
@@ -1452,30 +1716,30 @@ struct TestimonyCommentRow: View {
                 .frame(width: 32, height: 32)
                 .overlay(
                     Text(String(comment.authorName.prefix(1)))
-                        .font(.custom("OpenSans-Bold", size: 13))
+                        .font(AMENFont.bold(13))
                         .foregroundStyle(.black.opacity(0.7))
                 )
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(comment.authorName)
-                        .font(.custom("OpenSans-Bold", size: 13))
+                        .font(AMENFont.bold(13))
                         .foregroundStyle(.black.opacity(0.9))
-                    
+
                     Text(comment.timeAgo)
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.black.opacity(0.4))
                 }
-                
+
                 Text(comment.content)
-                    .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.black.opacity(0.8))
                     .lineSpacing(2)
-                
+
                 // Comment actions
                 HStack(spacing: 16) {
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             hasAmened.toggle()
                             amenCount += hasAmened ? 1 : -1
                         }
@@ -1484,30 +1748,67 @@ struct TestimonyCommentRow: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                             if amenCount > 0 {
                                 Text("\(amenCount)")
-                                    .font(.custom("OpenSans-SemiBold", size: 10))
+                                    .font(AMENFont.semiBold(10))
                             }
                         }
                         .foregroundStyle(hasAmened ? .black : .black.opacity(0.5))
                     }
                     .buttonStyle(.plain)
-                    
+
                     Button {
-                        // Reply to comment
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        showReplyComposer = true
                     } label: {
                         Text("Reply")
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .font(AMENFont.semiBold(11))
                             .foregroundStyle(.black.opacity(0.5))
                     }
                     .buttonStyle(.plain)
                 }
                 .padding(.top, 4)
             }
-            
+
             Spacer()
         }
+        .sheet(isPresented: $showReplyComposer) {
+            ReplyComposerSheet(authorName: comment.authorName)
+        }
+    }
+}
+
+private struct ReplyComposerSheet: View {
+    let authorName: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Replying to \(authorName)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+                TextEditor(text: $text)
+                    .padding(.horizontal, 8)
+                    .frame(minHeight: 100)
+                Spacer()
+            }
+            .padding(.top)
+            .navigationTitle("Reply")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Send") { dismiss() }
+                        .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
 
@@ -1529,15 +1830,7 @@ struct TestimonyCategoryDetailInlineView: View {
     // Real filtered posts from Firebase via PostsManager
     private var categoryPosts: [Post] {
         let allPosts = postsManager.testimoniesPosts
-        // Match both singular and plural forms (e.g. "Relationships" → "relationship")
-        let titleLower = category.title.lowercased()
-        let filtered = allPosts.filter { post in
-            guard let tag = post.topicTag?.lowercased() else { return false }
-            return tag == titleLower
-                || tag == titleLower.trimmingCharacters(in: .init(charactersIn: "s"))
-                || titleLower.hasPrefix(tag)
-                || tag.hasPrefix(titleLower)
-        }
+        let filtered = allPosts.filter { category.matches($0) }
         switch selectedFilter {
         case .recent:
             return filtered.sorted { $0.createdAt > $1.createdAt }
@@ -1561,7 +1854,7 @@ struct TestimonyCategoryDetailInlineView: View {
                                     .frame(width: 80, height: 80)
                                 
                                 Image(systemName: category.icon)
-                                    .font(.system(size: 40))
+                                    .font(.systemScaled(40))
                                     .foregroundStyle(category.color)
                             }
                             
@@ -1569,11 +1862,11 @@ struct TestimonyCategoryDetailInlineView: View {
                         }
                         
                         Text(category.title)
-                            .font(.custom("OpenSans-Bold", size: 32))
+                            .font(AMENFont.bold(32))
                             .foregroundStyle(.primary)
                         
                         Text(categoryDescription)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
                             .lineSpacing(4)
                     }
@@ -1590,7 +1883,7 @@ struct TestimonyCategoryDetailInlineView: View {
                                     filterHaptic.impactOccurred()
                                 } label: {
                                     Text(filter.rawValue)
-                                        .font(.custom("OpenSans-SemiBold", size: 13))
+                                        .font(AMENFont.semiBold(13))
                                         .foregroundStyle(selectedFilter == filter ? .white : .black)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 8)
@@ -1610,13 +1903,13 @@ struct TestimonyCategoryDetailInlineView: View {
                         if categoryPosts.isEmpty {
                             VStack(spacing: 12) {
                                 Image(systemName: category.icon)
-                                    .font(.system(size: 40))
+                                    .font(.systemScaled(40))
                                     .foregroundStyle(category.color.opacity(0.5))
                                 Text("No testimonies in \(category.title) yet")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                                     .foregroundStyle(.primary)
                                 Text("Be the first to share your story!")
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity)
@@ -1639,17 +1932,15 @@ struct TestimonyCategoryDetailInlineView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        // Share category
-                    } label: {
+                    ShareLink(item: category.title, subject: Text("AMEN Testimonies"), message: Text("Check out \(category.title) testimonies on AMEN")) {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -1688,6 +1979,8 @@ struct TestimonyFullCommentSheet: View {
     @State private var commentText = ""
     @State private var showQuickResponses = false
     @State private var isLoading = true
+    @State private var isSubmittingComment = false
+    @State private var coachingMessage: String? = nil
     @FocusState private var isCommentFocused: Bool
     @ObservedObject private var commentService = CommentService.shared
     
@@ -1708,7 +2001,7 @@ struct TestimonyFullCommentSheet: View {
             .frame(width: 36, height: 36)
             .overlay(
                 Text("ME")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
                     .foregroundStyle(.white)
             )
     }
@@ -1716,7 +2009,7 @@ struct TestimonyFullCommentSheet: View {
     private var inputField: some View {
         HStack {
             TextField("Add an encouraging comment...", text: $commentText)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .focused($isCommentFocused)
             
             inputActionButton
@@ -1731,13 +2024,16 @@ struct TestimonyFullCommentSheet: View {
     
     @ViewBuilder
     private var inputActionButton: some View {
-        if !commentText.isEmpty {
+        if isSubmittingComment {
+            ProgressView()
+                .scaleEffect(0.75)
+        } else if !commentText.isEmpty {
             Button {
                 postComment()
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(28))
+                    .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
         } else {
@@ -1745,7 +2041,7 @@ struct TestimonyFullCommentSheet: View {
                 showQuickResponses.toggle()
             } label: {
                 Image(systemName: showQuickResponses ? "sparkles.square.filled.on.square" : "sparkles")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.black.opacity(0.5))
             }
             .buttonStyle(.plain)
@@ -1766,24 +2062,23 @@ struct TestimonyFullCommentSheet: View {
                                 .frame(width: 40, height: 40)
                             
                             Text(post.authorInitials)
-                                .font(.custom("OpenSans-Bold", size: 14))
+                                .font(AMENFont.bold(14))
                                 .foregroundStyle(.white)
                         }
                         
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
                                 Text(post.authorName)
-                                    .font(.custom("OpenSans-Bold", size: 14))
+                                    .font(AMENFont.bold(14))
                                     .foregroundStyle(.primary)
                                 
                                 // Category badge
-                                if let topicTag = post.topicTag,
-                                   let category = [TestimonyCategory.healing, .career, .relationship, .financial, .spiritual, .family].first(where: { $0.title.lowercased() == topicTag.lowercased() }) {
+                                if let category = TestimonyCategory.category(for: post) {
                                     HStack(spacing: 3) {
                                         Image(systemName: category.icon)
-                                            .font(.system(size: 8, weight: .semibold))
+                                            .font(.systemScaled(8, weight: .semibold))
                                         Text(category.title)
-                                            .font(.custom("OpenSans-Bold", size: 9))
+                                            .font(AMENFont.bold(9))
                                     }
                                     .foregroundStyle(category.color)
                                     .padding(.horizontal, 6)
@@ -1796,7 +2091,7 @@ struct TestimonyFullCommentSheet: View {
                             }
                             
                             Text(post.timeAgo)
-                                .font(.custom("OpenSans-Regular", size: 11))
+                                .font(AMENFont.regular(11))
                                 .foregroundStyle(.secondary)
                         }
                         
@@ -1805,7 +2100,7 @@ struct TestimonyFullCommentSheet: View {
                     
                     // Post content
                     Text(post.content)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.primary)
                         .lineSpacing(3)
                         .lineLimit(3)
@@ -1821,7 +2116,7 @@ struct TestimonyFullCommentSheet: View {
                         // Comments header
                         HStack {
                             Text("Comments")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                                 .foregroundStyle(.black.opacity(0.9))
                             
                             Spacer()
@@ -1831,7 +2126,7 @@ struct TestimonyFullCommentSheet: View {
                                     .scaleEffect(0.8)
                             } else {
                                 Text("\(commentCount)")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .font(AMENFont.semiBold(14))
                                     .foregroundStyle(.black.opacity(0.5))
                             }
                         }
@@ -1848,7 +2143,7 @@ struct TestimonyFullCommentSheet: View {
                                             isCommentFocused = true
                                         } label: {
                                             Text(response)
-                                                .font(.custom("OpenSans-SemiBold", size: 12))
+                                                .font(AMENFont.semiBold(12))
                                                 .foregroundStyle(.black.opacity(0.7))
                                                 .padding(.horizontal, 12)
                                                 .padding(.vertical, 6)
@@ -1874,7 +2169,7 @@ struct TestimonyFullCommentSheet: View {
                             VStack(spacing: 12) {
                                 ProgressView()
                                 Text("Loading comments...")
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity)
@@ -1882,15 +2177,15 @@ struct TestimonyFullCommentSheet: View {
                         } else if comments.isEmpty {
                             VStack(spacing: 16) {
                                 Image(systemName: "bubble.left.and.bubble.right")
-                                    .font(.system(size: 48))
+                                    .font(.systemScaled(48))
                                     .foregroundStyle(.secondary)
                                 
                                 Text("No comments yet")
-                                    .font(.custom("OpenSans-Bold", size: 18))
+                                    .font(AMENFont.bold(18))
                                     .foregroundStyle(.primary)
                                 
                                 Text("Be the first to comment!")
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity)
@@ -1928,7 +2223,7 @@ struct TestimonyFullCommentSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.gray)
                             .symbolRenderingMode(.hierarchical)
                     }
@@ -1936,6 +2231,16 @@ struct TestimonyFullCommentSheet: View {
             }
             .task {
                 await loadComments()
+            }
+            .alert("Comment Coach", isPresented: Binding(
+                get: { coachingMessage != nil },
+                set: { if !$0 { coachingMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) {
+                    coachingMessage = nil
+                }
+            } message: {
+                Text(coachingMessage ?? "")
             }
         }
     }
@@ -1961,7 +2266,25 @@ struct TestimonyFullCommentSheet: View {
     }
     
     var quickResponses: [String] {
-        [
+        let contextualResponses: [String]
+        switch TestimonyCategory.category(for: post)?.id {
+        case "healing":
+            contextualResponses = ["Praying for continued healing.", "Praise God for restoration."]
+        case "career":
+            contextualResponses = ["That is such a clear answer.", "Praying your calling keeps opening."]
+        case "relationship":
+            contextualResponses = ["Thank you for sharing this reconciliation.", "This gives me hope."]
+        case "financial":
+            contextualResponses = ["God is faithful to provide.", "Rejoicing with you for this provision."]
+        case "spiritual":
+            contextualResponses = ["This stirred my faith.", "Thank you for pointing us back to God."]
+        case "family":
+            contextualResponses = ["Praying blessing over your family.", "This is a beautiful family testimony."]
+        default:
+            contextualResponses = []
+        }
+
+        return contextualResponses + [
             "Amen! 🙏",
             "So encouraging!",
             "Praise God! 🙌",
@@ -1972,13 +2295,44 @@ struct TestimonyFullCommentSheet: View {
     }
     
     private func postComment() {
-        guard !commentText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let draft = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !draft.isEmpty, !isSubmittingComment else { return }
         
         Task {
             do {
+                await MainActor.run {
+                    isSubmittingComment = true
+                }
+
+                if UserDefaults.standard.bool(forKey: "consentSmartComment") {
+                    let review = try await SmartCommentService.shared.reviewComment(
+                        commentText: draft,
+                        postContext: post.content
+                    )
+
+                    if review.isBlocked {
+                        await MainActor.run {
+                            coachingMessage = review.nudgeMessage ?? "This comment needs revision before it can be posted."
+                            isSubmittingComment = false
+                        }
+                        return
+                    }
+
+                    if review.action == .nudge {
+                        await MainActor.run {
+                            if let rewriteSuggestion = review.rewriteSuggestion, !rewriteSuggestion.isEmpty {
+                                commentText = rewriteSuggestion
+                            }
+                            coachingMessage = review.nudgeMessage ?? "Berean suggested a gentler wording before posting."
+                            isSubmittingComment = false
+                        }
+                        return
+                    }
+                }
+
                 let newComment = try await commentService.addComment(
                     postId: post.id.uuidString,
-                    content: commentText
+                    content: draft
                 )
                 
                 await MainActor.run {
@@ -1986,12 +2340,40 @@ struct TestimonyFullCommentSheet: View {
                     comments.insert(newComment.toTestimonyFeedComment(), at: 0)
                     commentCount += 1
                     commentText = ""
+                    isSubmittingComment = false
                     
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                 }
+            } catch SmartCommentError.consentRequired {
+                await publishWithoutCoaching(draft)
             } catch {
                 dlog("❌ Failed to post comment: \(error)")
+                await MainActor.run {
+                    coachingMessage = error.localizedDescription
+                    isSubmittingComment = false
+                }
+            }
+        }
+    }
+
+    private func publishWithoutCoaching(_ draft: String) async {
+        do {
+            let newComment = try await commentService.addComment(
+                postId: post.id.uuidString,
+                content: draft
+            )
+            await MainActor.run {
+                comments.insert(newComment.toTestimonyFeedComment(), at: 0)
+                commentCount += 1
+                commentText = ""
+                isSubmittingComment = false
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+        } catch {
+            await MainActor.run {
+                coachingMessage = error.localizedDescription
+                isSubmittingComment = false
             }
         }
     }

@@ -132,13 +132,14 @@ class TrendingService: ObservableObject {
     @Published var spotlightUsers: [SpotlightUser] = []
     @Published var isLoading = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var cancellables = Set<AnyCancellable>()
     
     private init() {}
     
     // MARK: - Top Ideas Algorithm
     
+    // AUDIT B-019: This leaderboard uses engagement velocity. Consider editorial curation instead.
     /// Calculate trending score for a post
     /// Factors: engagement velocity, recency, quality (comments > reactions)
     private func calculateTrendingScore(
@@ -191,6 +192,7 @@ class TrendingService: ObservableObject {
             .whereField("category", isEqualTo: "openTable")
             .whereField("createdAt", isGreaterThan: cutoffDate)
             .whereField("lightbulbCount", isGreaterThan: 2) // Minimum 3 lightbulbs to be considered
+            .whereField("visibility", isEqualTo: "everyone")
         
         let snapshot = try await query.getDocuments()
 
@@ -295,6 +297,7 @@ class TrendingService: ObservableObject {
         // For now, we'll fetch users with posts and calculate their stats
         let postsSnapshot = try await db.collection("posts")
             .whereField("category", isEqualTo: "openTable")
+            .whereField("visibility", isEqualTo: "everyone")
             .order(by: "createdAt", descending: true)
             .limit(to: 100)
             .getDocuments()

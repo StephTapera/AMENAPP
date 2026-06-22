@@ -153,7 +153,7 @@ struct CreateGroupView: View {
                         .frame(width: 100, height: 100)
                     
                     Image(systemName: selectedGroupIcon)
-                        .font(.system(size: 40))
+                        .font(.systemScaled(40))
                         .foregroundStyle(groupCategory.color)
                     
                     // Edit icon
@@ -162,7 +162,7 @@ struct CreateGroupView: View {
                         .frame(width: 32, height: 32)
                         .overlay(
                             Image(systemName: "camera.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.white)
                         )
                         .offset(x: 35, y: 35)
@@ -204,7 +204,7 @@ struct CreateGroupView: View {
                             category: category,
                             isSelected: groupCategory == category
                         ) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 groupCategory = category
                                 selectedGroupIcon = category.icon
                             }
@@ -283,7 +283,7 @@ struct CreateGroupView: View {
             // Search Bar
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                 
                 TextField("Search people", text: $searchText)
@@ -301,7 +301,7 @@ struct CreateGroupView: View {
                         searchResults = []
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -373,7 +373,7 @@ struct CreateGroupView: View {
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                 } else {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                     
                     Text("Create Group")
                         .font(.custom("OpenSans-Bold", size: 17))
@@ -414,7 +414,7 @@ struct CreateGroupView: View {
     }
     
     private func toggleUserSelection(_ userId: String) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             if selectedUsers.contains(userId) {
                 selectedUsers.remove(userId)
             } else {
@@ -489,7 +489,7 @@ struct CategoryChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 
                 Text(category.rawValue)
                     .font(.custom("OpenSans-SemiBold", size: 14))
@@ -547,22 +547,24 @@ struct UserSelectionRow: View {
                 
                 Spacer()
                 
-                // Selection Indicator
+                // Selection Indicator — visual 24pt, hit target 44pt
                 ZStack {
                     Circle()
                         .stroke(isSelected ? Color.blue : Color(.systemGray4), lineWidth: 2)
                         .frame(width: 24, height: 24)
-                    
+
                     if isSelected {
                         Circle()
                             .fill(Color.blue)
                             .frame(width: 24, height: 24)
-                        
+
                         Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.systemScaled(12, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -597,7 +599,7 @@ struct SelectedMemberChip: View {
             
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.secondary)
             }
         }
@@ -649,7 +651,7 @@ struct GroupIconPickerView: View {
                                     .frame(width: 70, height: 70)
                                 
                                 Image(systemName: icon)
-                                    .font(.system(size: 30))
+                                    .font(.systemScaled(30))
                                     .foregroundStyle(selectedIcon == icon ? .white : category.color)
                             }
                         }
@@ -696,7 +698,7 @@ struct GroupCreatedSuccessView: View {
                     .frame(width: 120, height: 120)
                 
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 80))
+                    .font(.systemScaled(80))
                     .foregroundStyle(.green)
             }
             

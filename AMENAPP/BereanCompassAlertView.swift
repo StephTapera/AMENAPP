@@ -51,7 +51,7 @@ struct BereanCompassAlertView: View {
                             )
                             .frame(width: 44, height: 44)
                         Image(systemName: "compass.drawing")
-                            .font(.system(size: 20, weight: .medium))
+                            .font(.systemScaled(20, weight: .medium))
                             .foregroundColor(compassBlue)
                     }
 
@@ -114,7 +114,7 @@ struct BereanCompassAlertView: View {
         }
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.80)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.80))) {
                 isVisible = true
             }
         }
@@ -188,7 +188,7 @@ struct BereanCompassAlertView: View {
             Button(action: onGetSupport) {
                 HStack(spacing: 8) {
                     Image(systemName: "person.crop.circle.badge.checkmark")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                     Text("Talk to a trusted person")
                         .font(.custom("OpenSans-SemiBold", size: 15))
                 }
@@ -229,7 +229,7 @@ struct BereanCompassAlertView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "book.pages")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 Text("Resources")
                     .font(.custom("OpenSans-SemiBold", size: 15))
             }

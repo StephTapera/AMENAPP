@@ -1,96 +1,231 @@
-/*
-  Localizable.strings
-  AMENAPP
-
-  English (base) — UI localization strings.
-  Add translations by creating es.lproj/, fr.lproj/, sw.lproj/, pt.lproj/ etc.
-*/
-
-// MARK: - Tabs
-"tab.home" = "Home";
-"tab.discover" = "Discover";
-"tab.messages" = "Messages";
-"tab.resources" = "Resources";
-"tab.notifications" = "Notifications";
-"tab.profile" = "Profile";
-
-// MARK: - Auth
-"auth.signIn" = "Sign In";
-"auth.signUp" = "Sign Up";
-"auth.email" = "Email";
-"auth.password" = "Password";
-"auth.forgotPassword" = "Forgot Password?";
-"auth.continueWith" = "Continue with %@";
-"auth.orContinueWith" = "or continue with";
+/* (No Comment) */
 "auth.agreeToTerms" = "By signing up, you agree to our Terms and Privacy Policy.";
 
-// MARK: - Feed
-"feed.openTable" = "#OPENTABLE";
-"feed.testimonies" = "Testimonies";
-"feed.prayer" = "Prayer";
-"feed.whatOnYourHeart" = "What's on your heart...";
-"feed.shareTestimony" = "Share your testimony...";
-"feed.prayerRequest" = "How can we pray for you...";
-"feed.newPost" = "New post";
-"feed.post" = "Post";
-"feed.cancel" = "Cancel";
+/* (No Comment) */
+"auth.continueWith" = "Continue with %@";
 
-// MARK: - Interactions
-"interaction.amen" = "Amen";
-"interaction.lightbulb" = "Lightbulb";
-"interaction.comment" = "Comment";
-"interaction.repost" = "Repost";
-"interaction.save" = "Save";
-"interaction.share" = "Share";
-"interaction.seeMore" = "See more";
-"interaction.seeLess" = "See less";
+/* (No Comment) */
+"auth.email" = "Email";
 
-// MARK: - Messages
-"messages.title" = "Messages";
-"messages.newMessage" = "New Message";
-"messages.search" = "Search conversations";
-"messages.noMessages" = "No messages yet";
-"messages.startConversation" = "Start a conversation with someone";
-"messages.requests" = "Requests";
-"messages.archived" = "Archived";
-"messages.pinned" = "PINNED";
-"messages.allMessages" = "ALL MESSAGES";
+/* (No Comment) */
+"auth.forgotPassword" = "Forgot Password?";
 
-// MARK: - Notifications
-"notifications.title" = "Notifications";
-"notifications.markAllRead" = "Mark all as read";
-"notifications.noNotifications" = "No notifications yet";
+/* (No Comment) */
+"auth.orContinueWith" = "or continue with";
 
-// MARK: - Profile
-"profile.follow" = "Follow";
-"profile.following" = "Following";
-"profile.followBack" = "Follow Back";
-"profile.followers" = "Followers";
-"profile.posts" = "Posts";
-"profile.editProfile" = "Edit Profile";
-"profile.settings" = "Settings";
+/* (No Comment) */
+"auth.password" = "Password";
 
-// MARK: - Berean AI
-"berean.title" = "Berean AI";
+/* MARK: - Auth */
+"auth.signIn" = "Sign In";
+
+/* (No Comment) */
+"auth.signUp" = "Sign Up";
+
+/* (No Comment) */
 "berean.askAnything" = "Ask Berean anything...";
+
+/* (No Comment) */
 "berean.reflect" = "Reflect with Berean";
 
-// MARK: - Prayer
-"prayer.prayingForYou" = "Praying for you";
-"prayer.iPrayed" = "I Prayed";
-"prayer.prayerRequest" = "Prayer Request";
-"prayer.praiseReport" = "Praise Report";
+/* MARK: - Berean AI */
+"berean.title" = "Berean AI";
+
+/* (No Comment) */
+"common.cancel" = "Cancel";
+
+/* (No Comment) */
+"common.comingSoon" = "Coming Soon";
+
+/* (No Comment) */
+"common.delete" = "Delete";
+
+/* MARK: - Common */
+"common.done" = "Done";
+
+/* (No Comment) */
+"common.edit" = "Edit";
+
+/* (No Comment) */
+"common.error" = "Error";
+
+/* (No Comment) */
+"common.loading" = "Loading...";
+
+/* (No Comment) */
+"common.retry" = "Retry";
+
+/* (No Comment) */
+"common.save" = "Save";
+
+/* (No Comment) */
+"common.search" = "Search";
+
+/* (No Comment) */
+"common.success" = "Success";
+
+/* Standard AI permission boundary disclosure shown on all Connect AI surfaces */
+"connect.ai.disclosure" = "AI summaries include only content you can access. Private, paid, confidential, youth-protected, deleted, and admin-excluded content is never included.";
+
+/* (No Comment) */
+"feed.cancel" = "Cancel";
+
+/* (No Comment) */
+"feed.newPost" = "New post";
+
+/* MARK: - Feed */
+"feed.openTable" = "#OPENTABLE";
+
+/* (No Comment) */
+"feed.post" = "Post";
+
+/* (No Comment) */
+"feed.prayer" = "Prayer";
+
+/* (No Comment) */
+"feed.prayerRequest" = "How can we pray for you...";
+
+/* (No Comment) */
+"feed.shareTestimony" = "Share your testimony...";
+
+/* (No Comment) */
+"feed.testimonies" = "Testimonies";
+
+/* (No Comment) */
+"feed.whatOnYourHeart" = "What's on your heart...";
+
+/* No comment provided by engineer. */
+"gdpr.agree" = "gdpr.agree";
+
+/* No comment provided by engineer. */
+"gdpr.bullet.deletion" = "gdpr.bullet.deletion";
+
+/* No comment provided by engineer. */
+"gdpr.bullet.encrypted" = "gdpr.bullet.encrypted";
+
+/* No comment provided by engineer. */
+"gdpr.bullet.neverSold" = "gdpr.bullet.neverSold";
+
+/* No comment provided by engineer. */
+"gdpr.bullet.visibility" = "gdpr.bullet.visibility";
+
+/* No comment provided by engineer. */
+"gdpr.decline" = "gdpr.decline";
+
+/* No comment provided by engineer. */
+"gdpr.title" = "gdpr.title";
+
+/* MARK: - Interactions */
+"interaction.amen" = "Amen";
+
+/* (No Comment) */
+"interaction.comment" = "Comment";
+
+/* (No Comment) */
+"interaction.lightbulb" = "Lightbulb";
+
+/* (No Comment) */
+"interaction.repost" = "Repost";
+
+/* (No Comment) */
+"interaction.save" = "Save";
+
+/* (No Comment) */
+"interaction.seeLess" = "See less";
+
+/* (No Comment) */
+"interaction.seeMore" = "See more";
+
+/* (No Comment) */
+"interaction.share" = "Share";
+
+/* (No Comment) */
+"messages.allMessages" = "ALL MESSAGES";
+
+/* (No Comment) */
+"messages.archived" = "Archived";
+
+/* (No Comment) */
+"messages.newMessage" = "New Message";
+
+/* (No Comment) */
+"messages.noMessages" = "No messages yet";
+
+/* (No Comment) */
+"messages.pinned" = "PINNED";
+
+/* (No Comment) */
+"messages.requests" = "Requests";
+
+/* (No Comment) */
+"messages.search" = "Search conversations";
+
+/* (No Comment) */
+"messages.startConversation" = "Start a conversation with someone";
+
+/* MARK: - Messages */
+"messages.title" = "Messages";
+
+/* (No Comment) */
+"notifications.markAllRead" = "Mark all as read";
+
+/* (No Comment) */
+"notifications.noNotifications" = "No notifications yet";
+
+/* MARK: - Notifications */
+"notifications.title" = "Notifications";
+
+/* (No Comment) */
 "prayer.answered" = "Answered Prayer";
 
-// MARK: - Common
-"common.done" = "Done";
-"common.cancel" = "Cancel";
-"common.save" = "Save";
-"common.delete" = "Delete";
-"common.edit" = "Edit";
-"common.search" = "Search";
-"common.loading" = "Loading...";
-"common.retry" = "Retry";
-"common.error" = "Error";
-"common.success" = "Success";
-"common.comingSoon" = "Coming Soon";
+/* (No Comment) */
+"prayer.iPrayed" = "I Prayed";
+
+/* (No Comment) */
+"prayer.praiseReport" = "Praise Report";
+
+/* (No Comment) */
+"prayer.prayerRequest" = "Prayer Request";
+
+/* MARK: - Prayer */
+"prayer.prayingForYou" = "Praying for you";
+
+/* (No Comment) */
+"profile.editProfile" = "Edit Profile";
+
+/* MARK: - Profile */
+"profile.follow" = "Follow";
+
+/* (No Comment) */
+"profile.followBack" = "Follow Back";
+
+/* (No Comment) */
+"profile.followers" = "Followers";
+
+/* (No Comment) */
+"profile.following" = "Following";
+
+/* (No Comment) */
+"profile.posts" = "Posts";
+
+/* (No Comment) */
+"profile.settings" = "Settings";
+
+/* (No Comment) */
+"tab.discover" = "Discover";
+
+/* MARK: - Tabs */
+"tab.home" = "Home";
+
+/* (No Comment) */
+"tab.messages" = "Messages";
+
+/* (No Comment) */
+"tab.notifications" = "Notifications";
+
+/* (No Comment) */
+"tab.profile" = "Profile";
+
+/* (No Comment) */
+"tab.resources" = "Resources";
+

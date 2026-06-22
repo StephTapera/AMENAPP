@@ -1,0 +1,9 @@
+│ acceptFollowRequest                       │ v2      │ callable                                   │ us-east1    │ 256        │ nodejs22 │
+│ blockRelationshipCleanupTrigger           │ v2      │ google.cloud.firestore.document.v1.created │ us-east1    │ 256        │ nodejs22 │
+│ cancelFollowRequest                       │ v2      │ callable                                   │ us-east1    │ 256        │ nodejs22 │
+│ createFollow                              │ v2      │ callable                                   │ us-east1    │ 256        │ nodejs22 │
+│ createUnfollow                            │ v2      │ callable                                   │ us-east1    │ 256        │ nodejs22 │
+│ onAccountPrivacyChange                    │ v2      │ google.cloud.firestore.document.v1.updated │ us-east1    │ 256        │ nodejs22 │
+│ reconcileFollowCounts                     │ v2      │ scheduled                                  │ us-east1    │ 512        │ nodejs22 │
+│ rejectFollowRequest                       │ v2      │ callable                                   │ us-east1    │ 256        │ nodejs22 │
+│ removeFollower                            │ v2      │ callable                                   │ us-east1    │ 256        │ nodejs22 │

@@ -34,6 +34,9 @@ struct FollowingListView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
+
                 if isLoading {
                     loadingView
                 } else if let error = errorMessage {
@@ -51,7 +54,7 @@ struct FollowingListView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .searchable(text: $searchText, prompt: "Search following")
@@ -69,7 +72,7 @@ struct FollowingListView: View {
                 .scaleEffect(1.2)
             
             Text("Loading following...")
-                .font(.custom("OpenSans-SemiBold", size: 15))
+                .font(AMENFont.semiBold(15))
                 .foregroundStyle(.secondary)
         }
     }
@@ -77,14 +80,14 @@ struct FollowingListView: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.red)
             
             Text("Error")
-                .font(.custom("OpenSans-Bold", size: 20))
+                .font(AMENFont.bold(20))
             
             Text(message)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
@@ -93,7 +96,7 @@ struct FollowingListView: View {
                 Task { await loadFollowing() }
             } label: {
                 Text("Try Again")
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
@@ -108,14 +111,14 @@ struct FollowingListView: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.2.slash")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             
             Text("Not following anyone")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
             
             Text(isCurrentUser ? "Find people to follow to see their content" : "This user isn't following anyone yet")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
@@ -123,20 +126,34 @@ struct FollowingListView: View {
     }
     
     private var followingList: some View {
-        List {
-            ForEach(filteredFollowing) { user in
-                FollowingRow(
-                    user: user,
-                    isCurrentUser: isCurrentUser,
-                    onUnfollow: {
-                        Task { await unfollowUser(user) }
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(filteredFollowing) { user in
+                    FollowingRow(
+                        user: user,
+                        isCurrentUser: isCurrentUser,
+                        onUnfollow: {
+                            Task { await unfollowUser(user) }
+                        }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+
+                    if user.id != filteredFollowing.last?.id {
+                        Divider()
+                            .padding(.leading, 60)
                     }
-                )
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                .listRowSeparator(.hidden)
+                }
             }
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .listStyle(.plain)
     }
     
     // MARK: - Data Loading
@@ -232,18 +249,18 @@ struct FollowingRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(user.displayName)
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                         .foregroundStyle(.primary)
                     
                     if followsYouBack {
                         Text("• Follows you")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                 }
                 
                 Text("@\(user.username)")
-                    .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
             }
             
@@ -255,7 +272,7 @@ struct FollowingRow: View {
                     showUnfollowAlert = true
                 } label: {
                     Text("Following")
-                        .font(.custom("OpenSans-Bold", size: 13))
+                        .font(AMENFont.bold(13))
                         .foregroundStyle(.primary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -288,7 +305,7 @@ struct FollowingRow: View {
             .fill(Color.black)
             .overlay(
                 Text(user.initials)
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                     .foregroundStyle(.white)
             )
     }

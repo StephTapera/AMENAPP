@@ -6,20 +6,20 @@
 // Results are cached in-memory per session.
 
 import Foundation
+import FirebaseFunctions
 
 // MARK: - Configuration
 
 private enum MediaAPIConfig {
     /// Set YOUTUBE_API_KEY in Config.xcconfig
     static var youtubeAPIKey: String {
-        Bundle.main.object(forInfoDictionaryKey: "YOUTUBE_API_KEY") as? String ?? ""
+        (Bundle.main.object(forInfoDictionaryKey: "YOUTUBE_API_KEY") as? String ?? "").trimmingCharacters(in: .whitespaces)
     }
-    /// Set SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET in Config.xcconfig
+    /// Set SPOTIFY_CLIENT_ID in Config.xcconfig.
+    /// The client secret is NOT read from the client — Spotify token exchange
+    /// must go through the spotifyTokenProxy Cloud Function (P0-2 fix 2026-06-03).
     static var spotifyClientID: String {
         Bundle.main.object(forInfoDictionaryKey: "SPOTIFY_CLIENT_ID") as? String ?? ""
-    }
-    static var spotifyClientSecret: String {
-        Bundle.main.object(forInfoDictionaryKey: "SPOTIFY_CLIENT_SECRET") as? String ?? ""
     }
 }
 
@@ -46,6 +46,7 @@ final class AMENMediaService: @unchecked Sendable {
     private var spotifyToken: String?
     private var spotifyTokenExpiry: Date = .distantPast
     private let session = URLSession.shared
+    private let functions = Functions.functions()
 
     // MARK: - YouTube Sermons
 
@@ -117,12 +118,8 @@ final class AMENMediaService: @unchecked Sendable {
         if let cached = await cache.getEpisodes(key) { return cached }
 
         let clientID = MediaAPIConfig.spotifyClientID
-        let clientSecret = MediaAPIConfig.spotifyClientSecret
-        guard !clientID.isEmpty, !clientSecret.isEmpty else {
-            return AMENPodcastEpisode.curated
-        }
-
-        guard let token = await fetchSpotifyToken(clientID: clientID, secret: clientSecret) else {
+        // Token exchange moved server-side (spotifyTokenProxy CF). Client secret removed (P0-2).
+        guard !clientID.isEmpty, let token = await fetchSpotifyToken(clientID: clientID) else {
             return AMENPodcastEpisode.curated
         }
 
@@ -179,10 +176,7 @@ final class AMENMediaService: @unchecked Sendable {
     /// Used by the worship song picker to let users attach Spotify tracks to Church Notes.
     func searchSpotifyTracks(query: String, maxResults: Int = 15) async -> [SpotifyTrackItem] {
         let clientID = MediaAPIConfig.spotifyClientID
-        let clientSecret = MediaAPIConfig.spotifyClientSecret
-        guard !clientID.isEmpty, !clientSecret.isEmpty else { return [] }
-
-        guard let token = await fetchSpotifyToken(clientID: clientID, secret: clientSecret) else {
+        guard !clientID.isEmpty, let token = await fetchSpotifyToken(clientID: clientID) else {
             return []
         }
 
@@ -210,26 +204,32 @@ final class AMENMediaService: @unchecked Sendable {
 
     // MARK: - Spotify Token (Client Credentials)
 
-    private func fetchSpotifyToken(clientID: String, secret: String) async -> String? {
-        if let token = spotifyToken, Date() < spotifyTokenExpiry { return token }
-
-        guard let url = URL(string: "https://accounts.spotify.com/api/token") else { return nil }
-        guard let credentialData = "\(clientID):\(secret)".data(using: .utf8) else { return nil }
-        let credentials = credentialData.base64EncodedString()
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Basic \(credentials)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.httpBody = "grant_type=client_credentials".data(using: .utf8)
+    // Calls `spotifyTokenProxy` CF. The Spotify client secret stays server-side.
+    private func fetchSpotifyToken(clientID: String) async -> String? {
+        if let spotifyToken, spotifyTokenExpiry > Date().addingTimeInterval(60) {
+            return spotifyToken
+        }
 
         do {
-            let (data, _) = try await session.data(for: request)
-            let token = try JSONDecoder().decode(SpotifyTokenResponse.self, from: data)
-            spotifyToken = token.access_token
-            spotifyTokenExpiry = Date().addingTimeInterval(TimeInterval(token.expires_in - 60))
-            return token.access_token
+            let result = try await functions.httpsCallable("spotifyTokenProxy").safeCall([
+                "clientId": clientID,
+            ])
+            guard let payload = result.data as? [String: Any] else { return nil }
+            let token = payload["accessToken"] as? String ?? payload["token"] as? String
+            guard let token, !token.isEmpty else { return nil }
+
+            let expiresInDirect: TimeInterval? = (payload["expiresIn"] as? TimeInterval)
+                ?? (payload["expires_in"] as? TimeInterval)
+            let expiresInFromIntA: TimeInterval? = (payload["expiresIn"] as? Int).map { TimeInterval($0) }
+            let expiresInFromIntB: TimeInterval? = (payload["expires_in"] as? Int).map { TimeInterval($0) }
+            let expiresInFromInt: TimeInterval? = expiresInFromIntA ?? expiresInFromIntB
+            let expiresIn: TimeInterval = expiresInDirect ?? expiresInFromInt ?? 3_000
+
+            spotifyToken = token
+            spotifyTokenExpiry = Date().addingTimeInterval(max(300, expiresIn))
+            return token
         } catch {
+            dlog("⚠️ [AMENMediaService] Spotify token proxy failed: \(error.localizedDescription)")
             return nil
         }
     }

@@ -12,7 +12,15 @@ import FirebaseAuth
 @MainActor
 class ContentViewModel: ObservableObject {
     // MARK: - Published Properties
-    @Published var selectedTab = 0  // Default to Home tab (OpenTable view)
+    // H13 FIX: Persist selected tab across app restarts via UserDefaults.
+    // Reads the stored value on init; every setter write-through persists it.
+    var selectedTab: Int {
+        get { UserDefaults.standard.integer(forKey: "selectedTabIndex") }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "selectedTabIndex")
+            objectWillChange.send()
+        }
+    }
     @Published var isAuthenticated = false
     @Published var currentUser: AppUser?  // Changed from User to AppUser
     
@@ -33,9 +41,7 @@ class ContentViewModel: ObservableObject {
     }
     
     func checkAuthenticationStatus() {
-        // TODO: Check if user is logged in
-        // For now, assume authenticated
-        isAuthenticated = true
+        isAuthenticated = Auth.auth().currentUser != nil
     }
     
     func signOut() {

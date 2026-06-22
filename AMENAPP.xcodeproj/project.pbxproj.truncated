@@ -1,0 +1,1181 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		09762CB15F1F25D2E4CE11C9 /* ContentPermissionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54F533E67BB06317EE660D6F /* ContentPermissionEngine.swift */; };
+		09768BF8DFDA4D5B8AA48EE0 /* AmenCalendarInviteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4829029929CD811B5524BEC8 /* AmenCalendarInviteService.swift */; };
+		0FDEE3ADA480992EA6DEC382 /* AmenTranscriptSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9430422E5C88CFE2BFAF1BAF /* AmenTranscriptSearchView.swift */; };
+		2008A6F436C5CDE4653ABC7F /* ContentDiscussionLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C82C268626F3D2CAF318276 /* ContentDiscussionLauncher.swift */; };
+		20F7AEB3E28EB6DD8D30E46F /* AmenVerifiedHostBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89F7F1D525E4C18B7A5CBBD1 /* AmenVerifiedHostBadgeView.swift */; };
+		27DEE9417BA2F28750CC3B3E /* AmenAutoClipBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9987ADAF27FB1D8C54E83A47 /* AmenAutoClipBrowserView.swift */; };
+		28BD317FD95A9EA2D67E0614 /* ContentOSModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51EBB744D0CB9A042AD42A9C /* ContentOSModels.swift */; };
+		3644A9540BFB775B26D846C7 /* AmenLiveRoomShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBEF74C8FFB8C07CAAED5D50 /* AmenLiveRoomShellView.swift */; };
+		3BDDB122D0D6557B6D493F1D /* AmenStudyCompanionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF496ACBA22E246FC09DA013 /* AmenStudyCompanionSheet.swift */; };
+		40FF3BFF2DA55019CC72E401 /* AmenModerationDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E600940C5965F866F2D34FDB /* AmenModerationDashboardView.swift */; };
+		505F42B53159B64CEC9B1F5D /* AmenStoreKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63E652F61A1DBE16F24B3628 /* AmenStoreKitService.swift */; };
+		51D25D7CE18E5BD564764D39 /* AmenUpcomingLiveChipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FBDBF7B72E6781CA534E963 /* AmenUpcomingLiveChipView.swift */; };
+		53FD6A0AFAE5590139487894 /* AmenLivekitLiveRoomProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 603C39423C9A0EE8DEFF07B7 /* AmenLivekitLiveRoomProvider.swift */; };
+		728961F47895719E15F9B8E6 /* AmenSpaceEventsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D455E592ED8A2CFAC9CB466 /* AmenSpaceEventsListView.swift */; };
+		7BF2AC91E802D334ECEE1529 /* AmenLiveRoomProviderInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DB95A0246EF500BF4D5117 /* AmenLiveRoomProviderInterface.swift */; };
+		8383DB5563165CD45A335366 /* ContentApprovalSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68E61FCB7409248F209377A8 /* ContentApprovalSheet.swift */; };
+		856B2A9C13F10F54B00B3AD1 /* AmenBroadcastComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 996EF51D7C5C107721B2B55B /* AmenBroadcastComposerView.swift */; };
+		8B827085522BA499CE8A0DCD /* SpacesPhase1Contracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = C175261D80889BEE36F96D59 /* SpacesPhase1Contracts.swift */; };
+		8F5758B9AAB04B7F0C950002 /* AmenLiveCaptionsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F09B9B4C6A873D6E7CE2304 /* AmenLiveCaptionsOverlay.swift */; };
+		9085CA96741A7F50AC6CD9E8 /* AmenStripeOnboardingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBFB13503DECE99CD953A969 /* AmenStripeOnboardingService.swift */; };
+		93207BC054CE32938F6C4788 /* AmenScamShieldService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D6AF00950EF76DF1FF401B /* AmenScamShieldService.swift */; };
+		9AE0C44C9D4D76854FFDDB77 /* AmenReplayRecapCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEBEB07DE0DF629985A32B78 /* AmenReplayRecapCard.swift */; };
+		A605E2D578D477F357B3F7BE /* AmenSpaceHeroHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB3AEFE13ACD9FE0103EEABA /* AmenSpaceHeroHeaderView.swift */; };
+		B271BA8AFAF2C6AAFAFA821D /* ContentForwardingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80E9FF7021E953932212C99C /* ContentForwardingService.swift */; };
+		BF60F1D9E65997AD552B6E56 /* AmenSpaceHostOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79EF25CD54C09AB4571B3F97 /* AmenSpaceHostOnboardingView.swift */; };
+		CF1DF9FED99331F81CB34BF2 /* AmenLiveQAQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1193E5DECB8CAE7F04146D6C /* AmenLiveQAQueueView.swift */; };
+		D336C835DF95241F45C97AD7 /* AmenScamShieldAlertView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 223F2D8415E567AC6E7D342F /* AmenScamShieldAlertView.swift */; };
+		DC0BD7894F7C4ACE3008575A /* AmenSpaceEntitlementService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2503EE5A0FE117709DC424A7 /* AmenSpaceEntitlementService.swift */; };
+		E1006836DDAF8B27C7B907E4 /* AmenSpaceEventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98E2E10C8202B4F312855BB /* AmenSpaceEventDetailView.swift */; };
+		EA3022C197A7AFC2E32FF987 /* AmenLiveRoomGreenRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03BA8272641868DE5655261 /* AmenLiveRoomGreenRoomView.swift */; };
+		EA454CAF9808632D9CE33C95 /* AmenFirebaseLiveRoomProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F4217D0D9D650FBF02314F /* AmenFirebaseLiveRoomProvider.swift */; };
+		EEE3C9CE1C4FB7FF753B040F /* AmenSpaceTierSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9961C9ED48D52A7FCB40625F /* AmenSpaceTierSelectionView.swift */; };
+		EF38A1212F2D114F004E694A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = EF38A1202F2D114F004E694A /* GoogleSignIn */; };
+		EF38A1232F2D114F004E694A /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EF38A1222F2D114F004E694A /* GoogleSignInSwift */; };
+		EF3AD06C2F32F5AD00596905 /* genkit-server-index.js in Resources */ = {isa = PBXBuildFile; fileRef = EF3AD06B2F32F5AD00596905 /* genkit-server-index.js */; };
+		EF3AD06E2F32F5B200596905 /* genkit-package.json in Resources */ = {isa = PBXBuildFile; fileRef = EF3AD06D2F32F5B200596905 /* genkit-package.json */; };
+		EF3AD0702F32F5B500596905 /* genkit-Dockerfile in Resources */ = {isa = PBXBuildFile; fileRef = EF3AD06F2F32F5B500596905 /* genkit-Dockerfile */; };
+		EF43AAD12F5412C40075E1B5 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF43AAD02F5412C40075E1B5 /* ActivityKit.framework */; };
+		EF4BA9DA2F29FDD3000B930F /* AlgoliaAbtesting in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9D92F29FDD3000B930F /* AlgoliaAbtesting */; };
+		EF4BA9DC2F29FDD3000B930F /* AlgoliaAbtestingV3 in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DB2F29FDD3000B930F /* AlgoliaAbtestingV3 */; };
+		EF4BA9DE2F29FDD3000B930F /* AlgoliaAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DD2F29FDD3000B930F /* AlgoliaAnalytics */; };
+		EF4BA9E02F29FDD3000B930F /* AlgoliaComposition in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DF2F29FDD3000B930F /* AlgoliaComposition */; };
+		EF4BA9E22F29FDD3000B930F /* AlgoliaCore in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E12F29FDD3000B930F /* AlgoliaCore */; };
+		EF4BA9E42F29FDD3000B930F /* AlgoliaIngestion in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E32F29FDD3000B930F /* AlgoliaIngestion */; };
+		EF4BA9E62F29FDD3000B930F /* AlgoliaInsights in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E52F29FDD3000B930F /* AlgoliaInsights */; };
+		EF4BA9E82F29FDD3000B930F /* AlgoliaMonitoring in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E72F29FDD3000B930F /* AlgoliaMonitoring */; };
+		EF4BA9EA2F29FDD3000B930F /* AlgoliaPersonalization in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9E92F29FDD3000B930F /* AlgoliaPersonalization */; };
+		EF4BA9EC2F29FDD3000B930F /* AlgoliaQuerySuggestions in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9EB2F29FDD3000B930F /* AlgoliaQuerySuggestions */; };
+		EF4BA9EE2F29FDD3000B930F /* AlgoliaRecommend in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9ED2F29FDD3000B930F /* AlgoliaRecommend */; };
+		EF4BA9F02F29FDD3000B930F /* AlgoliaSearch in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9EF2F29FDD3000B930F /* AlgoliaSearch */; };
+		EF4E20582F1F421D0066C5C2 /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20572F1F421D0066C5C2 /* FirebaseAI */; };
+		EF4E205A2F1F421D0066C5C2 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20592F1F421D0066C5C2 /* FirebaseAILogic */; };
+		EF4E205C2F1F421D0066C5C2 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E205B2F1F421D0066C5C2 /* FirebaseAnalytics */; };
+		EF4E205E2F1F421D0066C5C2 /* FirebaseAnalyticsCore in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E205D2F1F421D0066C5C2 /* FirebaseAnalyticsCore */; };
+		EF4E20602F1F421D0066C5C2 /* FirebaseAnalyticsIdentitySupport in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E205F2F1F421D0066C5C2 /* FirebaseAnalyticsIdentitySupport */; };
+		EF4E20622F1F421D0066C5C2 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20612F1F421D0066C5C2 /* FirebaseAppCheck */; };
+		EF4E20642F1F421D0066C5C2 /* FirebaseAppDistribution-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20632F1F421D0066C5C2 /* FirebaseAppDistribution-Beta */; };
+		EF4E20662F1F421D0066C5C2 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20652F1F421D0066C5C2 /* FirebaseAuth */; };
+		EF4E20682F1F421D0066C5C2 /* FirebaseAuthCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20672F1F421D0066C5C2 /* FirebaseAuthCombine-Community */; };
+		EF4E206A2F1F421D0066C5C2 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20692F1F421D0066C5C2 /* FirebaseCore */; };
+		EF4E206C2F1F421D0066C5C2 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E206B2F1F421D0066C5C2 /* FirebaseCrashlytics */; };
+		EF4E206E2F1F421D0066C5C2 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E206D2F1F421D0066C5C2 /* FirebaseDatabase */; };
+		EF4E20702F1F421D0066C5C2 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E206F2F1F421D0066C5C2 /* FirebaseFirestore */; };
+		EF4E20722F1F421D0066C5C2 /* FirebaseFirestoreCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20712F1F421D0066C5C2 /* FirebaseFirestoreCombine-Community */; };
+		EF4E20742F1F421D0066C5C2 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20732F1F421D0066C5C2 /* FirebaseFunctions */; };
+		EF4E20762F1F421D0066C5C2 /* FirebaseFunctionsCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20752F1F421D0066C5C2 /* FirebaseFunctionsCombine-Community */; };
+		EF4E20782F1F421D0066C5C2 /* FirebaseInAppMessaging-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20772F1F421D0066C5C2 /* FirebaseInAppMessaging-Beta */; };
+		EF4E207A2F1F421D0066C5C2 /* FirebaseInstallations in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20792F1F421D0066C5C2 /* FirebaseInstallations */; };
+		EF4E207C2F1F421D0066C5C2 /* FirebaseMLModelDownloader in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E207B2F1F421D0066C5C2 /* FirebaseMLModelDownloader */; };
+		EF4E207E2F1F421D0066C5C2 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E207D2F1F421D0066C5C2 /* FirebaseMessaging */; };
+		EF4E20802F1F421D0066C5C2 /* FirebasePerformance in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E207F2F1F421D0066C5C2 /* FirebasePerformance */; };
+		EF4E20822F1F421D0066C5C2 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20812F1F421D0066C5C2 /* FirebaseRemoteConfig */; };
+		EF4E20842F1F421D0066C5C2 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20832F1F421D0066C5C2 /* FirebaseStorage */; };
+		EF4E20862F1F421D0066C5C2 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20852F1F421D0066C5C2 /* FirebaseStorageCombine-Community */; };
+		EF4FF4572FCF7A8A00A41D0C /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = B431561907918D8FFDD27FC3 /* LiveKit */; };
+		EF5B39062F5BA7A500152D09 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5B39052F5BA7A500152D09 /* WidgetKit.framework */; };
+		EF5B39082F5BA7A500152D09 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF5B39072F5BA7A500152D09 /* SwiftUI.framework */; };
+		EF5B39152F5BA7A600152D09 /* AMENWidgetExtensionExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EF5B39042F5BA7A500152D09 /* AMENWidgetExtensionExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		EF5D8DC62F3EDC80000BB6C9 /* GoogleGenerativeAI in Frameworks */ = {isa = PBXBuildFile; productRef = EF5D8DC52F3EDC80000BB6C9 /* GoogleGenerativeAI */; };
+		EF7475D92F2C85CD00A4434F /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF7475D82F2C85CD00A4434F /* XCTest.framework */; platformFilter = ios; };
+		EFA100012F90000100000001 /* AMENNotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EFA100032F90000100000001 /* AMENNotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F1126CC7E278B12CB8624057 /* ContentAIRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC723268CAB71FFF5A389DD /* ContentAIRouter.swift */; };
+		F390524E3F790FB1B3F10AA8 /* AmenSpaceNowLiveMiniPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1128BBC2DB6CA4E2A22A4262 /* AmenSpaceNowLiveMiniPlayer.swift */; };
+		F799F9724079ABB2E8CAF51E /* AmenSpacePaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5CF9BBA93C2C6D3E47CB493 /* AmenSpacePaywallView.swift */; };
+		FBC4F5A39725A751E3982B1A /* AmenSpaceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E23B5A5C201580F825DC6FB7 /* AmenSpaceDetailView.swift */; };
+		A071C066B12F4616A84A5910 /* AmenActionPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4CC10AC5E8F46D6B0C7BA55 /* AmenActionPill.swift */; };
+		FC05C0F14FF74825935EE118 /* IntentPickerRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52FEA82C9D64A32BB548B46 /* IntentPickerRow.swift */; };
+		49B1164D1D6B4F2991EDF3FB /* AmenUniversalComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFA3CF27D184003971CD149 /* AmenUniversalComposer.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		EF56F7452F2881A40019B94A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EF8151932F184E97008912E3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EF81519A2F184E97008912E3;
+			remoteInfo = AMENAPP;
+		};
+		EF5B39132F5BA7A600152D09 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EF8151932F184E97008912E3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EF5B39032F5BA7A500152D09;
+			remoteInfo = AMENWidgetExtensionExtension;
+		};
+		EFA100022F90000100000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EF8151932F184E97008912E3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EFA100072F90000100000001;
+			remoteInfo = AMENNotificationServiceExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		EF475AC02F56FC4600744F61 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EF5B39162F5BA7A700152D09 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				EF5B39152F5BA7A600152D09 /* AMENWidgetExtensionExtension.appex in Embed Foundation Extensions */,
+				EFA100012F90000100000001 /* AMENNotificationServiceExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0804F587EA71407AA64D8634 /* AmenSyncModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncModels.swift; sourceTree = "<group>"; };
+		0F485E8816FD4F539AA958C5 /* AmenSyncHubCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncHubCard.swift; sourceTree = "<group>"; };
+		10F4217D0D9D650FBF02314F /* AmenFirebaseLiveRoomProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenFirebaseLiveRoomProvider.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Live/AmenFirebaseLiveRoomProvider.swift; sourceTree = "<group>"; };
+		1128BBC2DB6CA4E2A22A4262 /* AmenSpaceNowLiveMiniPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceNowLiveMiniPlayer.swift; path = ../AMENAPP/AMENAPP/ConnectSpaces/AmenSpaceNowLiveMiniPlayer.swift; sourceTree = "<group>"; };
+		1193E5DECB8CAE7F04146D6C /* AmenLiveQAQueueView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenLiveQAQueueView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Live/AmenLiveQAQueueView.swift; sourceTree = "<group>"; };
+		223F2D8415E567AC6E7D342F /* AmenScamShieldAlertView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenScamShieldAlertView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Safety/AmenScamShieldAlertView.swift; sourceTree = "<group>"; };
+		2503EE5A0FE117709DC424A7 /* AmenSpaceEntitlementService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceEntitlementService.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Monetization/AmenSpaceEntitlementService.swift; sourceTree = "<group>"; };
+		27CFD76466884F5BBD04A1F2 /* AmenSyncCaptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncCaptionService.swift; sourceTree = "<group>"; };
+		3120D71872D94559AEBE38F9 /* CreationPromptBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationPromptBar.swift; sourceTree = "<group>"; };
+		35FFF8CDEC8642A68C258780 /* CreationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationModels.swift; sourceTree = "<group>"; };
+		3FBDBF7B72E6781CA534E963 /* AmenUpcomingLiveChipView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenUpcomingLiveChipView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Events/AmenUpcomingLiveChipView.swift; sourceTree = "<group>"; };
+		4829029929CD811B5524BEC8 /* AmenCalendarInviteService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenCalendarInviteService.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Events/AmenCalendarInviteService.swift; sourceTree = "<group>"; };
+		51EBB744D0CB9A042AD42A9C /* ContentOSModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentOSModels.swift; path = ../AMENAPP/AMENAPP/ContentOS/ContentOSModels.swift; sourceTree = "<group>"; };
+		54F533E67BB06317EE660D6F /* ContentPermissionEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentPermissionEngine.swift; path = ../AMENAPP/AMENAPP/ContentOS/ContentPermissionEngine.swift; sourceTree = "<group>"; };
+		5AA9B8E644D04ABEAAC1B73F /* CreationStudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationStudioView.swift; sourceTree = "<group>"; };
+		5F61F9D6175143FC800638E8 /* AssetSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetSelectionView.swift; sourceTree = "<group>"; };
+		603C39423C9A0EE8DEFF07B7 /* AmenLivekitLiveRoomProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenLivekitLiveRoomProvider.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Live/AmenLivekitLiveRoomProvider.swift; sourceTree = "<group>"; };
+		63E652F61A1DBE16F24B3628 /* AmenStoreKitService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenStoreKitService.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Monetization/AmenStoreKitService.swift; sourceTree = "<group>"; };
+		68E61FCB7409248F209377A8 /* ContentApprovalSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentApprovalSheet.swift; path = ../AMENAPP/AMENAPP/ContentOS/ContentApprovalSheet.swift; sourceTree = "<group>"; };
+		6D455E592ED8A2CFAC9CB466 /* AmenSpaceEventsListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceEventsListView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Events/AmenSpaceEventsListView.swift; sourceTree = "<group>"; };
+		79EF25CD54C09AB4571B3F97 /* AmenSpaceHostOnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceHostOnboardingView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Monetization/AmenSpaceHostOnboardingView.swift; sourceTree = "<group>"; };
+		7C82C268626F3D2CAF318276 /* ContentDiscussionLauncher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentDiscussionLauncher.swift; path = ../AMENAPP/AMENAPP/ContentOS/ContentDiscussionLauncher.swift; sourceTree = "<group>"; };
+		80E9FF7021E953932212C99C /* ContentForwardingService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentForwardingService.swift; path = ../AMENAPP/AMENAPP/ContentOS/ContentForwardingService.swift; sourceTree = "<group>"; };
+		89F7F1D525E4C18B7A5CBBD1 /* AmenVerifiedHostBadgeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenVerifiedHostBadgeView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Safety/AmenVerifiedHostBadgeView.swift; sourceTree = "<group>"; };
+		8ED726DB5CDC452EB1AFB438 /* AmenSyncDraftsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncDraftsView.swift; sourceTree = "<group>"; };
+		8FC723268CAB71FFF5A389DD /* ContentAIRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentAIRouter.swift; path = ../AMENAPP/AMENAPP/ContentOS/ContentAIRouter.swift; sourceTree = "<group>"; };
+		922950E8CC9D46569F7E0EC3 /* SceneBuilderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneBuilderViewModel.swift; sourceTree = "<group>"; };
+		9430422E5C88CFE2BFAF1BAF /* AmenTranscriptSearchView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenTranscriptSearchView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/AIRecap/AmenTranscriptSearchView.swift; sourceTree = "<group>"; };
+		9961C9ED48D52A7FCB40625F /* AmenSpaceTierSelectionView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceTierSelectionView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Monetization/AmenSpaceTierSelectionView.swift; sourceTree = "<group>"; };
+		996EF51D7C5C107721B2B55B /* AmenBroadcastComposerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenBroadcastComposerView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Events/AmenBroadcastComposerView.swift; sourceTree = "<group>"; };
+		9987ADAF27FB1D8C54E83A47 /* AmenAutoClipBrowserView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenAutoClipBrowserView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/AIRecap/AmenAutoClipBrowserView.swift; sourceTree = "<group>"; };
+		9F09B9B4C6A873D6E7CE2304 /* AmenLiveCaptionsOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenLiveCaptionsOverlay.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Live/AmenLiveCaptionsOverlay.swift; sourceTree = "<group>"; };
+		A2C11335A649489CA118C3F3 /* CreationDraftService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationDraftService.swift; sourceTree = "<group>"; };
+		A98E2E10C8202B4F312855BB /* AmenSpaceEventDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceEventDetailView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Events/AmenSpaceEventDetailView.swift; sourceTree = "<group>"; };
+		AA86F52210834944B71B50CF /* LiquidGlassCreationComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassCreationComponents.swift; sourceTree = "<group>"; };
+		AEBEB07DE0DF629985A32B78 /* AmenReplayRecapCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenReplayRecapCard.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/AIRecap/AmenReplayRecapCard.swift; sourceTree = "<group>"; };
+		BBFB13503DECE99CD953A969 /* AmenStripeOnboardingService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenStripeOnboardingService.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Monetization/AmenStripeOnboardingService.swift; sourceTree = "<group>"; };
+		BF496ACBA22E246FC09DA013 /* AmenStudyCompanionSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenStudyCompanionSheet.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/AIRecap/AmenStudyCompanionSheet.swift; sourceTree = "<group>"; };
+		C03BA8272641868DE5655261 /* AmenLiveRoomGreenRoomView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenLiveRoomGreenRoomView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Live/AmenLiveRoomGreenRoomView.swift; sourceTree = "<group>"; };
+		C175261D80889BEE36F96D59 /* SpacesPhase1Contracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpacesPhase1Contracts.swift; path = ../AMENAPP/AMENAPP/ConnectSpaces/SpacesPhase1Contracts.swift; sourceTree = "<group>"; };
+		C4D6AF00950EF76DF1FF401B /* AmenScamShieldService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenScamShieldService.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Safety/AmenScamShieldService.swift; sourceTree = "<group>"; };
+		C5CF9BBA93C2C6D3E47CB493 /* AmenSpacePaywallView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpacePaywallView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Monetization/AmenSpacePaywallView.swift; sourceTree = "<group>"; };
+		CBEF74C8FFB8C07CAAED5D50 /* AmenLiveRoomShellView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenLiveRoomShellView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Live/AmenLiveRoomShellView.swift; sourceTree = "<group>"; };
+		D6084B1DB0854630B7B3E661 /* AmenSyncEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncEntryView.swift; sourceTree = "<group>"; };
+		D62DCFF1C5A247B4B51C0162 /* AmenSyncViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncViewModel.swift; sourceTree = "<group>"; };
+		D65C30C1C1AF4F71B03AA3D0 /* CreationPublishView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationPublishView.swift; sourceTree = "<group>"; };
+		D75E708FF5164132A318EA58 /* CreationTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationTimelineView.swift; sourceTree = "<group>"; };
+		D9249F2C56B94D75A3A87527 /* AmenSyncStudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncStudioView.swift; sourceTree = "<group>"; };
+		E23B5A5C201580F825DC6FB7 /* AmenSpaceDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceDetailView.swift; path = ../AMENAPP/AMENAPP/ConnectSpaces/AmenSpaceDetailView.swift; sourceTree = "<group>"; };
+		E42C295EA4584A44B2D88197 /* TemplatePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatePickerView.swift; sourceTree = "<group>"; };
+		E600940C5965F866F2D34FDB /* AmenModerationDashboardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenModerationDashboardView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Safety/AmenModerationDashboardView.swift; sourceTree = "<group>"; };
+		E96B1EDAE41B4A07A7C0A567 /* AmenSyncModerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncModerationService.swift; sourceTree = "<group>"; };
+		EB3AEFE13ACD9FE0103EEABA /* AmenSpaceHeroHeaderView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceHeroHeaderView.swift; path = ../AMENAPP/AMENAPP/ConnectSpaces/AmenSpaceHeroHeaderView.swift; sourceTree = "<group>"; };
+		EF03BC942F2B31ED0026395A /* DEBUG_CHAT_NOT_OPENING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DEBUG_CHAT_NOT_OPENING.md; sourceTree = "<group>"; };
+		EF03BCA22F2B36EC0026395A /* FIX_TYPING_INDICATORS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIX_TYPING_INDICATORS.md; sourceTree = "<group>"; };
+		EF03BCA42F2B37000026395A /* QUICK_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = QUICK_FIX.md; sourceTree = "<group>"; };
+		EF03BCAC2F2B37E80026395A /* PRODUCTION_READY_IMPLEMENTATION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRODUCTION_READY_IMPLEMENTATION.md; sourceTree = "<group>"; };
+		EF03BCDA2F2BEF440026395A /* CHAT_IMPLEMENTATION_STATUS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHAT_IMPLEMENTATION_STATUS.md; sourceTree = "<group>"; };
+		EF03BCE02F2BF17E0026395A /* CHATVIEW_MIGRATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHATVIEW_MIGRATION_GUIDE.md; sourceTree = "<group>"; };
+		EF03BCE22F2BF1BA0026395A /* PRODUCTION_DEPLOYMENT_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRODUCTION_DEPLOYMENT_SUMMARY.md; sourceTree = "<group>"; };
+		EF156EE52F80A46F000C4448 /* GreetingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingService.swift; sourceTree = "<group>"; };
+		EF156EE62F80A48D000C4448 /* PersonalizedGreetingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizedGreetingView.swift; sourceTree = "<group>"; };
+		EF156EE72F80A4B3000C4448 /* GreetingSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingSettingsView.swift; sourceTree = "<group>"; };
+		EF3ACF7D2F30027C00596905 /* FIX_CONTACTS_PERMISSION_CRASH.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIX_CONTACTS_PERMISSION_CRASH.md; sourceTree = "<group>"; };
+		EF3ACF9D2F30603500596905 /* UNIFIED_CHAT_ENHANCEMENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = UNIFIED_CHAT_ENHANCEMENTS.md; sourceTree = "<group>"; };
+		EF3AD06B2F32F5AD00596905 /* genkit-server-index.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "genkit-server-index.js"; sourceTree = "<group>"; };
+		EF3AD06D2F32F5B200596905 /* genkit-package.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "genkit-package.json"; sourceTree = "<group>"; };
+		EF3AD06F2F32F5B500596905 /* genkit-Dockerfile */ = {isa = PBXFileReference; lastKnownFileType = text; path = "genkit-Dockerfile"; sourceTree = "<group>"; };
+		EF3B22802F484A3F001DA241 /* PostTranslationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostTranslationService.swift; sourceTree = "<group>"; };
+		EF3B22822F484B78001DA241 /* POST_TRANSLATION_AND_UI_CLEANUP_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = POST_TRANSLATION_AND_UI_CLEANUP_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B228A2F4851D8001DA241 /* ThreadSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSummaryView.swift; sourceTree = "<group>"; };
+		EF3B228C2F485215001DA241 /* ToneFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToneFeedbackView.swift; sourceTree = "<group>"; };
+		EF3B228E2F4854D9001DA241 /* PostDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostDetailView.swift; sourceTree = "<group>"; };
+		EF3B22982F490E57001DA241 /* FollowOperationActor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowOperationActor.swift; sourceTree = "<group>"; };
+		EF3B229A2F491110001DA241 /* PROFILE_P0_FIXES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PROFILE_P0_FIXES_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B229C2F4911A8001DA241 /* PROFILE_IMPLEMENTATION_STATUS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PROFILE_IMPLEMENTATION_STATUS.md; sourceTree = "<group>"; };
+		EF3B229E2F4912BB001DA241 /* ListenerRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenerRegistry.swift; sourceTree = "<group>"; };
+		EF3B22ED2F49182A001DA241 /* ChurchNotesEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchNotesEditor.swift; sourceTree = "<group>"; };
+		EF3B22EF2F4918B8001DA241 /* ChurchNotesAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchNotesAIService.swift; sourceTree = "<group>"; };
+		EF3B22F12F4918E5001DA241 /* ChurchNotesPDFExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchNotesPDFExporter.swift; sourceTree = "<group>"; };
+		EF3B22F32F491920001DA241 /* ChurchNotesStressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchNotesStressTests.swift; sourceTree = "<group>"; };
+		EF3B22F52F492DF5001DA241 /* ChurchNotesShareService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchNotesShareService.swift; sourceTree = "<group>"; };
+		EF3B22F72F4954CE001DA241 /* NOTIFICATIONS_FIRESTORE_INDEXES_REQUIRED.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTIFICATIONS_FIRESTORE_INDEXES_REQUIRED.md; sourceTree = "<group>"; };
+		EF3B22F92F495502001DA241 /* BadgeCountManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgeCountManager.swift; sourceTree = "<group>"; };
+		EF3B22FB2F495614001DA241 /* NOTIFICATIONS_PRODUCTION_FIXES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTIFICATIONS_PRODUCTION_FIXES_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B22FD2F495DC2001DA241 /* AUTHENTICATION_PRODUCTION_AUDIT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AUTHENTICATION_PRODUCTION_AUDIT.md; sourceTree = "<group>"; };
+		EF3B22FF2F49666B001DA241 /* AnimationPresets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationPresets.swift; sourceTree = "<group>"; };
+		EF3B23012F49680E001DA241 /* PostCardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCardViewModel.swift; sourceTree = "<group>"; };
+		EF3B23072F49E0C9001DA241 /* AdvancedModerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedModerationService.swift; sourceTree = "<group>"; };
+		EF3B23092F49E108001DA241 /* SemanticSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSearchService.swift; sourceTree = "<group>"; };
+		EF3B230B2F49E158001DA241 /* VertexAIPersonalizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VertexAIPersonalizationService.swift; sourceTree = "<group>"; };
+		EF3B230D2F49E21E001DA241 /* ADVANCED_AI_FEATURES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ADVANCED_AI_FEATURES_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B230F2F49E302001DA241 /* AI_IMPLEMENTATION_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AI_IMPLEMENTATION_SUMMARY.md; sourceTree = "<group>"; };
+		EF3B23112F4A023A001DA241 /* AI_SETUP_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AI_SETUP_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B23132F4A06D5001DA241 /* BUTTON_INTERACTION_AUDIT_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = BUTTON_INTERACTION_AUDIT_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B23152F4A16C9001DA241 /* PinnedPostService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedPostService.swift; sourceTree = "<group>"; };
+		EF3B23172F4A1848001DA241 /* SHIP_READY_FIXES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SHIP_READY_FIXES_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B23192F4A5159001DA241 /* FEED_REFRESH_REALTIME_SHIP_READY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FEED_REFRESH_REALTIME_SHIP_READY.md; sourceTree = "<group>"; };
+		EF3B231B2F4A60BB001DA241 /* ThumbnailService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailService.swift; sourceTree = "<group>"; };
+		EF3B231D2F4A6167001DA241 /* AIContentDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIContentDetectionService.swift; sourceTree = "<group>"; };
+		EF3B231F2F4A6197001DA241 /* P0_BUGS_FIXED_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = P0_BUGS_FIXED_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B23212F4A624C001DA241 /* P0_FIXES_IMPLEMENTATION_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = P0_FIXES_IMPLEMENTATION_SUMMARY.md; sourceTree = "<group>"; };
+		EF3B23232F4A64BD001DA241 /* NOTIFICATIONS_VIEW_AUDIT_FIXES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTIFICATIONS_VIEW_AUDIT_FIXES.md; sourceTree = "<group>"; };
+		EF3B23292F4A7F43001DA241 /* PhotoInsightsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoInsightsService.swift; sourceTree = "<group>"; };
+		EF3B232B2F4A7F98001DA241 /* SmartSuggestionsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartSuggestionsService.swift; sourceTree = "<group>"; };
+		EF3B232D2F4A8386001DA241 /* TAB_BAR_AUTO_HIDE_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TAB_BAR_AUTO_HIDE_FIX.md; sourceTree = "<group>"; };
+		EF3B23532F4AAC1B001DA241 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		EF43AAC82F53C7E40075E1B5 /* ModerationAuditLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationAuditLog.swift; sourceTree = "<group>"; };
+		EF43AACA2F53C8480075E1B5 /* BereanOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanOrchestrator.swift; sourceTree = "<group>"; };
+		EF43AACC2F5410E20075E1B5 /* SmartReplySuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartReplySuggestionService.swift; sourceTree = "<group>"; };
+		EF43AACE2F5411720075E1B5 /* ReplyActivityTriggers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyActivityTriggers.swift; sourceTree = "<group>"; };
+		EF43AAD02F5412C40075E1B5 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
+		EF43AAD42F54C9D10075E1B5 /* SearchExpandBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchExpandBar.swift; sourceTree = "<group>"; };
+		EF43AAD62F54E0180075E1B5 /* ProfilePhotoCropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePhotoCropView.swift; sourceTree = "<group>"; };
+		EF43AAD82F54E3DA0075E1B5 /* ExpandingBottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandingBottomSheet.swift; sourceTree = "<group>"; };
+		EF4498C72FD1A0BE00C1A81A /* SpaceOSModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceOSModels.swift; sourceTree = "<group>"; };
+		EF4498CE2FD1A0E500C1A81A /* SpaceRoleActionBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceRoleActionBar.swift; sourceTree = "<group>"; };
+		EF475A952F56850900744F61 /* FruitOfSpiritBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FruitOfSpiritBannerView.swift; sourceTree = "<group>"; };
+		EF475A972F568E0000744F61 /* DebugLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLog.swift; sourceTree = "<group>"; };
+		EF475A992F568E8300744F61 /* PerfTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerfTracker.swift; sourceTree = "<group>"; };
+		EF475A9B2F569A3B00744F61 /* WriteOpTracer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriteOpTracer.swift; sourceTree = "<group>"; };
+		EF475AA32F569FB800744F61 /* ShabbatModeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShabbatModeService.swift; sourceTree = "<group>"; };
+		EF475AC42F56FE0B00744F61 /* LinkPreviewCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreviewCards.swift; sourceTree = "<group>"; };
+		EF475AC62F572C4200744F61 /* WorshipNowPlayingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorshipNowPlayingView.swift; sourceTree = "<group>"; };
+		EF475AC82F573E5D00744F61 /* WorshipSongPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorshipSongPickerSheet.swift; sourceTree = "<group>"; };
+		EF475ACA2F57456F00744F61 /* ImportModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportModels.swift; sourceTree = "<group>"; };
+		EF475ACC2F57459000744F61 /* GenericArchiveImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenericArchiveImporter.swift; sourceTree = "<group>"; };
+		EF475ACE2F5745D700744F61 /* DataImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataImportService.swift; sourceTree = "<group>"; };
+		EF475AD02F57462800744F61 /* ImportReviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportReviewSheet.swift; sourceTree = "<group>"; };
+		EF475AD22F57466500744F61 /* LinkMetadataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkMetadataService.swift; sourceTree = "<group>"; };
+		EF475AD62F574AB200744F61 /* ShareDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareDraft.swift; sourceTree = "<group>"; };
+		EF475AD82F57556000744F61 /* AccountStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountStatusView.swift; sourceTree = "<group>"; };
+		EF475ADA2F575A2500744F61 /* RestrictService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestrictService.swift; sourceTree = "<group>"; };
+		EF475ADC2F575B0100744F61 /* LinkSafetyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkSafetyService.swift; sourceTree = "<group>"; };
+		EF475ADE2F575B6B00744F61 /* UnusualLoginDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnusualLoginDetector.swift; sourceTree = "<group>"; };
+		EF475AE02F575C3500744F61 /* CommunityGuidelinesPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityGuidelinesPrompt.swift; sourceTree = "<group>"; };
+		EF475AE22F575C5C00744F61 /* DeviceIntegrityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceIntegrityService.swift; sourceTree = "<group>"; };
+		EF475AE42F575F2800744F61 /* AgeAssuranceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgeAssuranceService.swift; sourceTree = "<group>"; };
+		EF475AE62F57DA6700744F61 /* SelahView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelahView.swift; sourceTree = "<group>"; };
+		EF475AE82F57E3E800744F61 /* ModerationConstitutionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationConstitutionModels.swift; sourceTree = "<group>"; };
+		EF475AEA2F57E47A00744F61 /* ModerationIngestService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationIngestService.swift; sourceTree = "<group>"; };
+		EF475AEC2F57E52900744F61 /* EnforcementLadderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnforcementLadderService.swift; sourceTree = "<group>"; };
+		EF475AEE2F58573100744F61 /* SexualContentPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualContentPolicy.swift; sourceTree = "<group>"; };
+		EF475AF02F58576F00744F61 /* MediaModerationPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModerationPipeline.swift; sourceTree = "<group>"; };
+		EF475AF22F58586600744F61 /* ProactiveFrictionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProactiveFrictionView.swift; sourceTree = "<group>"; };
+		EF55D2072F4E9DF40086707A /* FTUEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTUEManager.swift; sourceTree = "<group>"; };
+		EF55D2092F4E9E1B0086707A /* CoachMarkOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachMarkOverlay.swift; sourceTree = "<group>"; };
+		EF55D20B2F4E9E4D0086707A /* CoachMarkFramePreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachMarkFramePreferences.swift; sourceTree = "<group>"; };
+		EF55D20D2F4E9F980086707A /* FTUE_IMPLEMENTATION_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FTUE_IMPLEMENTATION_COMPLETE.md; sourceTree = "<group>"; };
+		EF55D2152F4EBDF90086707A /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		EF55D2172F4EBE0B0086707A /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
+		EF55D22C2F4F45970086707A /* ImageModerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageModerationService.swift; sourceTree = "<group>"; };
+		EF55D22E2F4F6C130086707A /* EmailVerificationBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailVerificationBanner.swift; sourceTree = "<group>"; };
+		EF55D2302F4F71DE0086707A /* AccountLinkingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountLinkingView.swift; sourceTree = "<group>"; };
+		EF55D2322F4F71FE0086707A /* BiometricAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricAuthService.swift; sourceTree = "<group>"; };
+		EF55D2342F4F72580086707A /* ActiveSessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSessionsView.swift; sourceTree = "<group>"; };
+		EF55D2362F4F728D0086707A /* TwoFactorAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TwoFactorAuthService.swift; sourceTree = "<group>"; };
+		EF55D2382F4F72BB0086707A /* TwoFactorAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TwoFactorAuthView.swift; sourceTree = "<group>"; };
+		EF55D23A2F4F7CD70086707A /* AuthSuccessCheckmarkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSuccessCheckmarkView.swift; sourceTree = "<group>"; };
+		EF55D23C2F4F7CF00086707A /* EmailVerificationGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailVerificationGateView.swift; sourceTree = "<group>"; };
+		EF55D23E2F4F7D7A0086707A /* TwoFactorOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TwoFactorOnboardingView.swift; sourceTree = "<group>"; };
+		EF55D2402F4F81BF0086707A /* TwoFactorVerificationGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TwoFactorVerificationGateView.swift; sourceTree = "<group>"; };
+		EF56F7412F2881A30019B94A /* AMENAPPTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AMENAPPTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EF5B38F62F5B25A100152D09 /* ClaudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeService.swift; sourceTree = "<group>"; };
+		EF5B38F82F5B403C00152D09 /* PrivacyAccessControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyAccessControl.swift; sourceTree = "<group>"; };
+		EF5B38FC2F5B751D00152D09 /* LiquidGlassMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassMotion.swift; sourceTree = "<group>"; };
+		EF5B39042F5BA7A500152D09 /* AMENWidgetExtensionExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AMENWidgetExtensionExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		EF5B39052F5BA7A500152D09 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		EF5B39072F5BA7A500152D09 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		EF5FAFF62F50E6ED004D2993 /* SmartNotificationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartNotificationModels.swift; sourceTree = "<group>"; };
+		EF5FAFF82F50E734004D2993 /* SmartNotificationRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartNotificationRouter.swift; sourceTree = "<group>"; };
+		EF5FAFFA2F50E77C004D2993 /* ActionableNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionableNotificationService.swift; sourceTree = "<group>"; };
+		EF5FAFFC2F50E798004D2993 /* NotificationDigestService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDigestService.swift; sourceTree = "<group>"; };
+		EF5FAFFE2F50E7B8004D2993 /* SmartMuteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartMuteService.swift; sourceTree = "<group>"; };
+		EF5FB0002F50E7EA004D2993 /* SmartNotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartNotificationSettingsView.swift; sourceTree = "<group>"; };
+		EF5FB0022F50E811004D2993 /* NotificationDigestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDigestView.swift; sourceTree = "<group>"; };
+		EF5FB0042F50ECA4004D2993 /* DeepLinkRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkRouter.swift; sourceTree = "<group>"; };
+		EF5FB00C2F50EDC4004D2993 /* NATIVE_INTERACTIONS_IMPLEMENTATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NATIVE_INTERACTIONS_IMPLEMENTATION_GUIDE.md; sourceTree = "<group>"; };
+		EF5FB00E2F50EE34004D2993 /* IMPLEMENTATION_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_SUMMARY.md; sourceTree = "<group>"; };
+		EF5FB0102F50EE7E004D2993 /* ToastManagerExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastManagerExtensions.swift; sourceTree = "<group>"; };
+		EF5FB0122F50EEBB004D2993 /* INTERACTIONS_FINAL_DELIVERY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = INTERACTIONS_FINAL_DELIVERY.md; sourceTree = "<group>"; };
+		EF6873C42F40F194006DC25E /* CloudStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudStorageService.swift; sourceTree = "<group>"; };
+		EF6873D42F40F394006DC25E /* RichTextEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichTextEditorView.swift; sourceTree = "<group>"; };
+		EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHURCH_NOTES_USER_FLOWS.md; sourceTree = "<group>"; };
+		EF688D042F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartPrayerReminderScheduler.swift; sourceTree = "<group>"; };
+		EF6E9F852F510D12003822C2 /* PostImagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostImagesView.swift; sourceTree = "<group>"; };
+		EF6E9F8B2F513E35003822C2 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
+		EF6E9F912F51B0BF003822C2 /* PerformanceHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceHUD.swift; sourceTree = "<group>"; };
+		EF6E9F932F51BB4C003822C2 /* FeedAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedAPIService.swift; sourceTree = "<group>"; };
+		EF6E9F952F51C05F003822C2 /* AKAMAI_INTEGRATION_PLAN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AKAMAI_INTEGRATION_PLAN.md; sourceTree = "<group>"; };
+		EF6E9F9B2F524E2B003822C2 /* MessageSafetyGateway.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSafetyGateway.swift; sourceTree = "<group>"; };
+		EF6E9F9D2F524E75003822C2 /* ConversationRiskEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRiskEngine.swift; sourceTree = "<group>"; };
+		EF6E9F9F2F524EAE003822C2 /* MessageSafetyUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSafetyUI.swift; sourceTree = "<group>"; };
+		EF6E9FA12F526227003822C2 /* MinorSafetyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinorSafetyService.swift; sourceTree = "<group>"; };
+		EF6E9FA32F52629D003822C2 /* MediaSafetyGateway.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSafetyGateway.swift; sourceTree = "<group>"; };
+		EF6E9FA52F52655B003822C2 /* SafetyReportingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyReportingService.swift; sourceTree = "<group>"; };
+		EF6E9FA72F5265D6003822C2 /* ModerationConsoleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationConsoleModels.swift; sourceTree = "<group>"; };
+		EF72D8F72F4FEBCE00F51E08 /* BiometricOnboardingPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricOnboardingPage.swift; sourceTree = "<group>"; };
+		EF72D8F92F4FEFB400F51E08 /* PrivacySettingsOnboardingPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsOnboardingPage.swift; sourceTree = "<group>"; };
+		EF7475D82F2C85CD00A4434F /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		EF7F00562F8957A400B31A9A /* groupLinks.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = groupLinks.ts; sourceTree = "<group>"; };
+		EF7FF4B92F88A22400B31A9A /* ActionThreadModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadModels.swift; sourceTree = "<group>"; };
+		EF7FF4BA2F88A22500B31A9A /* CompoundIdentityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompoundIdentityModels.swift; sourceTree = "<group>"; };
+		EF7FF4BB2F88A22600B31A9A /* ProofOfTrustModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofOfTrustModels.swift; sourceTree = "<group>"; };
+		EF7FF4BC2F88A2CB00B31A9A /* ActionThreadService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadService.swift; sourceTree = "<group>"; };
+		EF7FF4BD2F88A2CB00B31A9A /* ActionThreadPermissionsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadPermissionsService.swift; sourceTree = "<group>"; };
+		EF7FF4BE2F88A31100B31A9A /* ActionSuggestionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionSuggestionEngine.swift; sourceTree = "<group>"; };
+		EF7FF4BF2F88A31100B31A9A /* ActionThreadNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionThreadNotificationService.swift; sourceTree = "<group>"; };
+		EF7FF4C02F88A37A00B31A9A /* UserIntelligenceOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserIntelligenceOrchestrator.swift; sourceTree = "<group>"; };
+		EF7FF4C12F88A37A00B31A9A /* TrustScoringEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustScoringEngine.swift; sourceTree = "<group>"; };
+		EF7FF4C22F88A3AA00B31A9A /* TrustEventRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustEventRecorder.swift; sourceTree = "<group>"; };
+		EF7FF4C32F88A3AB00B31A9A /* ProofOfHumanService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofOfHumanService.swift; sourceTree = "<group>"; };
+		EF7FF4C42F88A3AB00B31A9A /* ProofOfCareService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofOfCareService.swift; sourceTree = "<group>"; };
+		EF81519B2F184E97008912E3 /* AMENAPP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AMENAPP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EF8C4BD32F60FE6C0003AE65 /* AMENBottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENBottomSheet.swift; sourceTree = "<group>"; };
+		EF8C4BD52F6232150003AE65 /* AMENMediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENMediaModels.swift; sourceTree = "<group>"; };
+		EF8C4BD72F6232570003AE65 /* AMENMediaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENMediaService.swift; sourceTree = "<group>"; };
+		EF8C4BD92F6232960003AE65 /* AMENResourceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENResourceDetailView.swift; sourceTree = "<group>"; };
+		EF8C4BDB2F6232D10003AE65 /* AMENResourcesHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENResourcesHubView.swift; sourceTree = "<group>"; };
+		EF8C4BDD2F62360B0003AE65 /* ResourceFolderCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceFolderCard.swift; sourceTree = "<group>"; };
+		EF8C4BDF2F623E1A0003AE65 /* CaughtUpService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaughtUpService.swift; sourceTree = "<group>"; };
+		EF8C4BE12F623E4A0003AE65 /* CaughtUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaughtUpView.swift; sourceTree = "<group>"; };
+		EF8C4BE32F62491A0003AE65 /* AMENReactionSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENReactionSystem.swift; sourceTree = "<group>"; };
+		EF8C4BFF2F639E210003AE65 /* AMENOnboardingSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENOnboardingSystem.swift; sourceTree = "<group>"; };
+		EF8C4C012F63A2950003AE65 /* ChatIdentityCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatIdentityCard.swift; sourceTree = "<group>"; };
+		EF8C4C032F63BA730003AE65 /* ChristianMediaBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChristianMediaBannerView.swift; sourceTree = "<group>"; };
+		EF8C4C352F63D2F70003AE65 /* AMENPermissionsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENPermissionsManager.swift; sourceTree = "<group>"; };
+		EF8C4C372F63D36E0003AE65 /* SpiritualCheckInService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpiritualCheckInService.swift; sourceTree = "<group>"; };
+		EF8C4C392F63D7620003AE65 /* AMENFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENFeatureFlags.swift; sourceTree = "<group>"; };
+		EF8C4C3B2F63D7D00003AE65 /* ModerationPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationPipeline.swift; sourceTree = "<group>"; };
+		EF8C4C3D2F63D84D0003AE65 /* BereanRAGService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanRAGService.swift; sourceTree = "<group>"; };
+		EF8C4C3F2F63D8F00003AE65 /* FeedIntelligenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedIntelligenceService.swift; sourceTree = "<group>"; };
+		EF8C4C412F63D9300003AE65 /* KnowledgeGraphService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnowledgeGraphService.swift; sourceTree = "<group>"; };
+		EF8C4C452F63D9B80003AE65 /* AMENAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENAnalyticsService.swift; sourceTree = "<group>"; };
+		EF8C4C472F6412840003AE65 /* ChurchDiscoveryPulse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchDiscoveryPulse.swift; sourceTree = "<group>"; };
+		EF8C4C492F6414BE0003AE65 /* FeaturedResourceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeaturedResourceCard.swift; sourceTree = "<group>"; };
+		EF8C4C4B2F6418C50003AE65 /* WisdomLibraryHeroBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WisdomLibraryHeroBanner.swift; sourceTree = "<group>"; };
+		EF8C4C4D2F641B440003AE65 /* BereanInteractiveUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanInteractiveUI.swift; sourceTree = "<group>"; };
+		EF8C4C4F2F64212B0003AE65 /* BereanCoreService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanCoreService.swift; sourceTree = "<group>"; };
+		EF8C4C512F6421990003AE65 /* ModelRoutingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRoutingEngine.swift; sourceTree = "<group>"; };
+		EF8C4C532F6421D60003AE65 /* PromptPolicyEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptPolicyEngine.swift; sourceTree = "<group>"; };
+		EF8C4C552F6422050003AE65 /* ConfidenceScoringService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfidenceScoringService.swift; sourceTree = "<group>"; };
+		EF8C4C572F6422440003AE65 /* SemanticTopicService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticTopicService.swift; sourceTree = "<group>"; };
+		EF8C4C592F64226C0003AE65 /* UserSignalsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSignalsService.swift; sourceTree = "<group>"; };
+		EF8C4C5B2F6422B20003AE65 /* RecommendationIntelligenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationIntelligenceService.swift; sourceTree = "<group>"; };
+		EF8C4C5D2F6423170003AE65 /* BereanSurfaceIntegrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanSurfaceIntegrations.swift; sourceTree = "<group>"; };
+		EF8C4C5F2F646D4B0003AE65 /* ConversationThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationThreadView.swift; sourceTree = "<group>"; };
+		EF8C4C692F64BA560003AE65 /* AMENQuickActionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENQuickActionManager.swift; sourceTree = "<group>"; };
+		EF8C4C6D2F664F5D0003AE65 /* BereanGreetingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanGreetingManager.swift; sourceTree = "<group>"; };
+		EF8C4C6F2F664F860003AE65 /* BereanTypewriterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanTypewriterView.swift; sourceTree = "<group>"; };
+		EF8C4C712F664FDF0003AE65 /* BereanLandingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanLandingView.swift; sourceTree = "<group>"; };
+		EF8C4C732F6657E50003AE65 /* AMENSuggestionsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENSuggestionsSection.swift; sourceTree = "<group>"; };
+		EF92D0142F257C7300CC9601 /* FIREBASE_PERSISTENCE_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIREBASE_PERSISTENCE_FIX.md; sourceTree = "<group>"; };
+		EF92D0162F257D7C00CC9601 /* FIREBASE_PERSISTENCE_TROUBLESHOOTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIREBASE_PERSISTENCE_TROUBLESHOOTING.md; sourceTree = "<group>"; };
+		EF94DD902F5925C6004D0767 /* BereanSafetyPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanSafetyPolicy.swift; sourceTree = "<group>"; };
+		EF94DD922F59D77E004D0767 /* AMENInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENInbox.swift; sourceTree = "<group>"; };
+		EF9B3B472F8AA77E00D0E71B /* refineTranslation.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = refineTranslation.ts; sourceTree = "<group>"; };
+		EF9B3B9A2F8B230900D0E71B /* suggestedAccounts.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = suggestedAccounts.ts; sourceTree = "<group>"; };
+		EF9B3BD62F8D023900D0E71B /* feedBuilder.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = feedBuilder.ts; sourceTree = "<group>"; };
+		EF9B3C082F8DACFB00D0E71B /* trustIntelligence.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = trustIntelligence.ts; sourceTree = "<group>"; };
+		EF9FD0262F821BB100EBF035 /* index.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = index.ts; sourceTree = "<group>"; };
+		EF9FD0272F821BB700EBF035 /* createProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = createProject.ts; sourceTree = "<group>"; };
+		EF9FD0282F821BBC00EBF035 /* updateProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = updateProject.ts; sourceTree = "<group>"; };
+		EF9FD0292F821BC000EBF035 /* deleteProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = deleteProject.ts; sourceTree = "<group>"; };
+		EF9FD02A2F821BC500EBF035 /* autosaveProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = autosaveProject.ts; sourceTree = "<group>"; };
+		EF9FD02B2F821BC900EBF035 /* queueProcessingJob.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = queueProcessingJob.ts; sourceTree = "<group>"; };
+		EF9FD02C2F821BCE00EBF035 /* processVideoProxy.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = processVideoProxy.ts; sourceTree = "<group>"; };
+		EF9FD02D2F821BD200EBF035 /* generateThumbnail.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = generateThumbnail.ts; sourceTree = "<group>"; };
+		EF9FD02E2F821BD700EBF035 /* transcribeMedia.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = transcribeMedia.ts; sourceTree = "<group>"; };
+		EF9FD02F2F821BDB00EBF035 /* generateSubtitleTrack.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = generateSubtitleTrack.ts; sourceTree = "<group>"; };
+		EF9FD0302F821BDF00EBF035 /* translateSubtitleTrack.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = translateSubtitleTrack.ts; sourceTree = "<group>"; };
+		EF9FD0312F821BE300EBF035 /* buildOutputVariants.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = buildOutputVariants.ts; sourceTree = "<group>"; };
+		EF9FD0322F821BE800EBF035 /* renderExport.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = renderExport.ts; sourceTree = "<group>"; };
+		EF9FD0332F821BEB00EBF035 /* publishProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = publishProject.ts; sourceTree = "<group>"; };
+		EF9FD0342F821BF000EBF035 /* moderateCreatorAsset.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = moderateCreatorAsset.ts; sourceTree = "<group>"; };
+		EF9FD0352F821BF400EBF035 /* verifyAuthenticitySignals.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = verifyAuthenticitySignals.ts; sourceTree = "<group>"; };
+		EF9FD0362F821BF800EBF035 /* saveBrandKit.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = saveBrandKit.ts; sourceTree = "<group>"; };
+		EF9FD0372F821BFB00EBF035 /* cloneTemplateToProject.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = cloneTemplateToProject.ts; sourceTree = "<group>"; };
+		EF9FD0382F821BFF00EBF035 /* recordCreatorAnalytics.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = recordCreatorAnalytics.ts; sourceTree = "<group>"; };
+		EF9FD0392F821C0400EBF035 /* enforceCreatorEntitlement.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = enforceCreatorEntitlement.ts; sourceTree = "<group>"; };
+		EF9FD03A2F821C0700EBF035 /* cleanupOrphanedAssets.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = cleanupOrphanedAssets.ts; sourceTree = "<group>"; };
+		EF9FD03B2F821C0B00EBF035 /* retryFailedCreatorJob.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = retryFailedCreatorJob.ts; sourceTree = "<group>"; };
+		EF9FD03E2F821C1D00EBF035 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		EF9FDB942F821E0C00EBF035 /* creatorTypes.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = creatorTypes.ts; sourceTree = "<group>"; };
+		EF9FE6952F821ED000EBF035 /* firestore.creator.rules.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = firestore.creator.rules.md; sourceTree = "<group>"; };
+		EF9FFCBC2F82831B00EBF035 /* ffmpegUtils.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = ffmpegUtils.ts; sourceTree = "<group>"; };
+		EF9FFCBD2F82835600EBF035 /* package.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = package.json; sourceTree = "<group>"; };
+		EF9FFCBE2F82835E00EBF035 /* tsconfig.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = tsconfig.json; sourceTree = "<group>"; };
+		EFA100032F90000100000001 /* AMENNotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AMENNotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		EFAE09662F4AE793009D7209 /* PRODUCTION_READINESS_AUDIT_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRODUCTION_READINESS_AUDIT_COMPLETE.md; sourceTree = "<group>"; };
+		EFAE09682F4B4D11009D7209 /* FollowStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowStateManager.swift; sourceTree = "<group>"; };
+		EFAE096A2F4B4F16009D7209 /* LiquidGlassAnimations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassAnimations.swift; sourceTree = "<group>"; };
+		EFAE096C2F4B7CFD009D7209 /* NotificationAggregationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationAggregationService.swift; sourceTree = "<group>"; };
+		EFAE096E2F4B7D2F009D7209 /* DeviceTokenManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTokenManager.swift; sourceTree = "<group>"; };
+		EFAE09702F4B7D5D009D7209 /* NotificationDeepLinkRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDeepLinkRouter.swift; sourceTree = "<group>"; };
+		EFAE09722F4B7DE3009D7209 /* NOTIFICATION_SYSTEM_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTIFICATION_SYSTEM_COMPLETE.md; sourceTree = "<group>"; };
+		EFAE09742F4B7F7A009D7209 /* IMPLEMENTATION_COMPLETE_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_COMPLETE_SUMMARY.md; sourceTree = "<group>"; };
+		EFAE09762F4B8A5B009D7209 /* SundayChurchFocusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SundayChurchFocusManager.swift; sourceTree = "<group>"; };
+		EFAE09782F4B8A6F009D7209 /* SundayChurchFocusGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SundayChurchFocusGateView.swift; sourceTree = "<group>"; };
+		EFAE097A2F4BAC96009D7209 /* ScrollBudgetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollBudgetManager.swift; sourceTree = "<group>"; };
+		EFAE097C2F4BACC1009D7209 /* ScrollBudgetSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollBudgetSettingsView.swift; sourceTree = "<group>"; };
+		EFAE097E2F4BACF9009D7209 /* ScrollBudgetNudgesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollBudgetNudgesView.swift; sourceTree = "<group>"; };
+		EFAE09802F4BAE84009D7209 /* ContentIntegrityPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentIntegrityPolicy.swift; sourceTree = "<group>"; };
+		EFAE09822F4BAEB5009D7209 /* ContentIntegrityComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentIntegrityComposer.swift; sourceTree = "<group>"; };
+		EFAE09842F4BB32B009D7209 /* SundayShabbatPromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SundayShabbatPromptView.swift; sourceTree = "<group>"; };
+		EFAE09862F4BB3F5009D7209 /* SHABBAT_MODE_ENHANCED_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SHABBAT_MODE_ENHANCED_COMPLETE.md; sourceTree = "<group>"; };
+		EFAE09882F4BB472009D7209 /* TrustByDesignMessagingControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustByDesignMessagingControls.swift; sourceTree = "<group>"; };
+		EFAE098A2F4BB48F009D7209 /* PrivacyControlsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyControlsSettingsView.swift; sourceTree = "<group>"; };
+		EFAE098C2F4BB4AE009D7209 /* MessageRequestsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRequestsView.swift; sourceTree = "<group>"; };
+		EFAE098E2F4BB4BB009D7209 /* PostCommentControlsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCommentControlsSheet.swift; sourceTree = "<group>"; };
+		EFAE09902F4BB4D1009D7209 /* QuietBlockActionsMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietBlockActionsMenu.swift; sourceTree = "<group>"; };
+		EFAE09922F4BB712009D7209 /* TRUST_BY_DESIGN_IMPLEMENTATION_STATUS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TRUST_BY_DESIGN_IMPLEMENTATION_STATUS.md; sourceTree = "<group>"; };
+		EFAE09982F4C26C0009D7209 /* MESSAGING_PERFORMANCE_FIXES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MESSAGING_PERFORMANCE_FIXES_COMPLETE.md; sourceTree = "<group>"; };
+		EFAE099A2F4C8C5E009D7209 /* AmenAdaptiveColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenAdaptiveColors.swift; sourceTree = "<group>"; };
+		EFAE099C2F4C8C9B009D7209 /* DARK_MODE_MIGRATION_CHECKLIST.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DARK_MODE_MIGRATION_CHECKLIST.md; sourceTree = "<group>"; };
+		EFAE099E2F4C8CDE009D7209 /* DARK_MODE_VALIDATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DARK_MODE_VALIDATION_GUIDE.md; sourceTree = "<group>"; };
+		EFAE09A02F4C8D38009D7209 /* DARK_MODE_IMPLEMENTATION_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DARK_MODE_IMPLEMENTATION_COMPLETE.md; sourceTree = "<group>"; };
+		EFAE09A22F4C949D009D7209 /* DARK_MODE_BUTTON_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DARK_MODE_BUTTON_GUIDE.md; sourceTree = "<group>"; };
+		EFAE09A42F4CE5C7009D7209 /* AI_DETECTION_ENHANCED.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AI_DETECTION_ENHANCED.md; sourceTree = "<group>"; };
+		EFAE09F62F4D45C2009D7209 /* SpotlightCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightCard.swift; sourceTree = "<group>"; };
+		EFAE09F82F4D4601009D7209 /* SpotlightViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightViewModel.swift; sourceTree = "<group>"; };
+		EFAE09FA2F4D4683009D7209 /* SPOTLIGHT_IMPLEMENTATION_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SPOTLIGHT_IMPLEMENTATION_COMPLETE.md; sourceTree = "<group>"; };
+		EFAE0A1C2F4D52F5009D7209 /* MESSAGES_SCROLL_AND_POPUP_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MESSAGES_SCROLL_AND_POPUP_COMPLETE.md; sourceTree = "<group>"; };
+		EFAE0A222F4D5A7A009D7209 /* UI_RESPONSIVENESS_AUDIT_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = UI_RESPONSIVENESS_AUDIT_COMPLETE.md; sourceTree = "<group>"; };
+		EFAE0A6C2F4D5E26009D7209 /* PROFILE_VIEW_AUDIT_AND_FIXES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PROFILE_VIEW_AUDIT_AND_FIXES.md; sourceTree = "<group>"; };
+		EFAE0A6E2F4D679B009D7209 /* PRE_RELEASE_MUST_FIX_LIST.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRE_RELEASE_MUST_FIX_LIST.md; sourceTree = "<group>"; };
+		EFAE0A702F4D680A009D7209 /* PRODUCTION_AUDIT_COMPLETE_FEB_23_2026.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRODUCTION_AUDIT_COMPLETE_FEB_23_2026.md; sourceTree = "<group>"; };
+		EFAE0A722F4DDCFF009D7209 /* P0_FIXES_STATUS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = P0_FIXES_STATUS.md; sourceTree = "<group>"; };
+		EFAE0A742F4DE71D009D7209 /* ALL_P0_FIXES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ALL_P0_FIXES_COMPLETE.md; sourceTree = "<group>"; };
+		EFAE0A762F4E6CF9009D7209 /* SafetyPolicyFramework.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyPolicyFramework.swift; sourceTree = "<group>"; };
+		EFAE0A782F4E6D55009D7209 /* CommentSafetySystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentSafetySystem.swift; sourceTree = "<group>"; };
+		EFAE0A7A2F4E6DA1009D7209 /* AntiHarassmentEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntiHarassmentEngine.swift; sourceTree = "<group>"; };
+		EFAE0A7E2F4E6E7E009D7209 /* SafetyUIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyUIComponents.swift; sourceTree = "<group>"; };
+		EFAE0A802F4E87B0009D7209 /* NetworkTimeoutHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTimeoutHandler.swift; sourceTree = "<group>"; };
+		EFB9554E2F7A48F9001FEE47 /* Assets2.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets2.xcassets; sourceTree = "<group>"; };
+		EFB955D72F7CD850001FEE47 /* MESSAGING_PERMISSIONS_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MESSAGING_PERMISSIONS_FIX.md; sourceTree = "<group>"; };
+		EFBA28C02F6F429600B54517 /* NotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduler.swift; sourceTree = "<group>"; };
+		EFCC00012F7000000099AA01 /* ScriptureIntelligenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureIntelligenceEngine.swift; sourceTree = "<group>"; };
+		EFCC00022F7000000099AA02 /* PersonalSpiritualGraphService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalSpiritualGraphService.swift; sourceTree = "<group>"; };
+		EFCC00032F7000000099AA03 /* SpiritualStateModeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpiritualStateModeService.swift; sourceTree = "<group>"; };
+		EFCC00042F7000000099AA04 /* PredictiveInterventionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PredictiveInterventionEngine.swift; sourceTree = "<group>"; };
+		EFCC00052F7000000099AA05 /* FollowUpEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowUpEngine.swift; sourceTree = "<group>"; };
+		EFCC00062F7000000099AA06 /* SermonWeekTransformationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SermonWeekTransformationService.swift; sourceTree = "<group>"; };
+		EFCC00072F7000000099AA07 /* BereanSafetyEscalationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanSafetyEscalationService.swift; sourceTree = "<group>"; };
+		EFCC00082F7000000099AA08 /* LiturgicalCalendarEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiturgicalCalendarEngine.swift; sourceTree = "<group>"; };
+		EFCC00092F7000000099AA09 /* HolidayIntelligenceRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayIntelligenceRouter.swift; sourceTree = "<group>"; };
+		EFCC000A2F7000000099AA0A /* SeasonalPromptService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonalPromptService.swift; sourceTree = "<group>"; };
+		EFCC000B2F7000000099AA0B /* ChurchSeasonalEventService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchSeasonalEventService.swift; sourceTree = "<group>"; };
+		EFCC000C2F7000000099AA0C /* HolidayReflectionJourneyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayReflectionJourneyService.swift; sourceTree = "<group>"; };
+		EFCC000D2F7000000099AA0D /* UserObservanceProfileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserObservanceProfileService.swift; sourceTree = "<group>"; };
+		EFD4FEA12F5E278500672160 /* ScrollReactiveGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollReactiveGlass.swift; sourceTree = "<group>"; };
+		EFD4FEA32F5E28A200672160 /* AmenRefreshIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenRefreshIndicator.swift; sourceTree = "<group>"; };
+		EFD4FEA92F5E702200672160 /* AMENConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENConnectView.swift; sourceTree = "<group>"; };
+		EFD4FEAB2F5E760600672160 /* AMENConnectMembership.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENConnectMembership.swift; sourceTree = "<group>"; };
+		EFD4FEAD2F5E766400672160 /* AMENConnectSignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENConnectSignUpView.swift; sourceTree = "<group>"; };
+		EFD4FEAF2F5E769D00672160 /* AMENConnectAIMatchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENConnectAIMatchEngine.swift; sourceTree = "<group>"; };
+		EFD4FEB72F5E807900672160 /* SpiritualHealthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpiritualHealthView.swift; sourceTree = "<group>"; };
+		EFD4FEB92F5E813100672160 /* CreatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatorView.swift; sourceTree = "<group>"; };
+		EFD4FEBB2F5EFC1200672160 /* BookModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookModels.swift; sourceTree = "<group>"; };
+		EFD4FEBD2F5EFC3F00672160 /* GoogleBooksService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleBooksService.swift; sourceTree = "<group>"; };
+		EFD4FEBF2F5EFC6100672160 /* AffiliateLinkBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AffiliateLinkBuilder.swift; sourceTree = "<group>"; };
+		EFD4FEC12F5EFC9400672160 /* BookDiscoveryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookDiscoveryViewModel.swift; sourceTree = "<group>"; };
+		EFD4FEC32F5EFCF800672160 /* WisdomLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WisdomLibraryView.swift; sourceTree = "<group>"; };
+		EFD4FEC52F5EFD3F00672160 /* BookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookDetailView.swift; sourceTree = "<group>"; };
+		EFD4FEC72F5F2B1400672160 /* TestimonyContextDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestimonyContextDetector.swift; sourceTree = "<group>"; };
+		EFD4FEC92F5F2B5900672160 /* PoliticalDiscussionGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoliticalDiscussionGuard.swift; sourceTree = "<group>"; };
+		EFD4FECB2F5F2BB800672160 /* HumorToneClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HumorToneClassifier.swift; sourceTree = "<group>"; };
+		F2DB95A0246EF500BF4D5117 /* AmenLiveRoomProviderInterface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenLiveRoomProviderInterface.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Live/AmenLiveRoomProviderInterface.swift; sourceTree = "<group>"; };
+		FE6331EA2267427EBCD3177B /* AmenSyncReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncReviewView.swift; sourceTree = "<group>"; };
+		B4CC10AC5E8F46D6B0C7BA55 /* AmenActionPill.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenActionPill.swift; path = ../../AMENAPP/AMENAPP/CommunityOS/UI/AmenActionPill.swift; sourceTree = "<group>"; };
+		A52FEA82C9D64A32BB548B46 /* IntentPickerRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntentPickerRow.swift; path = ../../AMENAPP/AMENAPP/CommunityOS/UI/IntentPickerRow.swift; sourceTree = "<group>"; };
+		7BFA3CF27D184003971CD149 /* AmenUniversalComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenUniversalComposer.swift; path = ../../AMENAPP/AMENAPP/CommunityOS/UI/AmenUniversalComposer.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		EF5B391A2F5BAEEF00152D09 /* Exceptions for "AMENWidgetExtension" folder in "AMENWidgetExtensionExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = EF5B39032F5BA7A500152D09 /* AMENWidgetExtensionExtension */;
+		};
+		EF7F3C6A2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "AMENAPP" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = EF81519A2F184E97008912E3 /* AMENAPP */;
+		};
+		EF8AFE832F68795F000A7001 /* Exceptions for "AMENAPP" folder in "AMENWidgetExtensionExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				BereanActivityAttributes.swift,
+			);
+			target = EF5B39032F5BA7A500152D09 /* AMENWidgetExtensionExtension */;
+		};
+		EFA100042F90000100000001 /* Exceptions for "AMENNotificationServiceExtension" folder in "AMENNotificationServiceExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = EFA100072F90000100000001 /* AMENNotificationServiceExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		EF56F7422F2881A30019B94A /* AMENAPPTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AMENAPPTests;
+			sourceTree = "<group>";
+		};
+		EF5B39092F5BA7A500152D09 /* AMENWidgetExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EF5B391A2F5BAEEF00152D09 /* Exceptions for "AMENWidgetExtension" folder in "AMENWidgetExtensionExtension" target */,
+			);
+			path = AMENWidgetExtension;
+			sourceTree = "<group>";
+		};
+		EF81519D2F184E97008912E3 /* AMENAPP */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EF7F3C6A2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "AMENAPP" target */,
+				EF8AFE832F68795F000A7001 /* Exceptions for "AMENAPP" folder in "AMENWidgetExtensionExtension" target */,
+			);
+			path = AMENAPP;
+			sourceTree = "<group>";
+		};
+		EFA100052F90000100000001 /* AMENNotificationServiceExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EFA100042F90000100000001 /* Exceptions for "AMENNotificationServiceExtension" folder in "AMENNotificationServiceExtension" target */,
+			);
+			path = AMENNotificationServiceExtension;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		EF56F73E2F2881A30019B94A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EF7475D92F2C85CD00A4434F /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EF5B39012F5BA7A500152D09 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EF5B39082F5BA7A500152D09 /* SwiftUI.framework in Frameworks */,
+				EF5B39062F5BA7A500152D09 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EF8151982F184E97008912E3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EF4FF4572FCF7A8A00A41D0C /* LiveKit in Frameworks */,
+				EF4BA9DA2F29FDD3000B930F /* AlgoliaAbtesting in Frameworks */,
+				EF4E20642F1F421D0066C5C2 /* FirebaseAppDistribution-Beta in Frameworks */,
+				EF4E20702F1F421D0066C5C2 /* FirebaseFirestore in Frameworks */,
+				EF4BA9E62F29FDD3000B930F /* AlgoliaInsights in Frameworks */,
+				EF4BA9E22F29FDD3000B930F /* AlgoliaCore in Frameworks */,
+				EF4E20682F1F421D0066C5C2 /* FirebaseAuthCombine-Community in Frameworks */,
+				EF4E207A2F1F421D0066C5C2 /* FirebaseInstallations in Frameworks */,
+				EF4E205A2F1F421D0066C5C2 /* FirebaseAILogic in Frameworks */,
+				EF4E20602F1F421D0066C5C2 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
+				EF4E20782F1F421D0066C5C2 /* FirebaseInAppMessaging-Beta in Frameworks */,
+				EF4E20582F1F421D0066C5C2 /* FirebaseAI in Frameworks */,
+				EF4BA9EC2F29FDD3000B930F /* AlgoliaQuerySuggestions in Frameworks */,
+				EF4BA9DE2F29FDD3000B930F /* AlgoliaAnalytics in Frameworks */,
+				EF4E206C2F1F421D0066C5C2 /* FirebaseCrashlytics in Frameworks */,
+				EF4E20762F1F421D0066C5C2 /* FirebaseFunctionsCombine-Community in Frameworks */,
+				EF4E20862F1F421D0066C5C2 /* FirebaseStorageCombine-Community in Frameworks */,
+				EF4E206E2F1F421D0066C5C2 /* FirebaseDatabase in Frameworks */,
+				EF4BA9E82F29FDD3000B930F /* AlgoliaMonitoring in Frameworks */,
+				EF5D8DC62F3EDC80000BB6C9 /* GoogleGenerativeAI in Frameworks */,
+				EF4E20842F1F421D0066C5C2 /* FirebaseStorage in Frameworks */,
+				EF38A1232F2D114F004E694A /* GoogleSignInSwift in Frameworks */,
+				EF4BA9E02F29FDD3000B930F /* AlgoliaComposition in Frameworks */,
+				EF4E20822F1F421D0066C5C2 /* FirebaseRemoteConfig in Frameworks */,
+				EF4E205C2F1F421D0066C5C2 /* FirebaseAnalytics in Frameworks */,
+				EF4E207E2F1F421D0066C5C2 /* FirebaseMessaging in Frameworks */,
+				EF4E207C2F1F421D0066C5C2 /* FirebaseMLModelDownloader in Frameworks */,
+				EF4BA9E42F29FDD3000B930F /* AlgoliaIngestion in Frameworks */,
+				EF4E20802F1F421D0066C5C2 /* FirebasePerformance in Frameworks */,
+				EF38A1212F2D114F004E694A /* GoogleSignIn in Frameworks */,
+				EF4E206A2F1F421D0066C5C2 /* FirebaseCore in Frameworks */,
+				EF43AAD12F5412C40075E1B5 /* ActivityKit.framework in Frameworks */,
+				EF4E20622F1F421D0066C5C2 /* FirebaseAppCheck in Frameworks */,
+				EF4BA9EE2F29FDD3000B930F /* AlgoliaRecommend in Frameworks */,
+				EF4BA9EA2F29FDD3000B930F /* AlgoliaPersonalization in Frameworks */,
+				EF4E205E2F1F421D0066C5C2 /* FirebaseAnalyticsCore in Frameworks */,
+				EF4E20742F1F421D0066C5C2 /* FirebaseFunctions in Frameworks */,
+				EF4BA9F02F29FDD3000B930F /* AlgoliaSearch in Frameworks */,
+				EF4E20662F1F421D0066C5C2 /* FirebaseAuth in Frameworks */,
+				EF4E20722F1F421D0066C5C2 /* FirebaseFirestoreCombine-Community in Frameworks */,
+				EF4BA9DC2F29FDD3000B930F /* AlgoliaAbtestingV3 in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EFA100062F90000100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0CAEB5424BA455BF5B516208 /* ConnectSpaces */ = {
+			isa = PBXGroup;
+			children = (
+				C175261D80889BEE36F96D59 /* SpacesPhase1Contracts.swift */,
+				EB3AEFE13ACD9FE0103EEABA /* AmenSpaceHeroHeaderView.swift */,
+				E23B5A5C201580F825DC6FB7 /* AmenSpaceDetailView.swift */,
+				1128BBC2DB6CA4E2A22A4262 /* AmenSpaceNowLiveMiniPlayer.swift */,
+				928BCE597CFBC656DC12DF1F /* Monetization */,
+				B789B55DA75D9B54E3DC9597 /* Events */,
+				86F04445727F00DC391C6D1B /* Live */,
+				28F6BA3E12019B7E95FDBA66 /* AIRecap */,
+				C01728A94963F453E2C8B112 /* Safety */,
+			);
+			path = ConnectSpaces;
+			sourceTree = "<group>";
+		};
+		28F6BA3E12019B7E95FDBA66 /* AIRecap */ = {
+			isa = PBXGroup;
+			children = (
+				AEBEB07DE0DF629985A32B78 /* AmenReplayRecapCard.swift */,
+				9430422E5C88CFE2BFAF1BAF /* AmenTranscriptSearchView.swift */,
+				BF496ACBA22E246FC09DA013 /* AmenStudyCompanionSheet.swift */,
+				9987ADAF27FB1D8C54E83A47 /* AmenAutoClipBrowserView.swift */,
+			);
+			path = AIRecap;
+			sourceTree = "<group>";
+		};
+		7F3FA0AABF8811218BBD8D39 /* ContentOS */ = {
+			isa = PBXGroup;
+			children = (
+				51EBB744D0CB9A042AD42A9C /* ContentOSModels.swift */,
+				54F533E67BB06317EE660D6F /* ContentPermissionEngine.swift */,
+				80E9FF7021E953932212C99C /* ContentForwardingService.swift */,
+				8FC723268CAB71FFF5A389DD /* ContentAIRouter.swift */,
+				68E61FCB7409248F209377A8 /* ContentApprovalSheet.swift */,
+				7C82C268626F3D2CAF318276 /* ContentDiscussionLauncher.swift */,
+			);
+			path = ContentOS;
+			sourceTree = "<group>";
+		};
+		86F04445727F00DC391C6D1B /* Live */ = {
+			isa = PBXGroup;
+			children = (
+				F2DB95A0246EF500BF4D5117 /* AmenLiveRoomProviderInterface.swift */,
+				CBEF74C8FFB8C07CAAED5D50 /* AmenLiveRoomShellView.swift */,
+				C03BA8272641868DE5655261 /* AmenLiveRoomGreenRoomView.swift */,
+				1193E5DECB8CAE7F04146D6C /* AmenLiveQAQueueView.swift */,
+				9F09B9B4C6A873D6E7CE2304 /* AmenLiveCaptionsOverlay.swift */,
+				10F4217D0D9D650FBF02314F /* AmenFirebaseLiveRoomProvider.swift */,
+				603C39423C9A0EE8DEFF07B7 /* AmenLivekitLiveRoomProvider.swift */,
+			);
+			path = Live;
+			sourceTree = "<group>";
+		};
+		928BCE597CFBC656DC12DF1F /* Monetization */ = {
+			isa = PBXGroup;
+			children = (
+				2503EE5A0FE117709DC424A7 /* AmenSpaceEntitlementService.swift */,
+				C5CF9BBA93C2C6D3E47CB493 /* AmenSpacePaywallView.swift */,
+				9961C9ED48D52A7FCB40625F /* AmenSpaceTierSelectionView.swift */,
+				79EF25CD54C09AB4571B3F97 /* AmenSpaceHostOnboardingView.swift */,
+				63E652F61A1DBE16F24B3628 /* AmenStoreKitService.swift */,
+				BBFB13503DECE99CD953A969 /* AmenStripeOnboardingService.swift */,
+			);
+			path = Monetization;
+			sourceTree = "<group>";
+		};
+		B789B55DA75D9B54E3DC9597 /* Events */ = {
+			isa = PBXGroup;
+			children = (
+				4829029929CD811B5524BEC8 /* AmenCalendarInviteService.swift */,
+				3FBDBF7B72E6781CA534E963 /* AmenUpcomingLiveChipView.swift */,
+				A98E2E10C8202B4F312855BB /* AmenSpaceEventDetailView.swift */,
+				6D455E592ED8A2CFAC9CB466 /* AmenSpaceEventsListView.swift */,
+				996EF51D7C5C107721B2B55B /* AmenBroadcastComposerView.swift */,
+			);
+			path = Events;
+			sourceTree = "<group>";
+		};
+		C01728A94963F453E2C8B112 /* Safety */ = {
+			isa = PBXGroup;
+			children = (
+				C4D6AF00950EF76DF1FF401B /* AmenScamShieldService.swift */,
+				223F2D8415E567AC6E7D342F /* AmenScamShieldAlertView.swift */,
+				89F7F1D525E4C18B7A5CBBD1 /* AmenVerifiedHostBadgeView.swift */,
+				E600940C5965F866F2D34FDB /* AmenModerationDashboardView.swift */,
+			);
+			path = Safety;
+			sourceTree = "<group>";
+		};
+		CB29FBBEBA6E9C34C0B8D533 /* AMENAPP */ = {
+			isa = PBXGroup;
+			children = (
+				7F3FA0AABF8811218BBD8D39 /* ContentOS */,
+			);
+			path = AMENAPP;
+			sourceTree = "<group>";
+		};
+		EF4498C12FD1A07D00C1A81A /* SpacesOS */ = {
+			isa = PBXGroup;
+			children = (
+				EF4498C72FD1A0BE00C1A81A /* SpaceOSModels.swift */,
+				EF4498CE2FD1A0E500C1A81A /* SpaceRoleActionBar.swift */,
+			);
+			path = SpacesOS;
+			sourceTree = "<group>";
+		};
+		EF8151922F184E97008912E3 = {
+			isa = PBXGroup;
+			children = (
+				EF3B23532F4AAC1B001DA241 /* Config.xcconfig */,
+				EF81519D2F184E97008912E3 /* AMENAPP */,
+				EF56F7422F2881A30019B94A /* AMENAPPTests */,
+				EF5B39092F5BA7A500152D09 /* AMENWidgetExtension */,
+				EF81519C2F184E97008912E3 /* Products */,
+				EFBDED3F2F251CD1001E650E /* Frameworks */,
+				EF92D0142F257C7300CC9601 /* FIREBASE_PERSISTENCE_FIX.md */,
+				EF92D0162F257D7C00CC9601 /* FIREBASE_PERSISTENCE_TROUBLESHOOTING.md */,
+				EF03BC942F2B31ED0026395A /* DEBUG_CHAT_NOT_OPENING.md */,
+				EF03BCA22F2B36EC0026395A /* FIX_TYPING_INDICATORS.md */,
+				EF03BCA42F2B37000026395A /* QUICK_FIX.md */,
+				EF03BCAC2F2B37E80026395A /* PRODUCTION_READY_IMPLEMENTATION.md */,
+				EF03BCDA2F2BEF440026395A /* CHAT_IMPLEMENTATION_STATUS.md */,
+				EF03BCE02F2BF17E0026395A /* CHATVIEW_MIGRATION_GUIDE.md */,
+				EF03BCE22F2BF1BA0026395A /* PRODUCTION_DEPLOYMENT_SUMMARY.md */,
+				EF3ACF7D2F30027C00596905 /* FIX_CONTACTS_PERMISSION_CRASH.md */,
+				EF3ACF9D2F30603500596905 /* UNIFIED_CHAT_ENHANCEMENTS.md */,
+				EF3AD06B2F32F5AD00596905 /* genkit-server-index.js */,
+				EF3AD06D2F32F5B200596905 /* genkit-package.json */,
+				EF3AD06F2F32F5B500596905 /* genkit-Dockerfile */,
+				EF6873C42F40F194006DC25E /* CloudStorageService.swift */,
+				EF6873D42F40F394006DC25E /* RichTextEditorView.swift */,
+				EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */,
+				EF688D042F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift */,
+				EF3B22802F484A3F001DA241 /* PostTranslationService.swift */,
+				EF3B22822F484B78001DA241 /* POST_TRANSLATION_AND_UI_CLEANUP_COMPLETE.md */,
+				EF3B228A2F4851D8001DA241 /* ThreadSummaryView.swift */,
+				EF3B228C2F485215001DA241 /* ToneFeedbackView.swift */,
+				EF3B228E2F4854D9001DA241 /* PostDetailView.swift */,
+				EF3B22982F490E57001DA241 /* FollowOperationActor.swift */,
+				EF3B229A2F491110001DA241 /* PROFILE_P0_FIXES_COMPLETE.md */,
+				EF3B229C2F4911A8001DA241 /* PROFILE_IMPLEMENTATION_STATUS.md */,
+				EF3B229E2F4912BB001DA241 /* ListenerRegistry.swift */,
+				EF3B22ED2F49182A001DA241 /* ChurchNotesEditor.swift */,
+				EF3B22EF2F4918B8001DA241 /* ChurchNotesAIService.swift */,
+				EF3B22F12F4918E5001DA241 /* ChurchNotesPDFExporter.swift */,
+				EF3B22F32F491920001DA241 /* ChurchNotesStressTests.swift */,
+				EF3B22F52F492DF5001DA241 /* ChurchNotesShareService.swift */,
+				EF3B22F72F4954CE001DA241 /* NOTIFICATIONS_FIRESTORE_INDEXES_REQUIRED.md */,
+				EF3B22F92F495502001DA241 /* BadgeCountManager.swift */,
+				EF3B22FB2F495614001DA241 /* NOTIFICATIONS_PRODUCTION_FIXES_COMPLETE.md */,
+				EF3B22FD2F495DC2001DA241 /* AUTHENTICATION_PRODUCTION_AUDIT.md */,
+				EF3B22FF2F49666B001DA241 /* AnimationPresets.swift */,
+				EF3B23012F49680E001DA241 /* PostCardViewModel.swift */,
+				EF3B23072F49E0C9001DA241 /* AdvancedModerationService.swift */,
+				EF3B23092F49E108001DA241 /* SemanticSearchService.swift */,
+				EF3B230B2F49E158001DA241 /* VertexAIPersonalizationService.swift */,
+				EF3B230D2F49E21E001DA241 /* ADVANCED_AI_FEATURES_COMPLETE.md */,
+				EF3B230F2F49E302001DA241 /* AI_IMPLEMENTATION_SUMMARY.md */,
+				EF3B23112F4A023A001DA241 /* AI_SETUP_COMPLETE.md */,
+				EF3B23132F4A06D5001DA241 /* BUTTON_INTERACTION_AUDIT_COMPLETE.md */,
+				EF3B23152F4A16C9001DA241 /* PinnedPostService.swift */,
+				EF3B23172F4A1848001DA241 /* SHIP_READY_FIXES_COMPLETE.md */,
+				EF3B23192F4A5159001DA241 /* FEED_REFRESH_REALTIME_SHIP_READY.md */,
+				EF3B231B2F4A60BB001DA241 /* ThumbnailService.swift */,
+				EF3B231D2F4A6167001DA241 /* AIContentDetectionService.swift */,
+				EF3B231F2F4A6197001DA241 /* P0_BUGS_FIXED_COMPLETE.md */,
+				EF3B23212F4A624C001DA241 /* P0_FIXES_IMPLEMENTATION_SUMMARY.md */,
+				EF3B23232F4A64BD001DA241 /* NOTIFICATIONS_VIEW_AUDIT_FIXES.md */,
+				EF3B23292F4A7F43001DA241 /* PhotoInsightsService.swift */,
+				EF3B232B2F4A7F98001DA241 /* SmartSuggestionsService.swift */,
+				EF3B232D2F4A8386001DA241 /* TAB_BAR_AUTO_HIDE_FIX.md */,
+				EFAE09662F4AE793009D7209 /* PRODUCTION_READINESS_AUDIT_COMPLETE.md */,
+				EFAE09682F4B4D11009D7209 /* FollowStateManager.swift */,
+				EFAE096A2F4B4F16009D7209 /* LiquidGlassAnimations.swift */,
+				EFAE096C2F4B7CFD009D7209 /* NotificationAggregationService.swift */,
+				EFAE096E2F4B7D2F009D7209 /* DeviceTokenManager.swift */,
+				EFAE09702F4B7D5D009D7209 /* NotificationDeepLinkRouter.swift */,
+				EFAE09722F4B7DE3009D7209 /* NOTIFICATION_SYSTEM_COMPLETE.md */,
+				EFAE09742F4B7F7A009D7209 /* IMPLEMENTATION_COMPLETE_SUMMARY.md */,
+				EFAE09762F4B8A5B009D7209 /* SundayChurchFocusManager.swift */,
+				EFAE09782F4B8A6F009D7209 /* SundayChurchFocusGateView.swift */,
+				EFAE097A2F4BAC96009D7209 /* ScrollBudgetManager.swift */,
+				EFAE097C2F4BACC1009D7209 /* ScrollBudgetSettingsView.swift */,
+				EFAE097E2F4BACF9009D7209 /* ScrollBudgetNudgesView.swift */,
+				EFAE09802F4BAE84009D7209 /* ContentIntegrityPolicy.swift */,
+				EFAE09822F4BAEB5009D7209 /* ContentIntegrityComposer.swift */,
+				EFAE09842F4BB32B009D7209 /* SundayShabbatPromptView.swift */,
+				EFAE09862F4BB3F5009D7209 /* SHABBAT_MODE_ENHANCED_COMPLETE.md */,
+				EFAE09882F4BB472009D7209 /* TrustByDesignMessagingControls.swift */,
+				EFAE098A2F4BB48F009D7209 /* PrivacyControlsSettingsView.swift */,
+				EFAE098C2F4BB4AE009D7209 /* MessageRequestsView.swift */,
+				EFAE098E2F4BB4BB009D7209 /* PostCommentControlsSheet.swift */,
+				EFAE09902F4BB4D1009D7209 /* QuietBlockActionsMenu.swift */,
+				EFAE09922F4BB712009D7209 /* TRUST_BY_DESIGN_IMPLEMENTATION_STATUS.md */,
+				EFAE09982F4C26C0009D7209 /* MESSAGING_PERFORMANCE_FIXES_COMPLETE.md */,
+				EFAE099A2F4C8C5E009D7209 /* AmenAdaptiveColors.swift */,
+				EFAE099C2F4C8C9B009D7209 /* DARK_MODE_MIGRATION_CHECKLIST.md */,
+				EFAE099E2F4C8CDE009D7209 /* DARK_MODE_VALIDATION_GUIDE.md */,
+				EFAE09A02F4C8D38009D7209 /* DARK_MODE_IMPLEMENTATION_COMPLETE.md */,
+				EFAE09A22F4C949D009D7209 /* DARK_MODE_BUTTON_GUIDE.md */,
+				EFAE09A42F4CE5C7009D7209 /* AI_DETECTION_ENHANCED.md */,
+				EFAE09F62F4D45C2009D7209 /* SpotlightCard.swift */,
+				EFAE09F82F4D4601009D7209 /* SpotlightViewModel.swift */,
+				EFAE09FA2F4D4683009D7209 /* SPOTLIGHT_IMPLEMENTATION_COMPLETE.md */,
+				EFAE0A1C2F4D52F5009D7209 /* MESSAGES_SCROLL_AND_POPUP_COMPLETE.md */,
+				EFAE0A222F4D5A7A009D7209 /* UI_RESPONSIVENESS_AUDIT_COMPLETE.md */,
+				EFAE0A6C2F4D5E26009D7209 /* PROFILE_VIEW_AUDIT_AND_FIXES.md */,
+				EFAE0A6E2F4D679B009D7209 /* PRE_RELEASE_MUST_FIX_LIST.md */,
+				EFAE0A702F4D680A009D7209 /* PRODUCTION_AUDIT_COMPLETE_FEB_23_2026.md */,
+				EFAE0A722F4DDCFF009D7209 /* P0_FIXES_STATUS.md */,
+				EFAE0A742F4DE71D009D7209 /* ALL_P0_FIXES_COMPLETE.md */,
+				EFAE0A762F4E6CF9009D7209 /* SafetyPolicyFramework.swift */,
+				EFAE0A782F4E6D55009D7209 /* CommentSafetySystem.swift */,
+				EFAE0A7A2F4E6DA1009D7209 /* AntiHarassmentEngine.swift */,
+				EFAE0A7E2F4E6E7E009D7209 /* SafetyUIComponents.swift */,
+				EFAE0A802F4E87B0009D7209 /* NetworkTimeoutHandler.swift */,
+				EF55D2072F4E9DF40086707A /* FTUEManager.swift */,
+				EF55D2092F4E9E1B0086707A /* CoachMarkOverlay.swift */,
+				EF55D20B2F4E9E4D0086707A /* CoachMarkFramePreferences.swift */,
+				EF55D20D2F4E9F980086707A /* FTUE_IMPLEMENTATION_COMPLETE.md */,
+				EF55D2152F4EBDF90086707A /* Logger.swift */,
+				EF55D2172F4EBE0B0086707A /* HapticManager.swift */,
+				EF55D22C2F4F45970086707A /* ImageModerationService.swift */,
+				EF55D22E2F4F6C130086707A /* EmailVerificationBanner.swift */,
+				EF55D2302F4F71DE0086707A /* AccountLinkingView.swift */,
+				EF55D2322F4F71FE0086707A /* BiometricAuthService.swift */,
+				EF55D2342F4F72580086707A /* ActiveSessionsView.swift */,
+				EF55D2362F4F728D0086707A /* TwoFactorAuthService.swift */,
+				EF55D2382F4F72BB0086707A /* TwoFactorAuthView.swift */,
+				EF55D23A2F4F7CD70086707A /* AuthSuccessCheckmarkView.swift */,
+				EF55D23C2F4F7CF00086707A /* EmailVerificationGateView.swift */,
+				EF55D23E2F4F7D7A0086707A /* TwoFactorOnboardingView.swift */,
+				EF55D2402F4F81BF0086707A /* TwoFactorVerificationGateView.swift */,
+				EF72D8F72F4FEBCE00F51E08 /* BiometricOnboardingPage.swift */,
+				EF72D8F92F4FEFB400F51E08 /* PrivacySettingsOnboardingPage.swift */,
+				EF5FAFF62F50E6ED004D2993 /* SmartNotificationModels.swift */,
+				EF5FAFF82F50E734004D2993 /* SmartNotificationRouter.swift */,
+				EF5FAFFA2F50E77C004D2993 /* ActionableNotificationService.swift */,
+				EF5FAFFC2F50E798004D2993 /* NotificationDigestService.swift */,
+				EF5FAFFE2F50E7B8004D2993 /* SmartMuteService.swift */,
+				EF5FB0002F50E7EA004D2993 /* SmartNotificationSettingsView.swift */,
+				EF5FB0022F50E811004D2993 /* NotificationDigestView.swift */,
+				EF5FB0042F50ECA4004D2993 /* DeepLinkRouter.swift */,
+				EF5FB00C2F50EDC4004D2993 /* NATIVE_INTERACTIONS_IMPLEMENTATION_GUIDE.md */,
+				EF5FB00E2F50EE34004D2993 /* IMPLEMENTATION_SUMMARY.md */,
+				EF5FB0102F50EE7E004D2993 /* ToastManagerExtensions.swift */,
+				EF5FB0122F50EEBB004D2993 /* INTERACTIONS_FINAL_DELIVERY.md */,
+				EF6E9F852F510D12003822C2 /* PostImagesView.swift */,
+				EF6E9F8B2F513E35003822C2 /* Motion.swift */,
+				EF6E9F912F51B0BF003822C2 /* PerformanceHUD.swift */,
+				EF6E9F932F51BB4C003822C2 /* FeedAPIService.swift */,
+				EF6E9F952F51C05F003822C2 /* AKAMAI_INTEGRATION_PLAN.md */,
+				EF6E9FA52F52655B003822C2 /* SafetyReportingService.swift */,
+				EF43AAC82F53C7E40075E1B5 /* ModerationAuditLog.swift */,
+				EF43AACA2F53C8480075E1B5 /* BereanOrchestrator.swift */,
+				EF6E9F9D2F524E75003822C2 /* ConversationRiskEngine.swift */,
+				EF6E9FA32F52629D003822C2 /* MediaSafetyGateway.swift */,
+				EF6E9F9B2F524E2B003822C2 /* MessageSafetyGateway.swift */,
+				EF6E9FA12F526227003822C2 /* MinorSafetyService.swift */,
+				EF6E9F9F2F524EAE003822C2 /* MessageSafetyUI.swift */,
+				EF6E9FA72F5265D6003822C2 /* ModerationConsoleModels.swift */,
+				EF43AACC2F5410E20075E1B5 /* SmartReplySuggestionService.swift */,
+				EF43AACE2F5411720075E1B5 /* ReplyActivityTriggers.swift */,
+				EF43AAD42F54C9D10075E1B5 /* SearchExpandBar.swift */,
+				EF43AAD62F54E0180075E1B5 /* ProfilePhotoCropView.swift */,
+				EF43AAD82F54E3DA0075E1B5 /* ExpandingBottomSheet.swift */,
+				EF475A952F56850900744F61 /* FruitOfSpiritBannerView.swift */,
+				EF475A972F568E0000744F61 /* DebugLog.swift */,
+				EF475A992F568E8300744F61 /* PerfTracker.swift */,
+				EF475A9B2F569A3B00744F61 /* WriteOpTracer.swift */,
+				EF475AA32F569FB800744F61 /* ShabbatModeService.swift */,
+				EF475AC42F56FE0B00744F61 /* LinkPreviewCards.swift */,
+				EF475AC62F572C4200744F61 /* WorshipNowPlayingView.swift */,
+				EF475AC82F573E5D00744F61 /* WorshipSongPickerSheet.swift */,
+				EF475ACA2F57456F00744F61 /* ImportModels.swift */,
+				EF475ACC2F57459000744F61 /* GenericArchiveImporter.swift */,
+				EF475ACE2F5745D700744F61 /* DataImportService.swift */,
+				EF475AD02F57462800744F61 /* ImportReviewSheet.swift */,
+				EF475AD22F57466500744F61 /* LinkMetadataService.swift */,
+				EF475AD62F574AB200744F61 /* ShareDraft.swift */,
+				EF475AD82F57556000744F61 /* AccountStatusView.swift */,
+				EF475ADA2F575A2500744F61 /* RestrictService.swift */,
+				EF475ADC2F575B0100744F61 /* LinkSafetyService.swift */,
+				EF475ADE2F575B6B00744F61 /* UnusualLoginDetector.swift */,
+				EF475AE02F575C3500744F61 /* CommunityGuidelinesPrompt.swift */,
+				EF475AE22F575C5C00744F61 /* DeviceIntegrityService.swift */,
+				EF475AE42F575F2800744F61 /* AgeAssuranceService.swift */,
+				EF475AE62F57DA6700744F61 /* SelahView.swift */,
+				EF475AE82F57E3E800744F61 /* ModerationConstitutionModels.swift */,
+				EF475AEA2F57E47A00744F61 /* ModerationIngestService.swift */,
+				EF475AEC2F57E52900744F61 /* EnforcementLadderService.swift */,
+				EF475AEE2F58573100744F61 /* SexualContentPolicy.swift */,
+				EF475AF02F58576F00744F61 /* MediaModerationPipeline.swift */,
+				EF475AF22F58586600744F61 /* ProactiveFrictionView.swift */,
+				EF94DD902F5925C6004D0767 /* BereanSafetyPolicy.swift */,
+				EF94DD922F59D77E004D0767 /* AMENInbox.swift */,
+				EF5B38F62F5B25A100152D09 /* ClaudeService.swift */,
+				EF5B38F82F5B403C00152D09 /* PrivacyAccessControl.swift */,
+				EF5B38FC2F5B751D00152D09 /* LiquidGlassMotion.swift */,
+				EFD4FEA12F5E278500672160 /* ScrollReactiveGlass.swift */,
+				EFD4FEA32F5E28A200672160 /* AmenRefreshIndicator.swift */,
+				EFD4FEA92F5E702200672160 /* AMENConnectView.swift */,
+				EFD4FEAB2F5E760600672160 /* AMENConnectMembership.swift */,
+				EFD4FEAD2F5E766400672160 /* AMENConnectSignUpView.swift */,
+				EFD4FEAF2F5E769D00672160 /* AMENConnectAIMatchEngine.swift */,
+				EFD4FEB72F5E807900672160 /* SpiritualHealthView.swift */,
+				EFD4FEB92F5E813100672160 /* CreatorView.swift */,
+				EFD4FEBB2F5EFC1200672160 /* BookModels.swift */,
+				EFD4FEBD2F5EFC3F00672160 /* GoogleBooksService.swift */,
+				EFD4FEBF2F5EFC6100672160 /* AffiliateLinkBuilder.swift */,
+				EFD4FEC12F5EFC9400672160 /* BookDiscoveryViewModel.swift */,
+				EFD4FEC32F5EFCF800672160 /* WisdomLibraryView.swift */,
+				EFD4FEC52F5EFD3F00672160 /* BookDetailView.swift */,
+				EFD4FEC72F5F2B1400672160 /* TestimonyContextDetector.swift */,
+				EFD4FEC92F5F2B5900672160 /* PoliticalDiscussionGuard.swift */,
+				EFD4FECB2F5F2BB800672160 /* HumorToneClassifier.swift */,
+				EF8C4BD32F60FE6C0003AE65 /* AMENBottomSheet.swift */,
+				EF8C4BD52F6232150003AE65 /* AMENMediaModels.swift */,
+				EF8C4BD72F6232570003AE65 /* AMENMediaService.swift */,
+				EF8C4BD92F6232960003AE65 /* AMENResourceDetailView.swift */,
+				EF8C4BDB2F6232D10003AE65 /* AMENResourcesHubView.swift */,
+				EF8C4BDD2F62360B0003AE65 /* ResourceFolderCard.swift */,
+				EF8C4BDF2F623E1A0003AE65 /* CaughtUpService.swift */,
+				EF8C4BE12F623E4A0003AE65 /* CaughtUpView.swift */,
+				EF8C4BE32F62491A0003AE65 /* AMENReactionSystem.swift */,
+				EF8C4BFF2F639E210003AE65 /* AMENOnboardingSystem.swift */,
+				EF8C4C012F63A2950003AE65 /* ChatIdentityCard.swift */,
+				EF8C4C032F63BA730003AE65 /* ChristianMediaBannerView.swift */,
+				EF8C4C352F63D2F70003AE65 /* AMENPermissionsManager.swift */,
+				EF8C4C372F63D36E0003AE65 /* SpiritualCheckInService.swift */,
+				EF8C4C392F63D7620003AE65 /* AMENFeatureFlags.swift */,
+				EF8C4C3B2F63D7D00003AE65 /* ModerationPipeline.swift */,
+				EF8C4C3D2F63D84D0003AE65 /* BereanRAGService.swift */,
+				EF8C4C3F2F63D8F00003AE65 /* FeedIntelligenceService.swift */,
+				EF8C4C412F63D9300003AE65 /* KnowledgeGraphService.swift */,
+				EF8C4C452F63D9B80003AE65 /* AMENAnalyticsService.swift */,
+				EF8C4C472F6412840003AE65 /* ChurchDiscoveryPulse.swift */,
+				EF8C4C492F6414BE0003AE65 /* FeaturedResourceCard.swift */,
+				EF8C4C4B2F6418C50003AE65 /* WisdomLibraryHeroBanner.swift */,
+				EF8C4C4D2F641B440003AE65 /* BereanInteractiveUI.swift */,
+				EF8C4C4F2F64212B0003AE65 /* BereanCoreService.swift */,
+				EF8C4C512F6421990003AE65 /* ModelRoutingEngine.swift */,
+				EF8C4C532F6421D60003AE65 /* PromptPolicyEngine.swift */,
+				EF8C4C552F6422050003AE65 /* ConfidenceScoringService.swift */,
+				EF8C4C572F6422440003AE65 /* SemanticTopicService.swift */,
+				EF8C4C592F64226C0003AE65 /* UserSignalsService.swift */,
+				EF8C4C5B2F6422B20003AE65 /* RecommendationIntelligenceService.swift */,
+				EF8C4C5D2F6423170003AE65 /* BereanSurfaceIntegrations.swift */,
+				EF8C4C5F2F646D4B0003AE65 /* ConversationThreadView.swift */,
+				EF8C4C692F64BA560003AE65 /* AMENQuickActionManager.swift */,
+				EF8C4C6D2F664F5D0003AE65 /* BereanGreetingManager.swift */,
+				EF8C4C6F2F664F860003AE65 /* BereanTypewriterView.swift */,
+				EF8C4C712F664FDF0003AE65 /* BereanLandingView.swift */,
+				EF8C4C732F6657E50003AE65 /* AMENSuggestionsSection.swift */,
+				EFBA28C02F6F429600B54517 /* NotificationScheduler.swift */,
+				EFCC00012F7000000099AA01 /* ScriptureIntelligenceEngine.swift */,
+				EFCC00022F7000000099AA02 /* PersonalSpiritualGraphService.swift */,
+				EFCC00032F7000000099AA03 /* SpiritualStateModeService.swift */,
+				EFCC00042F7000000099AA04 /* PredictiveInterventionEngine.swift */,
+				EFCC00052F7000000099AA05 /* FollowUpEngine.swift */,
+				EFCC00062F7000000099AA06 /* SermonWeekTransformationService.swift */,
+				EFCC00072F7000000099AA07 /* BereanSafetyEscalationService.swift */,
+				EFCC00082F7000000099AA08 /* LiturgicalCalendarEngine.swift */,
+				EFCC00092F7000000099AA09 /* HolidayIntelligenceRouter.swift */,
+				EFCC000A2F7000000099AA0A /* SeasonalPromptService.swift */,
+				EFCC000B2F7000000099AA0B /* ChurchSeasonalEventService.swift */,
+				EFCC000C2F7000000099AA0C /* HolidayReflectionJourneyService.swift */,
+				EFCC000D2F7000000099AA0D /* UserObservanceProfileService.swift */,
+				EFB9554E2F7A48F9001FEE47 /* Assets2.xcassets */,
+				EFB955D72F7CD850001FEE47 /* MESSAGING_PERMISSIONS_FIX.md */,
+				EF156EE52F80A46F000C4448 /* GreetingService.swift */,
+				EF156EE62F80A48D000C4448 /* PersonalizedGreetingView.swift */,
+				EF156EE72F80A4B3000C4448 /* GreetingSettingsView.swift */,
+				EF9FD0212F821B8300EBF035 /* functions 2 */,
+				EF9FD0222F821B9900EBF035 /* Backend */,
+				35FFF8CDEC8642A68C258780 /* CreationModels.swift */,
+				922950E8CC9D46569F7E0EC3 /* SceneBuilderViewModel.swift */,
+				AA86F52210834944B71B50CF /* LiquidGlassCreationComponents.swift */,
+				D75E708FF5164132A318EA58 /* CreationTimelineView.swift */,
+				E42C295EA4584A44B2D88197 /* TemplatePickerView.swift */,
+				5F61F9D6175143FC800638E8 /* AssetSelectionView.swift */,
+				5AA9B8E644D04ABEAAC1B73F /* CreationStudioView.swift */,
+				3120D71872D94559AEBE38F9 /* CreationPromptBar.swift */,
+				D65C30C1C1AF4F71B03AA3D0 /* CreationPublishView.swift */,
+				A2C11335A649489CA118C3F3 /* CreationDraftService.swift */,
+				0804F587EA71407AA64D8634 /* AmenSyncModels.swift */,
+				D62DCFF1C5A247B4B51C0162 /* AmenSyncViewModel.swift */,
+				27CFD76466884F5BBD04A1F2 /* AmenSyncCaptionService.swift */,
+				E96B1EDAE41B4A07A7C0A567 /* AmenSyncModerationService.swift */,
+				D6084B1DB0854630B7B3E661 /* AmenSyncEntryView.swift */,
+				D9249F2C56B94D75A3A87527 /* AmenSyncStudioView.swift */,
+				FE6331EA2267427EBCD3177B /* AmenSyncReviewView.swift */,
+				8ED726DB5CDC452EB1AFB438 /* AmenSyncDraftsView.swift */,
+				0F485E8816FD4F539AA958C5 /* AmenSyncHubCard.swift */,
+				EF7FF4B92F88A22400B31A9A /* ActionThreadModels.swift */,
+				EF7FF4BA2F88A22500B31A9A /* CompoundIdentityModels.swift */,
+				EF7FF4BB2F88A22600B31A9A /* ProofOfTrustModels.swift */,
+				EF7FF4BC2F88A2CB00B31A9A /* ActionThreadService.swift */,
+				EF7FF4BD2F88A2CB00B31A9A /* ActionThreadPermissionsService.swift */,
+				EF7FF4BE2F88A31100B31A9A /* ActionSuggestionEngine.swift */,
+				EF7FF4BF2F88A31100B31A9A /* ActionThreadNotificationService.swift */,
+				EF7FF4C02F88A37A00B31A9A /* UserIntelligenceOrchestrator.swift */,
+				EF7FF4C12F88A37A00B31A9A /* TrustScoringEngine.swift */,
+				EF7FF4C22F88A3AA00B31A9A /* TrustEventRecorder.swift */,
+				EF7FF4C32F88A3AB00B31A9A /* ProofOfHumanService.swift */,
+				EF7FF4C42F88A3AB00B31A9A /* ProofOfCareService.swift */,
+				EF9B624D2F90C2F200D0E71B /* Recovered References */,
+				B4CC10AC5E8F46D6B0C7BA55 /* AmenActionPill.swift */,
+				A52FEA82C9D64A32BB548B46 /* IntentPickerRow.swift */,
+				7BFA3CF27D184003971CD149 /* AmenUniversalComposer.swift */,
+				0CAEB5424BA455BF5B516208 /* ConnectSpaces */,
+				CB29FBBEBA6E9C34C0B8D533 /* AMENAPP */,
+				EF4498C12FD1A07D00C1A81A /* SpacesOS */,
+			);
+			sourceTree = "<group>";
+		};
+		EF81519C2F184E97008912E3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				EF81519B2F184E97008912E3 /* AMENAPP.app */,
+				EF56F7412F2881A30019B94A /* AMENAPPTests.xctest */,
+				EF5B39042F5BA7A500152D09 /* AMENWidgetExtensionExtension.appex */,
+				EFA100032F90000100000001 /* AMENNotificationServiceExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		EF9B624D2F90C2F200D0E71B /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				EFA100052F90000100000001 /* AMENNotificationServiceExtension */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
+		EF9FD0212F821B8300EBF035 /* functions 2 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "functions 2";
+			sourceTree = "<group>";
+		};
+		EF9FD0222F821B9900EBF035 /* Backend */ = {
+			isa = PBXGroup;
+			children = (
+				EF9FD0232F821BA000EBF035 /* functions */,
+				EF9FE6952F821ED000EBF035 /* firestore.creator.rules.md */,
+			);
+			path = Backend;
+			sourceTree = "<group>";
+		};
+		EF9FD0232F821BA000EBF035 /* functions */ = {
+			isa = PBXGroup;
+			children = (
+				EF9FD0242F821BA300EBF035 /* src */,
+				EF9FD03E2F821C1D00EBF035 /* README.md */,
+				EF9FFCBD2F82835600EBF035 /* package.json */,
+				EF9FFCBE2F82835E00EBF035 /* tsconfig.json */,
+			);
+			path = functions;
+			sourceTree = "<group>";
+		};
+		EF9FD0242F821BA300EBF035 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				EF9FD0252F821BA500EBF035 /* creator */,
+				EF9FD0262F821BB100EBF035 /* index.ts */,
+				EF7F00562F8957A400B31A9A /* groupLinks.ts */,
+				EF9B3B472F8AA77E00D0E71B /* refineTranslation.ts */,
+				EF9B3B9A2F8B230900D0E71B /* suggestedAccounts.ts */,
+				EF9B3BD62F8D023900D0E71B /* feedBuilder.ts */,
+				EF9B3C082F8DACFB00D0E71B /* trustIntelligence.ts */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
+		EF9FD0252F821BA500EBF035 /* creator */ = {
+			isa = PBXGroup;
+			children = (
+				EF9FD0272F821BB700EBF035 /* createProject.ts */,
+				EF9FD0282F821BBC00EBF035 /* updateProject.ts */,
+				EF9FD0292F821BC000EBF035 /* deleteProject.ts */,
+				EF9FD02A2F821BC500EBF035 /* autosaveProject.ts */,
+				EF9FD02B2F821BC900EBF035 /* queueProcessingJob.ts */,
+				EF9FD02C2F821BCE00EBF035 /* processVideoProxy.ts */,
+				EF9FD02D2F821BD200EBF035 /* generateThumbnail.ts */,
+				EF9FD02E2F821BD700EBF035 /* transcribeMedia.ts */,
+				EF9FD02F2F821BDB00EBF035 /* generateSubtitleTrack.ts */,
+				EF9FD0302F821BDF00EBF035 /* translateSubtitleTrack.ts */,
+				EF9FD0312F821BE300EBF035 /* buildOutputVariants.ts */,
+				EF9FD0322F821BE800EBF035 /* renderExport.ts */,
+				EF9FD0332F821BEB00EBF035 /* publishProject.ts */,
+				EF9FD0342F821BF000EBF035 /* moderateCreatorAsset.ts */,
+				EF9FD0352F821BF400EBF035 /* verifyAuthenticitySignals.ts */,
+				EF9FD0362F821BF800EBF035 /* saveBrandKit.ts */,
+				EF9FD0372F821BFB00EBF035 /* cloneTemplateToProject.ts */,
+				EF9FD0382F821BFF00EBF035 /* recordCreatorAnalytics.ts */,
+				EF9FD0392F821C0400EBF035 /* enforceCreatorEntitlement.ts */,
+				EF9FD03A2F821C0700EBF035 /* cleanupOrphanedAssets.ts */,
+				EF9FD03B2F821C0B00EBF035 /* retryFailedCreatorJob.ts */,
+				EF9FDB942F821E0C00EBF035 /* creatorTypes.ts */,
+				EF9FFCBC2F82831B00EBF035 /* ffmpegUtils.ts */,
+			);
+			path = creator;
+			sourceTree = "<group>";
+		};
+		EFBDED3F2F251CD1001E650E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				EF43AAD02F5412C40075E1B5 /* ActivityKit.framework */,
+				EF7475D82F2C85CD00A4434F /* XCTest.framework */,
+				EF5B39052F5BA7A500152D09 /* WidgetKit.framework */,
+				EF5B39072F5BA7A500152D09 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};

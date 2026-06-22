@@ -8,7 +8,9 @@
 //
 
 import Foundation
+import FirebaseCore
 import FirebaseFirestore
+import FirebaseFunctions
 import FirebaseAuth
 import Combine
 
@@ -62,12 +64,13 @@ class BlockService: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
     
-    private let firebaseManager = FirebaseManager.shared
-    private let db = Firestore.firestore()
+    private lazy var firebaseManager = FirebaseManager.shared
+    private lazy var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
     private var authStateListener: AuthStateDidChangeListenerHandle?
     
     private init() {
+        guard FirebaseApp.app() != nil else { return }
         setupAuthListener()
     }
     
@@ -99,7 +102,14 @@ class BlockService: ObservableObject {
     
     // MARK: - Block User
     
-    /// Block a user
+    /// Block a user.
+    ///
+    /// Calls the `createBlock` Cloud Function, which atomically writes to:
+    ///   1. `blockedUsers/{blockerId}_{blockedId}` — read by antiHarassmentEnforcement CF
+    ///      to prevent server-side message delivery to blocked users.
+    ///   2. `users/{blockerId}/blockedUsers/{blockedId}` — checked by Firestore security
+    ///      rules (callerIsBlockedByAuthor) and triggers blockRelationshipCleanup CF.
+    /// The blockRelationshipCleanup trigger handles follow-edge removal server-side.
     func blockUser(userId: String) async throws {
         dlog("🚫 Blocking user: \(userId)")
         
@@ -107,184 +117,96 @@ class BlockService: ObservableObject {
             throw FirebaseError.unauthorized
         }
         
-        // Don't block yourself
         guard userId != currentUserId else {
             dlog("⚠️ Cannot block yourself")
             return
         }
         
-        // Check if already blocked
         if await isBlocked(userId: userId) {
             dlog("⚠️ User is already blocked")
             return
         }
         
-        // Create block relationship
-        let block = Block(
-            blockerId: currentUserId,
-            blockedId: userId
-        )
+        // Call createBlock CF — atomically writes to both stores.
+        // blockRelationshipCleanup fires automatically on subcollection create.
+        _ = try await Functions.functions().httpsCallable("createBlock").call(["blockedId": userId])
         
-        // Use batch write for atomicity
-        let batch = db.batch()
-        
-        // 1. Add to blocks collection
-        let blockRef = db.collection(FirebaseManager.CollectionPath.blocks).document()
-        try batch.setData(from: block, forDocument: blockRef)
-        
-        // 2. Remove existing follow relationships in both directions
-        // Remove if current user follows blocked user
-        let followingQuery = try await db.collection(FirebaseManager.CollectionPath.follows)
-            .whereField("followerId", isEqualTo: currentUserId)
-            .whereField("followingId", isEqualTo: userId)
-            .limit(to: 1)
-            .getDocuments()
-        
-        if let followDoc = followingQuery.documents.first {
-            batch.deleteDocument(followDoc.reference)
-            
-            // Decrement counts
-            let targetUserRef = db.collection(FirebaseManager.CollectionPath.users).document(userId)
-            batch.updateData([
-                "followersCount": FieldValue.increment(Int64(-1))
-            ], forDocument: targetUserRef)
-            
-            let currentUserRef = db.collection(FirebaseManager.CollectionPath.users).document(currentUserId)
-            batch.updateData([
-                "followingCount": FieldValue.increment(Int64(-1))
-            ], forDocument: currentUserRef)
-        }
-        
-        // Remove if blocked user follows current user
-        let followersQuery = try await db.collection(FirebaseManager.CollectionPath.follows)
-            .whereField("followerId", isEqualTo: userId)
-            .whereField("followingId", isEqualTo: currentUserId)
-            .limit(to: 1)
-            .getDocuments()
-        
-        if let followerDoc = followersQuery.documents.first {
-            batch.deleteDocument(followerDoc.reference)
-            
-            // Decrement counts
-            let currentUserRef = db.collection(FirebaseManager.CollectionPath.users).document(currentUserId)
-            batch.updateData([
-                "followersCount": FieldValue.increment(Int64(-1))
-            ], forDocument: currentUserRef)
-            
-            let blockedUserRef = db.collection(FirebaseManager.CollectionPath.users).document(userId)
-            batch.updateData([
-                "followingCount": FieldValue.increment(Int64(-1))
-            ], forDocument: blockedUserRef)
-        }
-        
-        // Commit batch
-        try await batch.commit()
-        
-        dlog("✅ Blocked user successfully")
+        dlog("✅ Blocked user successfully (both stores written via CF)")
 
-        // Update local state
         blockedUsers.insert(userId)
 
-        // Archive any conversations with the blocked user so they vanish from
-        // the inbox immediately. Uses archivedBy[] — conversations are preserved
-        // for moderation but hidden for the blocker. Errors here are non-fatal.
+        // Archive conversations immediately on the client (non-fatal — CF cleanup
+        // is the authoritative cleanup; this is a UX optimisation).
         try? await FirebaseMessagingService.shared.archiveConversationsWithUser(userId)
 
-        // Reload blocked users list
         await loadBlockedUsers()
 
-        // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.warning)
     }
     
     // MARK: - Unblock User
     
-    /// Unblock a user
+    /// Unblock a user.
+    ///
+    /// Calls the `createUnblock` Cloud Function, which atomically removes both
+    /// `blockedUsers/{blockerId}_{blockedId}` and `users/{blockerId}/blockedUsers/{blockedId}`.
     func unblockUser(userId: String) async throws {
         dlog("✅ Unblocking user: \(userId)")
         
-        guard let currentUserId = firebaseManager.currentUser?.uid else {
+        guard firebaseManager.currentUser?.uid != nil else {
             throw FirebaseError.unauthorized
         }
         
-        // Find the block relationship
-        let blockQuery = db.collection(FirebaseManager.CollectionPath.blocks)
-            .whereField("blockerId", isEqualTo: currentUserId)
-            .whereField("blockedId", isEqualTo: userId)
-            .limit(to: 1)
+        _ = try await Functions.functions().httpsCallable("createUnblock").call(["blockedId": userId])
         
-        let snapshot = try await blockQuery.getDocuments()
+        dlog("✅ Unblocked user successfully (both stores cleared via CF)")
         
-        guard let blockDoc = snapshot.documents.first else {
-            dlog("⚠️ User is not blocked")
-            return
-        }
-        
-        // Delete block relationship
-        try await blockDoc.reference.delete()
-        
-        dlog("✅ Unblocked user successfully")
-        
-        // Update local state
         blockedUsers.remove(userId)
-        
-        // Reload blocked users list
         await loadBlockedUsers()
         
-        // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
     }
     
     // MARK: - Check Block Status
     
-    /// Check if current user has blocked another user
+    /// Check if current user has blocked another user.
+    /// Uses O(1) doc-ID lookup on `blockedUsers/{currentUserId}_{userId}`.
     func isBlocked(userId: String) async -> Bool {
-        guard let currentUserId = firebaseManager.currentUser?.uid else {
-            return false
-        }
+        guard let currentUserId = firebaseManager.currentUser?.uid else { return false }
         
-        // Check local cache first
-        if blockedUsers.contains(userId) {
-            return true
-        }
+        if blockedUsers.contains(userId) { return true }
         
-        // Check Firestore
         do {
-            let snapshot = try await db.collection(FirebaseManager.CollectionPath.blocks)
-                .whereField("blockerId", isEqualTo: currentUserId)
-                .whereField("blockedId", isEqualTo: userId)
-                .limit(to: 1)
-                .getDocuments()
-            
-            let isBlocked = !snapshot.documents.isEmpty
-            
-            if isBlocked {
-                blockedUsers.insert(userId)
-            }
-            
-            return isBlocked
+            let doc = try await db.collection("blockedUsers")
+                .document("\(currentUserId)_\(userId)")
+                .getDocument()
+            if doc.exists { blockedUsers.insert(userId) }
+            return doc.exists
         } catch {
             dlog("❌ Error checking block status: \(error)")
             return false
         }
     }
     
-    /// Check if another user has blocked current user
+    /// Check if current user has been blocked by `uid` (mid-session re-check).
+    /// Alias for isBlockedBy(userId:) with a name that reads clearly at the call site:
+    ///   `BlockService.shared.isBlocked(byUser: recipientId)`
+    func isBlocked(byUser uid: String) async -> Bool {
+        return await isBlockedBy(userId: uid)
+    }
+
+    /// Check if another user has blocked current user.
+    /// Uses O(1) doc-ID lookup on `blockedUsers/{userId}_{currentUserId}`.
     func isBlockedBy(userId: String) async -> Bool {
-        guard let currentUserId = firebaseManager.currentUser?.uid else {
-            return false
-        }
+        guard let currentUserId = firebaseManager.currentUser?.uid else { return false }
         
         do {
-            let snapshot = try await db.collection(FirebaseManager.CollectionPath.blocks)
-                .whereField("blockerId", isEqualTo: userId)
-                .whereField("blockedId", isEqualTo: currentUserId)
-                .limit(to: 1)
-                .getDocuments()
-            
-            return !snapshot.documents.isEmpty
+            let doc = try await db.collection("blockedUsers")
+                .document("\(userId)_\(currentUserId)")
+                .getDocument()
+            return doc.exists
         } catch {
             dlog("❌ Error checking if blocked by user: \(error)")
             return false
@@ -293,7 +215,9 @@ class BlockService: ObservableObject {
     
     // MARK: - Fetch Blocked Users
     
-    /// Fetch all blocked users for current user
+    /// Fetch all blocked users for current user.
+    /// Reads from `users/{uid}/blockedUsers` subcollection, which is populated
+    /// atomically by the `createBlock` Cloud Function.
     func loadBlockedUsers() async {
         guard let currentUserId = firebaseManager.currentUser?.uid else {
             dlog("⚠️ No authenticated user")
@@ -306,42 +230,35 @@ class BlockService: ObservableObject {
         do {
             dlog("📥 Fetching blocked users...")
             
-            let snapshot = try await db.collection(FirebaseManager.CollectionPath.blocks)
-                .whereField("blockerId", isEqualTo: currentUserId)
-                .order(by: "blockedAt", descending: true)
+            let snapshot = try await db
+                .collection("users").document(currentUserId)
+                .collection("blockedUsers")
                 .getDocuments()
             
-            let blocks = try snapshot.documents.compactMap { doc in
-                try doc.data(as: Block.self)
-            }
+            let blockedIds = snapshot.documents.compactMap { $0.data()["blockedId"] as? String }
+            blockedUsers = Set(blockedIds)
             
-            // Update blocked user IDs set
-            blockedUsers = Set(blocks.map { $0.blockedId })
-            
-            // Fetch full user profiles for each blocked user
             var profiles: [BlockedUserProfile] = []
-            
-            for block in blocks {
+            for doc in snapshot.documents {
+                guard let blockedId = doc.data()["blockedId"] as? String else { continue }
+                let createdAt = (doc.data()["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+                
                 if let userDoc = try? await db.collection(FirebaseManager.CollectionPath.users)
-                    .document(block.blockedId)
+                    .document(blockedId)
                     .getDocument(),
                    let userData = userDoc.data() {
-                    
-                    let profile = BlockedUserProfile(
-                        id: block.blockedId,
+                    profiles.append(BlockedUserProfile(
+                        id: blockedId,
                         displayName: userData["displayName"] as? String ?? "Unknown",
                         username: userData["username"] as? String ?? "unknown",
                         initials: userData["initials"] as? String ?? "??",
                         profileImageURL: userData["profileImageURL"] as? String,
-                        blockedAt: block.blockedAt
-                    )
-                    
-                    profiles.append(profile)
+                        blockedAt: createdAt
+                    ))
                 }
             }
             
             blockedUsersList = profiles
-            
             dlog("✅ Loaded \(profiles.count) blocked users")
         } catch {
             dlog("❌ Failed to load blocked users: \(error)")
@@ -351,7 +268,9 @@ class BlockService: ObservableObject {
     
     // MARK: - Real-time Listener
     
-    /// Start listening to blocked users changes
+    /// Start listening to blocked users changes.
+    /// Listens to `users/{uid}/blockedUsers` subcollection, which is written
+    /// atomically by the `createBlock` Cloud Function.
     func startListening() {
         guard let currentUserId = firebaseManager.currentUser?.uid else {
             dlog("⚠️ No user ID for listener")
@@ -360,8 +279,9 @@ class BlockService: ObservableObject {
         
         dlog("🔊 Starting real-time listener for blocks...")
         
-        let listener = db.collection(FirebaseManager.CollectionPath.blocks)
-            .whereField("blockerId", isEqualTo: currentUserId)
+        let listener = db
+            .collection("users").document(currentUserId)
+            .collection("blockedUsers")
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 
@@ -372,17 +292,12 @@ class BlockService: ObservableObject {
                 
                 guard let snapshot = snapshot else { return }
                 
-                Task {
+                Task { @MainActor in
                     let blockedIds = snapshot.documents.compactMap { doc -> String? in
                         doc.data()["blockedId"] as? String
                     }
-                    
-                    await MainActor.run {
-                        self.blockedUsers = Set(blockedIds)
-                        dlog("✅ Real-time update: \(blockedIds.count) blocked users")
-                    }
-                    
-                    // Reload full profiles
+                    self.blockedUsers = Set(blockedIds)
+                    dlog("✅ Real-time update: \(blockedIds.count) blocked users")
                     await self.loadBlockedUsers()
                 }
             }
@@ -395,6 +310,16 @@ class BlockService: ObservableObject {
         dlog("🔇 Stopping block listeners...")
         listeners.forEach { $0.remove() }
         listeners.removeAll()
+    }
+
+    /// Stop listeners AND clear all in-memory user state so previous user's
+    /// block list is never visible to the next signed-in account.
+    /// Called by AppLifecycleManager.performFullSignOutCleanup().
+    func resetUserState() {
+        stopListening()
+        blockedUsers.removeAll()
+        blockedUsersList.removeAll()
+        dlog("🧹 BlockService: user state cleared on sign-out")
     }
     
     // MARK: - Helper Methods
@@ -414,8 +339,4 @@ class BlockService: ObservableObject {
     }
 }
 
-// MARK: - Firestore Collection Path Extension
 
-extension FirebaseManager.CollectionPath {
-    static let blocks = "blocks"
-}

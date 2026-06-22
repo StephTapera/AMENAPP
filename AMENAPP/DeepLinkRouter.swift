@@ -2,6 +2,21 @@ import SwiftUI
 import Foundation
 import Combine
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NAV-02 RESOLVED — Both schemes now handle an identical set of routes.
+//
+// DeepLinkRouter.parse()    — accepts amen://   (DeepLinkRoute enum)
+// NotificationDeepLinkRouter.handleURL() — accepts amen:// AND amenapp://
+//                                          (NavigationDestination enum)
+//
+// Both parsers cover: post, user/profile, church, conversation/messages,
+// category, search, settings, comment, chat, group/join, notifications,
+// messages, prayer, church-note, intelligence.
+//
+// Future work: merge into a single UnifiedDeepLinkRouter that shares one
+// destination model (Phase 2).
+// ─────────────────────────────────────────────────────────────────────────────
+
 /// Central routing system for deep links and in-app navigation
 /// Handles: Push notifications, Universal Links, in-app navigation
 @MainActor
@@ -30,6 +45,23 @@ class DeepLinkRouter: ObservableObject {
         case comment(postId: String, commentId: String?, prefill: String?)
         /// Deep link from Reply Assist island: open DM thread with pre-filled reply text.
         case chat(threadId: String, prefill: String?)
+        /// Group join link (token-authenticated invite).
+        case groupJoin(token: String)
+        /// Navigate directly to the Notifications tab.
+        case notifications
+        /// Navigate directly to the Messages tab.
+        case messages
+        /// Open a specific prayer request.
+        case prayer(prayerId: String)
+        /// Open a specific church note.
+        case churchNote(noteId: String)
+        /// Open the intelligence/Berean brief card.
+        case intelligence(cardId: String?)
+        /// Open a specific Space (community). Lands on the Spaces hub tab.
+        case space(spaceId: String)
+        /// Open a church event. Interim destination — routes to the church/resources
+        /// surface until a dedicated event detail surface exists (see navigate()).
+        case event(eventId: String)
     }
     
     enum DeepLinkDestination: Hashable {
@@ -72,7 +104,7 @@ class DeepLinkRouter: ObservableObject {
             guard let churchId = pathComponents.first else { return nil }
             return .church(churchId: churchId)
             
-        case "conversation", "messages":
+        case "conversation":
             guard let conversationId = pathComponents.first else { return nil }
             let messageId = queryItems?.first(where: { $0.name == "message" })?.value
             return .conversation(conversationId: conversationId, highlightMessageId: messageId)
@@ -88,6 +120,10 @@ class DeepLinkRouter: ObservableObject {
         case "settings":
             let section = pathComponents.first
             return .settings(section: section)
+
+        case "guardian":
+            // What's New "Guardian Family Safe Sharing" CTA → Settings (Guardian section).
+            return .settings(section: "guardian")
 
         case "comment":
             // amen://comment?postId=...&commentId=...&prefill=...
@@ -105,6 +141,44 @@ class DeepLinkRouter: ObservableObject {
                                       .flatMap { $0.removingPercentEncoding }
             guard !threadId.isEmpty else { return nil }
             return .chat(threadId: threadId, prefill: prefill)
+
+        case "group":
+            // amen://group/join?token=...
+            guard pathComponents.first == "join",
+                  let token = queryItems?.first(where: { $0.name == "token" })?.value,
+                  !token.isEmpty else { return nil }
+            return .groupJoin(token: token)
+
+        case "notifications":
+            return .notifications
+
+        case "messages":
+            return .messages
+
+        case "prayer":
+            guard let prayerId = pathComponents.first else { return nil }
+            return .prayer(prayerId: prayerId)
+
+        case "church-note":
+            guard let noteId = pathComponents.first else { return nil }
+            return .churchNote(noteId: noteId)
+
+        case "intelligence":
+            // amen://intelligence or amen://intelligence/card/{cardId}
+            let cardId = pathComponents.count >= 2 && pathComponents[0] == "card"
+                ? pathComponents[1]
+                : pathComponents.first
+            return .intelligence(cardId: cardId)
+
+        case "space":
+            // amen://space/{spaceId}
+            guard let spaceId = pathComponents.first else { return nil }
+            return .space(spaceId: spaceId)
+
+        case "event":
+            // amen://event/{eventId}
+            guard let eventId = pathComponents.first else { return nil }
+            return .event(eventId: eventId)
 
         default:
             return nil
@@ -142,18 +216,34 @@ class DeepLinkRouter: ObservableObject {
         case .post, .userProfile, .category, .church:
             selectedTab = 0  // Home/Feed tab
         case .conversation:
-            selectedTab = 3  // Messages tab
+            selectedTab = 2  // Messages tab
         case .notification:
             selectedTab = 2  // Notifications tab
         case .search:
             selectedTab = 1  // Search tab
         case .settings:
-            selectedTab = 4  // Profile/Settings tab
+            selectedTab = 5  // Profile tab (index 5); was incorrectly 4 (Notifications) — NAV-01 fix
         case .comment:
             // Open the post's comment thread (home tab, then push post detail)
             selectedTab = 0
         case .chat:
             // Open the DM thread directly
+            selectedTab = 2
+        case .groupJoin:
+            selectedTab = 2  // Messages tab (group join flow lives there)
+        case .notifications:
+            selectedTab = 2  // Notifications tab
+        case .messages:
+            selectedTab = 2  // Messages tab
+        case .prayer, .churchNote:
+            selectedTab = 3  // Resources tab (index 3)
+        case .intelligence:
+            selectedTab = 7  // Intelligence Brief tab
+        case .space:
+            selectedTab = 6  // Spaces hub (AmenConnectSpacesHubView)
+        case .event:
+            // INTERIM DESTINATION — dedicated church-event surface TBD. Church
+            // events live in the Resources surface; land there scoped via activeRoute.
             selectedTab = 3
         }
         // End the reply activity since user opened the destination
@@ -227,6 +317,39 @@ class DeepLinkRouter: ObservableObject {
             var items = [URLQueryItem(name: "threadId", value: threadId)]
             if let prefill { items.append(URLQueryItem(name: "prefill", value: prefill)) }
             components.queryItems = items
+
+        case .groupJoin(let token):
+            components.host = "group"
+            components.path = "/join"
+            components.queryItems = [URLQueryItem(name: "token", value: token)]
+
+        case .notifications:
+            components.host = "notifications"
+
+        case .messages:
+            components.host = "messages"
+
+        case .prayer(let prayerId):
+            components.host = "prayer"
+            components.path = "/\(prayerId)"
+
+        case .churchNote(let noteId):
+            components.host = "church-note"
+            components.path = "/\(noteId)"
+
+        case .intelligence(let cardId):
+            components.host = "intelligence"
+            if let cardId {
+                components.path = "/card/\(cardId)"
+            }
+
+        case .space(let spaceId):
+            components.host = "space"
+            components.path = "/\(spaceId)"
+
+        case .event(let eventId):
+            components.host = "event"
+            components.path = "/\(eventId)"
         }
 
         return components.url
@@ -289,14 +412,22 @@ extension DeepLinkRouter.DeepLinkRoute {
             return .profileBrowse
         case .church:
             return .findChurch        // church deep links are allowed
-        case .conversation, .chat:
+        case .conversation, .chat, .messages, .groupJoin:
             return .messages
-        case .notification:
+        case .notification, .notifications:
             return .notifications
         case .search:
             return .search
         case .settings:
             return .settings          // always allowed
+        case .prayer, .churchNote:
+            return .feed              // prayer/church notes live in the resources feed
+        case .intelligence:
+            return .feed
+        case .space:
+            return .messages         // Spaces are conversational/community — gate like messages
+        case .event:
+            return .findChurch       // church-published events — allowed like church
         }
     }
 
@@ -313,6 +444,14 @@ extension DeepLinkRouter.DeepLinkRoute {
         case .settings(let s):           return "settings/\(s ?? "root")"
         case .comment(let pid, _, _):    return "comment/\(pid)"
         case .chat(let tid, _):          return "chat/\(tid)"
+        case .groupJoin(let t):          return "group/join/\(t.prefix(8))..."
+        case .notifications:             return "notifications"
+        case .messages:                  return "messages"
+        case .prayer(let id):            return "prayer/\(id)"
+        case .churchNote(let id):        return "church-note/\(id)"
+        case .intelligence(let id):      return "intelligence/\(id ?? "root")"
+        case .space(let id):             return "space/\(id)"
+        case .event(let id):             return "event/\(id)"
         }
     }
 }
@@ -322,4 +461,143 @@ extension DeepLinkRouter.DeepLinkRoute {
 extension Notification.Name {
     /// Posted when a deep link is blocked by Shabbat Mode.
     static let shabbatDeepLinkBlocked = Notification.Name("shabbatDeepLinkBlocked")
+}
+
+// Interaction foundation types live in Foundation/AmenInteractionFoundation.swift.
+
+// MARK: Navigation Coordinator
+//
+// NOTE: `DeepLinkRouter` (above) already IS the app's navigation coordinator —
+// it owns `navigationPath`, `selectedTab`, the route/destination enums, and
+// `navigate()`. Per the audit's "extend, don't fork" rule we do NOT add a second
+// NavigationCoordinator. Phase C surfaces route through `DeepLinkRouter.shared`.
+
+// MARK: Button Action Router
+
+/// Central dispatch for button actions, with built-in duplicate-tap prevention.
+/// Replaces ad-hoc per-view in-flight booleans and prevents the double-submit /
+/// double-append findings (forum reply, comment heart, join, RSVP, visit-plan).
+@MainActor
+public final class ButtonActionRouter: ObservableObject {
+    public static let shared = ButtonActionRouter()
+
+    @Published public private(set) var inFlight: Set<String> = []
+    private var lastFired: [String: ContinuousClock.Instant] = [:]
+    private let debounceInterval: Duration = .milliseconds(350)
+    private let clock = ContinuousClock()
+
+    private init() {}
+
+    /// Run an async action keyed by `id`. No-ops if the same id is already in
+    /// flight or was fired within the debounce window. Always clears in-flight.
+    public func perform(_ id: String, action: @escaping () async -> Void) {
+        if inFlight.contains(id) { return }
+        if let last = lastFired[id], last.duration(to: clock.now) < debounceInterval { return }
+        lastFired[id] = clock.now
+        inFlight.insert(id)
+        Task { [weak self] in
+            await action()
+            self?.inFlight.remove(id)
+        }
+    }
+
+    public func isInFlight(_ id: String) -> Bool { inFlight.contains(id) }
+}
+
+// MARK: Paywall Coordinator
+
+/// AMEN subscription tiers, low→high. `Comparable` so a feature can require a
+/// minimum tier.
+public enum AmenTier: String, Comparable, Sendable, CaseIterable {
+    case free, amenPlus, amenPro, creatorPro, churchPro
+
+    private var rank: Int { Self.allCases.firstIndex(of: self) ?? 0 }
+    public static func < (lhs: AmenTier, rhs: AmenTier) -> Bool { lhs.rank < rhs.rank }
+}
+
+public struct AmenPaywallRequest: Identifiable, Equatable {
+    public let id = UUID()
+    public let requiredTier: AmenTier
+    public let feature: String
+
+    public init(requiredTier: AmenTier, feature: String) {
+        self.requiredTier = requiredTier
+        self.feature = feature
+    }
+
+    public static func == (lhs: AmenPaywallRequest, rhs: AmenPaywallRequest) -> Bool { lhs.id == rhs.id }
+}
+
+/// THE single paywall entry point. Resolves the ≥5 fragmented upgrade/paywall
+/// surfaces (AmenAccountPaywallView, inline PaywallOverlay, AmenSubscriptionPaywall,
+/// AmenFeatureGateView, SignUp TierCard) into one. Present only after clear intent
+/// — never preemptively, never with dark-pattern timing (CalmCap).
+@MainActor
+public final class PaywallCoordinator: ObservableObject {
+    public static let shared = PaywallCoordinator()
+
+    @Published public private(set) var request: AmenPaywallRequest?
+
+    private init() {}
+
+    public func present(requiredTier: AmenTier, feature: String) {
+        guard request == nil else { return }   // one paywall at a time
+        request = AmenPaywallRequest(requiredTier: requiredTier, feature: feature)
+    }
+
+    public func dismiss() { request = nil }
+
+    public var isPresenting: Bool { request != nil }
+}
+
+// MARK: Permission Coordinator
+
+public enum AmenPermissionKind: String, Sendable {
+    case location, notifications, calendar, camera, microphone, photos, contacts
+}
+
+public struct AmenPermissionPrime: Identifiable, Equatable {
+    public let id = UUID()
+    public let kind: AmenPermissionKind
+    public let rationale: String      // shown BEFORE the system prompt
+
+    public static func == (lhs: AmenPermissionPrime, rhs: AmenPermissionPrime) -> Bool { lhs.id == rhs.id }
+}
+
+/// Contextual permission flow: show a calm rationale first, fire the OS prompt
+/// only when the user accepts the priming sheet. Directly addresses the
+/// onboarding "Enable Notifications fires the system prompt with no explanation /
+/// silently advances when already denied" finding. Framework calls stay at the
+/// call site (passed as `systemRequest`) so this stays dependency-light.
+@MainActor
+public final class PermissionCoordinator: ObservableObject {
+    public static let shared = PermissionCoordinator()
+
+    @Published public private(set) var prime: AmenPermissionPrime?
+    private var pendingRequest: (() -> Void)?
+
+    private init() {}
+
+    public func requestWithRationale(
+        _ kind: AmenPermissionKind,
+        rationale: String,
+        systemRequest: @escaping () -> Void
+    ) {
+        guard prime == nil else { return }
+        pendingRequest = systemRequest
+        prime = AmenPermissionPrime(kind: kind, rationale: rationale)
+    }
+
+    /// User accepted the priming sheet → fire the actual system prompt once.
+    public func confirmPrime() {
+        let req = pendingRequest
+        prime = nil
+        pendingRequest = nil
+        req?()
+    }
+
+    public func cancelPrime() {
+        prime = nil
+        pendingRequest = nil
+    }
 }

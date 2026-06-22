@@ -45,7 +45,7 @@ class ScriptureTaggingService: ObservableObject {
         }
 
         // Check Firestore first
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         if let doc = try? await db.collection("posts").document(postID).getDocument(),
            let data = doc.data(),
            let tagsData = data["scriptureTags"] as? [[String: Any]], !tagsData.isEmpty {
@@ -73,10 +73,14 @@ class ScriptureTaggingService: ObservableObject {
                         "theme": tag.theme,
                     ]
                 }
-                try? await db.collection("posts").document(postID).updateData([
-                    "scriptureTags": tagsDict,
-                    "scriptureTaggedAt": FieldValue.serverTimestamp(),
-                ])
+                do {
+                    try await db.collection("posts").document(postID).updateData([
+                        "scriptureTags": tagsDict,
+                        "scriptureTaggedAt": FieldValue.serverTimestamp(),
+                    ])
+                } catch {
+                    print("ScriptureTaggingService: failed to write scripture tags — \(error.localizedDescription)")
+                }
             }
 
             return tags
@@ -165,12 +169,12 @@ struct ScriptureTagsRow: View {
                         HStack(spacing: 6) {
                             ForEach(tags) { tag in
                                 Button {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                                         expandedTag = expandedTag?.id == tag.id ? nil : tag
                                     }
                                 } label: {
                                     Text(tag.reference)
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                         .foregroundStyle(.white)
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 5)
@@ -185,7 +189,7 @@ struct ScriptureTagsRow: View {
                     // Expanded verse preview
                     if let expanded = expandedTag {
                         Text(expanded.preview.isEmpty ? expanded.reference : expanded.preview)
-                            .font(.system(size: 13, weight: .regular))
+                            .font(.systemScaled(13, weight: .regular))
                             .foregroundStyle(.secondary)
                             .italic()
                             .padding(.horizontal, 4)

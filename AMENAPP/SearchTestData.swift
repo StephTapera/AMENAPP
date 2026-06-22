@@ -624,7 +624,7 @@ struct SearchViewWithMockData: View {
     var emptyState: some View {
         VStack(spacing: 24) {
             Image(systemName: "magnifyingglass.circle.fill")
-                .font(.system(size: 80))
+                .font(.systemScaled(80))
                 .foregroundStyle(.purple.gradient)
             
             Text("Start Searching")
@@ -663,7 +663,7 @@ struct SearchViewWithMockData: View {
     var noResults: some View {
         VStack(spacing: 16) {
             Image(systemName: "questionmark.circle")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             Text("No results found")
@@ -688,7 +688,11 @@ struct SearchViewWithMockData: View {
     func performSearch() {
         Task {
             isSearching = true
-            searchResults = try await mockService.search(query: searchText, filter: selectedFilter)
+            do {
+                searchResults = try await mockService.search(query: searchText, filter: selectedFilter)
+            } catch {
+                searchResults = []
+            }
             isSearching = false
         }
     }
@@ -707,7 +711,7 @@ struct SearchResultRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: result.type.icon)
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(result.type.color)
                 .frame(width: 40, height: 40)
                 .background(result.type.color.opacity(0.1))
@@ -720,7 +724,7 @@ struct SearchResultRow: View {
                     
                     if result.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -738,7 +742,7 @@ struct SearchResultRow: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .padding()

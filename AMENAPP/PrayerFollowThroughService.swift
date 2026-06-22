@@ -131,7 +131,7 @@ class PrayerFollowThroughService: ObservableObject {
     @Published var upcomingReminders: [PrayerFollowUpReminder] = []
     @Published var isLoading = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {
         Task {
@@ -316,13 +316,17 @@ class PrayerFollowThroughService: ObservableObject {
         try await db.collection("prayer_commitments")
             .document(commitment.id)
             .setData(try Firestore.Encoder().encode(commitment))
-        
+
+        // Increment prayTapsCount on the post (author-only insight)
+        try? await db.collection("posts").document(prayerId)
+            .updateData(["prayTapsCount": FieldValue.increment(Int64(1))])
+
         // Schedule reminders
         await scheduleReminders(for: commitment)
-        
+
         // Update local state
         myPrayerCommitments.append(commitment)
-        
+
         dlog("✅ Committed to pray for: \(prayerId)")
     }
     
@@ -417,9 +421,13 @@ class PrayerFollowThroughService: ObservableObject {
             try await db.collection("prayer_commitments")
                 .document(commitment.id)
                 .setData(try Firestore.Encoder().encode(updatedCommitment))
-            
+
+            // Increment encouragedCount on the post (author-only insight)
+            try? await db.collection("posts").document(prayerId)
+                .updateData(["encouragedCount": FieldValue.increment(Int64(1))])
+
             myPrayerCommitments[index] = updatedCommitment
-            
+
             dlog("✅ Sent encouragement message")
         }
     }

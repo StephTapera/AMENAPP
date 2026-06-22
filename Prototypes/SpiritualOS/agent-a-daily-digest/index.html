@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent A — Amen Daily Digest</title>
+  <style>
+    /* ─────────────────────────────────────────────────────────
+       DESIGN TOKENS — Spiritual OS Frozen Contracts
+    ───────────────────────────────────────────────────────── */
+    :root {
+      --amen-gold:        #C9A84C;
+      --amen-gold-light:  rgba(201, 168, 76, 0.18);
+      --amen-gold-glow:   rgba(201, 168, 76, 0.10);
+      --amen-purple:      #6B4FA2;
+      --amen-purple-light:rgba(107, 79, 162, 0.14);
+      --amen-blue:        #2E6DA4;
+      --amen-blue-light:  rgba(46, 109, 164, 0.14);
+      --amen-black:       #1A1A1E;
+      --amen-cream:       #F8F4EC;
+      --amen-cream-warm:  #F3EDE0;
+      --amen-slate:       #4A4A55;
+      --amen-slate-light: rgba(74, 74, 85, 0.55);
+
+      /* Glass tokens */
+      --glass-bg:         rgba(255, 255, 255, 0.18);
+      --glass-bg-chip:    rgba(255, 255, 255, 0.26);
+      --glass-border:     rgba(255, 255, 255, 0.38);
+      --glass-border-sub: rgba(255, 255, 255, 0.22);
+      --glass-blur:       blur(16px);
+      --glass-blur-hero:  blur(24px);
+      --glass-blur-chip:  blur(12px);
+
+      /* Card shapes */
+      --radius-card:   22px;
+      --radius-hero:   32px;
+      --radius-chip:   999px;
+
+      /* Shadows */
+      --shadow-card:   0 6px 14px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-chip:   0 2px 8px rgba(0,0,0,0.10);
+      --shadow-gold:   0 0 18px rgba(201,168,76,0.22);
+
+      /* Typography */
+      --font-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+      /* Light mode page background — warm parchment */
+      --page-bg-top:    #EDE5D0;
+      --page-bg-mid:    #E8DEC8;
+      --page-bg-bot:    #DFD4BC;
+      --phone-bg:       #EDE5D0;
+      --phone-border:   #C8BEA8;
+
+      /* Content (matte) surfaces */
+      --matte-bg:       var(--amen-cream);
+      --matte-inner:    var(--amen-cream-warm);
+      --text-primary:   var(--amen-black);
+      --text-secondary: var(--amen-slate);
+      --text-tertiary:  var(--amen-slate-light);
+      --divider:        rgba(74, 74, 85, 0.12);
+      --timeline-line:  rgba(201, 168, 76, 0.28);
+
+      /* Shimmer (top edge of glass cards) */
+      --shimmer: linear-gradient(
+        180deg,
+        rgba(255,255,255,0.45) 0%,
+        rgba(255,255,255,0.00) 100%
+      );
+    }
+
+    /* ─── Dark Mode ─── */
+    [data-theme="dark"] {
+      --glass-bg:         rgba(30, 26, 20, 0.55);
+      --glass-bg-chip:    rgba(30, 26, 20, 0.65);
+      --glass-border:     rgba(255, 255, 255, 0.14);
+      --glass-border-sub: rgba(255, 255, 255, 0.08);
+
+      --page-bg-top:    #1A1510;
+      --page-bg-mid:    #1E1A12;
+      --page-bg-bot:    #16120D;
+      --phone-bg:       #1E1A12;
+      --phone-border:   #3A3228;
+
+      --matte-bg:       #2A2418;
+      --matte-inner:    #241E14;
+      --text-primary:   #F0EBE0;
+      --text-secondary: #A09882;
+      --text-tertiary:  rgba(160,152,130,0.55);
+      --divider:        rgba(255,255,255,0.08);
+      --timeline-line:  rgba(201,168,76,0.22);
+
+      --shimmer: linear-gradient(
+        180deg,
+        rgba(255,255,255,0.12) 0%,
+        rgba(255,255,255,0.00) 100%
+      );
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       PAGE SHELL
+    ───────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-system);
+      background: linear-gradient(160deg, var(--page-bg-top) 0%, var(--page-bg-mid) 50%, var(--page-bg-bot) 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 60px;
+      transition: background 0.4s ease;
+    }
+
+    /* Page header / agent label */
+    .page-label {
+      font-family: var(--font-system);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--amen-gold);
+      background: rgba(201,168,76,0.10);
+      border: 1px solid rgba(201,168,76,0.25);
+      border-radius: 999px;
+      padding: 5px 14px;
+      margin-bottom: 8px;
+      align-self: center;
+    }
+
+    .page-title {
+      font-family: var(--font-system);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    /* Controls row */
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .ctrl-btn {
+      font-family: var(--font-system);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: var(--glass-bg-chip);
+      border: 1px solid var(--glass-border);
+      border-radius: 999px;
+      padding: 7px 16px;
+      cursor: pointer;
+      backdrop-filter: var(--glass-blur-chip);
+      -webkit-backdrop-filter: var(--glass-blur-chip);
+      transition: all 0.2s ease;
+      letter-spacing: 0.02em;
+    }
+    .ctrl-btn:hover { opacity: 0.8; }
+    .ctrl-btn.active {
+      background: var(--amen-gold-light);
+      border-color: rgba(201,168,76,0.55);
+      color: var(--amen-gold);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       SECTION LABELS (between phone frames)
+    ───────────────────────────────────────────────────────── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .visual-divider {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 36px 0 28px;
+    }
+    .visual-divider::before,
+    .visual-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--divider);
+    }
+    .visual-divider span {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       PHONE FRAME
+    ───────────────────────────────────────────────────────── */
+    .phone-frame {
+      width: 390px;
+      min-height: 200px;
+      background: var(--phone-bg);
+      border: 1.5px solid var(--phone-border);
+      border-radius: 48px;
+      overflow: hidden;
+      box-shadow:
+        0 24px 64px rgba(0,0,0,0.18),
+        0 8px 24px rgba(0,0,0,0.12),
+        inset 0 1px 0 rgba(255,255,255,0.22);
+      position: relative;
+      transition: background 0.4s ease, border-color 0.4s ease;
+    }
+
+    /* Status bar */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 28px 0;
+      height: 44px;
+    }
+    .status-time {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+    .status-icons {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+    .status-icon {
+      font-size: 12px;
+      color: var(--text-primary);
+    }
+
+    /* Phone content area (scroll simulation) */
+    .phone-content {
+      padding: 12px 16px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       GLASS CARD — main container
+    ───────────────────────────────────────────────────────── */
+    .glass-card {
+      position: relative;
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Top-edge shimmer */
+    .glass-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 48px;
+      background: var(--shimmer);
+      border-radius: var(--radius-card) var(--radius-card) 0 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Lensed hero variant */
+    .glass-card-hero {
+      backdrop-filter: var(--glass-blur-hero);
+      -webkit-backdrop-filter: var(--glass-blur-hero);
+      border-radius: var(--radius-hero);
+      background: rgba(255,255,255,0.22);
+    }
+    [data-theme="dark"] .glass-card-hero {
+      background: rgba(20, 16, 10, 0.62);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       EXPANDED CARD INNER LAYOUT
+    ───────────────────────────────────────────────────────── */
+    .card-inner {
+      position: relative;
+      z-index: 2;
+      padding: 18px 18px 0;
+    }
+
+    /* ── Header row ── */
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 2px;
+    }
+
+    .greeting-text {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+      max-width: 210px;
+    }
+
+    /* Formation chip */
+    .formation-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--glass-bg-chip);
+      backdrop-filter: var(--glass-blur-chip);
+      -webkit-backdrop-filter: var(--glass-blur-chip);
+      border: 1px solid rgba(201,168,76,0.35);
+      border-radius: var(--radius-chip);
+      padding: 5px 11px 5px 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      flex-shrink: 0;
+    }
+    .formation-chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--amen-gold);
+      opacity: 0.85;
+      flex-shrink: 0;
+    }
+    .formation-chip-text {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--amen-gold);
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+
+    /* ── Verse block (matte, NEVER glass) ── */
+    .verse-block {
+      background: var(--matte-bg);
+      border-radius: 14px;
+      padding: 13px 14px;
+      margin: 12px 0 14px;
+      border: 1px solid var(--divider);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.60);
+      position: relative;
+      overflow: hidden;
+    }
+    [data-theme="dark"] .verse-block {
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    /* Decorative left accent */
+    .verse-block::before {
+      content: '';
+      position: absolute;
+      top: 10px; bottom: 10px; left: 0;
+      width: 3px;
+      background: var(--amen-gold);
+      opacity: 0.70;
+      border-radius: 0 2px 2px 0;
+    }
+
+    .verse-ref {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--amen-gold);
+      margin-bottom: 4px;
+      padding-left: 10px;
+    }
+
+    .verse-text {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text-primary);
+      line-height: 1.55;
+      padding-left: 10px;
+      font-style: italic;
+      letter-spacing: 0.005em;
+    }
+
+    .verse-attribution {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      padding-left: 10px;
+      margin-top: 5px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+    }
+
+    /* ── Filter chip row ── */
+    .chip-row {
+      display: flex;
+      gap: 7px;
+      margin-bottom: 16px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 1px;
+    }
+    .chip-row::-webkit-scrollbar { display: none; }
+
+    .glass-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--glass-bg-chip);
+      backdrop-filter: var(--glass-blur-chip);
+      -webkit-backdrop-filter: var(--glass-blur-chip);
+      border: 1px solid var(--glass-border-sub);
+      border-radius: var(--radius-chip);
+      padding: 6px 13px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      box-shadow: var(--shadow-chip);
+      cursor: pointer;
+      transition: all 0.18s ease;
+      flex-shrink: 0;
+    }
+    .glass-chip:hover { opacity: 0.85; }
+
+    .glass-chip.active-gold {
+      background: var(--amen-gold-light);
+      border-color: rgba(201,168,76,0.48);
+      color: var(--amen-gold);
+    }
+    .glass-chip.active-purple {
+      background: var(--amen-purple-light);
+      border-color: rgba(107,79,162,0.40);
+      color: var(--amen-purple);
+    }
+    .glass-chip.active-blue {
+      background: var(--amen-blue-light);
+      border-color: rgba(46,109,164,0.38);
+      color: var(--amen-blue);
+    }
+
+    .chip-icon {
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    /* ── TODAY section ── */
+    .section-header {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 2px;
+      padding: 0 2px;
+    }
+
+    /* ── Timeline ── */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 6px;
+    }
+
+    .timeline-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+      padding: 9px 2px;
+      position: relative;
+    }
+
+    /* Vertical connector */
+    .timeline-row:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 14px;
+      top: 30px;
+      bottom: -4px;
+      width: 1.5px;
+      background: var(--timeline-line);
+    }
+
+    .timeline-icon-wrap {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .timeline-icon-wrap.done {
+      background: var(--amen-gold-light);
+      border: 1.5px solid rgba(201,168,76,0.38);
+    }
+    .timeline-icon-wrap.prayer {
+      background: var(--amen-purple-light);
+      border: 1.5px solid rgba(107,79,162,0.28);
+    }
+    .timeline-icon-wrap.event {
+      background: var(--amen-blue-light);
+      border: 1.5px solid rgba(46,109,164,0.28);
+    }
+    .timeline-icon-wrap.mention {
+      background: rgba(74,74,85,0.10);
+      border: 1.5px solid rgba(74,74,85,0.18);
+    }
+    .timeline-icon-wrap.berean {
+      background: var(--amen-gold-light);
+      border: 1.5px solid rgba(201,168,76,0.38);
+    }
+
+    .timeline-icon {
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .timeline-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .timeline-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.3;
+      margin-bottom: 1px;
+    }
+    .timeline-title.done-title {
+      color: var(--text-tertiary);
+      text-decoration: line-through;
+      text-decoration-color: rgba(201,168,76,0.45);
+      font-weight: 500;
+    }
+
+    .timeline-sub {
+      font-size: 11.5px;
+      color: var(--text-tertiary);
+      font-weight: 400;
+      line-height: 1.3;
+    }
+
+    .timeline-meta {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .unread-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--amen-gold);
+      box-shadow: 0 0 6px rgba(201,168,76,0.50);
+    }
+
+    .time-label {
+      font-size: 10.5px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    /* Berean italic invitation */
+    .berean-invite {
+      font-style: italic;
+      color: var(--amen-purple);
+      font-size: 11.5px;
+      font-weight: 400;
+      line-height: 1.3;
+    }
+    [data-theme="dark"] .berean-invite {
+      color: #9B7ED4;
+    }
+
+    /* Bottom padding for glass card */
+    .card-bottom-pad {
+      height: 16px;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       PRAYER REMINDER CARD (below main digest, matte surface)
+    ───────────────────────────────────────────────────────── */
+    .prayer-reminder-section {
+      margin-top: 12px;
+      background: var(--matte-bg);
+      border-radius: 18px;
+      border: 1px solid var(--divider);
+      padding: 14px 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .prayer-section-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .prayer-section-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--amen-purple);
+      opacity: 0.80;
+    }
+
+    .prayer-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+    }
+    .prayer-item:not(:last-child) {
+      border-bottom: 1px solid var(--divider);
+    }
+
+    .prayer-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--amen-purple-light);
+      border: 1.5px solid rgba(107,79,162,0.28);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .prayer-item-body { flex: 1; min-width: 0; }
+    .prayer-item-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.25;
+    }
+    .prayer-item-sub {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-weight: 400;
+    }
+
+    .prayer-age {
+      font-size: 10.5px;
+      color: var(--amen-purple);
+      font-weight: 600;
+      opacity: 0.70;
+      white-space: nowrap;
+    }
+
+    /* Pray button */
+    .pray-btn {
+      background: var(--amen-purple-light);
+      border: 1px solid rgba(107,79,162,0.30);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--amen-purple);
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: opacity 0.15s ease;
+    }
+    .pray-btn:hover { opacity: 0.75; }
+
+    /* ─────────────────────────────────────────────────────────
+       SPACES EVENT CARD (matte content, glass badge)
+    ───────────────────────────────────────────────────────── */
+    .spaces-section {
+      margin-top: 10px;
+      background: var(--matte-bg);
+      border-radius: 18px;
+      border: 1px solid var(--divider);
+      padding: 14px 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .spaces-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .spaces-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--amen-blue);
+      opacity: 0.80;
+    }
+
+    .space-event {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 7px 0;
+    }
+    .space-event:not(:last-child) {
+      border-bottom: 1px solid var(--divider);
+    }
+
+    .event-icon-wrap {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .event-icon-wrap.gold-event {
+      background: var(--amen-gold-light);
+      border: 1.5px solid rgba(201,168,76,0.32);
+    }
+    .event-icon-wrap.blue-event {
+      background: var(--amen-blue-light);
+      border: 1.5px solid rgba(46,109,164,0.28);
+    }
+
+    .event-body { flex: 1; min-width: 0; }
+    .event-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.25;
+    }
+    .event-time {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-weight: 400;
+    }
+
+    .event-badge {
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 3px 9px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .event-badge.tonight {
+      background: var(--amen-gold-light);
+      color: var(--amen-gold);
+      border: 1px solid rgba(201,168,76,0.35);
+    }
+    .event-badge.soon {
+      background: var(--amen-blue-light);
+      color: var(--amen-blue);
+      border: 1px solid rgba(46,109,164,0.30);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       FEED PLACEHOLDER (scroll context)
+    ───────────────────────────────────────────────────────── */
+    .feed-placeholder {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .feed-post-skeleton {
+      background: var(--matte-bg);
+      border-radius: 18px;
+      border: 1px solid var(--divider);
+      padding: 14px 16px;
+      opacity: 0.55;
+    }
+    .skeleton-line {
+      height: 10px;
+      background: var(--divider);
+      border-radius: 999px;
+      margin-bottom: 7px;
+    }
+    .skeleton-line.short { width: 55%; }
+    .skeleton-line.medium { width: 80%; }
+    .skeleton-line.full { width: 100%; }
+
+    /* ─────────────────────────────────────────────────────────
+       COLLAPSED CHIP STATE
+    ───────────────────────────────────────────────────────── */
+    .collapsed-phone-content {
+      padding: 12px 16px 28px;
+    }
+
+    .collapsed-chip {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: var(--glass-bg-chip);
+      backdrop-filter: var(--glass-blur-chip);
+      -webkit-backdrop-filter: var(--glass-blur-chip);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-chip);
+      padding: 10px 16px 10px 12px;
+      box-shadow: var(--shadow-chip), var(--shadow-gold);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.18s ease;
+      width: 100%;
+    }
+
+    /* Shimmer on collapsed chip */
+    .collapsed-chip::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 50%;
+      background: var(--shimmer);
+      border-radius: var(--radius-chip) var(--radius-chip) 0 0;
+      pointer-events: none;
+    }
+
+    .collapsed-chip:hover { opacity: 0.88; }
+    .collapsed-chip:active { transform: scale(0.98); }
+
+    .chip-sun-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .chip-text-block { flex: 1; min-width: 0; }
+    .chip-greeting {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+    }
+    .chip-sub {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-weight: 400;
+      margin-top: 1px;
+    }
+
+    .chip-indicators {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .indicator-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .ind-gold { background: var(--amen-gold); box-shadow: 0 0 5px rgba(201,168,76,0.55); }
+    .ind-purple { background: var(--amen-purple); opacity: 0.80; }
+
+    .chip-chevron {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+      font-weight: 500;
+      transform: rotate(180deg); /* points up to suggest expand */
+    }
+
+    /* Feed continues below the chip */
+    .collapsed-feed-label {
+      text-align: center;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin: 20px 0 10px;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       INTERACTIVE DEMO — click-to-expand section
+    ───────────────────────────────────────────────────────── */
+    .interactive-section {
+      margin-top: 0;
+    }
+
+    .expanded-state { display: flex; flex-direction: column; }
+    .collapsed-state { display: none; }
+
+    /* When phone-frame has .collapsed class, swap states */
+    .phone-frame.collapsed .expanded-state { display: none; }
+    .phone-frame.collapsed .collapsed-state { display: flex; flex-direction: column; }
+
+    /* Tap hint */
+    .tap-hint {
+      text-align: center;
+      font-size: 10.5px;
+      color: var(--text-tertiary);
+      margin-top: 10px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       ANNOTATION OVERLAY
+    ───────────────────────────────────────────────────────── */
+    .annotations {
+      max-width: 390px;
+      width: 100%;
+      margin-top: 24px;
+      background: var(--matte-bg);
+      border-radius: 18px;
+      border: 1px solid var(--divider);
+      padding: 16px 18px;
+    }
+    .ann-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--amen-gold);
+      margin-bottom: 12px;
+    }
+    .ann-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 9px;
+    }
+    .ann-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+    .ann-text {
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+    .ann-text strong { color: var(--text-primary); font-weight: 600; }
+
+    /* ─────────────────────────────────────────────────────────
+       RESPONSIVE: on small screens, scale the phone frame
+    ───────────────────────────────────────────────────────── */
+    @media (max-width: 430px) {
+      .phone-frame { width: 100%; border-radius: 32px; }
+      body { padding: 16px 12px 48px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Agent label ── -->
+  <div class="page-label">Agent A — Amen Daily Digest</div>
+  <div class="page-title">Spiritual OS Prototype · Amen Daily surface · Home Tab, Top Position</div>
+
+  <!-- ── Controls ── -->
+  <div class="controls">
+    <button class="ctrl-btn active" id="btn-light" onclick="setTheme('light')">Light Mode</button>
+    <button class="ctrl-btn" id="btn-dark" onclick="setTheme('dark')">Dark Mode</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 1 — EXPANDED STATE (static reference)
+  ══════════════════════════════════════════════════════════ -->
+  <div class="section-label">Expanded State — Above Feed</div>
+
+  <div class="phone-frame" id="phone-static">
+    <!-- Status bar -->
+    <div class="status-bar">
+      <span class="status-time">9:41</span>
+      <div class="status-icons">
+        <span class="status-icon">●●●</span>
+        <span class="status-icon">WiFi</span>
+        <span class="status-icon">🔋</span>
+      </div>
+    </div>
+
+    <div class="phone-content">
+
+      <!-- ── Main Daily Digest GlassCard ── -->
+      <div class="glass-card glass-card-hero">
+        <div class="card-inner">
+
+          <!-- Header: greeting + formation chip -->
+          <div class="card-header">
+            <div class="greeting-text">Good morning, Steph.<br>He makes all things new.</div>
+            <div class="formation-chip">
+              <div class="formation-chip-dot"></div>
+              <span class="formation-chip-text">Reading · Day 14</span>
+            </div>
+          </div>
+
+          <!-- Verse block (matte) -->
+          <div class="verse-block">
+            <div class="verse-ref">Romans 8:28 &nbsp;·&nbsp; NIV</div>
+            <div class="verse-text">"And we know that in all things God works for the good of those who love him, who have been called according to his purpose."</div>
+            <div class="verse-attribution">Today's verse · Tap to read full passage</div>
+          </div>
+
+          <!-- Filter chip row -->
+          <div class="chip-row">
+            <div class="glass-chip active-gold">
+              <span class="chip-icon">📋</span>
+              Today
+            </div>
+            <div class="glass-chip active-purple">
+              <span class="chip-icon">🙏</span>
+              Prayer
+            </div>
+            <div class="glass-chip active-blue">
+              <span class="chip-icon">🏛</span>
+              Events
+            </div>
+            <div class="glass-chip">
+              <span class="chip-icon">✦</span>
+              Spaces
+            </div>
+          </div>
+
+          <!-- TODAY section -->
+          <div class="section-header">Today</div>
+
+          <div class="timeline">
+
+            <!-- Row 1: Morning verse (done) -->
+            <div class="timeline-row">
+              <div class="timeline-icon-wrap done">
+                <span class="timeline-icon">✓</span>
+              </div>
+              <div class="timeline-body">
+                <div class="timeline-title done-title">Morning verse · Romans 8:28</div>
+                <div class="timeline-sub">Read this morning</div>
+              </div>
+              <div class="timeline-meta">
+                <span class="time-label">6:32 AM</span>
+              </div>
+            </div>
+
+            <!-- Row 2: Prayer reminder -->
+            <div class="timeline-row">
+              <div class="timeline-icon-wrap prayer">
+                <span class="timeline-icon">🙏</span>
+              </div>
+              <div class="timeline-body">
+                <div class="timeline-title">Pray for Marcus</div>
+                <div class="timeline-sub">Surgery recovery · 2 days ago</div>
+              </div>
+              <div class="timeline-meta">
+                <div class="unread-dot" style="background:var(--amen-purple);box-shadow:0 0 5px rgba(107,79,162,0.45);"></div>
+              </div>
+            </div>
+
+            <!-- Row 3: Event -->
+            <div class="timeline-row">
+              <div class="timeline-icon-wrap event">
+                <span class="timeline-icon">📖</span>
+              </div>
+              <div class="timeline-body">
+                <div class="timeline-title">Covenant Men's Study</div>
+                <div class="timeline-sub">Tonight · 7:00 PM</div>
+              </div>
+              <div class="timeline-meta">
+                <span class="time-label" style="color:var(--amen-gold);font-weight:700;">Tonight</span>
+              </div>
+            </div>
+
+            <!-- Row 4: Mention -->
+            <div class="timeline-row">
+              <div class="timeline-icon-wrap mention">
+                <span class="timeline-icon">💬</span>
+              </div>
+              <div class="timeline-body">
+                <div class="timeline-title">Jordan H. mentioned you</div>
+                <div class="timeline-sub">In "Walking by Faith" thread</div>
+              </div>
+              <div class="timeline-meta">
+                <div class="unread-dot"></div>
+                <span class="time-label">8:14 AM</span>
+              </div>
+            </div>
+
+            <!-- Row 5: Berean session (italic invitation) -->
+            <div class="timeline-row">
+              <div class="timeline-icon-wrap berean">
+                <span class="timeline-icon">✨</span>
+              </div>
+              <div class="timeline-body">
+                <div class="timeline-title" style="color:var(--amen-purple);">Berean session saved</div>
+                <div class="berean-invite">"Walking in the Spirit" — continue where you left off</div>
+              </div>
+              <div class="timeline-meta">
+                <span class="time-label">Yesterday</span>
+              </div>
+            </div>
+
+          </div><!-- /timeline -->
+        </div><!-- /card-inner -->
+        <div class="card-bottom-pad"></div>
+      </div><!-- /glass-card -->
+
+      <!-- ── Prayer Reminders (matte surface) ── -->
+      <div class="prayer-reminder-section">
+        <div class="prayer-section-header">
+          <span style="font-size:13px;">🙏</span>
+          <span class="prayer-section-label">Awaiting Prayer</span>
+        </div>
+
+        <div class="prayer-item">
+          <div class="prayer-avatar">🧑</div>
+          <div class="prayer-item-body">
+            <div class="prayer-item-name">Marcus</div>
+            <div class="prayer-item-sub">Surgery recovery</div>
+          </div>
+          <span class="prayer-age">2 days ago</span>
+          <button class="pray-btn">Pray</button>
+        </div>
+
+        <div class="prayer-item">
+          <div class="prayer-avatar">👥</div>
+          <div class="prayer-item-body">
+            <div class="prayer-item-name">Women's Retreat Team</div>
+            <div class="prayer-item-sub">Preparation & travel</div>
+          </div>
+          <span class="prayer-age">5 days ago</span>
+          <button class="pray-btn">Pray</button>
+        </div>
+      </div>
+
+      <!-- ── Spaces Events (matte surface) ── -->
+      <div class="spaces-section">
+        <div class="spaces-header">
+          <span style="font-size:13px;">🏛</span>
+          <span class="spaces-label">Spaces & Events</span>
+        </div>
+
+        <div class="space-event">
+          <div class="event-icon-wrap gold-event">📖</div>
+          <div class="event-body">
+            <div class="event-name">Covenant Men's Study</div>
+            <div class="event-time">Tonight · 7:00 PM</div>
+          </div>
+          <span class="event-badge tonight">Tonight</span>
+        </div>
+
+        <div class="space-event">
+          <div class="event-icon-wrap blue-event">⛪</div>
+          <div class="event-body">
+            <div class="event-name">Sunday Gathering</div>
+            <div class="event-time">Sunday · 10:00 AM</div>
+          </div>
+          <span class="event-badge soon">Sunday</span>
+        </div>
+      </div>
+
+      <!-- ── Feed skeleton (scroll context) ── -->
+      <div class="feed-placeholder">
+        <div class="feed-post-skeleton">
+          <div class="skeleton-line short"></div>
+          <div class="skeleton-line full"></div>
+          <div class="skeleton-line medium"></div>
+        </div>
+        <div class="feed-post-skeleton">
+          <div class="skeleton-line short"></div>
+          <div class="skeleton-line full"></div>
+          <div class="skeleton-line medium"></div>
+        </div>
+      </div>
+
+    </div><!-- /phone-content -->
+  </div><!-- /phone-frame static -->
+
+  <!-- ══════════════════════════════════════════════════════════
+       VISUAL DIVIDER
+  ══════════════════════════════════════════════════════════ -->
+  <div class="visual-divider">
+    <span>After scrolling 80pt — chip state</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 2 — COLLAPSED CHIP STATE (static reference)
+  ══════════════════════════════════════════════════════════ -->
+  <div class="section-label">Collapsed State — Pinned Chip</div>
+
+  <div class="phone-frame" id="phone-collapsed">
+    <div class="status-bar">
+      <span class="status-time">9:41</span>
+      <div class="status-icons">
+        <span class="status-icon">●●●</span>
+        <span class="status-icon">WiFi</span>
+        <span class="status-icon">🔋</span>
+      </div>
+    </div>
+
+    <div class="collapsed-phone-content">
+
+      <!-- The collapsed chip -->
+      <div class="collapsed-chip" onclick="alert('Tap expands digest — see interactive demo below')">
+        <span class="chip-sun-icon">🌅</span>
+        <div class="chip-text-block">
+          <div class="chip-greeting">Good morning, Steph</div>
+          <div class="chip-sub">Romans 8:28 · 2 prayer reminders</div>
+        </div>
+        <div class="chip-indicators">
+          <div class="indicator-dot ind-purple" title="Prayer reminders"></div>
+          <div class="indicator-dot ind-gold" title="Events"></div>
+        </div>
+        <span class="chip-chevron">▾</span>
+      </div>
+
+      <!-- Feed continues -->
+      <div class="collapsed-feed-label">Social Feed</div>
+      <div class="feed-placeholder">
+        <div class="feed-post-skeleton" style="opacity:0.75">
+          <div class="skeleton-line short"></div>
+          <div class="skeleton-line full"></div>
+          <div class="skeleton-line medium"></div>
+        </div>
+        <div class="feed-post-skeleton" style="opacity:0.65">
+          <div class="skeleton-line short"></div>
+          <div class="skeleton-line full"></div>
+          <div class="skeleton-line medium"></div>
+        </div>
+        <div class="feed-post-skeleton" style="opacity:0.50">
+          <div class="skeleton-line short"></div>
+          <div class="skeleton-line full"></div>
+          <div class="skeleton-line medium"></div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /phone-frame collapsed -->
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 3 — INTERACTIVE TOGGLE DEMO
+  ══════════════════════════════════════════════════════════ -->
+  <div class="visual-divider">
+    <span>Interactive Demo — tap to toggle</span>
+  </div>
+
+  <div class="section-label">Interactive: Tap chip to expand / collapse</div>
+
+  <div class="phone-frame" id="phone-interactive">
+    <div class="status-bar">
+      <span class="status-time">9:41</span>
+      <div class="status-icons">
+        <span class="status-icon">●●●</span>
+        <span class="status-icon">WiFi</span>
+        <span class="status-icon">🔋</span>
+      </div>
+    </div>
+
+    <!-- EXPANDED state -->
+    <div class="expanded-state interactive-section">
+      <div class="phone-content">
+
+        <!-- Main card -->
+        <div class="glass-card glass-card-hero">
+          <div class="card-inner">
+            <div class="card-header">
+              <div class="greeting-text">Good morning, Steph.<br>He makes all things new.</div>
+              <div class="formation-chip">
+                <div class="formation-chip-dot"></div>
+                <span class="formation-chip-text">Reading · Day 14</span>
+              </div>
+            </div>
+
+            <div class="verse-block">
+              <div class="verse-ref">Romans 8:28 &nbsp;·&nbsp; NIV</div>
+              <div class="verse-text">"And we know that in all things God works for the good of those who love him, who have been called according to his purpose."</div>
+              <div class="verse-attribution">Today's verse · Tap to read full passage</div>
+            </div>
+
+            <div class="chip-row">
+              <div class="glass-chip active-gold"><span class="chip-icon">📋</span>Today</div>
+              <div class="glass-chip active-purple"><span class="chip-icon">🙏</span>Prayer</div>
+              <div class="glass-chip active-blue"><span class="chip-icon">🏛</span>Events</div>
+              <div class="glass-chip"><span class="chip-icon">✦</span>Spaces</div>
+            </div>
+
+            <div class="section-header">Today</div>
+            <div class="timeline">
+              <div class="timeline-row">
+                <div class="timeline-icon-wrap done"><span class="timeline-icon">✓</span></div>
+                <div class="timeline-body">
+                  <div class="timeline-title done-title">Morning verse · Romans 8:28</div>
+                  <div class="timeline-sub">Read this morning</div>
+                </div>
+                <div class="timeline-meta"><span class="time-label">6:32 AM</span></div>
+              </div>
+              <div class="timeline-row">
+                <div class="timeline-icon-wrap prayer"><span class="timeline-icon">🙏</span></div>
+                <div class="timeline-body">
+                  <div class="timeline-title">Pray for Marcus</div>
+                  <div class="timeline-sub">Surgery recovery · 2 days ago</div>
+                </div>
+                <div class="timeline-meta">
+                  <div class="unread-dot" style="background:var(--amen-purple);box-shadow:0 0 5px rgba(107,79,162,0.45);"></div>
+                </div>
+              </div>
+              <div class="timeline-row">
+                <div class="timeline-icon-wrap event"><span class="timeline-icon">📖</span></div>
+                <div class="timeline-body">
+                  <div class="timeline-title">Covenant Men's Study</div>
+                  <div class="timeline-sub">Tonight · 7:00 PM</div>
+                </div>
+                <div class="timeline-meta">
+                  <span class="time-label" style="color:var(--amen-gold);font-weight:700;">Tonight</span>
+                </div>
+              </div>
+              <div class="timeline-row">
+                <div class="timeline-icon-wrap mention"><span class="timeline-icon">💬</span></div>
+                <div class="timeline-body">
+                  <div class="timeline-title">Jordan H. mentioned you</div>
+                  <div class="timeline-sub">In "Walking by Faith" thread</div>
+                </div>
+                <div class="timeline-meta">
+                  <div class="unread-dot"></div>
+                  <span class="time-label">8:14 AM</span>
+                </div>
+              </div>
+              <div class="timeline-row">
+                <div class="timeline-icon-wrap berean"><span class="timeline-icon">✨</span></div>
+                <div class="timeline-body">
+                  <div class="timeline-title" style="color:var(--amen-purple);">Berean session saved</div>
+                  <div class="berean-invite">"Walking in the Spirit" — continue where you left off</div>
+                </div>
+                <div class="timeline-meta"><span class="time-label">Yesterday</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="card-bottom-pad"></div>
+        </div>
+
+        <!-- Collapse button -->
+        <button
+          class="collapsed-chip"
+          onclick="collapseCard()"
+          style="margin-top:10px;border-radius:14px;padding:11px 16px;"
+          title="Tap to collapse (simulates scroll-triggered collapse)"
+        >
+          <span style="font-size:14px;">▲</span>
+          <div class="chip-text-block">
+            <div class="chip-greeting" style="font-size:12px;font-weight:600;">Collapse digest</div>
+            <div class="chip-sub">Simulates scrolling down 80pt</div>
+          </div>
+        </button>
+
+        <div class="feed-placeholder" style="margin-top:10px;">
+          <div class="feed-post-skeleton" style="opacity:0.60">
+            <div class="skeleton-line short"></div>
+            <div class="skeleton-line full"></div>
+            <div class="skeleton-line medium"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLLAPSED state -->
+    <div class="collapsed-state interactive-section">
+      <div class="collapsed-phone-content">
+        <div class="collapsed-chip" onclick="expandCard()" title="Tap to expand">
+          <span class="chip-sun-icon">🌅</span>
+          <div class="chip-text-block">
+            <div class="chip-greeting">Good morning, Steph</div>
+            <div class="chip-sub">Romans 8:28 · 2 prayer reminders</div>
+          </div>
+          <div class="chip-indicators">
+            <div class="indicator-dot ind-purple"></div>
+            <div class="indicator-dot ind-gold"></div>
+          </div>
+          <span class="chip-chevron">▾</span>
+        </div>
+
+        <div class="collapsed-feed-label">Social Feed</div>
+        <div class="feed-placeholder">
+          <div class="feed-post-skeleton" style="opacity:0.75">
+            <div class="skeleton-line short"></div>
+            <div class="skeleton-line full"></div>
+            <div class="skeleton-line medium"></div>
+          </div>
+          <div class="feed-post-skeleton" style="opacity:0.60">
+            <div class="skeleton-line short"></div>
+            <div class="skeleton-line full"></div>
+            <div class="skeleton-line medium"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /phone-interactive -->
+
+  <div class="tap-hint">Tap the card to expand · Tap collapse to shrink · Toggle dark mode above</div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       ANNOTATIONS
+  ══════════════════════════════════════════════════════════ -->
+  <div class="annotations">
+    <div class="ann-title">Design Notes — Contract Compliance</div>
+
+    <div class="ann-item">
+      <div class="ann-dot" style="background:var(--amen-gold);"></div>
+      <div class="ann-text"><strong>Content is matte, chrome is glass.</strong> Verse block, prayer list, and event cards all sit on <code>#F8F4EC</code> matte surfaces. The daily digest card itself is glass (blur 24px lensed). Glass-on-glass never occurs.</div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-dot" style="background:var(--amen-purple);"></div>
+      <div class="ann-text"><strong>Formation chip is warm, never bold.</strong> "Reading · Day 14" is a small GlassChip in amenGold — not a headline number. No red/orange tones used on spiritual counters.</div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-dot" style="background:var(--amen-blue);"></div>
+      <div class="ann-text"><strong>Berean suggestion is italic invitation.</strong> The saved Berean session row uses italic text in amenPurple — styled as an invitation, never a command or CTA button.</div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-dot" style="background:var(--amen-slate);"></div>
+      <div class="ann-text"><strong>No engagement metrics.</strong> Timeline rows show relational context (who, what, when) but zero like/share/view counts are visible anywhere on this surface.</div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-dot" style="background:var(--amen-gold);"></div>
+      <div class="ann-text"><strong>Top-edge shimmer on all glass elements.</strong> GlassCard, GlassChip, and collapsed chip all carry the warm white shimmer gradient at their top edge per the SharedComponents contract.</div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-dot" style="background:var(--amen-cream);border:1px solid var(--amen-gold);"></div>
+      <div class="ann-text"><strong>TimelineRow connector line.</strong> The vertical connector between timeline rows uses amenGold at 28–30% opacity. Completed rows show strikethrough with gold decoration; incomplete rows show color-coded status icons.</div>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────────────────────
+       JAVASCRIPT — zero frameworks, pure DOM
+  ───────────────────────────────────────────────────────── -->
+  <script>
+    // ── Theme toggle ──
+    function setTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      document.body.setAttribute('data-theme', t);
+      // Sync all phone frames
+      document.querySelectorAll('.phone-frame, .annotations, .page-label, .page-title, .collapsed-phone-content').forEach(el => {
+        el.setAttribute('data-theme', t);
+      });
+      document.getElementById('btn-light').classList.toggle('active', t === 'light');
+      document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+    }
+
+    // ── Interactive expand / collapse ──
+    function collapseCard() {
+      document.getElementById('phone-interactive').classList.add('collapsed');
+    }
+    function expandCard() {
+      document.getElementById('phone-interactive').classList.remove('collapsed');
+    }
+
+    // Allow clicking anywhere on static collapsed chip to show alert
+    document.querySelectorAll('#phone-collapsed .collapsed-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        alert('In the app, tapping this chip expands the full Daily Digest card back into view. See the Interactive Demo section below for the live toggle.');
+      });
+    });
+  </script>
+
+</body>
+</html>

@@ -72,7 +72,7 @@ struct AMENSuggestionsSection: View {
             // ── Section header ──────────────────────────────────────────
             HStack {
                 Text("Suggested for you")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer()
             }
@@ -87,7 +87,7 @@ struct AMENSuggestionsSection: View {
                             isSelected: selectedCategory == cat,
                             namespace: categoryNamespace
                         ) {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.78))) {
                                 selectedCategory = cat
                             }
                             HapticManager.selection()
@@ -213,38 +213,32 @@ struct AMENSuggestionsSection: View {
                        studyTitle: "Romans",
                        studySubtitle: "The righteousness of God · 16 chapters",
                        studyIcon: "book.closed.fill", studyIconColor: .indigo,
-                       reason: "Popular in your community",
-                       memberCount: 1240),
+                       reason: "In your community"),
         AMENSuggestion(id: "proverbs", category: .studies,
                        studyTitle: "Proverbs",
                        studySubtitle: "Wisdom for daily life · 31 chapters",
                        studyIcon: "lightbulb.fill", studyIconColor: .orange,
-                       reason: "Trending this week",
-                       memberCount: 980),
+                       reason: "Recommended for you"),
         AMENSuggestion(id: "sermon-on-mount", category: .studies,
                        studyTitle: "Sermon on the Mount",
                        studySubtitle: "Matthew 5–7 · 6 week study",
                        studyIcon: "mountain.2.fill", studyIconColor: .teal,
-                       reason: "Recommended for you",
-                       memberCount: 764),
+                       reason: "Recommended for you"),
         AMENSuggestion(id: "psalms", category: .studies,
                        studyTitle: "Psalms",
                        studySubtitle: "Praise, lament, and trust · 150 psalms",
                        studyIcon: "music.note", studyIconColor: .purple,
-                       reason: "Based on your interests",
-                       memberCount: 2100),
+                       reason: "Based on your interests"),
         AMENSuggestion(id: "john", category: .studies,
                        studyTitle: "Gospel of John",
                        studySubtitle: "I am the way · 21 chapters",
                        studyIcon: "cross.fill", studyIconColor: Color(red: 0.88, green: 0.38, blue: 0.28),
-                       reason: "Most studied on AMEN",
-                       memberCount: 3400),
+                       reason: "Recommended for you"),
         AMENSuggestion(id: "ephesians", category: .studies,
                        studyTitle: "Ephesians",
                        studySubtitle: "The armor of God · 6 chapters",
                        studyIcon: "shield.fill", studyIconColor: .blue,
-                       reason: "Recommended for you",
-                       memberCount: 620),
+                       reason: "Recommended for you"),
     ]
 }
 
@@ -270,7 +264,7 @@ struct AMENSuggestionCategoryPill: View {
                         .matchedGeometryEffect(id: "pill", in: namespace)
                 }
                 Text(label)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? .primary : .secondary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
@@ -301,7 +295,7 @@ struct AMENPersonSuggestionCard: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.tertiary)
                         .frame(width: 24, height: 24)
                         .background(Circle().fill(Color.primary.opacity(0.05)))
@@ -336,7 +330,7 @@ struct AMENPersonSuggestionCard: View {
                 // Verified badge
                 if suggestion.person.isVerified {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.blue)
                         .background(Circle().fill(Color(.systemBackground)).frame(width: 14, height: 14))
                         .offset(x: 2, y: 2)
@@ -347,13 +341,13 @@ struct AMENPersonSuggestionCard: View {
             // ── Name + handle ───────────────────────────────────────────
             VStack(spacing: 2) {
                 Text(suggestion.person.displayName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .frame(maxWidth: 120)
 
                 Text("@\(suggestion.person.username)")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .frame(maxWidth: 120)
@@ -362,7 +356,7 @@ struct AMENPersonSuggestionCard: View {
             // ── Follow reason ───────────────────────────────────────────
             if !suggestion.reason.isEmpty {
                 Text(suggestion.reason)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -398,7 +392,7 @@ struct AMENPersonSuggestionCard: View {
                             .tint(suggestion.isFollowing ? .primary : Color(.systemBackground))
                     } else {
                         Text(suggestion.isFollowing ? "Following" : "Follow")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(suggestion.isFollowing
                                              ? .primary
                                              : Color(.systemBackground))
@@ -437,7 +431,7 @@ struct AMENPersonSuggestionCard: View {
             Circle()
                 .fill(Color.primary.opacity(0.07))
             Text(String(suggestion.person.displayName.prefix(1)).uppercased())
-                .font(.system(size: 22, weight: .medium))
+                .font(.systemScaled(22, weight: .medium))
                 .foregroundStyle(.secondary)
         }
     }
@@ -461,7 +455,7 @@ struct AMENStudySuggestionCard: View {
                         .fill((study.studyIconColor ?? .indigo).opacity(0.10))
                         .frame(width: 48, height: 48)
                     Image(systemName: study.studyIcon ?? "book.fill")
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.systemScaled(22, weight: .medium))
                         .foregroundStyle(study.studyIconColor ?? .indigo)
                 }
                 .padding(.top, 16)
@@ -472,12 +466,12 @@ struct AMENStudySuggestionCard: View {
                 // ── Title + subtitle ────────────────────────────────────
                 VStack(alignment: .leading, spacing: 3) {
                     Text(study.studyTitle ?? "")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
                     Text(study.studySubtitle ?? "")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -486,18 +480,14 @@ struct AMENStudySuggestionCard: View {
 
                 Spacer(minLength: 8)
 
-                // ── Member count + reason ───────────────────────────────
-                if let count = study.memberCount {
-                    HStack(spacing: 4) {
-                        Image(systemName: "person.2")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.tertiary)
-                        Text("\(count.formatted()) studying")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 14)
+                // ── Reason (non-count context label) ───────────────────
+                if let reason = study.reason {
+                    Text(reason)
+                        .font(.systemScaled(11))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 14)
                 }
             }
             .frame(width: 170, height: 176)
@@ -541,7 +531,7 @@ struct AMENCommunitySuggestionCard: View {
                             .fill(topic.iconColor.opacity(0.12))
                             .frame(width: 42, height: 42)
                         Image(systemName: topic.icon)
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                             .foregroundStyle(topic.iconColor)
                     }
 
@@ -549,11 +539,11 @@ struct AMENCommunitySuggestionCard: View {
 
                     if topic.isTrending {
                         HStack(spacing: 3) {
-                            Image(systemName: "flame.fill")
-                                .font(.system(size: 9))
+                            Image(systemName: "sparkles")
+                                .font(.systemScaled(9))
                                 .foregroundStyle(.orange)
-                            Text("Trending")
-                                .font(.system(size: 10, weight: .medium))
+                            Text("New")
+                                .font(.systemScaled(10, weight: .medium))
                                 .foregroundStyle(.orange)
                         }
                         .padding(.horizontal, 8)
@@ -573,13 +563,13 @@ struct AMENCommunitySuggestionCard: View {
                 // ── Title ───────────────────────────────────────────────
                 VStack(alignment: .leading, spacing: 3) {
                     Text(topic.title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
                     if let scripture = topic.relatedScripture {
                         Text(scripture)
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                     }
@@ -590,7 +580,7 @@ struct AMENCommunitySuggestionCard: View {
 
                 // ── Description ─────────────────────────────────────────
                 Text(topic.description)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -635,11 +625,11 @@ struct AMENTopicPillCard: View {
                         .fill(topic.iconColor.opacity(0.10))
                         .frame(width: 30, height: 30)
                     Image(systemName: topic.icon)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(topic.iconColor)
                 }
                 Text(topic.title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
             }
             .padding(.horizontal, 14)
@@ -713,10 +703,10 @@ struct AMENSuggestionsEmptyCard: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(.tertiary)
             Text(message)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
         }

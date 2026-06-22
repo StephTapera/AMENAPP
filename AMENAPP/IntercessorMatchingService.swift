@@ -19,7 +19,7 @@ import FirebaseFirestore
 class IntercessorMatchingService: ObservableObject {
     static let shared = IntercessorMatchingService()
     @Published var matchedIntercessors: [IntercessorMatch] = []
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private init() {}
 
     struct IntercessorMatch: Identifiable {

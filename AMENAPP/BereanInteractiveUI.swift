@@ -42,16 +42,25 @@ private enum BUI {
     static let pillBorder   = Color(red: 0.84, green: 0.82, blue: 0.80)
 
     // Springs
-    static func snap() -> Animation { .spring(response: 0.42, dampingFraction: 0.76) }
-    static func bounce() -> Animation { .spring(response: 0.52, dampingFraction: 0.70) }
-    static func settle() -> Animation { .spring(response: 0.62, dampingFraction: 0.82) }
+    // SECURITY FIX (MEDIUM 2026-06-11): Added reduceMotion parameter to snap/bounce/settle.
+    // Call sites should pass the @Environment(\.accessibilityReduceMotion) value.
+    // Defaults to false to preserve backward compatibility for call sites not yet updated.
+    static func snap(reduceMotion: Bool = false) -> Animation {
+        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.42, dampingFraction: 0.76)
+    }
+    static func bounce(reduceMotion: Bool = false) -> Animation {
+        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.52, dampingFraction: 0.70)
+    }
+    static func settle(reduceMotion: Bool = false) -> Animation {
+        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.62, dampingFraction: 0.82)
+    }
 
     // Typography
     static let displayFont  = Font.custom("Georgia", size: 34).weight(.light)
-    static let headlineFont = Font.system(size: 17, weight: .semibold)
-    static let bodyFont     = Font.system(size: 15, weight: .regular)
-    static let captionFont  = Font.system(size: 12, weight: .medium)
-    static let chipFont     = Font.system(size: 13, weight: .medium)
+    static let headlineFont = Font.systemScaled(17, weight: .semibold)
+    static let bodyFont     = Font.systemScaled(15, weight: .regular)
+    static let captionFont  = Font.systemScaled(12, weight: .medium)
+    static let chipFont     = Font.systemScaled(13, weight: .medium)
 
     // Geometry
     static let cardRadius: CGFloat   = 20
@@ -147,6 +156,7 @@ struct BereanOnboardingFlow: View {
     @State private var currentStep = 0
     @State private var showAppendedText = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -156,6 +166,21 @@ struct BereanOnboardingFlow: View {
             atmosphericOrbs
 
             VStack(spacing: 0) {
+                // ── Close button ──────────────────────────────────────────────
+                HStack {
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(BUI.inkFaint)
+                    }
+                    .accessibilityLabel("Close Berean onboarding")
+                    .padding(.trailing, BUI.hPad)
+                    .padding(.top, 16)
+                }
+
                 Spacer()
 
                 // ── Text area ──────────────────────────────────────────────────
@@ -230,7 +255,7 @@ struct BereanOnboardingFlow: View {
             attributed.append(makeAttributedSegment(seg))
         }
         return Text(attributed)
-            .font(.system(size: 28, weight: .semibold, design: .default))
+            .font(.systemScaled(28, weight: .semibold, design: .default))
             .lineSpacing(6)
     }
 
@@ -284,8 +309,10 @@ struct BereanOnboardingFlow: View {
             withAnimation(reduceMotion ? .none : BUI.bounce()) {
                 currentStep += 1
             }
+        } else {
+            // step 3 = final — dismiss the fullScreenCover
+            dismiss()
         }
-        // step 3 = final — parent dismisses
     }
 
     // MARK: Atmospheric orbs (matching BereanOnboardingView exactly)
@@ -356,14 +383,16 @@ private struct BereanOnboardingCTA: View {
             HStack(spacing: 8) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
                 Text(label)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(2)
             }
             .foregroundStyle(isFinal ? BUI.cardWhite : BUI.ink)
             .frame(maxWidth: .infinity)
-            .frame(height: 52)
+            .frame(minHeight: 52)
             .background(
                 isFinal
                 ? AnyShapeStyle(BUI.coral)
@@ -443,20 +472,20 @@ struct BereanThinkingTaskPills: View {
                         .fill(BUI.coral.opacity(0.18))
                         .frame(width: 32, height: 32)
                     Image(systemName: "brain")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(BUI.coral)
                 }
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Berean is thinking")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(BUI.ink)
                     Text("Working through your question")
-                        .font(.system(size: 11, weight: .regular))
+                        .font(.systemScaled(11, weight: .regular))
                         .foregroundStyle(BUI.inkFaint)
                 }
                 Spacer()
                 // Pulsing thinking dots
-                BereanThinkingDots()
+                BereanThinkingDotsInternal()
             }
             .padding(.horizontal, BUI.hPad)
             .padding(.vertical, 14)
@@ -488,9 +517,9 @@ struct BereanThinkingTaskPills: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                     Text("Simulate Berean Thinking")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                 }
                 .foregroundStyle(BUI.inkSoft)
                 .padding(.horizontal, 18)
@@ -526,11 +555,11 @@ struct BereanThinkingTaskPills: View {
 
         // Animate checkmark pop: 0 → 1 via two-phase animation
         tasks[idx].checkProgress = 0
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.55)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.55))) {
             tasks[idx].checkProgress = 1.1   // overshoot
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.80))) {
                 tasks[idx].checkProgress = 1.0  // settle
             }
         }
@@ -538,13 +567,13 @@ struct BereanThinkingTaskPills: View {
         // Move to top if checked, back to original position if unchecked
         if tasks[idx].isChecked {
             let item = tasks.remove(at: idx)
-            withAnimation(.spring(response: 0.58, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.58, dampingFraction: 0.72))) {
                 tasks.insert(item, at: 0)
             }
         } else {
             // Restore alphabetical/original order — move to end of checked group
             let item = tasks.remove(at: idx)
-            withAnimation(.spring(response: 0.58, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.58, dampingFraction: 0.72))) {
                 tasks.append(item)
             }
         }
@@ -561,7 +590,7 @@ struct BereanThinkingTaskPills: View {
             }
             // Re-sort
             let origOrder = ["Searching Scripture", "Theological context", "Composing your answer"]
-            withAnimation(.spring(response: 0.58, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.58, dampingFraction: 0.72))) {
                 tasks.sort { a, b in
                     (origOrder.firstIndex(of: a.label) ?? 99) < (origOrder.firstIndex(of: b.label) ?? 99)
                 }
@@ -607,7 +636,7 @@ private struct BereanTaskPill: View {
 
                     if task.isChecked {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.systemScaled(11, weight: .bold))
                             .foregroundStyle(.white)
                             .scaleEffect(task.checkProgress)
                             .transition(.scale(scale: 0.4).combined(with: .opacity))
@@ -619,14 +648,14 @@ private struct BereanTaskPill: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
                         Image(systemName: task.icon)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(task.isChecked ? BUI.coral : BUI.inkSoft)
                         Text(task.label)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(task.isChecked ? BUI.coral : BUI.ink)
                     }
                     Text(task.subLabel)
-                        .font(.system(size: 11, weight: .regular))
+                        .font(.systemScaled(11, weight: .regular))
                         .foregroundStyle(BUI.inkFaint)
                 }
                 Spacer()
@@ -653,7 +682,7 @@ private struct BereanTaskPill: View {
 
 // MARK: Thinking dots
 
-private struct BereanThinkingDots: View {
+private struct BereanThinkingDotsInternal: View {
     @State private var active = 0
     let timer = Timer.publish(every: 0.38, on: .main, in: .common).autoconnect()
 
@@ -730,7 +759,7 @@ struct BereanInputOverlay: View {
 
                     // "Recents >" breadcrumb
                     Text("Quick Actions  ›")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(BUI.inkSoft)
                         .padding(.leading, BUI.hPad)
                         .padding(.bottom, 12)
@@ -781,7 +810,7 @@ struct BereanInputOverlay: View {
             VStack(spacing: 10) {
                 ForEach(["Explain John 1:1", "What is the Trinity?", "Help me pray for peace"], id: \.self) { prompt in
                     Text(prompt)
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(BUI.inkSoft)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
@@ -806,7 +835,9 @@ struct BereanInputOverlay: View {
     // MARK: Input bar
 
     private var inputBar: some View {
-        HStack(spacing: 10) {
+        let trimmedMessage = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let canSend = !trimmedMessage.isEmpty
+        return HStack(spacing: 10) {
             // + button — toggles the overlay
             Button {
                 if isMenuOpen { dismissMenu() } else { openMenu() }
@@ -819,7 +850,7 @@ struct BereanInputOverlay: View {
                                 .stroke(BUI.pillBorder.opacity(0.5), lineWidth: 0.75)
                         )
                     Image(systemName: isMenuOpen ? "xmark" : "plus")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(isMenuOpen ? .white : BUI.inkSoft)
                         .rotationEffect(.degrees(isMenuOpen ? 45 : 0))
                         .animation(BUI.snap(), value: isMenuOpen)
@@ -830,9 +861,13 @@ struct BereanInputOverlay: View {
 
             // Text field
             TextField("Ask anything…", text: $messageText)
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(BUI.ink)
                 .focused($inputFocused)
+                .submitLabel(.send)
+                .onSubmit {
+                    sendMessage()
+                }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(
@@ -842,16 +877,19 @@ struct BereanInputOverlay: View {
                 )
 
             // Send
-            Button {} label: {
+            Button {
+                sendMessage()
+            } label: {
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.systemScaled(13, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(BUI.coral))
             }
             .buttonStyle(BereanCTAPressStyle())
-            .opacity(messageText.isEmpty ? 0.4 : 1.0)
-            .animation(.easeOut(duration: 0.12), value: messageText.isEmpty)
+            .disabled(!canSend)
+            .opacity(canSend ? 1.0 : 0.4)
+            .animation(.easeOut(duration: 0.12), value: canSend)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -877,15 +915,25 @@ struct BereanInputOverlay: View {
     private func openMenu() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         inputFocused = false
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.78))) {
             isMenuOpen = true
         }
     }
 
     private func dismissMenu() {
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.80)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.80))) {
             isMenuOpen = false
         }
+    }
+
+    private func sendMessage() {
+        let trimmedMessage = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedMessage.isEmpty else { return }
+
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        messageText = ""
+        inputFocused = false
+        dismissMenu()
     }
 
     private func fadeSlideTransition(delay: Double) -> AnyTransition {
@@ -911,15 +959,15 @@ private struct BereanQuickActionRow: View {
                         .fill(action.color.opacity(0.12))
                         .frame(width: 38, height: 38)
                     Image(systemName: action.icon)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(action.color)
                 }
                 Text(action.label)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(BUI.ink)
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(BUI.inkFaint)
             }
             .padding(.horizontal, 14)
@@ -984,16 +1032,16 @@ struct BereanMorphingToolbar: View {
             if isDepthExpanded {
                 // Expanded state: label + icon in a dark coral pill
                 Button {
-                    withAnimation(.spring(response: 0.50, dampingFraction: 0.70)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.50, dampingFraction: 0.70))) {
                         isDepthExpanded = false
                     }
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: depthIcon(selectedDepth))
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                         Text(selectedDepth.rawValue)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
@@ -1015,13 +1063,13 @@ struct BereanMorphingToolbar: View {
             } else {
                 // Collapsed: small icon circle
                 Button {
-                    withAnimation(.spring(response: 0.50, dampingFraction: 0.70)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.50, dampingFraction: 0.70))) {
                         isDepthExpanded = true
                     }
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 } label: {
                     Image(systemName: depthIcon(selectedDepth))
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(BUI.ink.opacity(0.72))
                         .frame(width: 38, height: 38)
                         .background(
@@ -1073,9 +1121,9 @@ struct BereanMorphingToolbar: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: depthIcon(mode))
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                         Text(mode.rawValue)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                     }
                     .foregroundStyle(selectedDepth == mode ? .white : BUI.inkSoft)
                     .padding(.horizontal, 12)
@@ -1112,7 +1160,7 @@ struct BereanMorphingToolbar: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(isActive ? BUI.coral : BUI.ink.opacity(0.65))
                 .frame(width: 38, height: 38)
                 .background(
@@ -1160,7 +1208,7 @@ struct BereanInteractiveDemoView: View {
                             .font(Font.custom("Georgia", size: 32).weight(.light))
                             .foregroundStyle(BUI.ink)
                         Text("Interactive UI components")
-                            .font(.system(size: 13, weight: .regular))
+                            .font(.systemScaled(13, weight: .regular))
                             .foregroundStyle(BUI.inkFaint)
                     }
                     .padding(.top, 32)
@@ -1178,20 +1226,20 @@ struct BereanInteractiveDemoView: View {
                                     .fill(BUI.coraltint)
                                     .frame(width: 44, height: 44)
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 18, weight: .medium))
+                                    .font(.systemScaled(18, weight: .medium))
                                     .foregroundStyle(BUI.coral)
                             }
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Begin Berean Onboarding")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(BUI.ink)
                                 Text("4-step typographic flow with step dots")
-                                    .font(.system(size: 12, weight: .regular))
+                                    .font(.systemScaled(12, weight: .regular))
                                     .foregroundStyle(BUI.inkFaint)
                             }
                             Spacer()
                             Image(systemName: "arrow.up.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(BUI.inkFaint)
                         }
                         .padding(18)
@@ -1217,7 +1265,7 @@ struct BereanInteractiveDemoView: View {
                     sectionLabel("Morphing Input Toolbar")
                     VStack(spacing: 8) {
                         Text("Tap the rightmost icon to morph the pill")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(BUI.inkFaint)
                         BereanMorphingToolbar()
                     }
@@ -1235,20 +1283,20 @@ struct BereanInteractiveDemoView: View {
                                     .fill(BUI.violet.opacity(0.12))
                                     .frame(width: 44, height: 44)
                                 Image(systemName: "square.stack.3d.up.fill")
-                                    .font(.system(size: 18, weight: .medium))
+                                    .font(.systemScaled(18, weight: .medium))
                                     .foregroundStyle(BUI.violet)
                             }
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Open Input Overlay Demo")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(BUI.ink)
                                 Text("Tap + in the input bar to trigger blur menu")
-                                    .font(.system(size: 12, weight: .regular))
+                                    .font(.systemScaled(12, weight: .regular))
                                     .foregroundStyle(BUI.inkFaint)
                             }
                             Spacer()
                             Image(systemName: "arrow.up.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(BUI.inkFaint)
                         }
                         .padding(18)
@@ -1277,7 +1325,7 @@ struct BereanInteractiveDemoView: View {
     @ViewBuilder
     private func sectionLabel(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 11, weight: .semibold))
+            .font(.systemScaled(11, weight: .semibold))
             .foregroundStyle(BUI.inkFaint)
             .tracking(0.8)
             .frame(maxWidth: .infinity, alignment: .leading)

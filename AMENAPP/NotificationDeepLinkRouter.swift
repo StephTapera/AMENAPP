@@ -6,9 +6,23 @@
 //  Handles navigation to posts, comments, threads, profiles, conversations
 //
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NAV-02 RESOLVED — Both schemes now handle an identical set of routes.
+//
+// handleURL() now accepts both "amen://" and "amenapp://" schemes.
+// Routes ported from amen://: church, category, user, search, settings,
+//   comment, chat (in addition to the existing amenapp:// set).
+// Routes ported to DeepLinkRouter: group/join, notifications, messages,
+//   prayer, church-note, intelligence.
+//
+// Future work: merge into a single UnifiedDeepLinkRouter (Phase 2).
+// ─────────────────────────────────────────────────────────────────────────────
+
 import Foundation
 import SwiftUI
 import Combine
+import FirebaseFirestore
+import FirebaseAuth
 
 /// Handles deep linking from notifications to specific app screens
 @MainActor
@@ -28,13 +42,22 @@ final class NotificationDeepLinkRouter: ObservableObject {
         case post(postId: String, scrollToCommentId: String? = nil)
         case profile(userId: String)
         case conversation(conversationId: String, messageId: String? = nil)
+        case groupJoinLink(token: String)
         case notifications
         case messages
         case prayer(prayerId: String)
         case churchNote(noteId: String)
         case job(jobId: String)
         case event(eventId: String)
+        case space(spaceId: String)  // A2-P1 fix: amen://space deep links were dropped
         case studioProfile(creatorId: String)
+        case intelligence(cardId: String? = nil)
+        /// Opens the Discovery / Search tab (tab 1).
+        case discovery
+        /// Opens the Profile tab where Settings is accessible (tab 5).
+        case settings
+        /// Opens the Resources tab where Find a Church lives (tab 3).
+        case church
 
         static func == (lhs: NavigationDestination, rhs: NavigationDestination) -> Bool {
             switch (lhs, rhs) {
@@ -44,6 +67,8 @@ final class NotificationDeepLinkRouter: ObservableObject {
                 return id1 == id2
             case (.conversation(let id1, let msg1), .conversation(let id2, let msg2)):
                 return id1 == id2 && msg1 == msg2
+            case (.groupJoinLink(let t1), .groupJoinLink(let t2)):
+                return t1 == t2
             case (.notifications, .notifications), (.messages, .messages):
                 return true
             case (.prayer(let id1), .prayer(let id2)):
@@ -56,6 +81,10 @@ final class NotificationDeepLinkRouter: ObservableObject {
                 return id1 == id2
             case (.studioProfile(let id1), .studioProfile(let id2)):
                 return id1 == id2
+            case (.intelligence(let id1), .intelligence(let id2)):
+                return id1 == id2
+            case (.discovery, .discovery), (.settings, .settings), (.church, .church):
+                return true
             default:
                 return false
             }
@@ -98,17 +127,41 @@ final class NotificationDeepLinkRouter: ObservableObject {
                 destination = .notifications
             }
             
-        case "comment", "reply":
+        case "comment":
             if let postId = userInfo["postId"] as? String {
                 let commentId = userInfo["commentId"] as? String
+                // Pre-load comment focus so PostDetailView scrolls to target on appear
+                if let commentId {
+                    CommentFocusCoordinator.shared.set(scrollTarget: commentId, highlight: commentId)
+                }
                 destination = .post(postId: postId, scrollToCommentId: commentId)
             } else {
                 destination = .notifications
             }
-            
+
+        case "reply":
+            if let postId = userInfo["postId"] as? String {
+                let replyId = userInfo["commentId"] as? String
+                let parentId = userInfo["parentCommentId"] as? String
+                if let replyId {
+                    CommentFocusCoordinator.shared.set(
+                        scrollTarget: replyId,
+                        highlight: replyId,
+                        expandThread: parentId
+                    )
+                }
+                destination = .post(postId: postId, scrollToCommentId: replyId)
+            } else {
+                destination = .notifications
+            }
+
         case "mention":
             if let postId = userInfo["postId"] as? String {
-                destination = .post(postId: postId)
+                let commentId = userInfo["commentId"] as? String
+                if let commentId {
+                    CommentFocusCoordinator.shared.set(scrollTarget: commentId, highlight: commentId)
+                }
+                destination = .post(postId: postId, scrollToCommentId: commentId)
             } else {
                 destination = .notifications
             }
@@ -148,12 +201,18 @@ final class NotificationDeepLinkRouter: ObservableObject {
             } else {
                 destination = .notifications
             }
-            
+
+        case "intelligenceBrief", "intelligenceCard":
+            let cardId = userInfo["cardId"] as? String
+            destination = .intelligence(cardId: cardId)
+
         default:
             destination = .notifications
         }
-        
-        performNavigation(to: destination)
+
+        // ✅ FIX: Verify content exists before navigating — graceful fallback
+        // if the post/conversation was deleted after the notification was sent.
+        verifyAndNavigate(to: destination)
     }
     
     // MARK: - Determine Destination
@@ -202,12 +261,24 @@ final class NotificationDeepLinkRouter: ObservableObject {
             }
             return .notifications
             
-        case .churchNoteShared:
+        case .churchNoteShared, .churchNoteReplied:
             if let noteId = notification.noteId {
                 return .churchNote(noteId: noteId)
             }
             return .notifications
-            
+
+        case .prayerSupported:
+            if let prayerId = notification.prayerId {
+                return .prayer(prayerId: prayerId)
+            }
+            return .notifications
+
+        case .actionThreadInvite, .actionThreadUpdate, .actionThreadReminder:
+            if let postId = notification.postId {
+                return .post(postId: postId)
+            }
+            return .notifications
+
         case .unknown:
             return .notifications
         }
@@ -222,6 +293,18 @@ final class NotificationDeepLinkRouter: ObservableObject {
 
     private func performNavigation(to destination: NavigationDestination) {
         let now = Date()
+
+        // FIX #11: Guard against routing before authentication is complete.
+        // A notification tap can call this method before Firebase Auth has resolved
+        // the session (e.g. during auto-login splash or cold start). Firing activeDestination
+        // while !isAuthenticated causes navigation into protected screens before the
+        // auth state listener has set isAuthenticated=true, resulting in blank/unauthenticated views.
+        // Queue unconditionally until both appReady AND auth are confirmed.
+        guard Auth.auth().currentUser != nil else {
+            pendingNavigation = destination
+            dlog("⏸️ Queued navigation (auth not ready): \(destination)")
+            return
+        }
 
         // P1 FIX: Debounce rapid navigation requests. If two notifications arrive
         // within 0.6s and the first destination hasn't been consumed yet, queue the
@@ -247,6 +330,14 @@ final class NotificationDeepLinkRouter: ObservableObject {
 
     /// Call this when app is ready to handle navigation
     func appDidBecomeReady() {
+        // FIX #11: Only release queued deep links if the user is still authenticated.
+        // markAppReady() is called from mainContent.onAppear which is inside the
+        // isAuthenticated branch, but race conditions can cause appReady to be set
+        // before the auth token is fully stable. Re-checking here is safe and cheap.
+        guard Auth.auth().currentUser != nil else {
+            dlog("⏸️ appDidBecomeReady: auth not ready yet — holding pending navigation")
+            return
+        }
         if let pending = pendingNavigation {
             dlog("▶️ Processing pending navigation: \(pending)")
             activeDestination = pending
@@ -274,18 +365,83 @@ final class NotificationDeepLinkRouter: ObservableObject {
     func navigate(to destination: NavigationDestination) {
         performNavigation(to: destination)
     }
+
+    /// ✅ FIX: Navigate only if the target content still exists in Firestore.
+    /// If the post or conversation was deleted, fall back to .notifications
+    /// instead of navigating to a dead view. Prevents the "push says X, screen
+    /// shows nothing" trust-erosion pattern.
+    func verifyAndNavigate(to destination: NavigationDestination) {
+        Task {
+            let verified = await contentExists(for: destination)
+            let resolved = verified ? destination : .notifications
+            if !verified {
+                dlog("⚠️ Deep link target no longer exists — redirecting to notifications")
+            }
+            performNavigation(to: resolved)
+        }
+    }
+
+    private func contentExists(for destination: NavigationDestination) async -> Bool {
+        let db = Firestore.firestore()  // CODE-LAZYDB: singleton accessor, no lazy needed
+        switch destination {
+        case .post(let postId, _):
+            guard let doc = try? await db.collection("posts").document(postId).getDocument(),
+                  doc.exists else { return false }
+            // P1-K: Verify follower access for private posts before navigating.
+            let visibility = doc.data()?["visibility"] as? String ?? "everyone"
+            if visibility != "everyone" {
+                let authorId = doc.data()?["authorId"] as? String ?? ""
+                let currentUid = Auth.auth().currentUser?.uid ?? ""
+                if authorId == currentUid { return true }  // own post always accessible
+                let followDoc = try? await db.collection("follows")
+                    .document("\(currentUid)_\(authorId)").getDocument()
+                return followDoc?.exists ?? false
+            }
+            return true
+        case .conversation(let conversationId, _):
+            let doc = try? await db.collection("conversations").document(conversationId).getDocument()
+            return doc?.exists ?? false
+        default:
+            return true  // Profiles, settings, notifications don't need existence checks
+        }
+    }
     
-    private func isAppReady() -> Bool {
-        // Check if root view is loaded and user is authenticated
-        // This is a simple check - in production you might have more sophisticated logic
-        return true  // For now, assume app is always ready
+    /// True once the user is authenticated and the root navigation tree is mounted.
+    /// Call `appDidBecomeReady()` from ContentView.onAppear (after auth resolves) to release
+    /// any queued cold-start routes.
+    private var appReady = false
+
+    private func isAppReady() -> Bool { appReady }
+
+    /// Override for testing or explicit opt-in.
+    func markAppReady() {
+        guard !appReady else { return }
+        appReady = true
+        appDidBecomeReady()
     }
     
     // MARK: - URL Scheme Support (for external deep links)
     
-    /// Handle deep link URL (e.g., amenapp://post/abc123)
+    /// Handle deep link URL (e.g., amenapp://post/abc123 or https://amenapp.com/group/join?token=...)
     func handleURL(_ url: URL) {
-        guard url.scheme == "amenapp" else {
+        // Support universal links (https://amenapp.com/...) alongside custom scheme
+        if url.scheme == "https" || url.scheme == "http" {
+            guard let host = url.host, host.hasSuffix("amenapp.com") else {
+                dlog("⚠️ Unknown universal link host: \(url.host ?? "nil")")
+                return
+            }
+            // Universal links use path as the route: https://amenapp.com/group/join?token=...
+            let pathComponents = url.pathComponents.filter { $0 != "/" }
+            if pathComponents.count >= 2, pathComponents[0] == "group", pathComponents[1] == "join",
+               let token = url.queryParameters["token"], !token.isEmpty {
+                let destination = NavigationDestination.groupJoinLink(token: token)
+                dlog("🔗 Universal link → groupJoinLink(token: \(token.prefix(8))...)")
+                navigate(to: destination)
+            }
+            return
+        }
+        
+        guard url.scheme == "amenapp" || url.scheme == "amen" else {
             dlog("⚠️ Unknown URL scheme: \(url.scheme ?? "nil")")
             return
         }
@@ -321,6 +477,14 @@ final class NotificationDeepLinkRouter: ObservableObject {
                 destination = .messages
             }
             
+        case "group":
+            // Handle group invite links: amenapp://group/join?token=...
+            if pathComponents.first == "join", let token = url.queryParameters["token"], !token.isEmpty {
+                destination = .groupJoinLink(token: token)
+            } else {
+                destination = .messages
+            }
+            
         case "notifications":
             destination = .notifications
             
@@ -340,7 +504,60 @@ final class NotificationDeepLinkRouter: ObservableObject {
             } else {
                 destination = .notifications
             }
-            
+
+        case "intelligence":
+            // amenapp://intelligence or amenapp://intelligence/card/{cardId}
+            let cardId = pathComponents.count >= 2 && pathComponents[0] == "card"
+                ? pathComponents[1]
+                : pathComponents.first
+            destination = .intelligence(cardId: cardId)
+
+        // ─── Routes ported from amen:// scheme ──────────────────────────────
+        case "church":
+            // amen://church/{churchId} — open Resources tab where Find a Church lives.
+            destination = .church
+
+        case "category":
+            // amen://category/{name} — open the Discovery / Search tab
+            destination = .discovery
+
+        case "user":
+            // amen://user/{userId} — alias for "profile"
+            if let userId = pathComponents.first {
+                destination = .profile(userId: userId)
+            } else {
+                destination = .notifications
+            }
+
+        case "search":
+            // amen://search?q=... — open Discovery / Search tab (tab 1)
+            destination = .discovery
+
+        case "settings":
+            // amen://settings[/{section}] — open Profile tab where Settings is accessible
+            destination = .settings
+
+        case "comment":
+            // amen://comment?postId=...&commentId=...&prefill=...
+            if let postId = url.queryParameters["postId"], !postId.isEmpty {
+                let commentId = url.queryParameters["commentId"]
+                if let commentId {
+                    CommentFocusCoordinator.shared.set(scrollTarget: commentId, highlight: commentId)
+                }
+                destination = .post(postId: postId, scrollToCommentId: commentId)
+            } else {
+                destination = .notifications
+            }
+
+        case "chat":
+            // amen://chat?threadId=...&prefill=...
+            if let threadId = url.queryParameters["threadId"], !threadId.isEmpty {
+                destination = .conversation(conversationId: threadId)
+            } else {
+                destination = .messages
+            }
+        // ────────────────────────────────────────────────────────────────────
+
         default:
             dlog("⚠️ Unknown deep link host: \(host)")
             destination = .notifications
@@ -372,6 +589,7 @@ extension URL {
 struct NotificationNavigationHandler: ViewModifier {
     @ObservedObject var router = NotificationDeepLinkRouter.shared
     @Binding var selectedTab: Int  // Reference to tab selection binding
+    @State private var pendingAction: (() -> Void)?
 
     func body(content: Content) -> some View {
         content
@@ -383,54 +601,112 @@ struct NotificationNavigationHandler: ViewModifier {
                 switch destination {
                 case .post(let postId, let scrollToCommentId):
                     selectedTab = 0  // Switch to Home tab
-                    // Give the tab a moment to appear, then post notification for HomeView to open post detail
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    // ✅ FIX: Wait for next run loop cycle (view already rendered)
+                    // This ensures tab switch completes before posting notification
+                    pendingAction = {
                         NotificationCenter.default.post(
                             name: .openPostFromNotification,
                             object: nil,
                             userInfo: ["postId": postId, "scrollToCommentId": scrollToCommentId as Any]
                         )
                     }
+                    
                 case .profile(let userId):
                     selectedTab = 5  // Switch to Profile tab
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    pendingAction = {
                         NotificationCenter.default.post(
                             name: .openProfileFromNotification,
                             object: nil,
                             userInfo: ["userId": userId]
                         )
                     }
+                    
                 case .conversation(let conversationId, _):
                     selectedTab = 2  // Switch to Messages tab
-                    // Trigger MessagingCoordinator to open the specific conversation
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    pendingAction = {
                         NotificationCenter.default.post(
                             name: .openConversation,
                             object: nil,
                             userInfo: ["conversationId": conversationId]
                         )
                     }
+                    
                 case .messages:
                     selectedTab = 2  // Messages tab
+                    pendingAction = nil
+                    
                 case .notifications:
                     selectedTab = 4  // Notifications tab
+                    pendingAction = nil
+                    
                 case .prayer, .churchNote:
                     // Routed to Resources tab which contains Prayer and Church Notes
                     selectedTab = 3
+                    pendingAction = nil
+                    
                 case .job:
                     // Jobs are accessible via AMEN Connect (Resources tab)
                     selectedTab = 3
+                    pendingAction = nil
+                    
                 case .event:
                     // Events are accessible via Resources tab
                     selectedTab = 3
+                    pendingAction = nil
+                    
+                case .space:
+                    // A2-P1: Spaces tab (index 6) — previously silently dropped
+                    selectedTab = 6
+                    pendingAction = nil
+                    
                 case .studioProfile:
                     // Studio profiles are accessible via Resources tab
                     selectedTab = 3
+                    pendingAction = nil
+                    
+                case .groupJoinLink(let token):
+                    selectedTab = 2  // Switch to Messages tab
+                    pendingAction = {
+                        NotificationCenter.default.post(
+                            name: .openGroupJoinLink,
+                            object: nil,
+                            userInfo: ["token": token]
+                        )
+                    }
+
+                case .intelligence:
+                    selectedTab = 7  // Switch to Intelligence Brief tab
+                    pendingAction = nil
+
+                case .discovery:
+                    selectedTab = 1  // Discovery / Search tab
+                    pendingAction = nil
+
+                case .settings:
+                    selectedTab = 5  // Profile tab — Settings reachable from here
+                    pendingAction = nil
+
+                case .church:
+                    selectedTab = 3  // Resources tab — Find a Church lives here
+                    pendingAction = nil
                 }
 
                 // Clear destination after handling
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s for tab transition
                     router.clearDestination()
+                }
+            }
+            .onChange(of: selectedTab) { oldTab, newTab in
+                // ✅ FIX: Execute pending action when tab finishes switching
+                // This ensures the target view is mounted before we post notification
+                if let action = pendingAction {
+                    Task { @MainActor in
+                        // Wait one more run loop for view to fully appear
+                        try? await Task.sleep(nanoseconds: 50_000_000) // 0.05s
+                        action()
+                        pendingAction = nil
+                    }
                 }
             }
     }

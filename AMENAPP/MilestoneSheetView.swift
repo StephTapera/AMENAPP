@@ -67,10 +67,10 @@ struct MilestoneSheetView: View {
                 // Badge pill — overlaps bottom of avatar
                 HStack(spacing: 6) {
                     Image(systemName: milestone.badgeIcon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(Color(.label))
                     Text(milestone.badgeLabel)
-                        .font(.system(size: 17, weight: .bold))
+                        .font(.systemScaled(17, weight: .bold))
                         .foregroundStyle(Color(.label))
                 }
                 .padding(.horizontal, 14)
@@ -97,7 +97,7 @@ struct MilestoneSheetView: View {
 
             // Title
             Text(milestone.title)
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(Color(.label))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 28)
@@ -107,7 +107,7 @@ struct MilestoneSheetView: View {
 
             // Body
             Text(milestone.body)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(Color(.secondaryLabel))
                 .multilineTextAlignment(.center)
                 .lineSpacing(3)
@@ -122,7 +122,7 @@ struct MilestoneSheetView: View {
                 onDismiss()
             } label: {
                 Text(milestone.primaryLabel)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -140,7 +140,7 @@ struct MilestoneSheetView: View {
                 onDismiss()
             } label: {
                 Text(milestone.secondaryLabel)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(Color(.label))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -165,14 +165,14 @@ struct MilestoneSheetView: View {
             .fill(Color(.systemGray4))
             .overlay(
                 Image(systemName: "person.fill")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(Color(.systemGray2))
             )
     }
 
     private func runEntrance() {
         // 1. Badge springs in
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.62).delay(0.18)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.62)).delay(0.18)) {
             badgeScale = 1.0
             badgeOpacity = 1.0
         }
@@ -183,7 +183,7 @@ struct MilestoneSheetView: View {
         }
 
         // 3. Content fades + slides up
-        withAnimation(.spring(response: 0.48, dampingFraction: 0.75).delay(0.28)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.48, dampingFraction: 0.75)).delay(0.28)) {
             contentOpacity = 1.0
             contentOffset = 0
         }

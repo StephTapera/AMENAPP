@@ -102,7 +102,7 @@ struct CrisisHotlineCard: View {
                         )
                     
                     Image(systemName: icon)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(iconColor)
                 }
                 
@@ -132,7 +132,7 @@ struct CrisisHotlineCard: View {
                     Spacer()
                     HStack(spacing: 8) {
                         Image(systemName: "phone.fill")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                         Text(phoneNumber.count <= 3 ? "Call \(phoneNumber)" : "Call Now")
                             .font(.custom("OpenSans-Bold", size: 15))
                     }
@@ -228,7 +228,7 @@ struct CrisisResourceCard: View {
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(iconColor)
                 }
                 
@@ -253,7 +253,7 @@ struct CrisisResourceCard: View {
             HStack(spacing: 12) {
                 HStack(spacing: 6) {
                     Image(systemName: "clock.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(iconColor)
                     Text(hours)
                         .font(.custom("OpenSans-SemiBold", size: 11))
@@ -273,7 +273,7 @@ struct CrisisResourceCard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "phone.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text("Call")
                             .font(.custom("OpenSans-Bold", size: 13))
                     }
@@ -309,7 +309,7 @@ struct EmergencyReminderCard: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(.orange)
             
             VStack(alignment: .leading, spacing: 4) {

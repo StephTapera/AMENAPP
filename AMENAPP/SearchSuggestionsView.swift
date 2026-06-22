@@ -55,7 +55,7 @@ struct SearchSuggestionsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(suggestion.displayName)
                                 .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                                 .lineLimit(1)
                             
                             Text("@\(suggestion.username)")
@@ -74,13 +74,13 @@ struct SearchSuggestionsView: View {
                         }
                         
                         Image(systemName: "arrow.up.backward")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.tertiary)
                             .rotationEffect(.degrees(90))
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(Color.white)
+                    .background(Color(.systemBackground))
                 }
                 .buttonStyle(PlainButtonStyle())
                 

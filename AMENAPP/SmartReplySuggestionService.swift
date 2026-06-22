@@ -234,10 +234,4 @@ private enum SmartReplyError: Error {
     case moderationBlocked
 }
 
-// MARK: - Safe array subscript
-
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
+// Note: subscript(safe:) defined in WisdomLibraryView.swift (module-wide)

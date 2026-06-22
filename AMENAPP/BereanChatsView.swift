@@ -130,7 +130,7 @@ struct BereanChatsView: View {
         .onAppear { chats = BereanChatStore.load() }
         .confirmationDialog("Clear all chats?", isPresented: $confirmClearAll, titleVisibility: .visible) {
             Button("Clear All", role: .destructive) {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { chats = [] }
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) { chats = [] }
                 BereanChatStore.save(chats)
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             }
@@ -149,7 +149,7 @@ struct BereanChatsView: View {
                     .overlay(
                         Image(systemName: "person.fill")
                             .foregroundStyle(.white.opacity(0.7))
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                     )
             }
             .buttonStyle(.plain)
@@ -157,7 +157,7 @@ struct BereanChatsView: View {
             Spacer()
 
             Text("Chats")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundStyle(.white)
 
             Spacer()
@@ -180,7 +180,7 @@ struct BereanChatsView: View {
                     .overlay(
                         Image(systemName: "ellipsis")
                             .foregroundStyle(.white.opacity(0.7))
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                     )
             }
             .buttonStyle(.plain)
@@ -218,7 +218,7 @@ struct BereanChatsView: View {
                 Color.clear
                     .onChange(of: geo.frame(in: .named("scroll")).minY) { _, y in
                         if y > 20 && !showSearch {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                                 showSearch = true
                             }
                         }
@@ -268,14 +268,14 @@ struct BereanChatsView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "sparkles")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.white.opacity(0.15))
                 .symbolEffect(.pulse)
             Text("No chats yet")
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(.white.opacity(0.3))
             Text("Tap + to start a conversation\nwith Berean AI")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.white.opacity(0.2))
                 .multilineTextAlignment(.center)
         }
@@ -295,7 +295,7 @@ struct BereanChatsView: View {
                     .stroke(Color.white.opacity(0.3), lineWidth: 1.2)
                     .frame(width: 36, height: 36)
                 Text("\(chats.count)")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.white)
             }
 
@@ -317,7 +317,7 @@ struct BereanChatsView: View {
                         .frame(width: 56, height: 56)
                         .shadow(color: Color(hex: "#7C3AED").opacity(0.5), radius: 12, y: 4)
                     Image(systemName: "plus")
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.systemScaled(22, weight: .medium))
                         .foregroundStyle(.white)
                 }
             }
@@ -333,12 +333,12 @@ struct BereanChatsView: View {
     // MARK: - Actions
 
     private func createNewChat() {
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.45)) { fabScale = 0.88 }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.6).delay(0.1)) { fabScale = 1.0 }
+        withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.45))) { fabScale = 0.88 }
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.6)).delay(0.1)) { fabScale = 1.0 }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
         let newChat = BereanChat.new()
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.72))) {
             chats.insert(newChat, at: 0)
         }
         BereanChatStore.save(chats)
@@ -350,7 +350,7 @@ struct BereanChatsView: View {
     }
 
     private func deleteChat(_ chat: BereanChat) {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             chats.removeAll { $0.id == chat.id }
         }
         BereanChatStore.save(chats)
@@ -391,7 +391,7 @@ struct BereanChatsView: View {
             isPinned: false,
             isNew: last.isNew
         )
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.72))) {
             chats.insert(copy, at: 0)
         }
         BereanChatStore.save(chats)
@@ -450,15 +450,15 @@ private struct ChatCardView: View {
             HStack(alignment: .top) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.white.opacity(0.8))
                     Text(chat.title)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.white.opacity(0.85))
                         .lineLimit(1)
                     if chat.isPinned {
                         Image(systemName: "pin.fill")
-                            .font(.system(size: 9))
+                            .font(.systemScaled(9))
                             .foregroundStyle(Color(hex: "#8B5CF6"))
                     }
                 }
@@ -469,7 +469,7 @@ private struct ChatCardView: View {
                         .frame(width: 24, height: 24)
                         .overlay(
                             Image(systemName: "xmark")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.systemScaled(9, weight: .bold))
                                 .foregroundStyle(.white.opacity(0.6))
                         )
                 }
@@ -482,19 +482,19 @@ private struct ChatCardView: View {
             VStack(alignment: .trailing, spacing: 2) {
                 if chat.isNew {
                     Text("New chat")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .italic()
                         .foregroundStyle(.white.opacity(0.3))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Text(chat.preview)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.white.opacity(0.35))
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 Text(chat.timestamp.relativeFormatted)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.white.opacity(0.3))
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -524,7 +524,7 @@ private struct ChatCardView: View {
                     .frame(width: 22, height: 22)
                     .overlay(
                         Image(systemName: "checkmark")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.systemScaled(10, weight: .bold))
                             .foregroundStyle(.white)
                     )
                     .padding(10)
@@ -545,14 +545,14 @@ struct BereanToolbarButton: View {
 
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.55)) { pressed = true }
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.55))) { pressed = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                withAnimation(.spring(response: 0.25)) { pressed = false }
+                withAnimation(Motion.adaptive(.spring(response: 0.25))) { pressed = false }
             }
             action()
         } label: {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(.white.opacity(0.7))
                 .frame(width: 44, height: 44)
                 .scaleEffect(pressed ? 0.85 : 1.0)

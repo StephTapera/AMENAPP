@@ -15,7 +15,9 @@ import FirebaseDatabase
 import FirebaseFirestore
 import FirebaseAppCheck
 import FirebaseCrashlytics
+import FirebaseAnalytics
 import UserNotifications
+import AppTrackingTransparency
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     
@@ -24,6 +26,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil
     ) -> Bool {
         dlog("🚀 AppDelegate: didFinishLaunchingWithOptions")
+
+        // When running unit tests, skip all Firebase / push / network initialization.
+        // The test host app launches but tests do NOT need Firebase configured,
+        // and initializing push notifications or ATT in a simulator test process
+        // causes indefinite hangs that cancel all Swift Testing @Suite tests.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            dlog("🧪 Test host detected — skipping Firebase & push initialization")
+            return true
+        }
         
         // ✅ Suppress noisy system logging (network framework, CoreTelephony XPC, etc.)
         setenv("OS_ACTIVITY_MODE", "disable", 1)
@@ -45,21 +56,61 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
         #endif
         
-        // ✅ App Check MUST be configured BEFORE FirebaseApp.configure()
-        // Simulator uses the debug provider; real devices use App Attest.
-        #if targetEnvironment(simulator)
-        let providerFactory = AppCheckDebugProviderFactory()
-        AppCheck.setAppCheckProviderFactory(providerFactory)
-        dlog("✅ App Check configured with Debug Provider (simulator)")
+        // App Check MUST be configured BEFORE FirebaseApp.configure()
+        // so that all Firebase SDK calls are automatically attested.
+        // DEBUG builds use AppCheckDebugProviderFactory with a debug token —
+        // register the token printed to the console in Firebase Console → App Check → Apps.
+        // Release builds use AmenAppCheckProviderFactory (App Attest iOS 14+ / DeviceCheck iOS 13).
+        #if DEBUG
+        // Use a STABLE debug token that persists across launches and is printed
+        // prominently below. Without this the SDK silently generates a fresh
+        // token on first run and never reprints it, so it can never be copied
+        // into Firebase Console → App Check → register, and every simulator run
+        // returns HTTP 403 "App attestation failed".
+        //
+        // Register the printed token ONCE (Firebase Console → App Check → Apps →
+        // ⋮ → Manage debug tokens → Add) and App Check stops 403-ing on this sim.
+        let debugTokenKey = "AMEN.AppCheckDebugToken"
+        let appCheckDebugToken = UserDefaults.standard.string(forKey: debugTokenKey)
+            ?? {
+                let generated = UUID().uuidString
+                UserDefaults.standard.set(generated, forKey: debugTokenKey)
+                return generated
+            }()
+        // The FirebaseAppCheck debug provider reads this env var first, so the
+        // token stays stable instead of being regenerated each install.
+        setenv("FIRAAppCheckDebugToken", appCheckDebugToken, 1)
+        AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
+        dlog("✅ App Check configured with Debug Provider (DEBUG build)")
+        dlog("""
+        ┌──────────────────────────────────────────────────────────────
+        │ 🔑 App Check DEBUG TOKEN (register once to silence 403s):
+        │    \(appCheckDebugToken)
+        │ Firebase Console → App Check → Apps → ⋮ → Manage debug tokens
+        └──────────────────────────────────────────────────────────────
+        """)
         #else
-        let providerFactory = AppCheckAppAttestProviderFactory()
-        AppCheck.setAppCheckProviderFactory(providerFactory)
-        dlog("✅ App Check configured with App Attest Provider (real device)")
+        AppCheck.setAppCheckProviderFactory(AmenAppCheckProviderFactory())
+        dlog("✅ App Check configured with AmenAppCheckProviderFactory (App Attest / DeviceCheck)")
         #endif
         
+        // R1-A5: Disable Analytics collection BEFORE FirebaseApp.configure() so no
+        // analytics events fire before the user answers the ATT prompt. Collection
+        // is re-enabled only if the user grants .authorized in the callback below.
+        Analytics.setAnalyticsCollectionEnabled(false)
+        dlog("✅ Analytics collection disabled (pending ATT consent)")
+
         // Configure Firebase AFTER App Check provider is set
         FirebaseApp.configure()
         dlog("✅ Firebase configured successfully")
+
+        // P0-03 FIX: Kick off Remote Config fetch immediately after Firebase is configured.
+        // Previously this was called from AMENAPPApp.init() via Task{}, where FirebaseApp
+        // might not yet be configured on a fresh install — causing all feature flags
+        // (including AI kill switches and safety flags) to stay on compiled-in defaults
+        // for the entire first session. Calling it here guarantees Firebase is ready.
+        AMENAPPApp.setupRemoteConfig()
+        dlog("✅ Remote Config fetch initiated (post-Firebase-configure)")
 
         // ✅ Initialize Crashlytics for production crash monitoring
         // Must be called after FirebaseApp.configure()
@@ -69,16 +120,21 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         dlog("✅ Crashlytics initialized (crash reporting active)")
         
         // Pre-warm App Check token at launch so it's ready by the time user taps sign up.
-        // This moves the attestation delay (can be several seconds) out of the auth flow.
+        // On simulator, the debug provider already prints the registration token; forcing
+        // a token exchange before that token is registered creates a known 403 log with
+        // no user benefit.
+#if DEBUG && targetEnvironment(simulator)
+        dlog("⏭️ App Check pre-warm skipped on simulator until debug token is registered")
+#else
         Task {
             do {
                 let token = try await AppCheck.appCheck().token(forcingRefresh: false)
                 dlog("✅ App Check token pre-warmed: \(token.token.prefix(20))...")
             } catch {
-                // Non-fatal — SDK will fall back to placeholder token when unenforced
-                dlog("⚠️ App Check pre-warm failed (monitoring mode will handle): \(error.localizedDescription)")
+                dlog("⚠️ App Check pre-warm failed; Firebase SDK will retry when needed: \(error.localizedDescription)")
             }
         }
+#endif
         
         // Configure Firestore settings IMMEDIATELY after Firebase.configure()
         // This must happen before any Firestore access
@@ -107,8 +163,28 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             dlog("✅ Firebase Realtime Database offline persistence enabled (50MB cache, default URL)")
         }
         
+        // Bootstrap all Global Resilience services now that Firebase + Firestore are fully configured.
+        // Must be called here (not AMENAPPApp.init()) because AMENAPPApp.init() runs before
+        // FirebaseApp.configure(), and CrisisBulletinService accesses Firestore on first use.
+        GlobalResilienceWiring.wire()
+        dlog("✅ GlobalResilienceWiring completed")
+
         // Setup push notifications
         setupPushNotifications()
+
+        // Subscribe to disaster alert FCM topics (idempotent — safe to call on every launch)
+        #if targetEnvironment(simulator)
+        dlog("⏭️ Skipping disaster FCM topic subscription on simulator (APNS not available)")
+        #else
+        Messaging.messaging().subscribe(toTopic: "disasters_general") { error in
+            if let error { dlog("⚠️ FCM disaster_general subscribe: \(error.localizedDescription)") }
+            else { dlog("✅ FCM subscribed: disasters_general") }
+        }
+        Messaging.messaging().subscribe(toTopic: "disasters_critical") { error in
+            if let error { dlog("⚠️ FCM disaster_critical subscribe: \(error.localizedDescription)") }
+            else { dlog("✅ FCM subscribed: disasters_critical") }
+        }
+        #endif
 
         // ── QUICK ACTIONS: Cold launch ───────────────────────────────────────────
         // When the user long-presses the app icon and taps a shortcut while the app
@@ -128,6 +204,23 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             }
             // Return true — the quick action was handled; do NOT return false here
             // because that would prevent the standard SwiftUI lifecycle from starting.
+        }
+
+        // ✅ ATT: Request App Tracking Transparency after a brief delay so the
+        // launch screen has settled. Apple requires this dialog before any
+        // IDFA access. App Store will reject binaries that access IDFA without it.
+        // R1-A5: Analytics collection was disabled above; re-enable it only if the
+        // user explicitly grants tracking authorization.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            ATTrackingManager.requestTrackingAuthorization { status in
+                dlog("✅ ATT authorization status: \(status.rawValue)")
+                if status == .authorized {
+                    Analytics.setAnalyticsCollectionEnabled(true)
+                    dlog("✅ Analytics collection enabled (ATT authorized)")
+                } else {
+                    dlog("✅ Analytics collection remains disabled (ATT status: \(status.rawValue))")
+                }
+            }
         }
 
         return true
@@ -169,18 +262,28 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         // Initialize notification categories
         Task { @MainActor in
+            // iOS2 FIX: Register PRAYER_REQUEST and NEW_MESSAGE categories (and others)
+            // via NotificationManager so the system recognises action identifiers on
+            // incoming push payloads that carry a category key.
+            NotificationManager.shared.setupNotificationCategories()
+            dlog("✅ App notification categories initialized (PRAYER_REQUEST, NEW_MESSAGE, etc.)")
+
             // Church notifications (Find Church feature)
             ChurchNotificationManager.shared.setupNotificationCategories()
             dlog("✅ Church notification categories initialized")
-            
+
             // Visit Plan notifications (First Visit Companion feature)
             ChurchVisitNotificationScheduler.setupVisitPlanNotificationCategories()
             dlog("✅ Visit Plan notification categories initialized")
         }
         
         // ✅ PHASE 1: Register for remote notifications
+        #if targetEnvironment(simulator)
+        dlog("⏭️ Skipping remote notification registration on simulator (APNS not available)")
+        #else
         UIApplication.shared.registerForRemoteNotifications()
         dlog("✅ Registered for remote notifications")
+        #endif
     }
     
     // MARK: - Handle Remote Notifications

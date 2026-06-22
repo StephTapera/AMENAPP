@@ -13,6 +13,7 @@ import FirebaseAuth
 import FirebaseStorage
 import Combine
 import UIKit
+import WidgetKit
 
 // MARK: - Type Alias to avoid ambiguity
 
@@ -35,6 +36,7 @@ public enum FirebaseMessagingError: LocalizedError {
     case userBlocked
     case followRequired
     case messagesNotAllowed
+    case minorCannotInitiateDM
     case customError(String)
 
     public var errorDescription: String? {
@@ -63,6 +65,8 @@ public enum FirebaseMessagingError: LocalizedError {
             return "You must follow this user to message them"
         case .messagesNotAllowed:
             return "This user doesn't accept messages"
+        case .minorCannotInitiateDM:
+            return "Users under 18 may not initiate direct messages"
         case .customError(let message):
             return message
         }
@@ -75,30 +79,36 @@ public enum FirebaseMessagingError: LocalizedError {
 public class FirebaseMessagingService: ObservableObject {
     public static let shared = FirebaseMessagingService()
     
-    internal let db = Firestore.firestore()
-    internal let storage = Storage.storage()
+    internal lazy var db = Firestore.firestore()
+    internal lazy var storage = Storage.storage()
     
     @Published var conversations: [ChatConversation] = []
     @Published var archivedConversations: [ChatConversation] = []
     @Published var isLoading = false
     @Published var lastError: FirebaseMessagingError?
+    // OFFLINE FIX: Track when conversation list was last successfully populated
+    // so MessagesView can show a "Last updated X ago" freshness indicator offline.
+    @Published var conversationsLastLoadedAt: Date?
     
     // Error tracking for failed messages
     @Published var failedMessages: [String: (text: String, error: FirebaseMessagingError)] = [:]
     @Published var isOffline = false
 
-    // FIX 1: Retry queue entry (persisted across app restart via UserDefaults)
+    // SECURITY FIX: Retry queue entry persists ONLY metadata — no message text.
+    // Message text is held in-memory only (retryTextCache) and is lost on app restart.
+    // This prevents plaintext messages from leaking via device backups or shared devices.
     struct RetryQueueEntry: Codable {
         let messageId: String
         let conversationId: String
-        let text: String
         let attempt: Int
         let nextRetryAt: Date
     }
 
-    // FIX 1: Published so UI can reflect auto-retry state
+    // Published so UI can reflect auto-retry state
     @Published var retryingMessageIds: Set<String> = []
     private var retryQueue: [RetryQueueEntry] = []
+    /// In-memory-only cache of message text for retry entries. Never persisted to disk.
+    private var retryTextCache: [String: String] = [:]
     private var retryTimer: Timer?
     private static let retryQueueKey = "messaging_retry_queue"
 
@@ -108,6 +118,7 @@ public class FirebaseMessagingService: ObservableObject {
     var typingListeners: [String: ListenerRegistration] = [:]
     private var isListeningToConversations = false
     private var conversationsPermissionRetryCount = 0
+    private var archivedConversationsPermissionRetryCount = 0
 
     // Message pagination state
     private var lastDocuments: [String: DocumentSnapshot] = [:] // conversationId: lastDoc
@@ -121,6 +132,7 @@ public class FirebaseMessagingService: ObservableObject {
         // Note: Offline persistence is already configured in AppDelegate
         // Do NOT configure cache settings here - it must be done immediately after FirebaseApp.configure()
         dlog("✅ FirebaseMessagingService initialized (using global Firestore settings)")
+        guard FirebaseApp.app() != nil else { return }
         loadRetryQueue()
         startRetryTimer()
         NotificationCenter.default.addObserver(
@@ -128,7 +140,9 @@ public class FirebaseMessagingService: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.processRetryQueue()
+            Task { @MainActor [weak self] in
+                self?.processRetryQueue()
+            }
         }
     }
 
@@ -140,13 +154,14 @@ public class FirebaseMessagingService: ObservableObject {
         let entry = RetryQueueEntry(
             messageId: messageId,
             conversationId: conversationId,
-            text: text,
             attempt: attempt,
             nextRetryAt: Date().addingTimeInterval(delaySeconds)
         )
         // Remove any existing entry for this messageId before re-queuing
         retryQueue.removeAll { $0.messageId == messageId }
         retryQueue.append(entry)
+        // Keep text in-memory only — never written to UserDefaults
+        retryTextCache[messageId] = text
         saveRetryQueue()
         dlog("🔁 Retry queued: \(messageId) attempt \(attempt) in \(Int(delaySeconds))s")
     }
@@ -160,14 +175,25 @@ public class FirebaseMessagingService: ObservableObject {
         for entry in due {
             retryQueue.removeAll { $0.messageId == entry.messageId }
 
+            // Text is only available in-memory. If the app restarted, we can't
+            // recover it — drop the entry. Firestore offline persistence will
+            // handle redelivery of the original write if it was cached.
+            guard let text = retryTextCache[entry.messageId] else {
+                retryTextCache.removeValue(forKey: entry.messageId)
+                retryingMessageIds.remove(entry.messageId)
+                dlog("⚠️ Retry entry \(entry.messageId) dropped — text not in memory (app restarted)")
+                continue
+            }
+
             if entry.attempt >= 5 {
                 // Permanently failed: mark in failedMessages, remove from queue
                 failedMessages[entry.messageId] = (
-                    text: entry.text,
+                    text: text,
                     error: .networkError(NSError(domain: "retry", code: -1,
                         userInfo: [NSLocalizedDescriptionKey: "Message failed after 5 attempts"]))
                 )
                 retryingMessageIds.remove(entry.messageId)
+                retryTextCache.removeValue(forKey: entry.messageId)
                 dlog("❌ Message permanently failed after 5 attempts: \(entry.messageId)")
                 continue
             }
@@ -177,34 +203,71 @@ public class FirebaseMessagingService: ObservableObject {
                 do {
                     try await self.sendMessage(
                         conversationId: entry.conversationId,
-                        text: entry.text,
+                        text: text,
                         clientMessageId: entry.messageId
                     )
                     await MainActor.run {
                         self.retryingMessageIds.remove(entry.messageId)
                         self.failedMessages.removeValue(forKey: entry.messageId)
+                        self.retryTextCache.removeValue(forKey: entry.messageId)
                     }
                     dlog("✅ Retry succeeded: \(entry.messageId) on attempt \(entry.attempt + 1)")
                 } catch {
+                    let isNonRetryable = Self.isNonRetryableError(error)
                     await MainActor.run {
                         self.retryingMessageIds.remove(entry.messageId)
-                        self.scheduleRetry(
-                            for: entry.messageId,
-                            conversationId: entry.conversationId,
-                            text: entry.text,
-                            attempt: entry.attempt + 1
-                        )
+                        if isNonRetryable {
+                            // Permission / input / blocked errors will never succeed — fail immediately
+                            self.failedMessages[entry.messageId] = (
+                                text: text,
+                                error: (error as? FirebaseMessagingError) ?? .networkError(error)
+                            )
+                            self.retryTextCache.removeValue(forKey: entry.messageId)
+                            dlog("🛑 Non-retryable error for \(entry.messageId) — stopping retries: \(error.localizedDescription)")
+                        } else {
+                            self.scheduleRetry(
+                                for: entry.messageId,
+                                conversationId: entry.conversationId,
+                                text: text,
+                                attempt: entry.attempt + 1
+                            )
+                        }
                     }
-                    dlog("⚠️ Retry failed: \(entry.messageId), scheduling attempt \(entry.attempt + 1)")
+                    if !isNonRetryable {
+                        dlog("⚠️ Retry failed: \(entry.messageId), scheduling attempt \(entry.attempt + 1)")
+                    }
                 }
             }
         }
         saveRetryQueue()
     }
 
+    /// Returns true for errors that will never succeed on retry (permission, auth, blocked, invalid input).
+    static func isNonRetryableError(_ error: Error) -> Bool {
+        if let msgError = error as? FirebaseMessagingError {
+            switch msgError {
+            case .permissionDenied, .invalidInput, .userBlocked,
+                 .notAuthenticated, .selfConversation, .followRequired,
+                 .messagesNotAllowed, .invalidUserId, .minorCannotInitiateDM:
+                return true
+            case .networkError, .uploadFailed, .conversationNotFound,
+                 .messageNotFound, .customError:
+                return false
+            }
+        }
+        // Check underlying NSError for Firestore permission denied (code 7)
+        let nsError = error as NSError
+        if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7 {
+            return true
+        }
+        return false
+    }
+
     private func startRetryTimer() {
         retryTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
-            self?.processRetryQueue()
+            Task { @MainActor [weak self] in
+                self?.processRetryQueue()
+            }
         }
     }
 
@@ -218,8 +281,11 @@ public class FirebaseMessagingService: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: Self.retryQueueKey),
               let queue = try? JSONDecoder().decode([RetryQueueEntry].self, from: data)
         else { return }
+        // Loaded entries have no in-memory text — they will be dropped when
+        // processRetryQueue() runs and finds no matching retryTextCache entry.
+        // This is by design: we never persist message text to disk.
         retryQueue = queue
-        dlog("📥 Loaded \(retryQueue.count) pending retry(s) from UserDefaults")
+        dlog("📥 Loaded \(retryQueue.count) pending retry metadata from UserDefaults (text not persisted)")
     }
     
     // P0-5 FIX: Clean up all message listeners on deallocation
@@ -230,6 +296,11 @@ public class FirebaseMessagingService: ObservableObject {
         conversationsListener?.remove()
         archivedConversationsListener?.remove()
         messagesListeners.values.forEach { $0.remove() }
+        // FIX: Also remove per-conversation typing listeners.
+        // Each conversation the user opens registers one Firestore typing listener via
+        // startListeningToTyping(); without this, those listeners outlive the service,
+        // firing callbacks into a deallocated object and exhausting the RTDB connection quota.
+        typingListeners.values.forEach { $0.remove() }
     }
     
     // MARK: - Current User
@@ -324,6 +395,17 @@ public class FirebaseMessagingService: ObservableObject {
             dlog("⏭️ Already listening to conversations, skipping redundant call")
             return
         }
+
+        // Skip if a permission-error retry backoff is in progress.
+        // When a permission-denied error occurs, the listener is detached
+        // (isListeningToConversations = false) but the retry counter is incremented.
+        // External callers (ContentView, MessagesView, etc.) see isListeningToConversations==false
+        // and restart the cycle, resetting the counter to 0 and causing an infinite loop.
+        // Guard against this by bailing out whenever a backoff is pending.
+        if conversationsPermissionRetryCount > 0 {
+            dlog("⏭️ Conversations listener: skipping restart — permission-error retry backoff in progress (\(conversationsPermissionRetryCount)/3)")
+            return
+        }
         
         // Full external start — reset retry counter and detach any stale listener.
         // Do NOT call stopListeningToConversations() here because that also resets
@@ -352,6 +434,7 @@ public class FirebaseMessagingService: ObservableObject {
         conversationsListener = db.collection("conversations")
             .whereField("participantIds", arrayContains: currentUserId)
             .order(by: "updatedAt", descending: true)
+            .limit(to: 50)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 
@@ -457,6 +540,10 @@ public class FirebaseMessagingService: ObservableObject {
                 
                 // P0-2 FIX: Convert to sorted array (already deduplicated)
                 self.conversations = conversationsDict.values.sorted { $0.timestamp > $1.timestamp }
+                self.conversationsLastLoadedAt = Date()  // OFFLINE FIX: stamp successful load
+
+                // Propagate pending-reply count and top conversation to the home-screen widget.
+                self.updateReplyAssistWidget(conversations: self.conversations)
 
                 self.isLoading = false
 
@@ -495,36 +582,71 @@ public class FirebaseMessagingService: ObservableObject {
         messagesListeners.removeAll()
         typingListeners.values.forEach { $0.remove() }
         typingListeners.removeAll()
+
+        // Clear the widget badge when the user signs out / stops listening.
+        updateReplyAssistWidget(conversations: [])
     }
-    
+
+    // MARK: - Widget Bridge
+
+    /// Writes the pending-reply count and the top (most-recent) conversation
+    /// name to the shared App Group UserDefaults, then signals WidgetKit to
+    /// refresh the ReplyAssistWidget timeline.
+    ///
+    /// Must be called on the main actor (the same queue that owns `conversations`).
+    private func updateReplyAssistWidget(conversations: [ChatConversation]) {
+        let pendingCount = conversations.reduce(0) { $0 + max($1.unreadCount, 0) }
+        let topName = conversations.first(where: { $0.unreadCount > 0 })?.name ?? ""
+
+        let defaults = UserDefaults(suiteName: "group.com.amenapp.shared")
+        defaults?.set(pendingCount, forKey: "widget_pending_replies")
+        defaults?.set(topName,      forKey: "widget_top_conversation")
+
+        // Only reload when the count actually changed to avoid unnecessary
+        // background wakeups.  WidgetCenter calls are lightweight but should
+        // still be throttled when possible.
+        WidgetCenter.shared.reloadTimelines(ofKind: "ReplyAssistWidget")
+    }
+
     /// Start listening to archived conversations for the current user
     func startListeningToArchivedConversations() {
         guard isAuthenticated else {
             lastError = .notAuthenticated
             return
         }
-        
+
         // Stop existing listener to prevent duplicates
         stopListeningToArchivedConversations()
-        
+        // Reset retry counter on fresh start (e.g. tab re-appear or explicit call)
+        archivedConversationsPermissionRetryCount = 0
+
         dlog("👂 Starting real-time listener for archived conversations")
-        
+
         archivedConversationsListener = db.collection("conversations")
             .whereField("participantIds", arrayContains: currentUserId)
             .order(by: "updatedAt", descending: true)
+            .limit(to: 50)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
-                
+
                 if let error = error {
                     dlog("❌ Error fetching archived conversations: \(error)")
                     let nsError = error as NSError
                     if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7 {
-                        dlog("⚠️ Archived conversations: permission denied — will retry after auth settles")
-                        Task { @MainActor [weak self] in
-                            guard let self = self else { return }
-                            try? await Task.sleep(nanoseconds: 2_500_000_000)
-                            self.stopListeningToArchivedConversations()
-                            self.startListeningToArchivedConversations()
+                        self.archivedConversationsListener?.remove()
+                        self.archivedConversationsListener = nil
+                        guard Auth.auth().currentUser != nil else { return }
+                        if self.archivedConversationsPermissionRetryCount < 3 {
+                            self.archivedConversationsPermissionRetryCount += 1
+                            let delay = UInt64(self.archivedConversationsPermissionRetryCount) * 2_000_000_000
+                            dlog("⚠️ Archived conversations: permission denied — retry \(self.archivedConversationsPermissionRetryCount)/3 in \(self.archivedConversationsPermissionRetryCount * 2)s")
+                            Task { @MainActor [weak self] in
+                                guard let self = self else { return }
+                                try? await Task.sleep(nanoseconds: delay)
+                                self._retryArchivedConversationsListener()
+                            }
+                        } else {
+                            dlog("⏹️ Archived conversations: max retries reached, stopping")
                         }
                     }
                     return
@@ -589,6 +711,58 @@ public class FirebaseMessagingService: ObservableObject {
         archivedConversationsListener = nil
         dlog("🔇 Stopped listening to archived conversations")
     }
+
+    /// Internal retry helper — re-attaches the archived conversations listener
+    /// without resetting the retry counter (unlike the public startListening method).
+    private func _retryArchivedConversationsListener() {
+        guard isAuthenticated, Auth.auth().currentUser != nil else { return }
+        archivedConversationsListener?.remove()
+        archivedConversationsListener = db.collection("conversations")
+            .whereField("participantIds", arrayContains: currentUserId)
+            .order(by: "updatedAt", descending: true)
+            .limit(to: 50)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                if let error = error {
+                    let nsError = error as NSError
+                    if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7 {
+                        self.archivedConversationsListener?.remove()
+                        self.archivedConversationsListener = nil
+                        guard Auth.auth().currentUser != nil else { return }
+                        if self.archivedConversationsPermissionRetryCount < 3 {
+                            self.archivedConversationsPermissionRetryCount += 1
+                            let delay = UInt64(self.archivedConversationsPermissionRetryCount) * 2_000_000_000
+                            dlog("⚠️ Archived conversations: permission denied — retry \(self.archivedConversationsPermissionRetryCount)/3 in \(self.archivedConversationsPermissionRetryCount * 2)s")
+                            Task { @MainActor [weak self] in
+                                guard let self = self else { return }
+                                try? await Task.sleep(nanoseconds: delay)
+                                self._retryArchivedConversationsListener()
+                            }
+                        } else {
+                            dlog("⏹️ Archived conversations: max retries reached, stopping")
+                        }
+                    }
+                    return
+                }
+                guard let documents = snapshot?.documents else { return }
+                var archivedDict: [String: ChatConversation] = [:]
+                for doc in documents {
+                    guard let firebaseConv = try? doc.data(as: FirebaseConversation.self),
+                          let convId = firebaseConv.id else { continue }
+                    guard let archivedBy = firebaseConv.archivedByArray,
+                          archivedBy.contains(self.currentUserId) else { continue }
+                    if let deletedBy = firebaseConv.deletedBy,
+                       deletedBy[self.currentUserId] == true { continue }
+                    archivedDict[convId] = firebaseConv.toConversation()
+                }
+                let uniqueArchived = Array(archivedDict.values)
+                    .sorted { $0.timestamp > $1.timestamp }
+                dlog("✅ Loaded \(uniqueArchived.count) unique archived conversations")
+                Task { @MainActor [weak self] in
+                    self?.archivedConversations = uniqueArchived
+                }
+            }
+    }
     
     /// Create a new conversation
     func createConversation(
@@ -609,6 +783,32 @@ public class FirebaseMessagingService: ObservableObject {
         var allParticipantIds = participantIds
         if !allParticipantIds.contains(currentUserId) {
             allParticipantIds.append(currentUserId)
+        }
+        
+        // ✅ MESSAGE SETTINGS: Check if sender has permission to create message request
+        // For 1-on-1 conversations only (groups are exempt from this check)
+        if !isGroup && allParticipantIds.count == 2 {
+            let recipientId = allParticipantIds.first(where: { $0 != currentUserId }) ?? ""
+            
+            do {
+                let canSend = try await MessageSettingsService.shared.canUserSendMessageRequest(
+                    from: currentUserId,
+                    to: recipientId
+                )
+                
+                if !canSend {
+                    dlog("❌ Message request blocked by recipient's settings")
+                    throw FirebaseMessagingError.messagesNotAllowed
+                }
+                
+                dlog("✅ Message request permission granted")
+            } catch is FirebaseMessagingError {
+                // Re-throw messaging errors
+                throw FirebaseMessagingError.messagesNotAllowed
+            } catch {
+                // Log but don't block on settings service errors (fail open for now)
+                dlog("⚠️ Could not check message settings: \(error.localizedDescription)")
+            }
         }
 
         // P0 FIX: Use deterministic ID for 1-on-1 conversations to prevent
@@ -861,10 +1061,33 @@ public class FirebaseMessagingService: ObservableObject {
                 }
             }
             
+            // SECURITY FIX (MEDIUM 2026-06-11): Check AmenChildSafetyService.canDM()
+            // before any recipient-side lookup. This is the canonical DM safety gate that
+            // enforces mutual-follow for minors, checks both sender and recipient age, and
+            // fails closed on error. The raw isMinor/birthYear checks below are retained
+            // as a secondary layer but canDM() is the authoritative gate.
+            let dmAllowed = try await AmenChildSafetyService.shared.canDM(from: currentUserId, to: userId)
+            if !dmAllowed {
+                throw FirebaseMessagingError.permissionDenied
+            }
+
             // Check recipient's privacy settings from Firestore
             let userDoc = try await db.collection("users").document(userId).getDocument()
-            let allowMessages = userDoc.data()?["allowMessagesFromEveryone"] as? Bool ?? true
-            
+            let recipientData = userDoc.data() ?? [:]
+            let allowMessages = recipientData["allowMessagesFromEveryone"] as? Bool ?? true
+
+            // Secondary COPPA: block DMs to recipients flagged as under-13
+            if recipientData["isMinor"] as? Bool == true {
+                throw FirebaseMessagingError.permissionDenied
+            }
+            // Secondary COPPA check via birthYear when isMinor flag is absent
+            if let birthYear = recipientData["birthYear"] as? Int {
+                let currentYear = Calendar.current.component(.year, from: Date())
+                if currentYear - birthYear < 13 {
+                    throw FirebaseMessagingError.permissionDenied
+                }
+            }
+
             // Determine conversation status — anyone can message anyone by default;
             // only block if recipient has explicitly disabled messages from everyone.
             let conversationStatus: String
@@ -956,7 +1179,16 @@ public class FirebaseMessagingService: ObservableObject {
                     guard let firebaseMessage = try? doc.data(as: FirebaseMessage.self) else {
                         return nil
                     }
-                    return firebaseMessage.toMessage(currentUserId: self.currentUserId)
+                    let msg = firebaseMessage.toMessage(currentUserId: self.currentUserId)
+                    // Feature 1: Decode amenReactions (dynamic string-keyed dict, not Codable-friendly)
+                    if let amenRaw = doc.data()["amenReactions"] as? [String: [String]] {
+                        msg.amenReactions = amenRaw
+                    }
+                    // Feature 3: Decode poll
+                    if let pollRaw = doc.data()["poll"] as? [String: Any] {
+                        msg.poll = PollMessage.fromFirestore(pollRaw)
+                    }
+                    return msg
                 }.reversed() // Reverse to show oldest first
                 
                 onUpdate(Array(messages))
@@ -1020,9 +1252,16 @@ public class FirebaseMessagingService: ObservableObject {
                 guard let firebaseMessage = try? doc.data(as: FirebaseMessage.self) else {
                     return nil
                 }
-                return firebaseMessage.toMessage(currentUserId: self.currentUserId)
+                let msg = firebaseMessage.toMessage(currentUserId: self.currentUserId)
+                if let amenRaw = doc.data()["amenReactions"] as? [String: [String]] {
+                    msg.amenReactions = amenRaw
+                }
+                if let pollRaw = doc.data()["poll"] as? [String: Any] {
+                    msg.poll = PollMessage.fromFirestore(pollRaw)
+                }
+                return msg
             }.reversed()
-            
+
             onUpdate(Array(messages))
             dlog("✅ Loaded \(messages.count) more messages")
             
@@ -1059,6 +1298,11 @@ public class FirebaseMessagingService: ObservableObject {
         replyToMessageId: String? = nil,
         clientMessageId: String? = nil
     ) async throws {
+        dlog("🔍 [DEBUG] sendMessage called:")
+        dlog("   ConversationId: \(conversationId)")
+        dlog("   CurrentUserId: \(currentUserId)")
+        dlog("   IsAuthenticated: \(isAuthenticated)")
+        
         guard isAuthenticated else {
             throw FirebaseMessagingError.notAuthenticated
         }
@@ -1067,8 +1311,47 @@ public class FirebaseMessagingService: ObservableObject {
             throw FirebaseMessagingError.invalidInput("Message cannot be empty")
         }
         
+        dlog("🔍 [DEBUG] About to call canSendMessage...")
         // P1-4 FIX: Check if user can send message, create pending request if first message
-        let (canSend, reason) = try await canSendMessage(conversationId: conversationId)
+        let (canSend, reason): (Bool, String?)
+        do {
+            let result = try await canSendMessage(conversationId: conversationId)
+            canSend = result.canSend
+            reason = result.reason
+            dlog("🔍 [DEBUG] canSendMessage returned: canSend=\(canSend), reason=\(reason ?? "nil")")
+        } catch let error as NSError {
+            dlog("❌ [DEBUG] canSendMessage FAILED with error: \(error)")
+            dlog("   Error domain: \(error.domain), code: \(error.code)")
+            
+            // Check if it's a Firestore permission error
+            if error.domain == "FIRFirestoreErrorDomain" && error.code == 7 {
+                dlog("   🔍 This is a Firestore PERMISSION_DENIED error")
+                dlog("   The conversation document cannot be read - likely due to missing/incorrect participantIds")
+                
+                // Run quick diagnostic by trying to read with admin privileges bypass
+                do {
+                    let conversationRef = db.collection("conversations").document(conversationId)
+                    let doc = try await conversationRef.getDocument(source: .server)
+                    
+                    if doc.exists {
+                        let data = doc.data() ?? [:]
+                        let participantIds = data["participantIds"] as? [String] ?? []
+                        dlog("   🔍 [DIAGNOSIS] Conversation exists but access denied")
+                        dlog("      ParticipantIds in document: \(participantIds)")
+                        dlog("      Current user: \(currentUserId)")
+                        dlog("      User in participantIds: \(participantIds.contains(currentUserId))")
+                    } else {
+                        dlog("   🔍 [DIAGNOSIS] Conversation document does not exist")
+                    }
+                } catch {
+                    dlog("   🔍 [DIAGNOSIS] Cannot read conversation even for diagnosis: \(error)")
+                }
+                
+                throw FirebaseMessagingError.invalidInput("Cannot access this conversation. It may have been deleted or corrupted. Please start a new conversation with this person.")
+            }
+            
+            throw FirebaseMessagingError.networkError(error)
+        }
         let conversationRef = db.collection("conversations").document(conversationId)
         
         var shouldCreatePendingRequest = false
@@ -1117,14 +1400,17 @@ public class FirebaseMessagingService: ObservableObject {
             }
 
             // ── TEXT SAFETY GATEWAY ────────────────────────────────────────────
-            // For 1:1 DMs: evaluate before Firestore write.
-            // For group chats: skip per-recipient gateway — the pattern-of-behavior
-            // engine models 1:1 exploitation and doesn't apply to groups. Content
-            // safety is handled by ThinkFirstGuardrailsService in UnifiedChatView
-            // and by post-delivery moderation queue scanning.
+            // NG-1 (2026-06-19): runs for BOTH 1:1 and group chats before the Firestore
+            // write. 1:1 DMs use the full relationship/pattern engine. Group chats run the
+            // same CONTENT classifier so harmful message content is blocked/held before
+            // delivery to other members — the 1:1 pattern-of-behavior signals simply don't
+            // escalate for groups (no single recipient / empty context). This closes the
+            // previous group skip where unmoderated content reached members pre-review.
             // ──────────────────────────────────────────────────────────────────
-            if !conversation.isGroup {
-                let recipientId = conversation.participantIds.first(where: { $0 != currentUserId }) ?? ""
+            do {
+                let recipientId = conversation.isGroup
+                    ? ""
+                    : (conversation.participantIds.first(where: { $0 != currentUserId }) ?? "")
                 let safetyDecision = await MessageSafetyGateway.shared.evaluate(
                     text: text,
                     senderId: currentUserId,
@@ -1151,7 +1437,7 @@ public class FirebaseMessagingService: ObservableObject {
                 case .freezeAccount(_, _, let reason):
                     throw FirebaseMessagingError.invalidInput(reason)
                 case .holdForReview:
-                    // Message written to held_messages subcollection; not delivered to recipient.
+                    // Message written to held_messages subcollection; not delivered.
                     let heldRef = db.collection("conversations")
                         .document(conversationId)
                         .collection("held_messages")
@@ -1161,7 +1447,8 @@ public class FirebaseMessagingService: ObservableObject {
                         "senderId": currentUserId,
                         "timestamp": Timestamp(date: Date()),
                         "reason": "safety_hold",
-                        "messageId": messageId
+                        "messageId": messageId,
+                        "isGroup": conversation.isGroup
                     ])
                     dlog("⚠️ [Safety] Message held for review: \(messageId)")
                     return
@@ -1195,7 +1482,7 @@ public class FirebaseMessagingService: ObservableObject {
             // ✅ Get sender's profile image URL from UserDefaults cache
             let senderProfileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
             
-            let message = FirebaseMessage(
+            var message = FirebaseMessage(
                 id: messageId,
                 conversationId: conversationId,
                 senderId: currentUserId,
@@ -1209,10 +1496,32 @@ public class FirebaseMessagingService: ObservableObject {
                 readBy: [currentUserId],
                 idempotencyKey: messageId // FIX 3: Equals doc ID — retries are no-ops
             )
+            // Feature 2: Flat reply fields for easy Codable round-trip
+            if let replyInfo = replyToMessage {
+                message.replyToMessageId = replyInfo.messageId
+                message.replyToText = replyInfo.text
+                message.replyToAuthorName = replyInfo.senderName
+            }
             
             let participantIds = conversation.participantIds
             let status = conversation.conversationStatus ?? "accepted"
             let requesterId = conversation.requesterId
+            
+            // 🔍 DEBUG: Log conversation state before attempting write
+            dlog("🔍 [PERMISSIONS DEBUG] Sending message:")
+            dlog("   Conversation ID: \(conversationId)")
+            dlog("   Current User ID: \(currentUserId)")
+            dlog("   ParticipantIds: \(participantIds)")
+            dlog("   Is current user in participantIds: \(participantIds.contains(currentUserId))")
+            dlog("   Message sender ID: \(message.senderId)")
+            dlog("   Conversation status: \(status)")
+            
+            // ✅ Validate user is in participantIds before attempting write
+            guard participantIds.contains(currentUserId) else {
+                dlog("❌ [PERMISSIONS ERROR] Current user NOT in participantIds!")
+                dlog("   This should never happen - conversation may be corrupted")
+                throw FirebaseMessagingError.invalidInput("You are not a participant in this conversation. Please restart the conversation.")
+            }
             
             // Use batch to update both message and conversation
             let batch = db.batch()
@@ -1526,36 +1835,214 @@ public class FirebaseMessagingService: ObservableObject {
             .document(conversationId)
             .collection("messages")
             .document(messageId)
-        
+
         // Fetch the message to find and remove the specific reaction
         let document = try await messageRef.getDocument()
         guard var message = try? document.data(as: FirebaseMessage.self) else {
             return
         }
-        
+
         message.reactions.removeAll { $0.id == reactionId }
-        
+
         try messageRef.setData(from: message)
+    }
+
+    // MARK: - Feature 1: AMEN Reaction Capsule Toggle
+
+    /// Toggle an AMEN-style named reaction (e.g. "🙏 Pray") on a message.
+    /// Uses Firestore arrayUnion / arrayRemove so it is safe for concurrent writers.
+    func toggleAmenReaction(
+        conversationId: String,
+        messageId: String,
+        reaction: String
+    ) async throws {
+        guard isAuthenticated else { throw FirebaseMessagingError.notAuthenticated }
+
+        let messageRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .document(messageId)
+
+        // Read current state to decide union vs. remove
+        let doc = try await messageRef.getDocument()
+        let field = "amenReactions.\(reaction)"
+
+        if let existing = doc.data()?["amenReactions"] as? [String: [String]],
+           let voters = existing[reaction], voters.contains(currentUserId) {
+            // Already reacted — remove
+            try await messageRef.updateData([field: FieldValue.arrayRemove([currentUserId])])
+        } else {
+            // Not yet reacted — add
+            try await messageRef.updateData([field: FieldValue.arrayUnion([currentUserId])])
+        }
+        dlog("✅ AMEN reaction toggled: \(reaction) on \(messageId)")
+    }
+
+    // MARK: - Feature 3: Poll Send & Vote
+
+    /// Write a poll message document to Firestore with messageType = "poll".
+    func sendPollMessage(
+        conversationId: String,
+        poll: PollMessage
+    ) async throws {
+        guard isAuthenticated else { throw FirebaseMessagingError.notAuthenticated }
+
+        let messageId = poll.id
+        let messageRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .document(messageId)
+
+        let optionsData: [[String: Any]] = poll.options.map { opt in
+            ["id": opt.id, "text": opt.text, "votes": opt.votes]
+        }
+
+        var pollData: [String: Any] = [
+            "id": poll.id,
+            "question": poll.question,
+            "options": optionsData,
+            "allowMultiple": poll.allowMultiple,
+            "createdBy": currentUserId
+        ]
+        if let exp = poll.expiresAt {
+            pollData["expiresAt"] = Timestamp(date: exp)
+        }
+
+        let messageData: [String: Any] = [
+            "id": messageId,
+            "conversationId": conversationId,
+            "senderId": currentUserId,
+            "senderName": currentUserName,
+            "text": poll.question,
+            "messageType": "poll",
+            "poll": pollData,
+            "timestamp": Timestamp(date: Date()),
+            "reactions": [],
+            "readBy": [currentUserId],
+            "isSent": true,
+            "isDelivered": true,
+            "attachments": []
+        ]
+
+        let conversationRef = db.collection("conversations").document(conversationId)
+        let batch = db.batch()
+        batch.setData(messageData, forDocument: messageRef)
+        batch.updateData([
+            "lastMessageText": "📊 \(poll.question)",
+            "lastMessageTimestamp": Timestamp(date: Date()),
+            "updatedAt": Timestamp(date: Date())
+        ], forDocument: conversationRef)
+        try await batch.commit()
+        dlog("✅ Poll sent: \(messageId)")
+    }
+
+    /// Toggle a vote on a specific poll option. Handles single/multiple choice.
+    /// Uses a Firestore transaction to eliminate the read-modify-write race condition
+    /// that could cause concurrent votes to overwrite each other.
+    func voteOnPoll(
+        conversationId: String,
+        messageId: String,
+        optionId: String,
+        allowMultiple: Bool
+    ) async throws {
+        guard isAuthenticated else { throw FirebaseMessagingError.notAuthenticated }
+
+        let messageRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .document(messageId)
+
+        // Capture as a local constant before entering the transaction closure.
+        // Do NOT capture `self` inside the transaction — the closure runs on
+        // Firestore's internal queue and must not access @MainActor-isolated state.
+        let userId = currentUserId
+
+        _ = try await db.runTransaction { transaction, errorPointer in
+            let doc: DocumentSnapshot
+            do {
+                doc = try transaction.getDocument(messageRef)
+            } catch let fetchError as NSError {
+                errorPointer?.pointee = fetchError
+                return nil
+            }
+
+            guard var pollData = doc.data()?["poll"] as? [String: Any],
+                  var options = pollData["options"] as? [[String: Any]] else {
+                errorPointer?.pointee = NSError(
+                    domain: "voteOnPoll", code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Poll data not found"]
+                )
+                return nil
+            }
+
+            // Determine if the user already voted on the tapped option
+            let alreadyVotedOnTapped = options.first(where: { ($0["id"] as? String) == optionId })
+                .flatMap { $0["votes"] as? [String] }?
+                .contains(userId) ?? false
+
+            if !allowMultiple {
+                // Single-choice: remove user from ALL options first
+                for i in options.indices {
+                    if var votes = options[i]["votes"] as? [String] {
+                        votes.removeAll { $0 == userId }
+                        options[i]["votes"] = votes
+                    }
+                }
+            }
+
+            if alreadyVotedOnTapped && !allowMultiple {
+                // Tapped same option again in single-choice → un-vote (already cleared above)
+            } else if alreadyVotedOnTapped && allowMultiple {
+                // Multi-choice: tapping a selected option deselects it
+                if let idx = options.firstIndex(where: { ($0["id"] as? String) == optionId }) {
+                    if var votes = options[idx]["votes"] as? [String] {
+                        votes.removeAll { $0 == userId }
+                        options[idx]["votes"] = votes
+                    }
+                }
+            } else {
+                // Add vote to the tapped option
+                if let idx = options.firstIndex(where: { ($0["id"] as? String) == optionId }) {
+                    var votes = options[idx]["votes"] as? [String] ?? []
+                    if !votes.contains(userId) { votes.append(userId) }
+                    options[idx]["votes"] = votes
+                }
+            }
+
+            pollData["options"] = options
+            transaction.updateData(["poll.options": options], forDocument: messageRef)
+            return nil
+        }
+        dlog("✅ Poll vote recorded on option \(optionId) (atomic transaction)")
     }
     
     /// Mark messages as read
     func markMessagesAsRead(conversationId: String, messageIds: [String]) async throws {
         guard !messageIds.isEmpty else { return }
         
+        // ✅ MESSAGE SETTINGS: Check if user allows read receipts
+        let allowReadReceipts = MessageSettingsService.shared.settings.allowReadReceipts
+        
         let batch = db.batch()
         
-        for messageId in messageIds {
-            let messageRef = db.collection("conversations")
-                .document(conversationId)
-                .collection("messages")
-                .document(messageId)
-            
-            batch.updateData([
-                "readBy": FieldValue.arrayUnion([currentUserId])
-            ], forDocument: messageRef)
+        // Only update readBy field if user allows read receipts
+        if allowReadReceipts {
+            for messageId in messageIds {
+                let messageRef = db.collection("conversations")
+                    .document(conversationId)
+                    .collection("messages")
+                    .document(messageId)
+                
+                batch.updateData([
+                    "readBy": FieldValue.arrayUnion([currentUserId])
+                ], forDocument: messageRef)
+            }
+            dlog("📱 [ReadReceipts] Marked \(messageIds.count) messages as read (receipts enabled)")
+        } else {
+            dlog("📱 [ReadReceipts] Skipped read receipt for \(messageIds.count) messages (receipts disabled)")
         }
         
-        // Reset unread count for current user in conversation
+        // Always reset unread count (internal state) regardless of read receipt setting
         let conversationRef = db.collection("conversations").document(conversationId)
         batch.updateData([
             "unreadCounts.\(currentUserId)": 0
@@ -1563,7 +2050,7 @@ public class FirebaseMessagingService: ObservableObject {
         
         try await batch.commit()
         
-        dlog("✅ Marked \(messageIds.count) messages as read and cleared unread count")
+        dlog("✅ Cleared unread count for conversation")
     }
     
     // P1-1 FIX: Clear unread badge immediately when opening thread
@@ -1599,19 +2086,27 @@ public class FirebaseMessagingService: ObservableObject {
     
     /// Update typing status
     func updateTypingStatus(conversationId: String, isTyping: Bool) async throws {
+        // ✅ MESSAGE SETTINGS: Check if user allows typing indicators
+        let allowTypingIndicators = MessageSettingsService.shared.settings.showTypingIndicators
+        
         let typingRef = db.collection("conversations")
             .document(conversationId)
             .collection("typing")
             .document(currentUserId)
         
-        if isTyping {
+        if isTyping && allowTypingIndicators {
             try await typingRef.setData([
                 "userId": currentUserId,
                 "userName": currentUserName,
                 "timestamp": Timestamp(date: Date())
             ])
+            dlog("📱 [TypingIndicator] Sent typing indicator (enabled)")
         } else {
+            // Always delete typing status when not typing OR when disabled
             try await typingRef.delete()
+            if !allowTypingIndicators && isTyping {
+                dlog("📱 [TypingIndicator] Skipped typing indicator (disabled)")
+            }
         }
     }
     
@@ -2125,8 +2620,10 @@ public class FirebaseMessagingService: ObservableObject {
                 throw FirebaseMessagingError.uploadFailed("Failed to convert image to JPEG")
             }
             
-            let filename = "\(conversationId)_avatar.jpg"
-            let path = "group_avatars/\(filename)"
+            // SECURITY FIX (HIGH 2026-06-11): Use two-segment path group_avatars/{conversationId}/{filename}
+            // so the storage rule can gate on conversationId (e.g. admin/participant check).
+            let filename = "avatar.jpg"
+            let path = "group_avatars/\(conversationId)/\(filename)"
             let storageRef = storage.reference().child(path)
             
             let metadata = StorageMetadata()
@@ -2970,7 +3467,11 @@ public class FirebaseMessagingService: ObservableObject {
                 ],
                 "createdAt": FieldValue.serverTimestamp()
             ]
-            _ = try? await db.collection("fcmQueue").addDocument(data: queueDoc)
+            do {
+                try await db.collection("fcmQueue").addDocument(data: queueDoc)
+            } catch {
+                dlog("⚠️ FirebaseMessagingService: failed to enqueue FCM mention notification — \(error.localizedDescription)")
+            }
             dlog("📢 Mention notification queued for user \(userId)")
         }
     }
@@ -3313,6 +3814,19 @@ struct FirebaseMessage: Codable {
     // Retrying with the same key (and same doc ID) is a no-op on Firestore setData.
     var idempotencyKey: String?
 
+    // Feature 1: AMEN Reaction Capsules — stored as amenReactions.{label}: [uid]
+    // Decoded as-needed in toMessage() via raw doc data since dict-of-arrays is not
+    // directly Codable without custom coding keys.
+
+    // Feature 2: Inline Reply Thread metadata
+    var replyToMessageId: String?
+    var replyToText: String?
+    var replyToAuthorName: String?
+    var replyCount: Int?
+
+    // Feature 3: message type tag (e.g. "poll") — already stored as messageType
+    var messageType: String?
+
     init(
         id: String? = nil,
         conversationId: String,
@@ -3450,7 +3964,7 @@ struct FirebaseMessage: Codable {
             )
         }
         
-        return AppMessage(
+        let msg = AppMessage(
             id: id ?? UUID().uuidString,
             text: text,
             isFromCurrentUser: senderId == currentUserId,
@@ -3480,8 +3994,13 @@ struct FirebaseMessage: Codable {
             isSendFailed: isSendFailed ?? false,
             disappearAfter: disappearAfter,
             linkPreviews: [], // Will be loaded separately from URLs
-            mentionedUserIds: mentionedUserIds ?? []
+            mentionedUserIds: mentionedUserIds ?? [],
+            replyToMessageId: replyToMessageId,
+            replyToText: replyToText,
+            replyToAuthorName: replyToAuthorName,
+            replyCount: replyCount ?? 0
         )
+        return msg
     }
 }
 

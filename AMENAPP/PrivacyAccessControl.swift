@@ -72,7 +72,7 @@ enum ViewerRelationship: Equatable {
 final class PrivacyAccessControl: ObservableObject {
     static let shared = PrivacyAccessControl()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var cache: [String: CachedRelationship] = [:]
     private let cacheExpirySeconds: TimeInterval = 60
 
@@ -96,6 +96,10 @@ final class PrivacyAccessControl: ObservableObject {
                 }
             }
         }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Main API

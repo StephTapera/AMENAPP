@@ -34,7 +34,7 @@ struct PrayerToolkitView: View {
                     HStack(spacing: 8) {
                         ForEach(PrayerCategory.allCases, id: \.self) { category in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedCategory = category
                                 }
                             } label: {
@@ -60,7 +60,7 @@ struct PrayerToolkitView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Image(systemName: "hands.sparkles.fill")
-                                    .font(.system(size: 28))
+                                    .font(.systemScaled(28))
                                     .foregroundStyle(.purple)
                                     .symbolEffect(.pulse, options: .repeating.speed(0.5))
                                 
@@ -93,7 +93,7 @@ struct PrayerToolkitView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -188,7 +188,7 @@ struct FeaturedPrayerCard: View {
     
     private func startAutoScroll() {
         autoScrollTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
                 currentIndex = (currentIndex + 1) % prayerBanners.count
             }
         }
@@ -224,7 +224,7 @@ struct PrayerBannerContent: View {
                         )
                     
                     Image(systemName: banner.icon)
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(.white)
                         .symbolEffect(.pulse, options: .repeating)
                 }
@@ -255,7 +255,7 @@ struct PrayerBannerContent: View {
                     Text("Start Now")
                         .font(.custom("OpenSans-Bold", size: 14))
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.systemScaled(12, weight: .bold))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
@@ -331,7 +331,7 @@ struct PrayerToolCard: View {
     
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 isExpanded.toggle()
             }
         } label: {
@@ -343,7 +343,7 @@ struct PrayerToolCard: View {
                             .frame(width: 56, height: 56)
                         
                         Image(systemName: tool.icon)
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(tool.color)
                     }
                     
@@ -361,7 +361,7 @@ struct PrayerToolCard: View {
                     Spacer()
                     
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 
@@ -379,7 +379,7 @@ struct PrayerToolCard: View {
                                 ForEach(tool.features, id: \.self) { feature in
                                     HStack(spacing: 8) {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(tool.color)
                                         
                                         Text(feature)

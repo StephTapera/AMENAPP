@@ -13,50 +13,77 @@ struct PostCommentControlsSheet: View {
     @Binding var selectedPermission: CommentPermissionLevel
     @Environment(\.dismiss) var dismiss
     @State private var tempSelection: CommentPermissionLevel
-    
+
     init(selectedPermission: Binding<CommentPermissionLevel>) {
         self._selectedPermission = selectedPermission
         self._tempSelection = State(initialValue: selectedPermission.wrappedValue)
     }
-    
+
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    ForEach(CommentPermissionLevel.allCases, id: \.self) { level in
-                        Button {
-                            tempSelection = level
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(level.displayName)
-                                        .font(.custom("OpenSans-SemiBold", size: 16))
-                                        .foregroundStyle(.primary)
-                                    
-                                    Text(level.description)
-                                        .font(.custom("OpenSans-Regular", size: 13))
-                                        .foregroundStyle(.secondary)
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Section header
+                    Text("WHO CAN COMMENT")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    // Glass card
+                    VStack(spacing: 0) {
+                        ForEach(Array(CommentPermissionLevel.allCases.enumerated()), id: \.element) { index, level in
+                            Button {
+                                tempSelection = level
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(level.displayName)
+                                            .font(AMENFont.semiBold(16))
+                                            .foregroundStyle(.primary)
+
+                                        Text(level.description)
+                                            .font(AMENFont.regular(13))
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    if tempSelection == level {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(.blue)
+                                            .font(.systemScaled(20))
+                                    }
                                 }
-                                
-                                Spacer()
-                                
-                                if tempSelection == level {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.blue)
-                                        .font(.system(size: 20))
-                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+
+                            if index < CommentPermissionLevel.allCases.count - 1 {
+                                Divider().padding(.leading, 16)
                             }
                         }
-                        .buttonStyle(.plain)
                     }
-                } header: {
-                    Text("WHO CAN COMMENT")
-                        .font(.custom("OpenSans-Bold", size: 12))
-                } footer: {
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // Footer note
                     Text("You can change this for each post when you create it.")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Spacer(minLength: 32)
                 }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Comment Controls")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -65,13 +92,13 @@ struct PostCommentControlsSheet: View {
                         dismiss()
                     }
                 }
-                
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         selectedPermission = tempSelection
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
         }
@@ -97,11 +124,11 @@ extension CommentPermissionLevel {
 #Preview {
     struct PreviewWrapper: View {
         @State private var permission: CommentPermissionLevel = .everyone
-        
+
         var body: some View {
             PostCommentControlsSheet(selectedPermission: $permission)
         }
     }
-    
+
     return PreviewWrapper()
 }

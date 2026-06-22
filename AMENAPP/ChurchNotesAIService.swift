@@ -10,6 +10,7 @@ import SwiftUI
 import Combine
 import FirebaseAuth
 import Security
+@preconcurrency import UserNotifications
 
 @MainActor
 class ChurchNotesAIService: ObservableObject {
@@ -258,6 +259,223 @@ class ChurchNotesAIService: ObservableObject {
         return result
     }
     
+    // MARK: - Feature 10: Berean Summary + Follow-Up Prompts (Growth Loop)
+
+    /// Plain-language sermon summary via Claude.
+    func generateSermonSummary(note: ChurchNote) async throws -> String {
+        isProcessing = true
+        defer { isProcessing = false }
+
+        let scriptureContext = buildScriptureContext(for: note)
+        let prompt = """
+        Write a 2-3 paragraph plain-language summary of this sermon that a believer could read
+        back to themselves a few days later to remember what God said. Keep the tone warm and personal.
+        \(scriptureContext.isEmpty ? "" : "\n\(scriptureContext)")
+
+        Title: \(note.title)
+        \(note.sermonTitle.map { "Sermon: \($0)" } ?? "")
+        \(note.pastor.map { "Pastor: \($0)" } ?? "")
+
+        Notes:
+        \(note.content)
+        """
+
+        var result = ""
+        for try await chunk in openAIService.sendMessage(prompt) { result += chunk }
+        lastResult = result
+        return result
+    }
+
+    /// Returns an array of action steps the user should apply this week.
+    func extractActionSteps(note: ChurchNote) async throws -> [String] {
+        isProcessing = true
+        defer { isProcessing = false }
+
+        let prompt = """
+        Based on these sermon notes, identify 3-5 specific, practical action steps the believer
+        should take this week. Be concrete and personal. Return each step on its own line
+        starting with a number and period (e.g. "1. ").
+
+        Title: \(note.title)
+        Notes:
+        \(note.content)
+        """
+
+        var raw = ""
+        for try await chunk in openAIService.sendMessage(prompt) { raw += chunk }
+
+        let steps = raw.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { line -> String in
+                // Strip leading "1. " style prefixes
+                let stripped = line.replacingOccurrences(
+                    of: #"^\d+\.\s*"#,
+                    with: "",
+                    options: .regularExpression
+                )
+                return stripped
+            }
+        lastResult = steps.joined(separator: "\n")
+        return steps
+    }
+
+    /// Returns 3 reflection questions for personal journaling.
+    func generateReflectionPrompts(note: ChurchNote) async throws -> [String] {
+        isProcessing = true
+        defer { isProcessing = false }
+
+        let prompt = """
+        Generate exactly 3 deep reflection questions based on these sermon notes.
+        Each question should help the believer examine their heart, apply the message personally,
+        and grow in their walk with God.
+        Return each question on its own line, numbered 1-3.
+
+        Title: \(note.title)
+        Notes:
+        \(note.content)
+        """
+
+        var raw = ""
+        for try await chunk in openAIService.sendMessage(prompt) { raw += chunk }
+
+        let questions = raw.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { line in
+                line.replacingOccurrences(of: #"^\d+\.\s*"#, with: "", options: .regularExpression)
+            }
+        lastResult = questions.joined(separator: "\n")
+        return questions
+    }
+
+    /// Schedules three UNUserNotificationCenter follow-up reminders for a note:
+    ///  +24 h: "Reflect on [title]"
+    ///  +3 days: "Did you apply your action steps?"
+    ///  +7 days: "What changed this week?"
+    func scheduleGrowthLoop(for note: ChurchNote) {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized ||
+                  settings.authorizationStatus == .provisional else { return }
+
+            let noteId    = note.id ?? UUID().uuidString
+            let noteTitle = note.title
+
+            let schedule: [(identifier: String, delay: TimeInterval, body: String)] = [
+                (
+                    "growth_24h_\(noteId)",
+                    86400,
+                    "Reflect on \"\(noteTitle)\" — what stood out to you?"
+                ),
+                (
+                    "growth_3d_\(noteId)",
+                    259200,
+                    "Did you apply your action steps from \"\(noteTitle)\"?"
+                ),
+                (
+                    "growth_7d_\(noteId)",
+                    604800,
+                    "One week later — what changed after \"\(noteTitle)\"?"
+                )
+            ]
+
+            for entry in schedule {
+                let content = UNMutableNotificationContent()
+                content.title            = "AMEN · Growth Check-In"
+                content.body             = entry.body
+                content.sound            = .default
+                content.categoryIdentifier = "GROWTH_LOOP"
+
+                let trigger = UNTimeIntervalNotificationTrigger(
+                    timeInterval: entry.delay,
+                    repeats: false
+                )
+                let request = UNNotificationRequest(
+                    identifier: entry.identifier,
+                    content: content,
+                    trigger: trigger
+                )
+                center.add(request) { error in
+                    if let error {
+                        print("[GrowthLoop] Failed to schedule \(entry.identifier): \(error)")
+                    }
+                }
+            }
+        }
+    }
+
+    /// Returns the Christian holiday name if the given date falls within 3 days of a major holiday.
+    /// Returns nil if no holiday is near.
+    func generateHolidayTheme(for date: Date) -> String? {
+        let calendar  = Calendar.current
+        let year      = calendar.component(.year, from: date)
+
+        // Fixed holidays (month/day)
+        let fixedHolidays: [(month: Int, day: Int, name: String)] = [
+            (12, 25, "Christmas"),
+            (12, 24, "Christmas Eve"),
+            (1,  1,  "New Year — New Beginnings"),
+            (11, 1,  "All Saints Day"),
+            (2,  14, "Valentine's Day — God's Love"),
+            (7,  4,  "Independence Sunday")
+        ]
+
+        for h in fixedHolidays {
+            if let holiday = calendar.date(from: DateComponents(year: year, month: h.month, day: h.day)) {
+                let diff = abs(calendar.dateComponents([.day], from: holiday, to: date).day ?? 999)
+                if diff <= 3 { return h.name }
+            }
+        }
+
+        // Moveable feasts: calculate Easter (Gregorian algorithm)
+        if let easter = easterDate(year: year) {
+            let moveable: [(offset: Int, name: String)] = [
+                (-46, "Ash Wednesday"),
+                (-7,  "Palm Sunday"),
+                (-3,  "Maundy Thursday"),
+                (-2,  "Good Friday"),
+                (-1,  "Holy Saturday"),
+                (0,   "Easter Sunday"),
+                (39,  "Ascension Day"),
+                (49,  "Pentecost Sunday"),
+                (56,  "Trinity Sunday")
+            ]
+            for m in moveable {
+                if let holiday = calendar.date(byAdding: .day, value: m.offset, to: easter) {
+                    let diff = abs(calendar.dateComponents([.day], from: holiday, to: date).day ?? 999)
+                    if diff <= 3 { return m.name }
+                }
+            }
+        }
+
+        return nil
+    }
+
+    /// Anonymous Gregorian Easter calculation (valid 1900–2099).
+    private func easterDate(year: Int) -> Date? {
+        let a = year % 19
+        let b = year / 100
+        let c = year % 100
+        let d = b / 4
+        let e = b % 4
+        let f = (b + 8) / 25
+        let g = (b - f + 1) / 3
+        let h = (19 * a + b - d - g + 15) % 30
+        let i = c / 4
+        let k = c % 4
+        let l = (32 + 2 * e + 2 * i - h - k) % 7
+        let m = (a + 11 * h + 22 * l) / 451
+        let month = (h + l - 7 * m + 114) / 31
+        let day   = ((h + l - 7 * m + 114) % 31) + 1
+
+        var comps        = DateComponents()
+        comps.year       = year
+        comps.month      = month
+        comps.day        = day
+        return Calendar.current.date(from: comps)
+    }
+
     /// Find supporting scripture verses for a topic
     func findSupportingScriptures(topic: String, userId: String) async throws -> String {
         try checkRateLimit(userId: userId)
@@ -349,7 +567,7 @@ struct ChurchNoteAIAssistantView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color(red: 0.96, green: 0.96, blue: 0.96)
                     .ignoresSafeArea()
@@ -390,8 +608,8 @@ struct ChurchNoteAIAssistantView: View {
         ScrollView {
             VStack(spacing: 16) {
                 Text("What would you like help with?")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(20, weight: .semibold))
+                    .foregroundStyle(.primary)
                     .padding(.top, 24)
                 
                 VStack(spacing: 12) {
@@ -412,17 +630,17 @@ struct ChurchNoteAIAssistantView: View {
                     Button { showUpgradeSheet = true } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Unlock AI Church Notes")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                 Text("Summarize sermons, create prayers & more with Berean Pro")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .foregroundStyle(.primary)
@@ -449,9 +667,9 @@ struct ChurchNoteAIAssistantView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                             Text("Back")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                         }
                         .foregroundStyle(.black.opacity(0.7))
                     }
@@ -465,9 +683,9 @@ struct ChurchNoteAIAssistantView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "doc.on.doc")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                             Text("Copy")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
@@ -480,10 +698,10 @@ struct ChurchNoteAIAssistantView: View {
                 .padding(.top, 20)
                 
                 Text(text)
-                    .font(.system(size: 16))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(16))
+                    .foregroundStyle(.primary)
                     .padding(20)
-                    .background(Color.white)
+                    .background(Color(.secondarySystemBackground))
                     .cornerRadius(12)
                     .padding(.horizontal, 20)
             }
@@ -556,7 +774,7 @@ struct AIFeatureButton: View {
             HStack(spacing: 16) {
                 ZStack {
                     Image(systemName: feature.icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(isLocked ? Color(uiColor: .tertiaryLabel) : .blue)
                         .frame(width: 40)
                 }
@@ -564,17 +782,17 @@ struct AIFeatureButton: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text(feature.rawValue)
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(isLocked ? Color(uiColor: .secondaryLabel) : Color(uiColor: .label))
                         if isLocked {
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                         }
                     }
 
                     Text(isLocked ? "Requires Berean Pro" : feature.description)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(uiColor: .secondaryLabel))
                 }
 
@@ -585,11 +803,11 @@ struct AIFeatureButton: View {
                         .tint(Color(uiColor: .label))
                 } else if isLocked {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 } else {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 }
             }

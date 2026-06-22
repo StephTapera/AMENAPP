@@ -152,7 +152,7 @@ struct MemeGeneratorView: View {
                         .overlay(
                             VStack(spacing: 8) {
                                 Image(systemName: "photo.badge.plus")
-                                    .font(.system(size: 50))
+                                    .font(.systemScaled(50))
                                     .foregroundStyle(.secondary)
                                 Text("Select a template or upload an image")
                                     .font(.caption)
@@ -184,7 +184,7 @@ struct MemeGeneratorView: View {
     
     private func memeText(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: fontSize, weight: .black))
+            .font(.systemScaled(fontSize, weight: .black))
             .foregroundStyle(textColor)
             .multilineTextAlignment(.center)
             .shadow(color: textOutlineColor, radius: 2, x: -2, y: -2)
@@ -275,7 +275,7 @@ struct MemeGeneratorView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(MemeTemplate.faithMemes) { template in
-                        TemplateCard(template: template, isSelected: selectedTemplate?.id == template.id) {
+                        MemeTemplateCard(template: template, isSelected: selectedTemplate?.id == template.id) {
                             selectTemplate(template)
                         }
                     }
@@ -465,7 +465,7 @@ struct MemeGeneratorView: View {
 
 // MARK: - Template Card
 
-struct TemplateCard: View {
+struct MemeTemplateCard: View {
     let template: MemeTemplate
     let isSelected: Bool
     let action: () -> Void
@@ -480,7 +480,7 @@ struct TemplateCard: View {
                     .cornerRadius(8)
                     .overlay(
                         Text("📸")
-                            .font(.system(size: 40))
+                            .font(.systemScaled(40))
                     )
                 
                 Text(template.name)

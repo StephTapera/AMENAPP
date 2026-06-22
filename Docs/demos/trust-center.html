@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trust Center Settings Demo</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --amen-ink: #142019;
+      --amen-muted: #59665f;
+      --amen-soft: #eef3ef;
+      --amen-line: rgba(63, 82, 70, .18);
+      --amen-green: #2f7d58;
+      --amen-gold: #a66f1f;
+      --amen-rust: #a43f2f;
+      --amen-blue: #326d8d;
+      --glass-fill: rgba(255, 255, 255, .72);
+      --glass-strong: rgba(255, 255, 255, .9);
+      --glass-edge: rgba(255, 255, 255, .92);
+      --glass-shadow: 0 22px 60px rgba(37, 51, 42, .12);
+      --radius: 18px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 8% 8%, rgba(220, 237, 228, .95), transparent 28rem),
+        radial-gradient(circle at 92% 0%, rgba(247, 228, 191, .72), transparent 24rem),
+        linear-gradient(135deg, #f8faf7 0%, #edf4ef 46%, #f9f6ed 100%);
+      color: var(--amen-ink);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    main {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(320px, .92fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      margin: 8px 0 18px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(32px, 4vw, 54px);
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      font-size: 20px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      font-size: 15px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    p {
+      color: var(--amen-muted);
+      line-height: 1.5;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      font: inherit;
+      color: inherit;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: max-content;
+      padding: 7px 10px;
+      border: 1px solid var(--amen-line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .6);
+      color: #3f5e4c;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      backdrop-filter: blur(18px) saturate(1.2);
+    }
+
+    .status-pill,
+    .flag-pill,
+    .verdict {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 32px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--amen-line);
+      background: rgba(255, 255, 255, .64);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .status-pill::before,
+    .flag-pill::before,
+    .verdict::before,
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 14%, transparent);
+    }
+
+    .status-pill {
+      color: var(--amen-green);
+    }
+
+    .flag-pill {
+      color: #66706a;
+      background: rgba(255, 255, 255, .48);
+    }
+
+    .verdict.safe {
+      color: var(--amen-green);
+    }
+
+    .verdict.caution {
+      color: var(--amen-gold);
+    }
+
+    .verdict.blocked {
+      color: var(--amen-rust);
+    }
+
+    .card,
+    .panel {
+      border: 1px solid var(--glass-edge);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(140deg, rgba(255, 255, 255, .86), rgba(255, 255, 255, .58)),
+        var(--glass-fill);
+      box-shadow: var(--glass-shadow);
+      backdrop-filter: blur(28px) saturate(1.22);
+    }
+
+    .card {
+      padding: 20px;
+    }
+
+    .panel {
+      padding: 18px;
+    }
+
+    .hero-card {
+      display: grid;
+      gap: 18px;
+      min-height: 314px;
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 16px;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      min-height: 96px;
+      padding: 14px;
+      border: 1px solid var(--amen-line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .54);
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 24px;
+      line-height: 1;
+      margin-bottom: 8px;
+      letter-spacing: 0;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--amen-muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .posture-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .posture-button {
+      min-height: 78px;
+      padding: 12px 10px;
+      border: 1px solid var(--amen-line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .58);
+      text-align: left;
+      cursor: pointer;
+      transition: transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+
+    .posture-button:hover,
+    .posture-button:focus-visible {
+      transform: translateY(-1px);
+      border-color: rgba(47, 125, 88, .46);
+      outline: none;
+    }
+
+    .posture-button[aria-pressed="true"] {
+      background: rgba(230, 243, 235, .94);
+      border-color: rgba(47, 125, 88, .54);
+      box-shadow: inset 0 0 0 1px rgba(47, 125, 88, .16);
+    }
+
+    .posture-button span {
+      display: block;
+      margin-top: 7px;
+      color: var(--amen-muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .section-stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 0;
+      border-top: 1px solid var(--amen-line);
+    }
+
+    .row:first-of-type {
+      border-top: 0;
+      padding-top: 2px;
+    }
+
+    .row-title {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .row-title p {
+      font-size: 13px;
+    }
+
+    .action {
+      flex: 0 0 auto;
+      min-height: 38px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--amen-line);
+      background: rgba(255, 255, 255, .7);
+      color: #2f5a46;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .action[disabled] {
+      cursor: not-allowed;
+      color: #7a817d;
+      background: rgba(255, 255, 255, .42);
+    }
+
+    .audit-list {
+      display: grid;
+      gap: 9px;
+      margin-top: 12px;
+    }
+
+    .audit-entry {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--amen-line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .52);
+    }
+
+    .audit-entry small {
+      display: block;
+      margin-top: 4px;
+      color: var(--amen-muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .send-safely {
+      display: grid;
+      gap: 12px;
+      border-color: rgba(50, 109, 141, .22);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, .84), rgba(235, 246, 250, .66)),
+        var(--glass-fill);
+    }
+
+    .hint-box {
+      display: grid;
+      gap: 7px;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(50, 109, 141, .18);
+      background: rgba(255, 255, 255, .58);
+    }
+
+    .flags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .footnote {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #68746c;
+    }
+
+    @media (max-width: 860px) {
+      body {
+        padding: 16px;
+      }
+
+      header,
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        display: grid;
+        align-items: start;
+      }
+
+      .status-grid,
+      .posture-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <div class="eyebrow">Trust Center demo</div>
+        <h1>Trust &amp; Safety Status</h1>
+      </div>
+      <div class="status-pill" aria-label="Trust Center UI feature flag is off by default">ff.trustCenter.ui OFF</div>
+    </header>
+
+    <div class="shell">
+      <section class="section-stack" aria-label="Trust Center controls">
+        <article class="card hero-card" aria-labelledby="status-title">
+          <div class="hero-top">
+            <div>
+              <h2 id="status-title">Current posture: <span id="current-posture">Grace</span></h2>
+              <p id="posture-summary">Baseline safety posture using existing moderation and constitutional guard layers.</p>
+            </div>
+            <span id="current-verdict" class="verdict safe">safe</span>
+          </div>
+
+          <div class="status-grid" aria-label="Posture status summary">
+            <div class="metric">
+              <strong id="mode-count">5</strong>
+              <span>Contracted posture modes: Grace, Family, Youth, Leader, Custom.</span>
+            </div>
+            <div class="metric">
+              <strong>0</strong>
+              <span>Trust Center feature flags enabled in this demo state.</span>
+            </div>
+            <div class="metric">
+              <strong>3</strong>
+              <span>Status levels rendered: safe, caution, blocked.</span>
+            </div>
+          </div>
+
+          <div>
+            <h2>Posture selector</h2>
+            <div class="posture-grid" role="group" aria-label="Choose a posture">
+              <button class="posture-button" type="button" aria-pressed="true" data-mode="Grace" data-level="safe" data-copy="Baseline safety posture using existing moderation and constitutional guard layers.">
+                <strong>Grace</strong>
+                <span>Baseline safeguards</span>
+              </button>
+              <button class="posture-button" type="button" aria-pressed="false" data-mode="Family" data-level="caution" data-copy="Adds family-adjacent DM safety checks and Aegis C59 recipient resource visibility.">
+                <strong>Family</strong>
+                <span>Resources and DM care</span>
+              </button>
+              <button class="posture-button" type="button" aria-pressed="false" data-mode="Youth" data-level="caution" data-copy="Minor defaults only: private preset and mutual-follows DM policy. Age assurance remains server owned.">
+                <strong>Youth</strong>
+                <span>Minor defaults only</span>
+              </button>
+              <button class="posture-button" type="button" aria-pressed="false" data-mode="Leader" data-level="caution" data-copy="Review, appeal, and escalation visibility for moderator or community-leader workflows.">
+                <strong>Leader</strong>
+                <span>Review visibility</span>
+              </button>
+              <button class="posture-button" type="button" aria-pressed="false" data-mode="Custom" data-level="blocked" data-copy="Custom posture schema is not ready; guard surfaces, minor protections, and server rules cannot be bypassed.">
+                <strong>Custom</strong>
+                <span>Schema pending</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel send-safely" aria-labelledby="send-title">
+          <div class="row">
+            <div class="row-title">
+              <h2 id="send-title">Send Safely</h2>
+              <p>Available as a future check-before-submit surface using existing moderation verdicts.</p>
+            </div>
+            <span class="flag-pill">ff.trustCenter.sendSafely OFF</span>
+          </div>
+          <div class="hint-box">
+            <h3>Surface hint</h3>
+            <p>When enabled, this area can show allow, caution, or blocked delivery status from existing safety layers before a message or post is sent.</p>
+          </div>
+        </article>
+      </section>
+
+      <aside class="section-stack" aria-label="Audit and flags">
+        <article class="panel" aria-labelledby="audit-title">
+          <div class="row">
+            <div class="row-title">
+              <h2 id="audit-title">Audit log</h2>
+              <p>Entry point for future on-device encrypted transparency records.</p>
+            </div>
+            <button class="action" type="button" disabled>Open</button>
+          </div>
+          <div class="audit-list" aria-label="Example audit rows">
+            <div class="audit-entry">
+              <div>
+                <h3>Message safety check</h3>
+                <small>category: heated_language · action: show_suggestion · reversible: yes</small>
+              </div>
+              <span class="verdict caution">caution</span>
+            </div>
+            <div class="audit-entry">
+              <div>
+                <h3>Profile update</h3>
+                <small>category: safe · action: allow · reversible: no action needed</small>
+              </div>
+              <span class="verdict safe">safe</span>
+            </div>
+            <div class="audit-entry">
+              <div>
+                <h3>Policy restriction</h3>
+                <small>category: scam_financial_fraud · action: hold_review · appealable: yes</small>
+              </div>
+              <span class="verdict blocked">blocked</span>
+            </div>
+          </div>
+          <div class="flags" aria-label="Audit flags">
+            <span class="flag-pill">ff.trustCenter.auditLog OFF</span>
+            <span class="flag-pill">content_audit_log_enabled OFF</span>
+          </div>
+        </article>
+
+        <article class="panel" aria-labelledby="flags-title">
+          <h2 id="flags-title">Flag registry preview</h2>
+          <p>All Trust Center flags are displayed in their contract default state.</p>
+          <div class="flags">
+            <span class="flag-pill">ff.trustCenter.modes OFF</span>
+            <span class="flag-pill">ff.trustCenter.auditLog OFF</span>
+            <span class="flag-pill">ff.trustCenter.sendSafely OFF</span>
+            <span class="flag-pill">ff.trustCenter.ui OFF</span>
+            <span class="flag-pill">ff.safety.escalationV2 OFF</span>
+          </div>
+        </article>
+
+        <article class="panel" aria-labelledby="bounds-title">
+          <h2 id="bounds-title">Demo boundaries</h2>
+          <p>This screen shows posture and status only. It does not expose a Trust Score, promise screenshot or forwarding prevention, identify deepfakes, or use Youth posture as a COPPA gate.</p>
+        </article>
+      </aside>
+    </div>
+
+    <p class="footnote">Static HTML demo for Wave 1 Lane B. No SwiftUI or app source is represented here.</p>
+  </main>
+
+  <script>
+    const buttons = Array.from(document.querySelectorAll(".posture-button"));
+    const postureName = document.getElementById("current-posture");
+    const postureSummary = document.getElementById("posture-summary");
+    const verdict = document.getElementById("current-verdict");
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        buttons.forEach((item) => item.setAttribute("aria-pressed", "false"));
+        button.setAttribute("aria-pressed", "true");
+        postureName.textContent = button.dataset.mode;
+        postureSummary.textContent = button.dataset.copy;
+        verdict.textContent = button.dataset.level;
+        verdict.className = `verdict ${button.dataset.level}`;
+      });
+    });
+  </script>
+</body>
+</html>

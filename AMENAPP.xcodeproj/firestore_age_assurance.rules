@@ -1,0 +1,100 @@
+// Firestore Security Rules for Age Assurance System
+// Add these rules to your existing firestore.rules file
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================================
+    // AGE ASSURANCE RULES
+    // ============================================================
+    
+    // Age assurance profiles (private subcollection)
+    match /users/{userId}/private/age_assurance {
+      // Only the user or admin can read their age profile
+      allow read: if request.auth.uid == userId || hasAdminClaim();
+      
+      // Users can create their age profile once (during sign-up)
+      // Prevent duplicate creation
+      allow create: if request.auth.uid == userId
+                    && !exists(/databases/$(database)/documents/users/$(userId)/private/age_assurance)
+                    && validateAgeProfile(request.resource.data);
+      
+      // Users cannot update their own age profile directly
+      // Only server-side Cloud Functions can update (via Admin SDK)
+      // This prevents users from self-promoting to adult tier
+      allow update: if false;
+      
+      // Nobody can delete age profiles
+      allow delete: if false;
+    }
+    
+    // Age verification events (audit trail)
+    match /age_verification_events/{eventId} {
+      // Only admins can read verification events
+      allow read: if hasAdminClaim();
+      
+      // Server-side writes only (via Admin SDK)
+      allow write: if false;
+    }
+    
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+    
+    // Check if user has admin claim
+    function hasAdminClaim() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+    
+    // Validate age profile data structure
+    function validateAgeProfile(data) {
+      let requiredFields = ['dateOfBirth', 'tier', 'verificationStatus', 
+                           'verificationMethods', 'lastVerified', 'aiRiskScore',
+                           'verificationAttempts', 'countryCode', 
+                           'parentalSupervisionEnabled', 'createdAt', 'updatedAt'];
+      
+      let hasAllFields = requiredFields.toSet().difference(data.keys().toSet()).size() == 0;
+      
+      let validTier = data.tier in ['under_minimum', 'teen', 'adult'];
+      let validStatus = data.verificationStatus in ['declared', 'verified', 'pending', 'failed', 'flagged'];
+      let validRiskScore = data.aiRiskScore >= 0.0 && data.aiRiskScore <= 1.0;
+      let validAttempts = data.verificationAttempts >= 0;
+      
+      return hasAllFields 
+             && validTier 
+             && validStatus 
+             && validRiskScore 
+             && validAttempts
+             && data.dateOfBirth is timestamp
+             && data.createdAt is timestamp
+             && data.updatedAt is timestamp;
+    }
+    
+    // ============================================================
+    // EXAMPLE: FEATURE GATING FOR AGE-RESTRICTED CONTENT
+    // ============================================================
+    
+    // Example: Direct messages require adult tier (18+)
+    // Add this to your existing messages rules
+    match /conversations/{conversationId} {
+      // ... existing rules ...
+      
+      // Require adult tier to create or participate in DMs
+      allow create, update: if request.auth != null 
+                            && isAdultTier(request.auth.uid);
+    }
+    
+    // Helper: Check if user is adult tier
+    function isAdultTier(userId) {
+      let ageProfile = get(/databases/$(database)/documents/users/$(userId)/private/age_assurance).data;
+      return ageProfile.tier == 'adult';
+    }
+    
+    // Helper: Check if user is at least teen tier (13+)
+    function isTeenOrAdult(userId) {
+      let ageProfile = get(/databases/$(database)/documents/users/$(userId)/private/age_assurance).data;
+      return ageProfile.tier in ['teen', 'adult'];
+    }
+  }
+}

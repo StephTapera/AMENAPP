@@ -46,7 +46,7 @@ struct StudioInquiryView: View {
                                 ZStack(alignment: .topLeading) {
                                     if message.isEmpty {
                                         Text(messagePlaceholder)
-                                            .font(.system(size: 15))
+                                            .font(.systemScaled(15))
                                             .foregroundStyle(.tertiary)
                                             .padding(12)
                                     }
@@ -101,7 +101,7 @@ struct StudioInquiryView: View {
             if !creatorName.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "person.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                     Text("To: \(creatorName)")
                         .font(.custom("OpenSans-SemiBold", size: 15))
@@ -110,7 +110,7 @@ struct StudioInquiryView: View {
             if let title = relatedItemTitle {
                 HStack(spacing: 8) {
                     Image(systemName: "link")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                     Text("Re: \(title)")
                         .font(.custom("OpenSans-Regular", size: 14))
@@ -130,14 +130,14 @@ struct StudioInquiryView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
                 Text("Safe & Moderated")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
             }
             Text("Your message is reviewed for safety. Never share payment info, personal data, or off-platform links in an initial inquiry.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
         .padding(14)
@@ -173,7 +173,7 @@ struct StudioInquiryView: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "envelope.badge.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.90))
 
             Text("Inquiry Sent")
@@ -282,7 +282,7 @@ struct StudioBookingView: View {
                             .overlay(alignment: .topLeading) {
                                 if description.isEmpty {
                                     Text("Describe the event, audience, and what you need...")
-                                        .font(.system(size: 15))
+                                        .font(.systemScaled(15))
                                         .foregroundStyle(.tertiary)
                                         .padding(5)
                                         .allowsHitTesting(false)
@@ -309,7 +309,7 @@ struct StudioBookingView: View {
                             .overlay(alignment: .topLeading) {
                                 if expectations.isEmpty {
                                     Text("What outcome are you hoping for?")
-                                        .font(.system(size: 15))
+                                        .font(.systemScaled(15))
                                         .foregroundStyle(.tertiary)
                                         .padding(5)
                                         .allowsHitTesting(false)
@@ -320,10 +320,10 @@ struct StudioBookingView: View {
                     Section {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("No commitment required")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
                             Text("Submitting this request doesn't create a contract. The creator will review your request and respond to confirm or discuss details.")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -347,7 +347,7 @@ struct StudioBookingView: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "calendar.badge.checkmark")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
             Text("Booking Request Sent")
                 .font(.custom("OpenSans-Bold", size: 22))
@@ -435,7 +435,7 @@ struct StudioInboxView: View {
     private var emptyInboxState: some View {
         VStack(spacing: 16) {
             Image(systemName: "tray.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
             Text("No inquiries yet")
                 .font(.custom("OpenSans-SemiBold", size: 18))
@@ -459,7 +459,7 @@ struct StudioInboxRow: View {
                     .fill(Color(red: 0.15, green: 0.45, blue: 0.90).opacity(0.15))
                     .frame(width: 44, height: 44)
                 Image(systemName: thread.threadType == .booking ? "calendar.fill" : "envelope.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.90))
             }
 
@@ -469,7 +469,7 @@ struct StudioInboxRow: View {
                         .font(.custom("OpenSans-SemiBold", size: 14))
                     Spacer()
                     Text(thread.lastMessageAt.formatted(date: .abbreviated, time: .omitted))
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
                 Text(thread.subject)
@@ -477,7 +477,7 @@ struct StudioInboxRow: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 Text(thread.lastMessage)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

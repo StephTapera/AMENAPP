@@ -8,6 +8,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Message Requests Extension
 
@@ -353,20 +354,31 @@ extension FirebaseMessagingService {
         dlog("✅ User blocked: \(userId)")
     }
     
-    /// Unblock a user
+    /// Unblock a user.
+    ///
+    /// Deletes the block record so new messages can flow through again,
+    /// but intentionally leaves existing conversations marked hiddenFor
+    /// the current user so old message history does not reappear.
+    /// Users can manually open a new conversation to start fresh.
     func unblockUser(userId: String) async throws {
         guard isAuthenticated else {
             throw FirebaseMessagingError.notAuthenticated
         }
-        
+
+        let batch = db.batch()
+
+        // Remove the block record
         let blockRef = db.collection("users")
             .document(currentUserId)
             .collection("blockedUsers")
             .document(userId)
-        
-        try await blockRef.delete()
-        
-        dlog("✅ User unblocked: \(userId)")
+        batch.deleteDocument(blockRef)
+
+        // Intentionally do NOT remove hiddenFor on existing conversations.
+        // Previous messages stay archived; only new conversations will be visible.
+
+        try await batch.commit()
+        dlog("✅ User unblocked: \(userId) — existing message history remains archived")
     }
     
     /// Check if a user is blocked by current user
@@ -444,10 +456,7 @@ extension FirebaseMessagingService {
             throw FirebaseMessagingError.notAuthenticated
         }
         
-        let reportRef = db.collection("reports").document()
-        
         let report: [String: Any] = [
-            "id": reportRef.documentID,
             "reporterId": currentUserId,
             "reportedUserId": userId,
             "reason": reason,
@@ -456,7 +465,9 @@ extension FirebaseMessagingService {
             "createdAt": Timestamp(date: Date())
         ]
         
-        try await reportRef.setData(report)
+        _ = try await Functions.functions()
+            .httpsCallable("submitTrustSafetyReport")
+            .call(report)
         
         // Auto-block if spam report (optional)
         if reason.lowercased().contains("spam") {
@@ -570,4 +581,3 @@ struct BlockedUserInfo: Identifiable, Codable {
     let avatarUrl: String?
     let blockedAt: Date
 }
-

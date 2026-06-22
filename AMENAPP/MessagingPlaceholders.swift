@@ -324,7 +324,7 @@ struct CreateGroupView: View {
             Spacer()
             
             Image(systemName: "person.3.fill")
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(.secondary)
             
             VStack(spacing: 8) {
@@ -348,7 +348,7 @@ struct CreateGroupView: View {
             Spacer()
             
             Image(systemName: "person.crop.circle.badge.questionmark")
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(.secondary)
             
             Text("No users found")
@@ -537,7 +537,7 @@ private struct SearchTextField: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.secondary)
             
             TextField("Search people to add", text: createBinding())
@@ -552,7 +552,7 @@ private struct SearchTextField: View {
             if !text.isEmpty {
                 Button(action: onClear) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.secondary)
                 }
                 .accessibilityIdentifier("CreateGroup_ClearSearchButton")
@@ -626,7 +626,7 @@ struct SelectedUserChip: View {
                 
                 Button(action: onRemove) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.white)
                         .background(
                             Circle()
@@ -706,7 +706,7 @@ struct GroupMemberRow: View {
                         .frame(width: 24, height: 24)
                     
                     Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.systemScaled(12, weight: .bold))
                         .foregroundStyle(.white)
                 }
             }

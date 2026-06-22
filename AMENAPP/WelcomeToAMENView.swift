@@ -284,7 +284,7 @@ struct WelcomePackageView: View {
                     .accessibilityLabel("Welcome Package")
 
                 Text("Verses · Guidance · Safety")
-                    .font(.system(size: 8, weight: .medium))
+                    .font(.systemScaled(8, weight: .medium))
                     .foregroundStyle(.white.opacity(0.35))
                     .tracking(0.8)
                     .textCase(.uppercase)
@@ -303,7 +303,7 @@ struct WelcomePackageView: View {
                     .accessibilityLabel("Ready")
 
                 Text("Tap to Enter")
-                    .font(.system(size: 8, weight: .medium))
+                    .font(.systemScaled(8, weight: .medium))
                     .foregroundStyle(.white.opacity(0.35))
                     .tracking(0.8)
                     .textCase(.uppercase)
@@ -389,7 +389,7 @@ struct WelcomePackageView: View {
                     Text("Enter AMEN")
                         .font(.custom("OpenSans-Bold", size: 16))
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
@@ -431,7 +431,7 @@ struct WelcomePackageView: View {
         withAnimation(.easeOut(duration: 0.30)) {
             heroOpacity = 1.0
         }
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.88)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.88))) {
             heroScale = 1.0
         }
 
@@ -446,25 +446,25 @@ struct WelcomePackageView: View {
         }
 
         // Header
-        withAnimation(.spring(response: 0.40, dampingFraction: 0.80).delay(0.15)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.40, dampingFraction: 0.80)).delay(0.15)) {
             headerOpacity = 1.0
             headerOffset = 0
         }
 
         // Side labels
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.78).delay(0.28)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.78)).delay(0.28)) {
             labelsOpacity = 1.0
             labelsOffset = 0
         }
 
         // Cards
-        withAnimation(.spring(response: 0.50, dampingFraction: 0.80).delay(0.42)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.50, dampingFraction: 0.80)).delay(0.42)) {
             cardsOpacity = 1.0
             cardsOffset = 0
         }
 
         // CTA
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.78).delay(0.60)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.78)).delay(0.60)) {
             ctaOpacity = 1.0
             ctaScale = 1.0
         }
@@ -637,7 +637,7 @@ private struct PrivacySummarySheet: View {
                                 WPGlassCard(breath: 1.0) {
                                     HStack(alignment: .top, spacing: 14) {
                                         Image(systemName: icon)
-                                            .font(.system(size: 20))
+                                            .font(.systemScaled(20))
                                             .foregroundStyle(.blue.opacity(0.85))
                                             .frame(width: 28)
                                         VStack(alignment: .leading, spacing: 5) {

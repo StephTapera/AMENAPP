@@ -81,12 +81,12 @@ struct PostInteractionsDebugView: View {
             HStack(spacing: 8) {
                 ForEach(DebugTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.3)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                             selectedTab = tab
                         }
                     } label: {
                         Text(tab.rawValue)
-                            .font(.system(size: 14, weight: selectedTab == tab ? .bold : .regular))
+                            .font(.systemScaled(14, weight: selectedTab == tab ? .bold : .regular))
                             .foregroundColor(selectedTab == tab ? .white : .primary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)

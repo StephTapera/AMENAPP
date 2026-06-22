@@ -68,7 +68,7 @@ struct CrisisResourcesDetailView: View {
                             isExpanded: expandedSection == section,
                             content: { sectionContent(for: section) }
                         ) {
-                            withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.75))) {
                                 expandedSection = expandedSection == section ? nil : section
                             }
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -80,24 +80,21 @@ struct CrisisResourcesDetailView: View {
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 16)
 
-                // ── Berean private chat ───────────────────────────────────────
-                bereanPrivateCard
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                    .opacity(appeared ? 1 : 0)
-
                 // ── Bottom safety message ─────────────────────────────────────
+                // INVARIANT: No AI chat in crisis sheet — human resources only.
+                // The bereanPrivateCard was removed from this view (C-15 fix).
+                // In a crisis context the app must surface 988, Crisis Text Line,
+                // and real human services — never route the user to an AI chatbot.
                 safetyFooter
                     .padding(.top, 24)
-                    .padding(.bottom, 48)
+                    .padding(.bottom, 220)
                     .opacity(appeared ? 1 : 0)
             }
         }
-        .ignoresSafeArea(edges: .top)
+        .background(Color(.systemBackground))
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(false)
-        .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear {
             withAnimation(.easeOut(duration: 0.55).delay(0.08)) {
                 appeared = true
@@ -123,83 +120,43 @@ struct CrisisResourcesDetailView: View {
 
     // MARK: Hero Header
 
-    // Crisis-unique color palette — deep burgundy warmth, not used elsewhere in the app
-    private let crisisDark    = Color(red: 0.18, green: 0.07, blue: 0.10)   // deep burgundy-black
-    private let crisisMid     = Color(red: 0.42, green: 0.12, blue: 0.22)   // rich crimson
-    private let crisisAccent  = Color(red: 0.72, green: 0.28, blue: 0.32)   // warm rose
-    private let crisisGold    = Color(red: 0.88, green: 0.72, blue: 0.48)   // harvest gold
-    private let crisisInkLight = Color.white.opacity(0.92)
-    private let crisisSubLight = Color.white.opacity(0.60)
+    private let crisisAccent  = Color(red: 0.72, green: 0.28, blue: 0.32)
+    private let crisisGold    = Color(red: 0.88, green: 0.72, blue: 0.48)
+    private let crisisInkLight = Color(.label)
+    private let crisisSubLight = Color(.secondaryLabel)
 
     private var heroHeader: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .bottomLeading) {
-                // Base — deep burgundy gradient
-                LinearGradient(
-                    colors: [crisisDark, crisisMid],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+        VStack(alignment: .leading, spacing: 8) {
+            Text("CRISIS HELP & SUPPORT")
+                .font(.systemScaled(9, weight: .semibold))
+                .kerning(2.5)
+                .foregroundStyle(crisisSubLight)
 
-                // Warm radial bloom from top-right
-                RadialGradient(
-                    colors: [crisisAccent.opacity(0.35), Color.clear],
-                    center: UnitPoint(x: 0.82, y: 0.15),
-                    startRadius: 20,
-                    endRadius: 280
-                )
+            Text("You are\nnot alone.")
+                .font(.custom("Georgia", size: 36))
+                .fontWeight(.regular)
+                .foregroundStyle(crisisInkLight)
+                .lineLimit(2)
+                .minimumScaleFactor(0.88)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(3)
 
-                // Gold accent — bottom-left warmth
-                RadialGradient(
-                    colors: [crisisGold.opacity(0.18), Color.clear],
-                    center: UnitPoint(x: 0.05, y: 0.95),
-                    startRadius: 0,
-                    endRadius: 200
-                )
-
-                // Subtle grain texture — horizontal editorial lines
-                VStack(spacing: 28) {
-                    ForEach(0..<6, id: \.self) { _ in
-                        Rectangle()
-                            .fill(Color.white.opacity(0.03))
-                            .frame(height: 1)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-
-                // Content — sits above safe area bottom
-                VStack(alignment: .leading, spacing: 0) {
-                    Spacer()
-
-                    // Eyebrow label
-                    Text("CRISIS HELP & SUPPORT")
-                        .font(.system(size: 9, weight: .semibold))
-                        .kerning(2.5)
-                        .foregroundStyle(crisisSubLight)
-                        .padding(.bottom, 10)
-
-                    // Large serif headline
-                    Text("You are\nnot alone.")
-                        .font(.custom("Georgia", size: 38))
-                        .fontWeight(.regular)
-                        .foregroundStyle(crisisInkLight)
-                        .lineSpacing(4)
-                        .padding(.bottom, 10)
-
-                    // Subtitle
-                    Text("Confidential help is here, 24/7.")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundStyle(crisisSubLight)
-                        .padding(.bottom, 28)
-                }
-                .padding(.horizontal, 24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
+            Text("Confidential human help is here, 24/7.")
+                .font(.systemScaled(14, weight: .regular))
+                .foregroundStyle(crisisSubLight)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 300)
-        .ignoresSafeArea(edges: .top)
+        .padding(.horizontal, 24)
+        .padding(.top, 18)
+        .padding(.bottom, 22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 178, alignment: .bottomLeading)
+        .background(Color(.systemBackground))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(.separator).opacity(0.14))
+                .frame(height: 1)
+        }
         .opacity(appeared ? 1 : 0)
     }
 
@@ -211,26 +168,28 @@ struct CrisisResourcesDetailView: View {
             Button { dial("911") } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
+                        .foregroundStyle(crisisAccent)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Immediate danger — call 911")
                             .font(.custom("OpenSans-Bold", size: 15))
+                            .foregroundStyle(.primary)
                         Text("Emergency services in the US")
                             .font(.custom("OpenSans-Regular", size: 12))
-                            .opacity(0.8)
+                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                     Image(systemName: "phone.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
+                        .foregroundStyle(crisisAccent)
                 }
-                .foregroundStyle(.white)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(red: 0.72, green: 0.12, blue: 0.12))
-                        .shadow(color: Color(red: 0.72, green: 0.12, blue: 0.12).opacity(0.28), radius: 10, y: 4)
-                )
+                .amenGlassCard(cornerRadius: 16, shadow: true)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(crisisAccent.opacity(0.30), lineWidth: 1)
+                }
             }
             .buttonStyle(SquishButtonStyle())
 
@@ -320,14 +279,7 @@ struct CrisisResourcesDetailView: View {
             }
         }
         .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
-                )
-        )
+        .amenGlassCard(cornerRadius: 20, shadow: false)
         .padding(.horizontal, 20)
     }
 
@@ -359,12 +311,7 @@ struct CrisisResourcesDetailView: View {
                         showCallConfirmation = true
                     }
                 }
-                ResourceLinkRow(
-                    icon: "hands.sparkles.fill",
-                    title: "Ask Berean for prayer support",
-                    subtitle: "Private, scripture-grounded comfort",
-                    accent: Color(red: 0.48, green: 0.22, blue: 0.72)
-                )
+
             }
         case .youth:
             VStack(spacing: 10) {
@@ -416,63 +363,14 @@ struct CrisisResourcesDetailView: View {
         }
     }
 
-    // MARK: Berean Private Card
-
-    private var bereanPrivateCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(Color(red: 0.12, green: 0.55, blue: 0.52).opacity(0.14))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "bubble.left.and.text.bubble.right.fill")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(Color(red: 0.12, green: 0.55, blue: 0.52))
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Talk to Berean privately")
-                        .font(.custom("OpenSans-Bold", size: 15))
-                        .foregroundStyle(.primary)
-                    Text("No storage option · scripture-grounded support")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-            }
-
-            Text("Berean won't replace professional care, but can help you process, pray, and find next steps.")
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.secondary)
-                .lineSpacing(3)
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.32), Color.white.opacity(0.10)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-        )
-        .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
-    }
-
     // MARK: Footer
+    // NOTE (C-15): bereanPrivateCard was removed from this view.
+    // INVARIANT: No AI chat in crisis sheet — human resources only.
 
     private var safetyFooter: some View {
         VStack(spacing: 8) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.tertiary)
             Text("Your privacy is protected. This section is private and is never shown publicly on your profile.")
                 .font(.custom("OpenSans-Regular", size: 12))
@@ -553,7 +451,7 @@ private struct SupportSectionCard<Content: View>: View {
                             .fill(accentColor.opacity(isExpanded ? 0.18 : 0.11))
                             .frame(width: 40, height: 40)
                         Image(systemName: sectionIcon)
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(accentColor)
                     }
                     Text(section.rawValue)
@@ -561,7 +459,7 @@ private struct SupportSectionCard<Content: View>: View {
                         .foregroundStyle(.primary)
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 16)
@@ -580,17 +478,12 @@ private struct SupportSectionCard<Content: View>: View {
                 }
             }
         }
-        .background(
+        .amenGlassCard(cornerRadius: 18, shadow: false)
+        .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(
-                            isExpanded
-                                ? accentColor.opacity(0.22)
-                                : Color.white.opacity(0.18),
-                            lineWidth: 1
-                        )
+                .stroke(
+                    isExpanded ? accentColor.opacity(0.22) : Color(.separator).opacity(0.18),
+                    lineWidth: 1
                 )
         )
         .shadow(color: .black.opacity(isExpanded ? 0.07 : 0.04), radius: isExpanded ? 12 : 6, y: 2)
@@ -612,7 +505,7 @@ private struct HotlineRow: View {
                         .fill(hotline.color.opacity(0.13))
                         .frame(width: 42, height: 42)
                     Image(systemName: hotline.icon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(hotline.color)
                 }
 
@@ -637,12 +530,12 @@ private struct HotlineRow: View {
                 HStack(spacing: 6) {
                     if hotline.phoneNumber != nil {
                         Image(systemName: "phone.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(hotline.color)
                     }
                     if hotline.textNumber != nil {
                         Image(systemName: "message.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(hotline.color)
                     }
                 }
@@ -682,7 +575,7 @@ private struct SafetyPlanContent: View {
 
             ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78))) {
                         expandedStep = expandedStep == index ? nil : index
                     }
                 } label: {
@@ -702,7 +595,7 @@ private struct SafetyPlanContent: View {
                                 .multilineTextAlignment(.leading)
                             Spacer()
                             Image(systemName: expandedStep == index ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(.tertiary)
                         }
                         if expandedStep == index {
@@ -744,7 +637,7 @@ private struct ResourceLinkRow: View {
                     .fill(accent.opacity(0.12))
                     .frame(width: 40, height: 40)
                 Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(accent)
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -757,7 +650,7 @@ private struct ResourceLinkRow: View {
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 14)
@@ -779,7 +672,7 @@ private struct CrisisInfoRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(accent)
                 .padding(.top, 1)
             Text(text)
@@ -808,7 +701,7 @@ private struct QuickContactPill: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text(label)
                     .font(.custom("OpenSans-SemiBold", size: 13))
             }

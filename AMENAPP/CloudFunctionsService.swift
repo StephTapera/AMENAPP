@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import FirebaseCore
 import FirebaseFunctions
 import Combine
 
@@ -14,11 +15,9 @@ import Combine
 class CloudFunctionsService: ObservableObject {
     static let shared = CloudFunctionsService()
     
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     
     private init() {
-        // Uncomment to use local emulator for testing
-        // functions.useEmulator(withHost: "localhost", port: 5001)
     }
     
     // MARK: - Generic Callable
@@ -45,9 +44,9 @@ class CloudFunctionsService: ObservableObject {
             "groupName": groupName as Any
         ]
         
-        dlog("📞 Calling createConversation function...")
-        
-        let result = try await functions.httpsCallable("createConversation").call(data)
+        dlog("📞 Calling resolveOrCreateConversation function...")
+
+        let result = try await functions.httpsCallable("resolveOrCreateConversation").call(data)
         
         guard let response = result.data as? [String: Any],
               let conversationId = response["conversationId"] as? String else {
@@ -258,6 +257,55 @@ class CloudFunctionsService: ObservableObject {
         } catch {
             dlog("❌ Cloud Functions connection failed: \(error.localizedDescription)")
             throw error
+        }
+    }
+}
+
+// MARK: - Spiritual Systems
+
+extension CloudFunctionsService {
+    func updatePresenceState(selectedState: String, visibility: String) async throws {
+        _ = try await call("updateSpiritualPresence", data: ["selectedState": selectedState, "visibility": visibility])
+    }
+
+    func addSilentReaction(sourceId: String, sourceType: String, reactionType: String) async throws {
+        _ = try await call("addSilentReaction", data: ["sourceId": sourceId, "sourceType": sourceType, "reactionType": reactionType])
+    }
+
+    func getSilentReactionSummary(sourceId: String, sourceType: String) async throws -> AmenSilentReactionSummary {
+        let raw = try await call("getSilentReactionSummary", data: ["sourceId": sourceId, "sourceType": sourceType])
+        guard let data = raw as? [String: Any],
+              let summary = data["summaryText"] as? String,
+              let typesRaw = data["reactionTypes"] as? [String] else {
+            throw CloudFunctionsError.invalidResponse
+        }
+        let types = typesRaw.compactMap { AmenSilentReactionType(rawValue: $0) }
+        return AmenSilentReactionSummary(summaryText: summary, reactionTypes: types)
+    }
+
+    func getSpiritualPriorityInbox() async throws -> [AmenSpiritualPriorityItem] {
+        let raw = try await call("getSpiritualPriorityInbox", data: nil)
+        guard let items = raw as? [[String: Any]] else { return [] }
+        return items.compactMap { d in
+            guard let id = d["id"] as? String,
+                  let title = d["title"] as? String,
+                  let subtitle = d["subtitle"] as? String else { return nil }
+            let chips = d["reasonChips"] as? [String] ?? []
+            let score = d["priorityScore"] as? Double ?? 0
+            return AmenSpiritualPriorityItem(id: id, title: title, subtitle: subtitle, reasonChips: chips, priorityScore: score)
+        }
+    }
+
+    func summonThreads(query: String) async throws -> [AmenThreadSummoningResult] {
+        let raw = try await call("summonThreads", data: ["query": query])
+        guard let items = raw as? [[String: Any]] else { return [] }
+        return items.compactMap { d in
+            guard let id = d["id"] as? String,
+                  let title = d["title"] as? String,
+                  let subtitle = d["subtitle"] as? String,
+                  let reason = d["reason"] as? String,
+                  let sourceType = d["sourceType"] as? String else { return nil }
+            return AmenThreadSummoningResult(id: id, title: title, subtitle: subtitle, reason: reason, sourceType: sourceType)
         }
     }
 }

@@ -41,7 +41,7 @@ struct FullScreenAvatarView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundStyle(.white.opacity(0.8))
                             .shadow(color: .black.opacity(0.3), radius: 4)
                     }
@@ -63,7 +63,7 @@ struct FullScreenAvatarView: View {
         .statusBarHidden()
         .onTapGesture(count: 2) {
             // Double tap to reset zoom
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 scale = 1.0
                 offset = .zero
                 lastScale = 1.0
@@ -104,7 +104,7 @@ struct FullScreenAvatarView: View {
             .overlay(
                 Text(initials)
                     .font(.custom("OpenSans-Bold", size: 100))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
             )
     }
     
@@ -129,7 +129,7 @@ struct FullScreenAvatarView: View {
                 
                 // Reset if zoomed out too much
                 if scale < 1.0 {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         scale = 1.0
                         offset = .zero
                         lastOffset = .zero

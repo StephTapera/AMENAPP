@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ONE — Privacy Mirror</title>
+<style>
+  /* ── Reset + Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0A0A0F;
+    --gold: #D4A843;
+    --gold-dim: rgba(212, 168, 67, 0.18);
+    --gold-border: rgba(212, 168, 67, 0.55);
+    --glass-bg: rgba(255, 255, 255, 0.08);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --matte-bg: rgba(255, 255, 255, 0.04);
+    --matte-border: rgba(255, 255, 255, 0.07);
+    --text-primary: rgba(255, 255, 255, 0.93);
+    --text-secondary: rgba(255, 255, 255, 0.52);
+    --text-tertiary: rgba(255, 255, 255, 0.30);
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    --radius-card: 14px;
+    --radius-sm: 8px;
+    --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .screen {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 0 0 48px;
+  }
+
+  /* ── Header ── */
+  .header {
+    padding: 52px 20px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--bg);
+  }
+
+  .back-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--gold);
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 18px;
+    cursor: pointer;
+    width: fit-content;
+  }
+
+  .back-row svg { flex-shrink: 0; }
+
+  .header-title {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+  }
+
+  .header-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  /* ── Section label ── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    padding: 0 20px;
+    margin-bottom: 10px;
+    margin-top: 28px;
+  }
+
+  /* ── Level cards ── */
+  .level-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 20px;
+  }
+
+  .level-card {
+    background: var(--matte-bg);
+    border: 1px solid var(--matte-border);
+    border-left: 3px solid transparent;
+    border-radius: var(--radius-card);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 0 12px;
+    align-items: start;
+    position: relative;
+  }
+
+  .level-card:hover {
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .level-card:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  .level-card.selected {
+    background: var(--gold-dim);
+    border-color: var(--matte-border);
+    border-left-color: var(--gold);
+  }
+
+  .level-card.selected .level-name { color: var(--gold); }
+
+  .level-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-top: 1px;
+    grid-row: 1 / 3;
+  }
+
+  .level-card.selected .level-icon {
+    background: rgba(212, 168, 67, 0.15);
+  }
+
+  .level-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    transition: color var(--transition);
+  }
+
+  .level-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .level-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    grid-column: 2;
+    line-height: 1.45;
+  }
+
+  .symmetry-note {
+    grid-column: 2;
+    margin-top: 8px;
+    font-size: 12px;
+    color: rgba(212, 168, 67, 0.70);
+    background: rgba(212, 168, 67, 0.07);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    line-height: 1.4;
+    display: none;
+  }
+
+  .level-card.selected .symmetry-note { display: block; }
+
+  .radio-dot {
+    position: absolute;
+    top: 15px;
+    right: 14px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--matte-border);
+    background: transparent;
+    transition: border-color var(--transition), background var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .level-card.selected .radio-dot {
+    border-color: var(--gold);
+    background: var(--gold);
+  }
+
+  .radio-dot::after {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--bg);
+    opacity: 0;
+    transition: opacity var(--transition);
+  }
+
+  .level-card.selected .radio-dot::after { opacity: 1; }
+
+  /* ── Symmetry preview panel ── */
+  .preview-panel {
+    margin: 0 20px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 18px;
+    overflow: hidden;
+    transition: opacity 0.25s ease;
+  }
+
+  .preview-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 10px;
+  }
+
+  .preview-statement {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    min-height: 42px;
+    transition: opacity 0.2s ease;
+  }
+
+  .preview-statement strong { color: var(--text-primary); }
+
+  /* Diagram */
+  .diagram {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--glass-border);
+    flex-wrap: wrap;
+  }
+
+  .diagram-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    min-width: 72px;
+  }
+
+  .node-badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    transition: background var(--transition), border-color var(--transition);
+  }
+
+  .node-badge.you {
+    background: rgba(212, 168, 67, 0.13);
+    border-color: var(--gold-border);
+  }
+
+  .node-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .node-label span {
+    display: block;
+    font-weight: 600;
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .diagram-arrow {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0 2px;
+  }
+
+  .arrow-label {
+    font-size: 9px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  /* ── Witness exceptions ── */
+  .witness-section {
+    margin: 0 20px;
+    background: var(--matte-bg);
+    border: 1px solid var(--matte-border);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+  }
+
+  .witness-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--matte-border);
+  }
+
+  .witness-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .witness-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+
+  .witness-avatars {
+    display: flex;
+    align-items: center;
+    gap: -6px;
+    margin-top: 10px;
+  }
+
+  .avatar-bubble {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(212,168,67,0.3), rgba(212,168,67,0.08));
+    border: 1.5px solid rgba(212,168,67,0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    margin-left: -5px;
+    position: relative;
+  }
+
+  .avatar-bubble:first-child { margin-left: 0; }
+
+  .witness-count {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-left: 10px;
+  }
+
+  .toggle-row {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .toggle-text {
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+
+  .toggle-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  /* Toggle switch */
+  .toggle-wrap {
+    flex-shrink: 0;
+  }
+
+  .toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-visual {
+    display: inline-block;
+    width: 44px;
+    height: 26px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 13px;
+    position: relative;
+    cursor: pointer;
+    transition: background var(--transition);
+  }
+
+  .toggle-input:checked + .toggle-visual {
+    background: var(--gold);
+  }
+
+  .toggle-input:focus-visible + .toggle-visual {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  .toggle-visual::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform var(--transition);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+  }
+
+  .toggle-input:checked + .toggle-visual::after {
+    transform: translateX(18px);
+  }
+
+  /* ── Save button ── */
+  .save-wrap {
+    padding: 28px 20px 0;
+  }
+
+  .save-btn {
+    width: 100%;
+    height: 52px;
+    background: var(--gold);
+    color: #0A0A0F;
+    font-family: var(--font);
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    border-radius: 26px;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.12s ease;
+    letter-spacing: -0.1px;
+  }
+
+  .save-btn:hover { opacity: 0.88; }
+  .save-btn:active { transform: scale(0.97); }
+  .save-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+  .save-hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 10px;
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(30,28,20,0.92);
+    border: 1px solid var(--gold-border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: var(--gold);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 11px 22px;
+    border-radius: 22px;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 100;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+<div class="screen" role="main">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="back-row" role="button" tabindex="0" aria-label="Go back">
+      <svg width="9" height="15" viewBox="0 0 9 15" fill="none" aria-hidden="true">
+        <path d="M8 1L1.5 7.5L8 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      ONE
+    </div>
+    <h1 class="header-title">Privacy Mirror</h1>
+    <p class="header-subtitle">How visible are you to the world?</p>
+  </header>
+
+  <!-- Level selector -->
+  <p class="section-label" id="mirror-level-label">Mirror Level</p>
+
+  <div class="level-list" role="radiogroup" aria-labelledby="mirror-level-label" id="levelGroup">
+
+    <!-- Sealed -->
+    <div class="level-card selected"
+         role="radio" aria-checked="true" tabindex="0"
+         data-level="sealed" aria-label="Sealed — Private level">
+      <div class="level-icon" aria-hidden="true">🪞</div>
+      <div class="level-name">Private <span class="level-tag">Sealed</span></div>
+      <div class="level-desc">Anonymous browsing. You leave no identity trace for strangers.</div>
+      <div class="symmetry-note" aria-live="polite">
+        Symmetry: you also appear anonymous to public authors whose content you view. You cannot see who they are either.
+      </div>
+      <div class="radio-dot" aria-hidden="true"></div>
+    </div>
+
+    <!-- Opaque -->
+    <div class="level-card"
+         role="radio" aria-checked="false" tabindex="0"
+         data-level="opaque" aria-label="Opaque level">
+      <div class="level-icon" aria-hidden="true">🫥</div>
+      <div class="level-name">Opaque</div>
+      <div class="level-desc">Your profile exists but strangers see no name, bio, or activity.</div>
+      <div class="symmetry-note" aria-live="polite">
+        Symmetry: you appear as a faceless silhouette to authors. They know someone viewed — not who.
+      </div>
+      <div class="radio-dot" aria-hidden="true"></div>
+    </div>
+
+    <!-- Translucent -->
+    <div class="level-card"
+         role="radio" aria-checked="false" tabindex="0"
+         data-level="translucent" aria-label="Translucent level">
+      <div class="level-icon" aria-hidden="true">🔮</div>
+      <div class="level-name">Translucent</div>
+      <div class="level-desc">Name and bio visible. Posts require a witness relationship to read.</div>
+      <div class="symmetry-note" aria-live="polite">
+        Symmetry: public authors see your handle when you view their content. You get access; they get attribution.
+      </div>
+      <div class="radio-dot" aria-hidden="true"></div>
+    </div>
+
+    <!-- Open -->
+    <div class="level-card"
+         role="radio" aria-checked="false" tabindex="0"
+         data-level="open" aria-label="Open level">
+      <div class="level-icon" aria-hidden="true">🌐</div>
+      <div class="level-name">Open</div>
+      <div class="level-desc">Fully public profile. Anyone can see posts, bio, and activity.</div>
+      <div class="symmetry-note" aria-live="polite">
+        Symmetry: fully reciprocal. You are visible; the authors you read are equally visible to you.
+      </div>
+      <div class="radio-dot" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <!-- Symmetry preview panel -->
+  <p class="section-label" style="margin-top: 28px;">Symmetry Preview</p>
+
+  <section class="preview-panel" aria-label="Symmetry preview" aria-live="polite" aria-atomic="true">
+    <p class="preview-label" aria-hidden="true">When browsing at your current level</p>
+    <p class="preview-statement" id="previewStatement">
+      <strong>On Sealed</strong> — you appear completely anonymous to public authors. No handle, no trace. They cannot identify you, and you browse without leaving a footprint.
+    </p>
+    <div class="diagram" aria-label="Symmetry diagram" role="img">
+      <div class="diagram-node">
+        <div class="node-badge you" id="youBadge" aria-hidden="true">🪞</div>
+        <div class="node-label">You<span id="youLabel">Sealed</span></div>
+      </div>
+      <div class="diagram-arrow" aria-hidden="true">
+        <span>→</span>
+        <span class="arrow-label">sees</span>
+      </div>
+      <div class="diagram-node">
+        <div class="node-badge" aria-hidden="true">🌐</div>
+        <div class="node-label">Public author<span>Open</span></div>
+      </div>
+      <div class="diagram-arrow" aria-hidden="true">
+        <span>←</span>
+        <span class="arrow-label">sees</span>
+      </div>
+      <div class="diagram-node">
+        <div class="node-badge" id="yourProfileBadge" aria-hidden="true">🪞</div>
+        <div class="node-label">Your profile<span id="yourProfileLabel">anonymous</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Witness exceptions -->
+  <p class="section-label">Witness Exceptions</p>
+
+  <section class="witness-section" aria-label="Witness exceptions settings">
+    <div class="witness-header">
+      <div class="witness-title">Active Witnesses</div>
+      <div class="witness-subtitle">
+        Your 3 active witnesses always see your translucent profile, regardless of this setting.
+      </div>
+      <div class="witness-avatars" aria-label="3 active witnesses">
+        <div class="avatar-bubble" title="Witness 1" aria-label="Witness 1">🙏</div>
+        <div class="avatar-bubble" title="Witness 2" aria-label="Witness 2">✝️</div>
+        <div class="avatar-bubble" title="Witness 3" aria-label="Witness 3">📖</div>
+        <span class="witness-count">3 active</span>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-text">Show profile to witnesses only</div>
+        <div class="toggle-sub">Hides your profile from everyone except witnesses</div>
+      </div>
+      <div class="toggle-wrap">
+        <label for="witnessOnlyToggle" style="display:flex; align-items:center; cursor:pointer;">
+          <input
+            type="checkbox"
+            id="witnessOnlyToggle"
+            class="toggle-input"
+            role="switch"
+            aria-checked="false"
+            aria-label="Show profile to witnesses only"
+          />
+          <span class="toggle-visual" aria-hidden="true"></span>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <!-- Save -->
+  <div class="save-wrap">
+    <button class="save-btn" id="saveBtn" type="button" aria-label="Apply mirror level settings">
+      Apply Mirror Level
+    </button>
+    <p class="save-hint">Changes take effect immediately across all of ONE.</p>
+  </div>
+
+</div><!-- /screen -->
+
+<!-- Toast -->
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true">
+  Mirror level applied
+</div>
+
+<script>
+  /* ── Data ── */
+  const LEVELS = {
+    sealed: {
+      icon: "🪞",
+      profileIcon: "🪞",
+      profileLabel: "anonymous",
+      statement: `<strong>On Sealed</strong> — you appear completely anonymous to public authors. No handle, no trace. They cannot identify you, and you browse without leaving a footprint.`,
+    },
+    opaque: {
+      icon: "🫥",
+      profileIcon: "🫥",
+      profileLabel: "faceless",
+      statement: `<strong>On Opaque</strong> — you appear as a faceless silhouette to public authors. They know <em>someone</em> viewed their content, but not who you are.`,
+    },
+    translucent: {
+      icon: "🔮",
+      profileIcon: "🔮",
+      profileLabel: "@yourname",
+      statement: `<strong>On Translucent</strong> — you appear as <strong>@yourname</strong> to public authors. You see their content labelled with your name as attribution. Access is mutual.`,
+    },
+    open: {
+      icon: "🌐",
+      profileIcon: "🌐",
+      profileLabel: "fully visible",
+      statement: `<strong>On Open</strong> — you and the authors you read are fully visible to each other. Completely reciprocal — no asymmetry.`,
+    },
+  };
+
+  /* ── State ── */
+  let selected = "sealed";
+
+  /* ── DOM refs ── */
+  const cards       = document.querySelectorAll(".level-card");
+  const previewStmt = document.getElementById("previewStatement");
+  const youBadge    = document.getElementById("youBadge");
+  const youLabel    = document.getElementById("youLabel");
+  const profileBadge  = document.getElementById("yourProfileBadge");
+  const profileLabel  = document.getElementById("yourProfileLabel");
+  const saveBtn     = document.getElementById("saveBtn");
+  const toast       = document.getElementById("toast");
+  const toggle      = document.getElementById("witnessOnlyToggle");
+
+  /* ── Update UI for selection ── */
+  function selectLevel(level) {
+    if (level === selected) return;
+    selected = level;
+    const data = LEVELS[level];
+
+    // Cards
+    cards.forEach(card => {
+      const isThis = card.dataset.level === level;
+      card.classList.toggle("selected", isThis);
+      card.setAttribute("aria-checked", isThis ? "true" : "false");
+    });
+
+    // Preview — fade out, update, fade in
+    previewStmt.style.opacity = "0";
+    setTimeout(() => {
+      previewStmt.innerHTML = data.statement;
+      previewStmt.style.opacity = "1";
+    }, 120);
+
+    youBadge.textContent   = data.icon;
+    youLabel.textContent   = level.charAt(0).toUpperCase() + level.slice(1);
+    profileBadge.textContent = data.profileIcon;
+    profileLabel.textContent = data.profileLabel;
+  }
+
+  /* ── Card click ── */
+  cards.forEach(card => {
+    card.addEventListener("click", () => selectLevel(card.dataset.level));
+    card.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        selectLevel(card.dataset.level);
+      }
+      // Arrow key navigation
+      const list = [...cards];
+      const idx  = list.indexOf(card);
+      if (e.key === "ArrowDown" && idx < list.length - 1) {
+        list[idx + 1].focus();
+      } else if (e.key === "ArrowUp" && idx > 0) {
+        list[idx - 1].focus();
+      }
+    });
+  });
+
+  /* ── Toggle sync ── */
+  toggle.addEventListener("change", () => {
+    toggle.setAttribute("aria-checked", toggle.checked ? "true" : "false");
+  });
+
+  /* ── Save ── */
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 2600);
+  }
+
+  saveBtn.addEventListener("click", () => {
+    const label = selected.charAt(0).toUpperCase() + selected.slice(1);
+    const witnessSuffix = toggle.checked ? " · Witnesses only" : "";
+    showToast(`Mirror set to ${label}${witnessSuffix}`);
+  });
+</script>
+</body>
+</html>

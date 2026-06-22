@@ -14,6 +14,11 @@ class MessagingViewController: UIViewController {
     // MARK: - Properties
     
     var conversationId: String!
+    /// UID of the other participant — set by the presenter before pushing/presenting this VC.
+    /// Required so MediaSafetyGateway can check minor status before any image upload.
+    var recipientUserId: String = ""
+    /// Injectable safety gateway — defaults to the real singleton; swap in tests.
+    var mediaSafetyGateway: any MediaSafetyEvaluating = MediaSafetyGateway.shared
     private let rtdb = RealtimeDatabaseManager.shared
     private var messagesObserverKey: String?
     private var messages: [[String: Any]] = []
@@ -116,50 +121,84 @@ class MessagingViewController: UIViewController {
         present(alert, animated: true)
     }
     
-    private func uploadImage(_ image: UIImage, completion: @escaping (String?) -> Void) {
+    private func uploadImage(_ image: UIImage) async -> String? {
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            dlog("❌ No authenticated user for image upload")
+            await MainActor.run { showError("You must be logged in to send photos") }
+            return nil
+        }
+
+        // ── MEDIA SAFETY GATEWAY ────────────────────────────────────────────────
+        // Evaluate BEFORE any data leaves the device.
+        // Decision: allow / allowWithAsyncScan → proceed.
+        // hold / reject / freeze → abort immediately, show user-facing error.
+        // ────────────────────────────────────────────────────────────────────────
+        let messageId = UUID().uuidString
+        let safetyDecision = await mediaSafetyGateway.evaluate(
+            image: image,
+            senderId: currentUserId,
+            recipientId: recipientUserId,
+            conversationId: conversationId ?? "unknown",
+            messageId: messageId
+        )
+
+        switch safetyDecision {
+        case .reject(let reason), .freeze(let reason):
+            dlog("🛑 [MediaSafety] Upload blocked — \(reason)")
+            await MainActor.run { showError("This photo cannot be sent. Please review our community guidelines.") }
+            return nil
+        case .hold(let reason):
+            dlog("⏸️ [MediaSafety] Upload held — \(reason)")
+            await MainActor.run { showError("This photo is under review and cannot be sent at this time.") }
+            return nil
+        case .allow, .allowWithAsyncScan:
+            break  // Proceed with upload
+        }
+        // ────────────────────────────────────────────────────────────────────────
+
         // Compress image
         guard let imageData = image.jpegData(compressionQuality: 0.7) else {
             dlog("❌ Failed to compress image")
-            completion(nil)
-            return
+            return nil
         }
-        
+
         // Create unique filename
-        let filename = "\(UUID().uuidString).jpg"
+        let filename = "\(messageId).jpg"
         let storageRef = Storage.storage().reference()
         let imageRef = storageRef.child("messages/\(conversationId ?? "unknown")/\(filename)")
-        
+
         dlog("📤 Uploading image to Firebase Storage...")
-        
+
         // Upload with metadata
         let metadata = StorageMetadata()
         metadata.contentType = "image/jpeg"
-        
-        imageRef.putData(imageData, metadata: metadata) { metadata, error in
-            if let error = error {
-                dlog("❌ Upload failed: \(error.localizedDescription)")
-                completion(nil)
-                return
-            }
-            
-            dlog("✅ Image uploaded successfully")
-            
-            // Get download URL
-            imageRef.downloadURL { url, error in
+
+        return await withCheckedContinuation { continuation in
+            imageRef.putData(imageData, metadata: metadata) { _, error in
                 if let error = error {
-                    dlog("❌ Failed to get download URL: \(error.localizedDescription)")
-                    completion(nil)
+                    dlog("❌ Upload failed: \(error.localizedDescription)")
+                    continuation.resume(returning: nil)
                     return
                 }
-                
-                guard let downloadURL = url?.absoluteString else {
-                    dlog("❌ Download URL is nil")
-                    completion(nil)
-                    return
+
+                dlog("✅ Image uploaded successfully")
+
+                imageRef.downloadURL { url, error in
+                    if let error = error {
+                        dlog("❌ Failed to get download URL: \(error.localizedDescription)")
+                        continuation.resume(returning: nil)
+                        return
+                    }
+
+                    guard let downloadURL = url?.absoluteString else {
+                        dlog("❌ Download URL is nil")
+                        continuation.resume(returning: nil)
+                        return
+                    }
+
+                    dlog("✅ Download URL obtained: \(downloadURL)")
+                    continuation.resume(returning: downloadURL)
                 }
-                
-                dlog("✅ Download URL obtained: \(downloadURL)")
-                completion(downloadURL)
             }
         }
     }
@@ -214,17 +253,18 @@ extension MessagingViewController: UIImagePickerControllerDelegate, UINavigation
         guard let image = info[.originalImage] as? UIImage else {
             return
         }
-        
-        // Upload image
-        uploadImage(image) { [weak self] photoURL in
-            guard let self = self, let url = photoURL else {
-                return
+
+        // Upload image — safety gateway runs inside uploadImage before any putData call
+        Task { [weak self] in
+            guard let self else { return }
+            guard let photoURL = await self.uploadImage(image) else {
+                return  // uploadImage already showed an error to the user
             }
-            
+
             // Send photo message
-            self.rtdb.sendPhotoMessage(conversationId: self.conversationId, photoURL: url) { success in
+            self.rtdb.sendPhotoMessage(conversationId: self.conversationId, photoURL: photoURL) { [weak self] success in
                 if !success {
-                    self.showError("Failed to send photo")
+                    self?.showError("Failed to send photo")
                 }
             }
         }

@@ -13,7 +13,7 @@ import FirebaseAuth
 struct AccountLinkingView: View {
     @EnvironmentObject var viewModel: AuthenticationViewModel
     @Environment(\.dismiss) var dismiss
-    
+
     @State private var linkedProviders: [String] = []
     @State private var showUnlinkConfirmation = false
     @State private var providerToUnlink: String?
@@ -23,238 +23,300 @@ struct AccountLinkingView: View {
     @State private var phoneNumber = ""
     @State private var showPhoneVerification = false
     @State private var verificationCode = ""
-    
+
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Text("Link multiple sign-in methods to your account for easier access and added security.")
-                        .font(.system(size: 14))
+            ScrollView {
+                VStack(spacing: 0) {
+
+                    // MARK: Linked Accounts Header
+                    Text("LINKED ACCOUNTS")
+                        .font(AMENFont.bold(11))
                         .foregroundStyle(.secondary)
-                        .listRowBackground(Color.clear)
-                } header: {
-                    Text("Linked Accounts")
-                }
-                
-                // Email/Password
-                if linkedProviders.contains("password") {
-                    Section {
-                        HStack {
-                            Image(systemName: "envelope.fill")
-                                .foregroundStyle(.blue)
-                                .frame(width: 24)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Email & Password")
-                                    .font(.system(size: 16, weight: .medium))
-                                
-                                if let email = Auth.auth().currentUser?.email {
-                                    Text(email)
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            Text("Linked")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.green)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.green.opacity(0.1))
-                                .clipShape(Capsule())
-                        }
-                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    // Description row
+                    VStack(spacing: 0) {
+                        Text("Link multiple sign-in methods to your account for easier access and added security.")
+                            .font(.systemScaled(14))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                     }
-                }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
 
-                // Phone
-                Section {
-                    if linkedProviders.contains("phone") {
-                        HStack {
-                            Image(systemName: "phone.fill")
-                                .foregroundStyle(.green)
-                                .frame(width: 24)
+                    // MARK: Sign-In Methods Section
+                    Text("SIGN-IN METHODS")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
 
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Phone Number")
-                                    .font(.system(size: 16, weight: .medium))
+                    VStack(spacing: 0) {
 
-                                if let phoneNumber = Auth.auth().currentUser?.phoneNumber {
-                                    Text(phoneNumber)
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(.secondary)
+                        // Email/Password row (if linked)
+                        if linkedProviders.contains("password") {
+                            HStack {
+                                Image(systemName: "envelope.fill")
+                                    .foregroundStyle(.blue)
+                                    .frame(width: 24)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Email & Password")
+                                        .font(.systemScaled(16, weight: .medium))
+
+                                    if let email = Auth.auth().currentUser?.email {
+                                        Text(email)
+                                            .font(.systemScaled(13))
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
-                            }
 
-                            Spacer()
+                                Spacer()
 
-                            Button {
-                                providerToUnlink = "phone"
-                                showUnlinkConfirmation = true
-                            } label: {
-                                Text("Unlink")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(.red)
+                                Text("Linked")
+                                    .font(.systemScaled(12, weight: .medium))
+                                    .foregroundStyle(.green)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.green.opacity(0.1))
+                                    .clipShape(Capsule())
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
                         }
-                        .padding(.vertical, 8)
-                    } else {
-                        Button {
-                            showPhoneLinking = true
-                        } label: {
+
+                        // Phone row
+                        if linkedProviders.contains("phone") {
                             HStack {
                                 Image(systemName: "phone.fill")
-                                    .foregroundStyle(.gray)
+                                    .foregroundStyle(.green)
                                     .frame(width: 24)
 
-                                Text("Link Phone Number")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(.primary)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Phone Number")
+                                        .font(.systemScaled(16, weight: .medium))
+
+                                    if let phone = Auth.auth().currentUser?.phoneNumber {
+                                        Text(phone)
+                                            .font(.systemScaled(13))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
 
                                 Spacer()
 
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundStyle(.blue)
+                                Button {
+                                    providerToUnlink = "phone"
+                                    showUnlinkConfirmation = true
+                                } label: {
+                                    Text("Unlink")
+                                        .font(.systemScaled(14, weight: .medium))
+                                        .foregroundStyle(.red)
+                                }
                             }
-                            .padding(.vertical, 8)
-                        }
-                        .disabled(viewModel.isLoading)
-                    }
-                }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
 
-                // Google
-                Section {
-                    if linkedProviders.contains("google.com") {
-                        HStack {
-                            Image(systemName: "g.circle.fill")
-                                .foregroundStyle(.red)
-                                .frame(width: 24)
-                            
-                            Text("Google")
-                                .font(.system(size: 16, weight: .medium))
-                            
-                            Spacer()
-                            
+                            Divider().padding(.leading, 16)
+                        } else {
                             Button {
-                                providerToUnlink = "google.com"
-                                showUnlinkConfirmation = true
+                                showPhoneLinking = true
                             } label: {
-                                Text("Unlink")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(.red)
+                                HStack {
+                                    Image(systemName: "phone.fill")
+                                        .foregroundStyle(.gray)
+                                        .frame(width: 24)
+
+                                    Text("Link Phone Number")
+                                        .font(.systemScaled(16, weight: .medium))
+                                        .foregroundStyle(.primary)
+
+                                    Spacer()
+
+                                    Image(systemName: "plus.circle.fill")
+                                        .foregroundStyle(.blue)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
                             }
+                            .buttonStyle(PlainButtonStyle())
+                            .disabled(viewModel.isLoading)
+
+                            Divider().padding(.leading, 16)
                         }
-                        .padding(.vertical, 8)
-                    } else {
-                        Button {
-                            Task {
-                                await viewModel.linkGoogleAccount()
-                                refreshLinkedProviders()
-                            }
-                        } label: {
+
+                        // Google row
+                        if linkedProviders.contains("google.com") {
                             HStack {
                                 Image(systemName: "g.circle.fill")
-                                    .foregroundStyle(.gray)
-                                    .frame(width: 24)
-                                
-                                Text("Link Google Account")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(.primary)
-                                
-                                Spacer()
-                                
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundStyle(.blue)
-                            }
-                            .padding(.vertical, 8)
-                        }
-                        .disabled(viewModel.isLoading)
-                    }
-                }
-                
-                // Apple
-                Section {
-                    if linkedProviders.contains("apple.com") {
-                        HStack {
-                            Image(systemName: "apple.logo")
-                                .foregroundStyle(.black)
-                                .frame(width: 24)
-                            
-                            Text("Apple")
-                                .font(.system(size: 16, weight: .medium))
-                            
-                            Spacer()
-                            
-                            Button {
-                                providerToUnlink = "apple.com"
-                                showUnlinkConfirmation = true
-                            } label: {
-                                Text("Unlink")
-                                    .font(.system(size: 14, weight: .medium))
                                     .foregroundStyle(.red)
+                                    .frame(width: 24)
+
+                                Text("Google")
+                                    .font(.systemScaled(16, weight: .medium))
+
+                                Spacer()
+
+                                Button {
+                                    providerToUnlink = "google.com"
+                                    showUnlinkConfirmation = true
+                                } label: {
+                                    Text("Unlink")
+                                        .font(.systemScaled(14, weight: .medium))
+                                        .foregroundStyle(.red)
+                                }
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+                        } else {
+                            Button {
+                                Task {
+                                    await viewModel.linkGoogleAccount()
+                                    refreshLinkedProviders()
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "g.circle.fill")
+                                        .foregroundStyle(.gray)
+                                        .frame(width: 24)
+
+                                    Text("Link Google Account")
+                                        .font(.systemScaled(16, weight: .medium))
+                                        .foregroundStyle(.primary)
+
+                                    Spacer()
+
+                                    Image(systemName: "plus.circle.fill")
+                                        .foregroundStyle(.blue)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .disabled(viewModel.isLoading)
+
+                            Divider().padding(.leading, 16)
                         }
-                        .padding(.vertical, 8)
-                    } else {
-                        Button {
-                            handleAppleLinking()
-                        } label: {
+
+                        // Apple row
+                        if linkedProviders.contains("apple.com") {
                             HStack {
                                 Image(systemName: "apple.logo")
-                                    .foregroundStyle(.gray)
-                                    .frame(width: 24)
-                                
-                                Text("Link Apple Account")
-                                    .font(.system(size: 16, weight: .medium))
                                     .foregroundStyle(.primary)
-                                
+                                    .frame(width: 24)
+
+                                Text("Apple")
+                                    .font(.systemScaled(16, weight: .medium))
+
                                 Spacer()
-                                
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundStyle(.blue)
+
+                                Button {
+                                    providerToUnlink = "apple.com"
+                                    showUnlinkConfirmation = true
+                                } label: {
+                                    Text("Unlink")
+                                        .font(.systemScaled(14, weight: .medium))
+                                        .foregroundStyle(.red)
+                                }
                             }
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        } else {
+                            Button {
+                                handleAppleLinking()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "apple.logo")
+                                        .foregroundStyle(.gray)
+                                        .frame(width: 24)
+
+                                    Text("Link Apple Account")
+                                        .font(.systemScaled(16, weight: .medium))
+                                        .foregroundStyle(.primary)
+
+                                    Spacer()
+
+                                    Image(systemName: "plus.circle.fill")
+                                        .foregroundStyle(.blue)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .disabled(viewModel.isLoading)
                         }
-                        .disabled(viewModel.isLoading)
                     }
-                }
-                
-                // Info section
-                Section {
-                    VStack(alignment: .leading, spacing: 12) {
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    // MARK: Security Info Section
+                    Text("ABOUT LINKED ACCOUNTS")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: "checkmark.shield.fill")
                                 .foregroundStyle(.green)
-                            
+
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Enhanced Security")
-                                    .font(.system(size: 14, weight: .semibold))
-                                
+                                    .font(.systemScaled(14, weight: .semibold))
+
                                 Text("Multiple sign-in methods make your account more secure and accessible")
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.secondary)
                             }
                         }
-                        
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: "key.fill")
                                 .foregroundStyle(.blue)
-                            
+
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Flexible Access")
-                                    .font(.system(size: 14, weight: .semibold))
-                                
+                                    .font(.systemScaled(14, weight: .semibold))
+
                                 Text("Sign in with any linked method - email, phone, Google, or Apple")
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.secondary)
                             }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
-                    .padding(.vertical, 8)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Spacer(minLength: 40)
                 }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Linked Accounts")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -323,21 +385,21 @@ struct AccountLinkingView: View {
             }
         }
     }
-    
+
     private func refreshLinkedProviders() {
         linkedProviders = viewModel.getLinkedProviders()
     }
-    
+
     private func handleAppleLinking() {
         // Generate nonce
         let nonce = randomNonceString()
         appleNonce = nonce
-        
+
         let appleIDProvider = ASAuthorizationAppleIDProvider()
         let request = appleIDProvider.createRequest()
         request.requestedScopes = [.fullName, .email]
         request.nonce = sha256(nonce)
-        
+
         let coordinator = AppleLinkingCoordinator(
             nonce: nonce,
             viewModel: viewModel,
@@ -351,7 +413,7 @@ struct AccountLinkingView: View {
         authorizationController.delegate = coordinator
         authorizationController.performRequests()
     }
-    
+
     private func randomNonceString(length: Int = 32) -> String {
         precondition(length > 0)
         var randomBytes = [UInt8](repeating: 0, count: length)
@@ -361,22 +423,22 @@ struct AccountLinkingView: View {
             dlog("⚠️ SecRandomCopyBytes failed (\(errorCode)), using UUID fallback for nonce")
             return UUID().uuidString.replacingOccurrences(of: "-", with: "") + UUID().uuidString.replacingOccurrences(of: "-", with: "")
         }
-        
+
         let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
         let nonce = randomBytes.map { byte in
             charset[Int(byte) % charset.count]
         }
-        
+
         return String(nonce)
     }
-    
+
     private func sha256(_ input: String) -> String {
         let inputData = Data(input.utf8)
         let hashedData = SHA256.hash(data: inputData)
         let hashString = hashedData.compactMap {
             String(format: "%02x", $0)
         }.joined()
-        
+
         return hashString
     }
 }
@@ -387,13 +449,13 @@ class AppleLinkingCoordinator: NSObject, ASAuthorizationControllerDelegate {
     let nonce: String
     let viewModel: AuthenticationViewModel
     let onSuccess: () -> Void
-    
+
     init(nonce: String, viewModel: AuthenticationViewModel, onSuccess: @escaping () -> Void) {
         self.nonce = nonce
         self.viewModel = viewModel
         self.onSuccess = onSuccess
     }
-    
+
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
         Task { @MainActor in
             guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential,
@@ -402,17 +464,17 @@ class AppleLinkingCoordinator: NSObject, ASAuthorizationControllerDelegate {
                 dlog("❌ Apple Sign In failed: Unable to fetch identity token")
                 return
             }
-            
+
             await viewModel.linkAppleAccount(
                 idToken: idTokenString,
                 nonce: nonce,
                 fullName: appleIDCredential.fullName
             )
-            
+
             onSuccess()
         }
     }
-    
+
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
         dlog("❌ Apple linking error: \(error.localizedDescription)")
     }
@@ -431,7 +493,7 @@ struct PhoneLinkingSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "phone.circle.fill")
-                    .font(.system(size: 60))
+                    .font(.systemScaled(60))
                     .foregroundStyle(.green)
                     .padding(.top, 32)
 
@@ -504,7 +566,7 @@ struct PhoneVerificationSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "envelope.badge.shield.half.filled")
-                    .font(.system(size: 60))
+                    .font(.systemScaled(60))
                     .foregroundStyle(.blue)
                     .padding(.top, 32)
 
@@ -529,7 +591,7 @@ struct PhoneVerificationSheet: View {
                         .keyboardType(.numberPad)
                         .textContentType(.oneTimeCode)
                         .multilineTextAlignment(.center)
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .padding()
                         .background(Color(.systemGray6))
                         .cornerRadius(12)

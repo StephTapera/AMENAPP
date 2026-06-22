@@ -9,6 +9,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 // MARK: - Verse Reference Parser
 
@@ -98,7 +99,7 @@ struct BereanNavigationHelper {
     
     /// Navigate to a specific verse in your Bible reader
     /// Replace this implementation with your actual navigation logic
-    static func openBibleVerse(reference: String, translation: String = "ESV") {
+    static func openBibleVerse(reference: String, translation: String = "KJV") { // TODO(legal): was ESV (Crossway, copyrighted) — default changed to KJV per AMEN-CONTENT-001
         guard let parsed = VerseReferenceParser.parse(reference) else {
             dlog("❌ Invalid verse reference: \(reference)")
             return
@@ -144,7 +145,7 @@ struct BereanNavigationHelper {
     }
     
     /// Open Bible to a specific book and chapter
-    static func openBibleChapter(book: String, chapter: Int, translation: String = "ESV") {
+    static func openBibleChapter(book: String, chapter: Int, translation: String = "KJV") { // TODO(legal): was ESV (Crossway, copyrighted) — default changed to KJV per AMEN-CONTENT-001
         dlog("📖 Opening Bible: \(book) \(chapter) (\(translation))")
         
         // Implement your navigation logic here
@@ -167,7 +168,7 @@ struct BereanNavigationHelper {
  
  struct BibleReaderView: View {
      @State private var currentVerse: VerseReference?
-     @State private var translation = "ESV"
+     @State private var translation = "KJV" // TODO(legal): was ESV (Crossway, copyrighted) — default changed to KJV per AMEN-CONTENT-001
      
      var body: some View {
          // Your Bible UI
@@ -231,7 +232,7 @@ struct BereanDeepLinkHandler {
         }
         
         // Parse query parameters
-        var translation = "ESV"
+        var translation = "KJV" // TODO(legal): was ESV (Crossway, copyrighted) — default changed to KJV per AMEN-CONTENT-001
         if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
            let queryItems = components.queryItems {
             for item in queryItems {
@@ -280,7 +281,7 @@ struct BereanDeepLinkHandler {
 class AppNavigationCoordinator: ObservableObject {
      @Published var selectedTab: Tab = .home
      @Published var bibleVerse: VerseReference?
-     @Published var bibleTranslation: String = "ESV"
+     @Published var bibleTranslation: String = "KJV" // TODO(legal): was ESV (Crossway, copyrighted) — default changed to KJV per AMEN-CONTENT-001
      
      init() {
          setupBereanIntegration()

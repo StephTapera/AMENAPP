@@ -20,11 +20,12 @@ let algoliaIndex = null;
 function getAlgoliaIndex() {
   if (!algoliaIndex) {
     const algoliasearch = require("algoliasearch");
-    // Algolia credentials stored in Firebase environment / Secret Manager
-    const appId = process.env.ALGOLIA_APP_ID || "";
-    const apiKey = process.env.ALGOLIA_ADMIN_API_KEY || "";
+    // Read secrets via .value() — injected by Firebase when secrets:[] is declared on the trigger.
+    const appId     = ALGOLIA_APP_ID.value() || "";
+    const apiKey    = ALGOLIA_ADMIN_API_KEY.value() || "";
+    const indexName = ALGOLIA_INDEX_NAME.value() || "posts";
     const client = algoliasearch(appId, apiKey);
-    algoliaIndex = client.initIndex(process.env.ALGOLIA_INDEX_NAME || "posts");
+    algoliaIndex = client.initIndex(indexName);
   }
   return algoliaIndex;
 }

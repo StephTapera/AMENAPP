@@ -82,8 +82,8 @@ struct MediaUploadContext {
 final class MediaModerationPipeline {
     static let shared = MediaModerationPipeline()
 
-    private let db = Firestore.firestore()
-    private let storage = Storage.storage()
+    private lazy var db = Firestore.firestore()
+    private lazy var storage = Storage.storage()
 
     private init() {}
 
@@ -322,7 +322,11 @@ final class MediaModerationPipeline {
             "requestedAt": FieldValue.serverTimestamp(),
             "scanned": false
         ]
-        try? await db.collection("media_scan_requests").document(mediaId).setData(scanRequest)
+        do {
+            try await db.collection("media_scan_requests").document(mediaId).setData(scanRequest)
+        } catch {
+            print("MediaModerationPipeline: failed to enqueue scan request — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Stage 6: Listen for Scan Result

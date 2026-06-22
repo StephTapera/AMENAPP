@@ -8,17 +8,18 @@
 //
 
 import Foundation
+import Combine
 import FirebaseFirestore
 import FirebaseAuth
 
 // MARK: - Scripture Reference Model
 
-struct ScriptureReference: Identifiable, Codable {
+struct AIScriptureRef: Identifiable, Codable {
     let id = UUID()
     let verse: String           // "Romans 5:8"
     let description: String     // "God's love for us"
     let relevanceScore: Double  // 0-1
-    
+
     private enum CodingKeys: String, CodingKey {
         case verse, description, relevanceScore
     }
@@ -26,19 +27,23 @@ struct ScriptureReference: Identifiable, Codable {
 
 // MARK: - AI Scripture Cross-Reference Service
 
-class AIScriptureCrossRefService {
+@MainActor
+class AIScriptureCrossRefService: ObservableObject {
     static let shared = AIScriptureCrossRefService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
+    
+    // ✅ FIX CR-12: Published error state for UI
+    @Published var lastError: String?
     
     // Cache to avoid repeated lookups
-    private var cache: [String: [ScriptureReference]] = [:]
+    private var cache: [String: [AIScriptureRef]] = [:]
     
     private init() {}
     
     /// Find related scripture verses using AI
     /// - Parameter verse: The verse reference (e.g., "John 3:16")
     /// - Returns: Array of related scripture references with descriptions
-    func findRelatedVerses(for verse: String) async throws -> [ScriptureReference] {
+    func findRelatedVerses(for verse: String) async throws -> [AIScriptureRef] {
         
         dlog("📖 [AI SCRIPTURE] Finding related verses for: \(verse)")
         
@@ -77,18 +82,28 @@ class AIScriptureCrossRefService {
             return references
             
         } catch let error as NSError where error.code == 408 {
-            // Timeout error - return empty array instead of throwing
-            dlog("⚠️ [AI SCRIPTURE] Timeout - Cloud Function may not be deployed. Returning empty results.")
-            return []
+            // ✅ FIX CR-12: Set error state and throw
+            dlog("⚠️ [AI SCRIPTURE] Timeout - Cloud Function may not be deployed.")
+            let timeoutError = NSError(
+                domain: "AIScripture",
+                code: 408,
+                userInfo: [NSLocalizedDescriptionKey: "Scripture cross-reference service timed out. The feature may be temporarily unavailable."]
+            )
+            await MainActor.run {
+                self.lastError = timeoutError.localizedDescription
+            }
+            throw timeoutError
         } catch {
             dlog("❌ [AI SCRIPTURE] Error: \(error)")
-            // Return empty array for other errors too (graceful degradation)
-            return []
+            await MainActor.run {
+                self.lastError = "Failed to find related verses: \(error.localizedDescription)"
+            }
+            throw error
         }
     }
     
     /// Wait for AI scripture reference response
-    private func waitForReferences(requestId: String) async throws -> [ScriptureReference] {
+    private func waitForReferences(requestId: String) async throws -> [AIScriptureRef] {
         for _ in 0..<8 { // 8 attempts × 0.5s = 4 seconds
             try await Task.sleep(nanoseconds: 500_000_000)
             
@@ -100,14 +115,14 @@ class AIScriptureCrossRefService {
                let data = snapshot.data(),
                let referencesData = data["references"] as? [[String: Any]] {
                 
-                let references = referencesData.compactMap { refData -> ScriptureReference? in
+                let references = referencesData.compactMap { refData -> AIScriptureRef? in
                     guard let verse = refData["verse"] as? String,
                           let description = refData["description"] as? String,
                           let relevanceScore = refData["relevanceScore"] as? Double else {
                         return nil
                     }
                     
-                    return ScriptureReference(
+                    return AIScriptureRef(
                         verse: verse,
                         description: description,
                         relevanceScore: relevanceScore

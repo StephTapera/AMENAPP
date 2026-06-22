@@ -38,7 +38,7 @@ struct MyCirclesView: View {
                         )
                         .padding(.horizontal, 20)
                         .onAppear {
-                            withAnimation(.spring(response: 0.45, dampingFraction: 0.75).delay(Double(idx) * 0.07)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.75)).delay(Double(idx) * 0.07)) {
                                 appearedRelIds.formUnion([rel.id])
                             }
                         }
@@ -57,27 +57,27 @@ struct MyCirclesView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.2.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary.opacity(0.4))
                 .padding(.top, 50)
 
             Text("No active mentorships")
-                .font(.system(size: 18, weight: .bold))
+                .font(.systemScaled(18, weight: .bold))
                 .foregroundStyle(.primary)
 
             Text("Find a mentor to begin your journey")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                     vm.selectedTab = .findMentor
                 }
             } label: {
                 Text("Find a Mentor")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
@@ -106,10 +106,10 @@ private struct RelationshipCard: View {
                 MentorAvatarView(name: relationship.mentorName, photoURL: relationship.mentorPhotoURL, size: 44)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(relationship.mentorName)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     // Plan badge
                     Text(relationship.planName)
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.systemScaled(9, weight: .bold))
                         .foregroundStyle(Color(red: 0.49, green: 0.23, blue: 0.93))
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(Capsule().fill(Color(red: 0.49, green: 0.23, blue: 0.93).opacity(0.10)))
@@ -135,7 +135,7 @@ private struct RelationshipCard: View {
                 }
 
                 Text("Session \(relationship.sessionsCompleted) of \(relationship.totalSessions) complete")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
             }
 
@@ -172,9 +172,9 @@ private struct ActionButton: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(isPrimary ? .white : .primary)
             .padding(.horizontal, 12)

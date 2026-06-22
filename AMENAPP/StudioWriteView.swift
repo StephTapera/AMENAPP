@@ -219,7 +219,7 @@ struct StudioWriteView: View {
                 dismiss()
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
                     .contentShape(Rectangle())
@@ -227,7 +227,7 @@ struct StudioWriteView: View {
             .buttonStyle(.plain)
 
             TextField("Document Title", text: $documentTitle)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.primary)
                 .textFieldStyle(.plain)
 
@@ -236,7 +236,7 @@ struct StudioWriteView: View {
             // Saved flash
             if showSavedFlash {
                 Text("Saved")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.secondary)
                     .transition(.opacity)
             }
@@ -251,7 +251,7 @@ struct StudioWriteView: View {
                 }
             } label: {
                 Text("Save")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
@@ -267,7 +267,7 @@ struct StudioWriteView: View {
                 showShareSheet = true
             } label: {
                 Text("Share")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
@@ -332,15 +332,15 @@ struct StudioWriteView: View {
             // Ask AI button
             Button {
                 HapticManager.impact(style: .light)
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     showAIModePicker.toggle()
                 }
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "sparkle")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                     Text("Ask AI")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                 }
                 .foregroundStyle(bereanPurple)
                 .padding(.horizontal, 10)
@@ -368,7 +368,7 @@ struct StudioWriteView: View {
                 insertBullet()
             } label: {
                 Image(systemName: "list.bullet")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .frame(width: 28, height: 28)
                     .background(RoundedRectangle(cornerRadius: 7).fill(Color.clear))
                     .foregroundStyle(.primary)
@@ -380,7 +380,7 @@ struct StudioWriteView: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Image(systemName: "link")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .frame(width: 28, height: 28)
                     .foregroundStyle(.primary)
             }
@@ -433,7 +433,7 @@ struct StudioWriteView: View {
             action()
         } label: {
             Text(label)
-                .font(.system(size: 14, weight: weight))
+                .font(.systemScaled(14, weight: weight))
                 .italic(italic)
                 .underline(underline)
                 .frame(width: 28, height: 28)
@@ -452,7 +452,7 @@ struct StudioWriteView: View {
             textAlignment = alignment
         } label: {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .frame(width: 28, height: 28)
                 .background(
                     RoundedRectangle(cornerRadius: 7)
@@ -470,13 +470,13 @@ struct StudioWriteView: View {
             HStack(spacing: 8) {
                 ForEach(StudioWritingType.allCases) { type in
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             writingType = type
                         }
                         HapticManager.impact(style: .light)
                     } label: {
                         Text(type.displayName)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(writingType == type ? .white : .secondary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
@@ -504,7 +504,7 @@ struct StudioWriteView: View {
         ZStack(alignment: .topLeading) {
             if documentText.isEmpty {
                 Text(writingType.placeholder)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color(.placeholderText))
                     .lineSpacing(1.75 * 15)
                     .padding(.top, 8)
@@ -513,7 +513,7 @@ struct StudioWriteView: View {
             }
 
             TextEditor(text: $documentText)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.primary)
                 .lineSpacing(1.75)
                 .scrollContentBackground(.hidden)
@@ -547,7 +547,7 @@ struct StudioWriteView: View {
                 ForEach(StudioAIMode.allCases) { mode in
                     Button {
                         selectedAIMode = mode
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             showAIModePicker = false
                         }
                         HapticManager.impact(style: .medium)
@@ -555,22 +555,22 @@ struct StudioWriteView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: mode.icon)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(bereanPurple)
                                 .frame(width: 28, height: 28)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(mode.title)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(.primary)
                                 Text(mode.description)
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             if selectedAIMode == mode {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.systemScaled(12, weight: .bold))
                                     .foregroundStyle(bereanPurple)
                             }
                         }
@@ -599,7 +599,7 @@ struct StudioWriteView: View {
         }
         .background(Color.black.opacity(0.001))
         .onTapGesture {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                 showAIModePicker = false
             }
         }
@@ -612,10 +612,10 @@ struct StudioWriteView: View {
             // Header
             HStack(spacing: 6) {
                 Image(systemName: "sparkle")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(bereanPurple)
                 Text("BEREAN AI SUGGESTION")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(bereanPurple)
                     .tracking(0.5)
 
@@ -639,7 +639,7 @@ struct StudioWriteView: View {
                 .padding(.vertical, 8)
             } else {
                 Text(aiSuggestionText)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
@@ -670,7 +670,7 @@ struct StudioWriteView: View {
                 insertAISuggestion()
             } label: {
                 Text("Insert")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 7)
@@ -684,7 +684,7 @@ struct StudioWriteView: View {
                 triggerAISuggestion(mode: selectedAIMode)
             } label: {
                 Text("Try again")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
@@ -698,7 +698,7 @@ struct StudioWriteView: View {
                 dismissAISuggestion()
             } label: {
                 Text("Dismiss")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
@@ -713,7 +713,7 @@ struct StudioWriteView: View {
         HStack(spacing: 12) {
             // Word count + reading time
             Text("\(wordCount) words \u{00B7} ~\(readingTime) min read")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
 
@@ -736,9 +736,9 @@ struct StudioWriteView: View {
             } label: {
                 HStack(spacing: 4) {
                     Text("\u{1F64F}")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     Text("Close with prayer")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                 }
                 .foregroundStyle(bereanPurple)
                 .padding(.horizontal, 10)
@@ -761,9 +761,9 @@ struct StudioWriteView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(bereanPurple)
             .padding(.horizontal, 10)
@@ -782,12 +782,12 @@ struct StudioWriteView: View {
         guard !trimmed.isEmpty else { return }
 
         isAIGenerating = true
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72))) {
             showAISuggestion = true
             aiSuggestionScale = 0.92
         }
         // Animate in
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.72).delay(0.05)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72)).delay(0.05)) {
             aiSuggestionScale = 1.0
         }
 
@@ -839,7 +839,7 @@ struct StudioWriteView: View {
         guard !trimmed.isEmpty else { return }
 
         isAIGenerating = true
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.72))) {
             showAISuggestion = true
             aiSuggestionScale = 1.0
         }
@@ -895,7 +895,7 @@ struct StudioWriteView: View {
     }
 
     private func dismissAISuggestion() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
             aiSuggestionScale = 0.92
         }
         withAnimation(.easeOut(duration: 0.15).delay(0.1)) {

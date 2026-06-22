@@ -13,154 +13,250 @@ struct PrivacyControlsSettingsView: View {
     @Environment(\.dismiss) var dismiss
     @State private var isLoading = true
     @State private var settings: TrustPrivacySettings?
-    
+
     var body: some View {
         NavigationStack {
-            List {
+            ScrollView {
                 if isLoading {
-                    Section {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
-                        }
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                        Spacer()
                     }
+                    .padding(.top, 40)
                 } else {
-                    // DM Controls
-                    Section {
-                        Picker("Who can message you", selection: Binding(
-                            get: { settings?.dmPermissionLevel ?? .mutualsOnly },
-                            set: { newValue in
-                                settings?.dmPermissionLevel = newValue
-                                Task {
-                                    guard let userId = Auth.auth().currentUser?.uid else { return }
-                                    try await trustService.updateDMPermission(newValue, userId: userId)
-                                }
-                            }
-                        )) {
-                            ForEach(DMPermissionLevel.allCases, id: \.self) { level in
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(level.displayName)
-                                        .font(.custom("OpenSans-SemiBold", size: 15))
-                                    Text(level.description)
-                                        .font(.custom("OpenSans-Regular", size: 12))
-                                        .foregroundStyle(.secondary)
-                                }
-                                .tag(level)
-                            }
-                        }
-                        .pickerStyle(.navigationLink)
-                        
-                        Toggle("Hide links in message requests", isOn: Binding(
-                            get: { settings?.hideLinksInRequests ?? true },
-                            set: { newValue in
-                                settings?.hideLinksInRequests = newValue
-                                saveSettings()
-                            }
-                        ))
-                        
-                        Toggle("Hide media in message requests", isOn: Binding(
-                            get: { settings?.hideMediaInRequests ?? true },
-                            set: { newValue in
-                                settings?.hideMediaInRequests = newValue
-                                saveSettings()
-                            }
-                        ))
-                    } header: {
+                    VStack(spacing: 0) {
+
+                        // MARK: - DIRECT MESSAGES
                         Text("DIRECT MESSAGES")
-                            .font(.custom("OpenSans-Bold", size: 12))
-                    } footer: {
-                        Text("Message requests appear in a separate inbox. Links and media are hidden until you accept.")
-                            .font(.custom("OpenSans-Regular", size: 12))
-                    }
-                    
-                    // Comment Controls
-                    Section {
-                        Picker("Default comment permission", selection: Binding(
-                            get: { settings?.defaultCommentPermission ?? .everyone },
-                            set: { newValue in
-                                settings?.defaultCommentPermission = newValue
-                                Task {
-                                    guard let userId = Auth.auth().currentUser?.uid else { return }
-                                    try await trustService.updateCommentPermission(newValue, userId: userId)
-                                }
-                            }
-                        )) {
-                            ForEach(CommentPermissionLevel.allCases, id: \.self) { level in
-                                Text(level.displayName)
-                                    .tag(level)
-                            }
-                        }
-                        .pickerStyle(.navigationLink)
-                    } header: {
-                        Text("COMMENTS")
-                            .font(.custom("OpenSans-Bold", size: 12))
-                    } footer: {
-                        Text("Who can comment on your posts by default. You can change this per-post.")
-                            .font(.custom("OpenSans-Regular", size: 12))
-                    }
-                    
-                    // Mention Controls
-                    Section {
-                        Picker("Who can mention you", selection: Binding(
-                            get: { settings?.mentionPermissionLevel ?? .followersOnly },
-                            set: { newValue in
-                                settings?.mentionPermissionLevel = newValue
-                                Task {
-                                    guard let userId = Auth.auth().currentUser?.uid else { return }
-                                    try await trustService.updateMentionPermission(newValue, userId: userId)
-                                }
-                            }
-                        )) {
-                            ForEach(MentionPermissionLevel.allCases, id: \.self) { level in
-                                Text(level.displayName)
-                                    .tag(level)
-                            }
-                        }
-                        .pickerStyle(.navigationLink)
-                    } header: {
-                        Text("MENTIONS")
-                            .font(.custom("OpenSans-Bold", size: 12))
-                    } footer: {
-                        Text("Control who can @mention you in posts and comments.")
-                            .font(.custom("OpenSans-Regular", size: 12))
-                    }
-                    
-                    // Anti-Harassment
-                    Section {
-                        Toggle("Block repeated contact attempts", isOn: Binding(
-                            get: { settings?.blockRepeatedMessageAttempts ?? true },
-                            set: { newValue in
-                                settings?.blockRepeatedMessageAttempts = newValue
-                                saveSettings()
-                            }
-                        ))
-                        
-                        HStack {
-                            Text("Auto-restrict after reports")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                            Spacer()
-                            Stepper(
-                                "\(settings?.autoRestrictAfterReports ?? 3)",
-                                value: Binding(
-                                    get: { settings?.autoRestrictAfterReports ?? 3 },
-                                    set: { newValue in
-                                        settings?.autoRestrictAfterReports = newValue
-                                        saveSettings()
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 0) {
+                            // Who can message picker
+                            Picker("Who can message you", selection: Binding(
+                                get: { settings?.dmPermissionLevel ?? .mutualsOnly },
+                                set: { newValue in
+                                    settings?.dmPermissionLevel = newValue
+                                    Task {
+                                        guard let userId = Auth.auth().currentUser?.uid else { return }
+                                        do {
+                                            try await trustService.updateDMPermission(newValue, userId: userId)
+                                        } catch {
+                                            dlog("❌ Error updating DM permission: \(error)")
+                                        }
                                     }
-                                ),
-                                in: 1...10
-                            )
+                                }
+                            )) {
+                                ForEach(DMPermissionLevel.allCases, id: \.self) { level in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(level.displayName)
+                                            .font(AMENFont.semiBold(15))
+                                        Text(level.description)
+                                            .font(AMENFont.regular(12))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .tag(level)
+                                }
+                            }
+                            .pickerStyle(.navigationLink)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+
+                            Toggle("Hide links in message requests", isOn: Binding(
+                                get: { settings?.hideLinksInRequests ?? true },
+                                set: { newValue in
+                                    settings?.hideLinksInRequests = newValue
+                                    saveSettings()
+                                }
+                            ))
+                            .font(AMENFont.semiBold(15))
+                            .tint(.blue)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+
+                            Toggle("Hide media in message requests", isOn: Binding(
+                                get: { settings?.hideMediaInRequests ?? true },
+                                set: { newValue in
+                                    settings?.hideMediaInRequests = newValue
+                                    saveSettings()
+                                }
+                            ))
+                            .font(AMENFont.semiBold(15))
+                            .tint(.blue)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                         }
-                    } header: {
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+
+                        Text("Message requests appear in a separate inbox. Links and media are hidden until you accept.")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
+
+                        // MARK: - COMMENTS
+                        Text("COMMENTS")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 0) {
+                            Picker("Default comment permission", selection: Binding(
+                                get: { settings?.defaultCommentPermission ?? .everyone },
+                                set: { newValue in
+                                    settings?.defaultCommentPermission = newValue
+                                    Task {
+                                        guard let userId = Auth.auth().currentUser?.uid else { return }
+                                        do {
+                                            try await trustService.updateCommentPermission(newValue, userId: userId)
+                                        } catch {
+                                            dlog("❌ Error updating comment permission: \(error)")
+                                        }
+                                    }
+                                }
+                            )) {
+                                ForEach(CommentPermissionLevel.allCases, id: \.self) { level in
+                                    Text(level.displayName)
+                                        .tag(level)
+                                }
+                            }
+                            .pickerStyle(.navigationLink)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+
+                        Text("Who can comment on your posts by default. You can change this per-post.")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
+
+                        // MARK: - MENTIONS
+                        Text("MENTIONS")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 0) {
+                            Picker("Who can mention you", selection: Binding(
+                                get: { settings?.mentionPermissionLevel ?? .followersOnly },
+                                set: { newValue in
+                                    settings?.mentionPermissionLevel = newValue
+                                    Task {
+                                        guard let userId = Auth.auth().currentUser?.uid else { return }
+                                        do {
+                                            try await trustService.updateMentionPermission(newValue, userId: userId)
+                                        } catch {
+                                            dlog("❌ Error updating mention permission: \(error)")
+                                        }
+                                    }
+                                }
+                            )) {
+                                ForEach(MentionPermissionLevel.allCases, id: \.self) { level in
+                                    Text(level.displayName)
+                                        .tag(level)
+                                }
+                            }
+                            .pickerStyle(.navigationLink)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+
+                        Text("Control who can @mention you in posts and comments.")
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
+
+                        // MARK: - ANTI-HARASSMENT
                         Text("ANTI-HARASSMENT")
-                            .font(.custom("OpenSans-Bold", size: 12))
-                    } footer: {
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+
+                        VStack(spacing: 0) {
+                            Toggle("Block repeated contact attempts", isOn: Binding(
+                                get: { settings?.blockRepeatedMessageAttempts ?? true },
+                                set: { newValue in
+                                    settings?.blockRepeatedMessageAttempts = newValue
+                                    saveSettings()
+                                }
+                            ))
+                            .font(AMENFont.semiBold(15))
+                            .tint(.blue)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                            Divider().padding(.leading, 16)
+
+                            HStack {
+                                Text("Auto-restrict after reports")
+                                    .font(AMENFont.semiBold(15))
+                                Spacer()
+                                Stepper(
+                                    "\(settings?.autoRestrictAfterReports ?? 3)",
+                                    value: Binding(
+                                        get: { settings?.autoRestrictAfterReports ?? 3 },
+                                        set: { newValue in
+                                            settings?.autoRestrictAfterReports = newValue
+                                            saveSettings()
+                                        }
+                                    ),
+                                    in: 1...10
+                                )
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+
                         Text("Automatically restrict users who repeatedly attempt contact after being blocked or who receive multiple reports.")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
+
+                        Spacer(minLength: 32)
                     }
                 }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Privacy & Contact")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -168,7 +264,7 @@ struct PrivacyControlsSettingsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .task {
@@ -176,10 +272,10 @@ struct PrivacyControlsSettingsView: View {
             }
         }
     }
-    
+
     private func loadSettings() async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
-        
+
         do {
             try await trustService.loadPrivacySettings(userId: userId)
             settings = trustService.userSettings
@@ -189,10 +285,10 @@ struct PrivacyControlsSettingsView: View {
             isLoading = false
         }
     }
-    
+
     private func saveSettings() {
         guard let settings = settings else { return }
-        
+
         Task {
             do {
                 try await trustService.savePrivacySettings(settings)

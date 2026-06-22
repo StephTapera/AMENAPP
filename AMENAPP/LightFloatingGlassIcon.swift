@@ -36,7 +36,7 @@ struct LightFloatingGlassIcon: View {
             .offset(y: floating ? -6 : 0)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.65, dampingFraction: 0.70)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.65, dampingFraction: 0.70))) {
                 appeared = true
             }
             withAnimation(.easeInOut(duration: 3.4).repeatForever(autoreverses: true)) {
@@ -268,7 +268,7 @@ private struct LightHands: View {
                 .frame(width: size * 0.44, height: size * 0.44)
                 .overlay(
                     Image(systemName: "hands.sparkles.fill")
-                        .font(.system(size: size * 0.20))
+                        .font(.systemScaled(size * 0.20))
                         .foregroundColor(.white.opacity(0.95))
                 )
         }
@@ -296,7 +296,7 @@ private struct LightQuote: View {
                 .frame(width: size * 0.44, height: size * 0.44)
                 .overlay(
                     Image(systemName: "quote.bubble.fill")
-                        .font(.system(size: size * 0.22))
+                        .font(.systemScaled(size * 0.22))
                         .foregroundColor(.white.opacity(0.95))
                 )
         }
@@ -324,7 +324,7 @@ private struct LightSparkle: View {
                 .frame(width: size * 0.44, height: size * 0.44)
                 .overlay(
                     Image(systemName: "sparkles")
-                        .font(.system(size: size * 0.20))
+                        .font(.systemScaled(size * 0.20))
                         .foregroundColor(.white.opacity(0.95))
                 )
         }
@@ -370,13 +370,13 @@ struct LightCreatorEmptyState: View {
                 .padding(.bottom, 32)
 
             Text(title)
-                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .font(.systemScaled(22, weight: .semibold, design: .serif))
                 .foregroundColor(Color(white: 0.10))
                 .multilineTextAlignment(.center)
                 .padding(.bottom, 10)
 
             Text(subtitle)
-                .font(.system(size: 15, design: .rounded))
+                .font(.systemScaled(15, design: .rounded))
                 .foregroundColor(Color(white: 0.50))
                 .multilineTextAlignment(.center)
                 .lineSpacing(5)
@@ -385,7 +385,7 @@ struct LightCreatorEmptyState: View {
             if let label = actionLabel, let action = onAction {
                 Button(action: action) {
                     Text(label)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .font(.systemScaled(15, weight: .medium, design: .rounded))
                         .foregroundColor(.white)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 13)
@@ -405,7 +405,7 @@ struct LightCreatorEmptyState: View {
         .opacity(appeared ? 1 : 0)
         .scaleEffect(appeared ? 1 : 0.95)
         .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.76).delay(0.08)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.76)).delay(0.08)) {
                 appeared = true
             }
         }

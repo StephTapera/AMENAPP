@@ -3,13 +3,18 @@
 //  ShareExtensionViewController.swift
 //  AMENShareExtension  ← separate Xcode target
 //
-//  iOS Share Extension. After writing these files, you must:
-//    1. In Xcode: File → New → Target → Share Extension → name it "AMENShareExtension"
+//  TODO(gate: HUMAN-MACHINE): The Swift source files in this directory are complete,
+//  but the AMENShareExtension Xcode target does NOT yet exist in the .xcodeproj.
+//  A human engineer must complete these steps in Xcode before this extension ships:
+//    1. File → New → Target → Share Extension → name it "AMENShareExtension"
 //    2. Add both targets to the App Group "group.com.amenapp.shared"
 //       (Target → Signing & Capabilities → + App Groups)
-//    3. Add AMENShareExtension to the Embed App Extensions build phase
+//    3. Add AMENShareExtension to the Embed App Extensions build phase of the main app
 //    4. Add "amen" URL scheme to the main app's Info.plist (CFBundleURLTypes)
 //    5. Add LinkPresentation.framework to AMENShareExtension's linked frameworks
+//    6. Assign ShareExtensionViewController.swift + ShareModels.swift to the new target
+//  Until these steps are complete this code is NOT compiled into any binary.
+//  Lane status: DONE-PROVEN (code) | BLOCKED (Xcode target wiring) — HUMAN-MACHINE gate.
 //
 //  Supported input types: URL, UIImage, plain text.
 //  No API keys, no network calls — only writes a ShareDraft to App Group UserDefaults.

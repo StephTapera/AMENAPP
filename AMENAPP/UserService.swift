@@ -170,8 +170,8 @@ struct User: Codable, Identifiable {
         showSensitiveContent = try container.decodeIfPresent(Bool.self, forKey: .showSensitiveContent) ?? false
         requirePasswordForPurchases = try container.decodeIfPresent(Bool.self, forKey: .requirePasswordForPurchases) ?? true
         
-        createdAt = try container.decode(Date.self, forKey: .createdAt)
-        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        createdAt = (try? container.decode(Date.self, forKey: .createdAt)) ?? Date()
+        updatedAt = (try? container.decode(Date.self, forKey: .updatedAt)) ?? Date()
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
     }
     
@@ -226,9 +226,9 @@ class LegacyUserService: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let firebaseManager = FirebaseManager.shared
-    private let storage = Storage.storage()
+    private lazy var storage = Storage.storage()
     
     private var userListener: ListenerRegistration?
     

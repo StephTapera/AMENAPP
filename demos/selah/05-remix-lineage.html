@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SELAH — Remix Lineage</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --breath-enter: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --breath-duration-enter: 450ms;
+    --breath-duration-settle: 700ms;
+    --glass-filter: blur(20px) saturate(180%);
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6B6B;
+    --root-color: #2C4A3E;
+    --branch-color: #4A3E2C;
+    --leaf-color: #3E2C4A;
+    --gold: #B8860B;
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', sans-serif;
+    background: linear-gradient(160deg, #E0EBE4 0%, #EBE4D4 50%, #E4DDE8 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    color: var(--text-primary);
+  }
+
+  @keyframes cardEnter {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes lineGrow {
+    from { scaleY: 0; opacity: 0; }
+    to { scaleY: 1; opacity: 1; }
+  }
+
+  @keyframes ambientPulse {
+    from { opacity: 0.7; }
+    to { opacity: 1.0; }
+  }
+
+  .wrapper {
+    width: 100%;
+    max-width: 390px;
+  }
+
+  .page-header {
+    margin-bottom: 24px;
+    animation: cardEnter var(--breath-duration-enter) var(--breath-enter) both;
+  }
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .page-sub {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  /* Original postcard */
+  .postcard {
+    background: rgba(255,255,255,0.90);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+    position: relative;
+  }
+
+  .postcard-author {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .author-info h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .author-info p {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .postcard-body {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+  }
+
+  /* Build-upon action */
+  .action-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 14px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .action-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .btn-build {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(44, 74, 62, 0.10);
+    border: 1px solid rgba(44, 74, 62, 0.20);
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--root-color);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background var(--breath-duration-enter) var(--breath-enter),
+                transform var(--breath-duration-enter) var(--breath-enter);
+  }
+
+  .btn-build:hover {
+    background: rgba(44, 74, 62, 0.18);
+    transform: scale(0.98);
+  }
+
+  /* Lineage sheet */
+  .lineage-sheet {
+    background: rgba(255,255,255,0.88);
+    border-radius: 24px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.09);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 100ms both;
+  }
+
+  .lineage-header {
+    margin-bottom: 20px;
+  }
+
+  .lineage-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .lineage-description {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  /* Tree structure */
+  .tree {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding-left: 8px;
+  }
+
+  .tree-node {
+    display: flex;
+    gap: 0;
+    align-items: flex-start;
+  }
+
+  .node-guide {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 28px;
+    flex-shrink: 0;
+  }
+
+  .node-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .node-line {
+    width: 2px;
+    flex: 1;
+    min-height: 24px;
+    margin: 2px 0;
+  }
+
+  .node-content {
+    flex: 1;
+    padding: 0 0 20px 12px;
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+  }
+
+  .tree-node:nth-child(1) .node-content { animation-delay: 0ms; }
+  .tree-node:nth-child(2) .node-content { animation-delay: 100ms; }
+  .tree-node:nth-child(3) .node-content { animation-delay: 200ms; }
+
+  .node-role {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+
+  .node-person {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .node-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .node-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .node-date {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .node-excerpt {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    font-style: italic;
+    background: rgba(0,0,0,0.03);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+
+  /* Attribution footer */
+  .attribution-block {
+    background: rgba(184, 134, 11, 0.08);
+    border-radius: 16px;
+    padding: 14px 16px;
+    border: 1px solid rgba(184, 134, 11, 0.18);
+    margin-top: 8px;
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 300ms both;
+  }
+
+  .attr-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #8B6914;
+    margin-bottom: 8px;
+  }
+
+  .attr-text {
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.6;
+  }
+
+  .attr-name {
+    font-weight: 600;
+    color: var(--root-color);
+  }
+
+  /* Zero-counter note */
+  .zero-counter-note {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(107,107,107,0.6);
+    margin-top: 16px;
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 350ms both;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="page-header">
+    <h1 class="page-title">Build Upon</h1>
+    <p class="page-sub">Reflections that grow from one another, with full attribution.</p>
+  </div>
+
+  <!-- Original postcard -->
+  <div class="postcard" role="article" aria-label="Sarah Kim's original testimony">
+    <div class="postcard-author">
+      <div class="avatar" style="background:#6B7A8D;" aria-hidden="true">SK</div>
+      <div class="author-info">
+        <h4>Sarah Kim</h4>
+        <p>June 8 · Testimony</p>
+      </div>
+    </div>
+    <p class="postcard-body">
+      "I spent three years wondering if God was still listening. Last month, sitting in my car after a hard shift, I opened my Bible to Job 38 by accident. I hadn't opened it in six months. The questions God asks Job — not to condemn, but to expand — undid me in the best possible way."
+    </p>
+    <div class="action-row">
+      <span class="action-label">Moved by this?</span>
+      <button class="btn-build" aria-label="Build upon Sarah Kim's reflection" onclick="showLineage()">
+        &#x1F33F; Build upon this
+      </button>
+    </div>
+  </div>
+
+  <!-- Lineage chain -->
+  <div class="lineage-sheet" id="lineage-panel" role="region" aria-label="Reflection lineage chain">
+    <div class="lineage-header">
+      <h2 class="lineage-title">Lineage of this reflection</h2>
+      <p class="lineage-description">Built upon · Rooted in · Grown from</p>
+    </div>
+
+    <div class="tree" role="list" aria-label="Lineage chain: root, parent, current">
+      <!-- Root -->
+      <div class="tree-node" role="listitem">
+        <div class="node-guide">
+          <div class="node-dot" style="background: var(--root-color);" aria-hidden="true">R</div>
+          <div class="node-line" style="background: rgba(44,74,62,0.2);" aria-hidden="true"></div>
+        </div>
+        <div class="node-content">
+          <p class="node-role" style="color: var(--root-color);">Root</p>
+          <div class="node-person">
+            <div class="node-avatar" style="background:#6B7A8D;" aria-hidden="true">SK</div>
+            <div>
+              <span class="node-name">Sarah Kim</span>
+              <div class="node-date">June 8, 2026</div>
+            </div>
+          </div>
+          <div class="node-excerpt">
+            "...sitting in my car after a hard shift, I opened my Bible to Job 38 by accident..."
+          </div>
+        </div>
+      </div>
+
+      <!-- Parent -->
+      <div class="tree-node" role="listitem">
+        <div class="node-guide">
+          <div class="node-dot" style="background: var(--branch-color);" aria-hidden="true">P</div>
+          <div class="node-line" style="background: rgba(74,62,44,0.2);" aria-hidden="true"></div>
+        </div>
+        <div class="node-content">
+          <p class="node-role" style="color: var(--branch-color);">Built upon by</p>
+          <div class="node-person">
+            <div class="node-avatar" style="background:#8D6B7A;" aria-hidden="true">MC</div>
+            <div>
+              <span class="node-name">Marcus Chen</span>
+              <div class="node-date">June 10, 2026</div>
+            </div>
+          </div>
+          <div class="node-excerpt">
+            "Sarah's honesty about silence helped me name my own: two years of going through the motions after my father's passing..."
+          </div>
+        </div>
+      </div>
+
+      <!-- Current (child) -->
+      <div class="tree-node" role="listitem">
+        <div class="node-guide">
+          <div class="node-dot" style="background: var(--leaf-color);" aria-hidden="true">Y</div>
+        </div>
+        <div class="node-content">
+          <p class="node-role" style="color: var(--leaf-color);">Your reflection</p>
+          <div class="node-person">
+            <div class="node-avatar" style="background:#7A6B8D;" aria-hidden="true">You</div>
+            <div>
+              <span class="node-name">You</span>
+              <div class="node-date">Today</div>
+            </div>
+          </div>
+          <div class="node-excerpt" style="border: 1.5px dashed rgba(62,44,74,0.25); background: rgba(62,44,74,0.04);">
+            Your response will appear here — building on what Marcus and Sarah began.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attribution -->
+    <div class="attribution-block" role="note" aria-label="Attribution for this reflection">
+      <p class="attr-label">Attribution</p>
+      <p class="attr-text">
+        Built upon <span class="attr-name">Marcus Chen's</span> reflection ·
+        Rooted in <span class="attr-name">Sarah Kim's</span> testimony
+      </p>
+    </div>
+  </div>
+
+  <p class="zero-counter-note" role="note">No remix counts. No view numbers. The lineage is the only record that matters.</p>
+</div>
+
+<script>
+  function showLineage() {
+    const panel = document.getElementById('lineage-panel');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+</script>
+</body>
+</html>

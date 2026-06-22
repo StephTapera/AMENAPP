@@ -64,7 +64,31 @@ final class RecommendationIntelligenceService {
     private var cache: [String: CachedRecommendations] = [:]
     private let cacheTTL: TimeInterval = 600  // 10 minutes
 
+    // P2 FIX: Post-level relevance score cache keyed by postId.
+    // HomeFeedAlgorithm reads these scores at sort time via getCachedRelevance().
+    // Set by callers who evaluate recommendations for a set of posts (e.g. PostsManager).
+    private var postRelevanceCache: [String: Double] = [:]
+
     private init() {}
+
+    // MARK: - Feed Integration
+
+    /// Returns a cached relevance score for a post (0–1.0). Returns 0 on miss.
+    /// HomeFeedAlgorithm calls this during ScoringContext capture.
+    func getCachedRelevance(for postId: String) -> Double {
+        postRelevanceCache[postId] ?? 0
+    }
+
+    /// Store a relevance score for a post. Call this when recommendation scores
+    /// are computed (e.g. after Vertex AI embedding similarity for a batch of posts).
+    func cacheRelevance(_ score: Double, for postId: String) {
+        postRelevanceCache[postId] = max(0, min(1, score))
+    }
+
+    /// Evict all cached relevance scores (call on feed refresh to prevent stale boosts).
+    func clearRelevanceCache() {
+        postRelevanceCache.removeAll()
+    }
 
     // MARK: - Surface-Specific APIs
 
@@ -351,9 +375,9 @@ struct RelatedVersesStrip: View {
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "book.closed.fill")
-                                        .font(.system(size: 9, weight: .medium))
+                                        .font(.systemScaled(9, weight: .medium))
                                     Text(verse)
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                 }
                                 .foregroundStyle(Color(red: 0.88, green: 0.38, blue: 0.28))
                                 .padding(.horizontal, 10)
@@ -399,10 +423,10 @@ struct AskBereanPromptSuggestions: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 5) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(Color(red: 0.88, green: 0.38, blue: 0.28))
                         Text("Ask Berean")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(Color(white: 0.40))
                             .tracking(0.3)
                     }
@@ -413,12 +437,12 @@ struct AskBereanPromptSuggestions: View {
                         } label: {
                             HStack {
                                 Text(prompt)
-                                    .font(.system(size: 13, weight: .regular))
+                                    .font(.systemScaled(13, weight: .regular))
                                     .foregroundStyle(Color(white: 0.18))
                                     .multilineTextAlignment(.leading)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(.systemScaled(10, weight: .medium))
                                     .foregroundStyle(Color(white: 0.55))
                             }
                             .padding(.horizontal, 12)

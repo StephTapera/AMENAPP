@@ -153,7 +153,7 @@ final class BereanCache {
                     self?.store(postId: postId, result: result)
                 }
                 dlog("✚ BereanCache prefetch stored: \(postId)")
-                ScreenCrashLogger.log(.dataLoadCompleted("BEREAN_PREFETCH"), context: [
+                await ScreenCrashLogger.log(.dataLoadCompleted("BEREAN_PREFETCH"), context: [
                     "postId": postId,
                     "memoryMB": ScreenCrashLogger.memoryUsageMB,
                     "threads": ScreenCrashLogger.threadCount
@@ -161,7 +161,7 @@ final class BereanCache {
             } catch {
                 // Prefetch failures are silent — user will see normal load on tap.
                 dlog("⚠️ BereanCache prefetch failed for \(postId): \(error.localizedDescription)")
-                ScreenCrashLogger.log(.dataLoadFailed("BEREAN_PREFETCH"), context: [
+                await ScreenCrashLogger.log(.dataLoadFailed("BEREAN_PREFETCH"), context: [
                     "postId": postId,
                     "error": error.localizedDescription,
                     "memoryMB": ScreenCrashLogger.memoryUsageMB

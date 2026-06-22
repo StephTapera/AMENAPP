@@ -126,7 +126,7 @@ struct SocialLinksEditView: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                 Text("Add Social Link")
                                     .font(.custom("OpenSans-Bold", size: 16))
                             }
@@ -145,7 +145,7 @@ struct SocialLinksEditView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 8) {
                             Image(systemName: "info.circle.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.blue)
                             
                             Text("Maximum 6 social links")
@@ -220,7 +220,7 @@ struct SocialLinksEditView: View {
     // MARK: - Remove Link
     
     private func removeLink(_ link: SocialLinkUI) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             socialLinks.removeAll { $0.id == link.id }
         }
         
@@ -276,7 +276,7 @@ struct EmptySocialLinksView: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "link.circle")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(.black.opacity(0.2))
             
             Text("No social links yet")
@@ -327,7 +327,7 @@ struct SocialLinkRow: View {
                     .frame(width: 48, height: 48)
                 
                 Image(systemName: link.platform.icon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(link.platform.color)
             }
             
@@ -349,7 +349,7 @@ struct SocialLinkRow: View {
                 onEdit()
             } label: {
                 Image(systemName: "pencil")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.blue)
                     .frame(width: 36, height: 36)
                     .background(
@@ -363,7 +363,7 @@ struct SocialLinkRow: View {
                 onDelete()
             } label: {
                 Image(systemName: "trash")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.red)
                     .frame(width: 36, height: 36)
                     .background(
@@ -433,7 +433,7 @@ struct AddSocialLinkSheet: View {
                                     platform: platform,
                                     isSelected: selectedPlatform == platform
                                 ) {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         selectedPlatform = platform
                                     }
                                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -470,7 +470,7 @@ struct AddSocialLinkSheet: View {
                         if showValidationError {
                             HStack(spacing: 6) {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.red)
                                 
                                 Text(validationMessage)
@@ -484,7 +484,7 @@ struct AddSocialLinkSheet: View {
                         if !username.isEmpty {
                             HStack(spacing: 6) {
                                 Image(systemName: "link")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.blue)
                                 
                                 Text(SocialLinkData.generateURL(platform: selectedPlatform.rawValue, username: username))
@@ -570,7 +570,7 @@ struct PlatformButton: View {
                         .frame(width: 56, height: 56)
                     
                     Image(systemName: platform.icon)
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(isSelected ? platform.color : Color.black.opacity(0.4))
                 }
                 

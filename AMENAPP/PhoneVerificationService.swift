@@ -8,6 +8,7 @@
 
 import Foundation
 import Combine
+import CryptoKit
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -38,7 +39,7 @@ class PhoneVerificationService: ObservableObject {
     @Published var phoneNumber: String = ""
     @Published var isPhoneVerified: Bool = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var verificationID: String?
     
     private init() {
@@ -54,7 +55,7 @@ class PhoneVerificationService: ObservableObject {
     /// - Parameter phoneNumber: Phone number in E.164 format (e.g., +1234567890)
     func sendVerificationCode(to phoneNumber: String) async throws {
         #if DEBUG
-        dlog("📱 Sending verification code to: \(phoneNumber)")
+        dlog("📱 Sending verification code to phone \(Self.redactedPhoneForLog(phoneNumber))")
         #endif
         
         // Validate phone number format
@@ -88,7 +89,7 @@ class PhoneVerificationService: ObservableObject {
     /// Verify SMS code entered by user
     /// - Parameter code: 6-digit SMS verification code
     func verifyCode(_ code: String) async throws {
-        dlog("🔐 Verifying code: \(code)")
+        dlog("🔐 Verifying phone code: [REDACTED]")
         
         guard let verificationID = verificationID else {
             throw PhoneVerificationError.noVerificationID
@@ -145,7 +146,9 @@ class PhoneVerificationService: ObservableObject {
         
         try await userRef.updateData([
             "phoneVerified": true,
-            "phoneNumber": phoneNumber,
+            "phoneHash": Self.phoneHash(for: phoneNumber),
+            "phoneLast4": Self.phoneLast4(for: phoneNumber),
+            "phoneNumber": FieldValue.delete(),
             "phoneVerifiedAt": FieldValue.serverTimestamp(),
             "verificationBadges": FieldValue.arrayUnion(["phone"]),
             "updatedAt": FieldValue.serverTimestamp()
@@ -166,11 +169,11 @@ class PhoneVerificationService: ObservableObject {
             
             if let data = userDoc.data() {
                 let phoneVerified = data["phoneVerified"] as? Bool ?? false
-                let storedPhoneNumber = data["phoneNumber"] as? String ?? ""
+                let storedPhoneLast4 = data["phoneLast4"] as? String ?? ""
                 
                 await MainActor.run {
                     isPhoneVerified = phoneVerified
-                    phoneNumber = storedPhoneNumber
+                    phoneNumber = storedPhoneLast4.isEmpty ? "" : "••• ••• \(storedPhoneLast4)"
                     verificationStatus = phoneVerified ? .verified : .notStarted
                 }
                 
@@ -186,7 +189,7 @@ class PhoneVerificationService: ObservableObject {
     
     /// Resend verification code to the same phone number
     func resendVerificationCode() async throws {
-        guard !phoneNumber.isEmpty else {
+        guard !phoneNumber.isEmpty, phoneNumber.hasPrefix("+") else {
             throw PhoneVerificationError.noPhoneNumber
         }
         
@@ -200,6 +203,21 @@ class PhoneVerificationService: ObservableObject {
         verificationID = nil
         phoneNumber = ""
         verificationStatus = .notStarted
+    }
+
+    private static func phoneHash(for phoneNumber: String) -> String {
+        let normalized = phoneNumber.filter { $0.isNumber }
+        let digest = SHA256.hash(data: Data(normalized.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func phoneLast4(for phoneNumber: String) -> String {
+        String(phoneNumber.filter { $0.isNumber }.suffix(4))
+    }
+
+    private static func redactedPhoneForLog(_ phoneNumber: String) -> String {
+        let last4 = phoneLast4(for: phoneNumber)
+        return last4.isEmpty ? "last4=[unavailable]" : "last4=\(last4)"
     }
 }
 

@@ -4,7 +4,7 @@
 // Spiritual Timeline Generator:
 //   - Aggregates user's prayers, church notes, testimonies from Firestore
 //   - Calls generateSpiritualTimeline Cloud Function (Claude) → timeline milestones
-//   - SwiftUI vertical timeline view with milestone cards
+//   - SwiftUI vertical timeline view with liquid-glass milestone cards
 //   - Accessible from Profile or Resources
 
 import SwiftUI
@@ -57,14 +57,14 @@ enum MilestoneCategory: String, Codable {
         }
     }
 
-    var color: Color {
+    var glassAccent: Color {
         switch self {
-        case .answered:     return .yellow
-        case .growth:       return .green
-        case .challenge:    return .orange
-        case .breakthrough: return .blue
-        case .service:      return .purple
-        case .community:    return .teal
+        case .answered:     return Color(hex: "F59E0B")
+        case .growth:       return Color(hex: "10B981")
+        case .challenge:    return Color(hex: "F97316")
+        case .breakthrough: return Color(hex: "06B6D4")
+        case .service:      return Color(hex: "6B48FF")
+        case .community:    return Color(hex: "8B5CF6")
         }
     }
 }
@@ -78,7 +78,7 @@ final class SpiritualTimelineService: ObservableObject {
     @Published var error: String?
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     func load() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
@@ -179,72 +179,147 @@ struct SpiritualTimelineView: View {
     @StateObject private var service = SpiritualTimelineService()
 
     var body: some View {
-        Group {
-            if service.isLoading {
-                loadingState
-            } else if let err = service.error {
-                errorState(err)
-            } else if service.milestones.isEmpty {
-                emptyState
-            } else {
-                timelineContent
+        ZStack {
+            Color(hex: "0A0A0F").ignoresSafeArea()
+
+            Group {
+                if service.isLoading {
+                    loadingState
+                } else if let err = service.error {
+                    errorState(err)
+                } else if service.milestones.isEmpty {
+                    emptyState
+                } else {
+                    timelineContent
+                }
             }
         }
         .navigationTitle("Spiritual Timeline")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .task { await service.load() }
     }
 
+    // MARK: Timeline content
+
     private var timelineContent: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
+                FaithWrappedInlineCard()
+                    .padding(.bottom, 18)
+
                 ForEach(Array(service.milestones.enumerated()), id: \.element.id) { index, milestone in
                     MilestoneRow(
-                        milestone:  milestone,
-                        isFirst:    index == 0,
-                        isLast:     index == service.milestones.count - 1
+                        milestone: milestone,
+                        isFirst:   index == 0,
+                        isLast:    index == service.milestones.count - 1
                     )
                 }
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
-            .padding(.bottom, 40)
+            .padding(.bottom, 48)
         }
     }
+
+    // MARK: Loading
 
     private var loadingState: some View {
         VStack(spacing: 16) {
             ProgressView()
+                .tint(.white)
+                .scaleEffect(1.2)
             Text("Generating your spiritual timeline…")
-                .font(.system(size: 14))
-                .foregroundStyle(Color(.secondaryLabel))
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 40))
-                .foregroundStyle(Color(.tertiaryLabel))
-            Text("Your timeline will appear here as you add prayers and notes.")
-                .font(.system(size: 14))
-                .foregroundStyle(Color(.secondaryLabel))
+                .font(AMENFont.regular(14))
+                .foregroundColor(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func errorState(_ msg: String) -> some View {
-        VStack(spacing: 12) {
-            Text(msg)
-                .font(.system(size: 14))
-                .foregroundStyle(Color(.secondaryLabel))
-            Button("Retry") { Task { await service.load() } }
+    // MARK: Empty
+
+    private var emptyState: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.06))
+                    .frame(width: 72, height: 72)
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.systemScaled(30, weight: .light))
+                    .foregroundColor(.white.opacity(0.4))
+            }
+            Text("Your timeline will appear here\nas you add prayers and notes.")
+                .font(AMENFont.regular(14))
+                .foregroundColor(.white.opacity(0.4))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: Error
+
+    private func errorState(_ msg: String) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.systemScaled(28))
+                .foregroundColor(.white.opacity(0.35))
+            Text(msg)
+                .font(AMENFont.regular(13))
+                .foregroundColor(.white.opacity(0.45))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Button {
+                Task { await service.load() }
+            } label: {
+                Text("Retry")
+                    .font(AMENFont.semiBold(14))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct FaithWrappedInlineCard: View {
+    var body: some View {
+        NavigationLink(destination: SpiritualJourneySelectionView()) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.08))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "sparkles")
+                        .font(.systemScaled(16, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Faith Wrapped")
+                        .font(AMENFont.semiBold(14))
+                        .foregroundColor(.white)
+                    Text("Your season, gently told back to you")
+                        .font(AMENFont.regular(12))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .padding(14)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.6))
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -256,89 +331,197 @@ private struct MilestoneRow: View {
     let isLast: Bool
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            // Timeline spine
+        HStack(alignment: .top, spacing: 14) {
+
+            // ── Timeline spine + node ──────────────────────────────────────
             VStack(spacing: 0) {
+                // Top connector
                 if !isFirst {
                     Rectangle()
-                        .fill(Color(.separator))
-                        .frame(width: 2, height: 20)
+                        .fill(Color.white.opacity(0.12))
+                        .frame(width: 1.5, height: 22)
                 } else {
-                    Spacer().frame(height: 20)
+                    Spacer().frame(height: 22)
                 }
 
-                // Node dot
+                // Glass node dot
                 ZStack {
                     Circle()
-                        .fill(milestone.category.color.opacity(0.15))
-                        .frame(width: 36, height: 36)
+                        .fill(.ultraThinMaterial)
+                    Circle()
+                        .fill(milestone.category.glassAccent.opacity(0.18))
+                    Circle()
+                        .strokeBorder(milestone.category.glassAccent.opacity(0.45), lineWidth: 1)
                     Image(systemName: milestone.category.icon)
-                        .font(.system(size: 14))
-                        .foregroundStyle(milestone.category.color)
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundColor(milestone.category.glassAccent)
                 }
+                .frame(width: 36, height: 36)
 
+                // Bottom connector
                 if !isLast {
                     Rectangle()
-                        .fill(Color(.separator))
-                        .frame(width: 2)
-                        .frame(minHeight: 40)
+                        .fill(Color.white.opacity(0.12))
+                        .frame(width: 1.5)
+                        .frame(minHeight: 44)
                 }
             }
             .frame(width: 36)
 
-            // Content card
+            // ── Glass milestone card ──────────────────────────────────────
             VStack(alignment: .leading, spacing: 6) {
                 if !milestone.date.isEmpty {
-                    Text(milestone.date)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(.tertiaryLabel))
-                        .textCase(.uppercase)
-                        .padding(.top, 18)
+                    Text(milestone.date.uppercased())
+                        .font(AMENFont.semiBold(10))
+                        .foregroundColor(milestone.category.glassAccent.opacity(0.85))
+                        .kerning(1.2)
+                        .padding(.top, 14)
                 }
+
                 Text(milestone.title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color(.label))
+                    .font(AMENFont.semiBold(15))
+                    .foregroundColor(.white)
+
                 Text(milestone.description)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(.secondaryLabel))
+                    .font(AMENFont.regular(13))
+                    .foregroundColor(.white.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.bottom, 20)
+
+                // Source type pill
+                if !milestone.sourceType.isEmpty {
+                    Text(milestone.sourceType.capitalized)
+                        .font(AMENFont.semiBold(10))
+                        .foregroundColor(.white.opacity(0.45))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.white.opacity(0.07))
+                        .clipShape(Capsule())
+                }
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.ultraThinMaterial)
+            .background(Color.white.opacity(0.04))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.white.opacity(0.09), lineWidth: 0.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.vertical, 8)
         }
     }
 }
 
-// MARK: - SpiritualTimelineEntry (entry point — NavigationLink or sheet trigger)
+// MARK: - SpiritualTimelineEntry (liquid glass banner)
 
 struct SpiritualTimelineEntry: View {
     @State private var showTimeline = false
 
+    private let accentGreen = Color(hex: "10B981")
+    private let accentGold  = Color(hex: "F59E0B")
+
     var body: some View {
-        Button {
-            showTimeline = true
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 16))
-                    .foregroundStyle(Color(.secondaryLabel))
-                Text("My Spiritual Timeline")
-                    .font(.system(size: 15))
-                    .foregroundStyle(Color(.label))
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(.tertiaryLabel))
+        Button { showTimeline = true } label: {
+            HStack(spacing: 0) {
+
+                // ── Left glass icon panel ────────────────────────────────
+                ZStack {
+                    // Subtle multi-stop gradient tinted panel
+                    LinearGradient(
+                        colors: [
+                            Color(hex: "10B981").opacity(0.25),
+                            Color(hex: "6B48FF").opacity(0.18),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+
+                    // Decorative rings
+                    ZStack {
+                        Circle()
+                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                            .frame(width: 76, height: 76)
+                        Circle()
+                            .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                            .frame(width: 52, height: 52)
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.systemScaled(26, weight: .light))
+                            .foregroundColor(.white.opacity(0.85))
+                    }
+                }
+                .frame(width: 120)
+
+                // ── Right text content ────────────────────────────────────
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("YOUR JOURNEY")
+                        .font(AMENFont.semiBold(9))
+                        .kerning(2.0)
+                        .foregroundColor(accentGreen.opacity(0.9))
+
+                    Text("Spiritual\nTimeline")
+                        .font(AMENFont.bold(20))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+
+                    HStack(spacing: 6) {
+                        Label("AI-powered", systemImage: "sparkles")
+                            .font(AMENFont.semiBold(10))
+                            .foregroundColor(.white.opacity(0.55))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(Capsule())
+
+                        Label("Milestones", systemImage: "flag.checkered")
+                            .font(AMENFont.semiBold(10))
+                            .foregroundColor(.white.opacity(0.55))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(Capsule())
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Text("View my timeline")
+                            .font(AMENFont.semiBold(12))
+                            .foregroundColor(accentGreen)
+                        Image(systemName: "arrow.right")
+                            .font(.systemScaled(10, weight: .semibold))
+                            .foregroundColor(accentGreen)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .frame(height: 156)
+            .background(.ultraThinMaterial)
+            .background(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.04), Color.clear],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CoCreationPressStyle())
         .sheet(isPresented: $showTimeline) {
-            NavigationView {
+            NavigationStack {
                 SpiritualTimelineView()
                     .toolbar {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button("Done") { showTimeline = false }
+                                .font(AMENFont.semiBold(15))
+                                .foregroundColor(Color(hex: "6B48FF"))
                         }
                     }
             }

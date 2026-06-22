@@ -16,7 +16,7 @@ import Combine
 struct PostsSearchView: View {
     @StateObject private var viewModel = PostsSearchViewModel()
     @State private var searchText = ""
-    @State private var selectedCategory: PostCategory = .trending
+    @State private var selectedCategory: PostCategory = .recent
     @Environment(\.dismiss) var dismiss
     
     // ✅ HEY FEED: Keyword trigger
@@ -29,23 +29,23 @@ struct PostsSearchView: View {
     private let maxRecentSearches = 10
     
     enum PostCategory: String, CaseIterable {
-        case trending = "Trending"
         case recent = "Recent"
-        case popular = "Popular"
-        
+        case scripture = "Scripture"
+        case prayer = "Prayer"
+
         var icon: String {
             switch self {
-            case .trending: return "flame.fill"
             case .recent: return "clock.fill"
-            case .popular: return "heart.fill"
+            case .scripture: return "book.fill"
+            case .prayer: return "hands.sparkles.fill"
             }
         }
-        
+
         var highlightColor: Color {
             switch self {
-            case .trending: return Color(red: 0.8, green: 0.1, blue: 0.2) // Maroon/Red
             case .recent: return .blue
-            case .popular: return .pink
+            case .scripture: return .indigo
+            case .prayer: return .purple
             }
         }
     }
@@ -122,7 +122,7 @@ struct PostsSearchView: View {
             }
         }
         .sheet(isPresented: $showHeyFeedControls) {
-            HeyFeedControlsSheet()
+            YourFeedView()
         }
     }
     
@@ -157,7 +157,7 @@ struct PostsSearchView: View {
                             .frame(width: 40, height: 40)
                         
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundColor(.white)
                     }
                 }
@@ -166,7 +166,7 @@ struct PostsSearchView: View {
                 // Title with icon
                 HStack(spacing: 10) {
                     Image(systemName: selectedCategory.icon)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.systemScaled(20, weight: .bold))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [
@@ -189,23 +189,11 @@ struct PostsSearchView: View {
             .padding(.top, 16)
             .padding(.bottom, 12)
             
-            // Red/Maroon highlight bar (only for trending)
-            if selectedCategory == .trending {
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.9, green: 0.1, blue: 0.2),
-                                Color(red: 0.7, green: 0.05, blue: 0.15)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(height: 4)
-                    .shadow(color: Color(red: 0.9, green: 0.1, blue: 0.2).opacity(0.5), radius: 8, y: 2)
-                    .transition(.scale.combined(with: .opacity))
-            }
+            // Category accent bar
+            Rectangle()
+                .fill(selectedCategory.highlightColor.opacity(0.7))
+                .frame(height: 3)
+                .transition(.scale.combined(with: .opacity))
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: selectedCategory)
     }
@@ -216,7 +204,7 @@ struct PostsSearchView: View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(.white.opacity(0.5))
                 
                 TextField("Search posts...", text: $searchText)
@@ -234,7 +222,7 @@ struct PostsSearchView: View {
                         searchText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundColor(.white.opacity(0.5))
                     }
                     .transition(.scale.combined(with: .opacity))
@@ -245,7 +233,7 @@ struct PostsSearchView: View {
                         }
                     } label: {
                         Text("Cancel")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundColor(.white.opacity(0.6))
                     }
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -291,7 +279,7 @@ struct PostsSearchView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Recent")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundColor(.white.opacity(0.5))
                 Spacer()
                 Button {
@@ -299,7 +287,7 @@ struct PostsSearchView: View {
                     UserDefaults.standard.removeObject(forKey: recentSearchesKey)
                 } label: {
                     Text("Clear")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundColor(.white.opacity(0.4))
                 }
             }
@@ -316,14 +304,14 @@ struct PostsSearchView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "clock")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundColor(.white.opacity(0.4))
                         Text(query)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundColor(.white.opacity(0.85))
                         Spacer()
                         Image(systemName: "arrow.up.left")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundColor(.white.opacity(0.3))
                     }
                     .padding(.horizontal, 20)
@@ -374,7 +362,7 @@ struct PostsSearchView: View {
                         category: category,
                         isSelected: selectedCategory == category
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedCategory = category
                         }
                         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -408,7 +396,7 @@ struct PostsSearchView: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 48, weight: .light))
+                .font(.systemScaled(48, weight: .light))
                 .foregroundColor(.white.opacity(0.3))
             
             Text("No posts found")
@@ -435,7 +423,7 @@ struct CategoryChip: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 
                 Text(category.rawValue)
                     .font(.custom("OpenSans-SemiBold", size: 15))
@@ -516,32 +504,16 @@ struct PostSearchCard: View {
                     
                     Spacer()
                     
-                    // Trending indicator
-                    if category == .trending {
-                        HStack(spacing: 4) {
-                            Image(systemName: "flame.fill")
-                                .font(.system(size: 12))
-                            Text("Hot")
-                                .font(.custom("OpenSans-Bold", size: 11))
-                        }
+                    // Category badge
+                    Text(category.rawValue)
+                        .font(.custom("OpenSans-Bold", size: 11))
                         .foregroundColor(.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
                             Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color(red: 0.9, green: 0.1, blue: 0.2),
-                                            Color(red: 0.7, green: 0.05, blue: 0.15)
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .shadow(color: Color(red: 0.9, green: 0.1, blue: 0.2).opacity(0.3), radius: 8, y: 2)
+                                .fill(category.highlightColor)
                         )
-                    }
                 }
                 
                 // Post content
@@ -553,18 +525,10 @@ struct PostSearchCard: View {
                         .multilineTextAlignment(.leading)
                 }
                 
-                // Engagement stats
+                // Post timestamp (non-comparative metadata)
                 HStack(spacing: 20) {
-                    Label("\(post.amenCount)", systemImage: "heart.fill")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
-                        .foregroundColor(.white.opacity(0.6))
-                    
-                    Label("\(post.commentCount)", systemImage: "bubble.right.fill")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
-                        .foregroundColor(.white.opacity(0.6))
-                    
-                    Label("\(post.repostCount)", systemImage: "arrow.2.squarepath")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                    Text(post.timeAgo)
+                        .font(.custom("OpenSans-Regular", size: 13))
                         .foregroundColor(.white.opacity(0.6))
                 }
             }
@@ -592,7 +556,7 @@ struct PostSearchCard: View {
         }
         .buttonStyle(PlainButtonStyle())
         .sheet(isPresented: $showFullPost) {
-            NavigationView {
+            NavigationStack {
                 // Integrate with existing PostDetailView or create new one
                 Text("Post Detail View")
                     .font(.custom("OpenSans-Regular", size: 16))
@@ -609,7 +573,7 @@ class PostsSearchViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var hasMore = true
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var lastDocument: DocumentSnapshot?
     private let pageSize = 20
     
@@ -627,25 +591,22 @@ class PostsSearchViewModel: ObservableObject {
         // Otherwise, load from Firestore with category filter
         do {
             var query: Query = db.collection("posts")
+                .whereField("visibility", isEqualTo: "everyone")
             
-            // Apply category filter with smart algorithms
+            // Apply category filter — all categories ordered by recency (no engagement ranking)
             switch category {
-            case .trending:
-                // 🔥 TRENDING ALGORITHM: High engagement in last 24 hours
-                // Score = (amenCount * 2 + commentCount * 3 + repostCount * 5) / hours_since_post
-                let oneDayAgo = Date().addingTimeInterval(-24 * 60 * 60)
-                query = query
-                    .whereField("createdAt", isGreaterThan: Timestamp(date: oneDayAgo))
-                    .order(by: "createdAt", descending: true)
-                
             case .recent:
-                // 🕐 RECENT ALGORITHM: Simple chronological order
                 query = query.order(by: "createdAt", descending: true)
-                
-            case .popular:
-                // ❤️ POPULAR ALGORITHM: All-time engagement
-                // Score = amenCount + commentCount + repostCount
-                query = query.order(by: "amenCount", descending: true)
+
+            case .scripture:
+                query = query
+                    .whereField("category", isEqualTo: "scripture")
+                    .order(by: "createdAt", descending: true)
+
+            case .prayer:
+                query = query
+                    .whereField("category", isEqualTo: "prayer")
+                    .order(by: "createdAt", descending: true)
             }
             
             query = query.limit(to: pageSize)
@@ -653,15 +614,10 @@ class PostsSearchViewModel: ObservableObject {
             let snapshot = try await query.getDocuments()
             lastDocument = snapshot.documents.last
             
-            var fetchedPosts = snapshot.documents.compactMap { doc -> Post? in
+            let fetchedPosts = snapshot.documents.compactMap { doc -> Post? in
                 try? doc.data(as: Post.self)
             }
-            
-            // Apply trending score algorithm on client side for better ranking
-            if category == .trending {
-                fetchedPosts = rankTrendingPosts(fetchedPosts)
-            }
-            
+
             posts = fetchedPosts
             hasMore = snapshot.documents.count == pageSize
             
@@ -671,42 +627,12 @@ class PostsSearchViewModel: ObservableObject {
         }
     }
     
-    // 🔥 TRENDING RANKING ALGORITHM
-    private func rankTrendingPosts(_ posts: [Post]) -> [Post] {
-        return posts.sorted { post1, post2 in
-            let score1 = calculateTrendingScore(post1)
-            let score2 = calculateTrendingScore(post2)
-            return score1 > score2
-        }
-    }
-    
-    private func calculateTrendingScore(_ post: Post) -> Double {
-        let now = Date()
-        let hoursSincePost = now.timeIntervalSince(post.createdAt) / 3600
-        
-        // Prevent division by zero
-        guard hoursSincePost > 0 else { return 0 }
-        
-        // Weighted engagement score
-        let amenWeight = 2.0
-        let commentWeight = 3.0
-        let repostWeight = 5.0
-        
-        let engagementScore = Double(post.amenCount) * amenWeight +
-                             Double(post.commentCount) * commentWeight +
-                             Double(post.repostCount) * repostWeight
-        
-        // Time decay: newer posts get bonus
-        let timeDecay = 1.0 / (1.0 + hoursSincePost / 6.0) // Decay over 6 hours
-        
-        return engagementScore * timeDecay
-    }
-    
     // 🔍 ENHANCED FIRESTORE SEARCH: Search posts by content, author, verse, keywords, category
     func searchWithFirestore(query: String, category: PostsSearchView.PostCategory? = nil) async {
         do {
             // Fetch more posts for better search results (200 posts)
             let snapshot = try await db.collection("posts")
+                .whereField("visibility", isEqualTo: "everyone")
                 .order(by: "createdAt", descending: true)
                 .limit(to: 200)
                 .getDocuments()
@@ -752,10 +678,6 @@ class PostsSearchViewModel: ObservableObject {
                     relevanceScore += 3
                 }
                 
-                // ✨ Engagement boost: Popular posts get priority
-                let engagementBonus = (post.amenCount + post.commentCount + post.repostCount) / 10
-                relevanceScore += min(engagementBonus, 10) // Cap at 10 bonus points
-                
                 // Only include posts with some relevance
                 if relevanceScore > 0 {
                     scoredPosts.append((post: post, score: relevanceScore))
@@ -770,22 +692,18 @@ class PostsSearchViewModel: ObservableObject {
             
             if let category = category {
                 switch category {
-                case .trending:
-                    // Only posts from last 24 hours
-                    let oneDayAgo = Date().addingTimeInterval(-24 * 60 * 60)
-                    searchResults = searchResults.filter { $0.createdAt > oneDayAgo }
-                    searchResults = rankTrendingPosts(searchResults)
-                    
                 case .recent:
                     // Already sorted by creation date in query
                     break
-                    
-                case .popular:
-                    // Re-sort by engagement
-                    searchResults.sort { post1, post2 in
-                        let score1 = post1.amenCount + post1.commentCount + post1.repostCount
-                        let score2 = post2.amenCount + post2.commentCount + post2.repostCount
-                        return score1 > score2
+
+                case .scripture:
+                    searchResults = searchResults.filter {
+                        $0.category.rawValue.lowercased() == "scripture"
+                    }
+
+                case .prayer:
+                    searchResults = searchResults.filter {
+                        $0.category.rawValue.lowercased() == "prayer"
                     }
                 }
             }
@@ -827,6 +745,7 @@ class PostsSearchViewModel: ObservableObject {
                     for chunk in chunks {
                         let snap = try await db.collection("posts")
                             .whereField(FieldPath.documentID(), in: chunk)
+                            .whereField("visibility", isEqualTo: "everyone")
                             .getDocuments()
                         fetchedPosts += snap.documents.compactMap { try? $0.data(as: Post.self) }
                     }

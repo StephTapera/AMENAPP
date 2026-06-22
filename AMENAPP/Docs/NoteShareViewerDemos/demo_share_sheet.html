@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AMEN Note Share Sheet Demo</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --note-canvas-cream: #faf0df;
+      --note-canvas-cream-deep: #ead6b8;
+      --note-ink: #261e18;
+      --note-muted: #776c61;
+      --note-soft-line: rgba(54, 43, 31, 0.13);
+      --note-row-capsule: #ece8e0;
+      --note-row-capsule-strong: #ddd7cc;
+      --note-pill-glyph: #99683d;
+      --note-glass-fill: rgba(255, 255, 255, 0.56);
+      --note-solid-fill: rgba(255, 255, 255, 0.95);
+      --note-sheet-fill: rgba(255, 250, 243, 0.9);
+      --note-shadow: 0 24px 76px rgba(76, 54, 30, 0.2);
+      --note-serif-display: ui-serif, "New York", Georgia, "Times New Roman", serif;
+      --note-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      --note-radius-card: 28px;
+      --note-radius-control: 18px;
+      --note-radius-pill: 999px;
+      --note-type-scale: 1;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --note-canvas-cream: #211a14;
+      --note-canvas-cream-deep: #372b20;
+      --note-ink: #f8efe4;
+      --note-muted: #c0b4a7;
+      --note-soft-line: rgba(255, 241, 224, 0.14);
+      --note-row-capsule: #312d28;
+      --note-row-capsule-strong: #433b33;
+      --note-pill-glyph: #dfb072;
+      --note-glass-fill: rgba(47, 40, 33, 0.58);
+      --note-solid-fill: rgba(43, 37, 31, 0.96);
+      --note-sheet-fill: rgba(39, 33, 27, 0.92);
+      --note-shadow: 0 24px 76px rgba(0, 0, 0, 0.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      font-family: var(--note-sans);
+      font-size: calc(16px * var(--note-type-scale));
+      color: var(--note-ink);
+      background:
+        radial-gradient(circle at 22% 10%, rgba(255, 255, 255, 0.48), transparent 28rem),
+        linear-gradient(145deg, var(--note-canvas-cream), var(--note-canvas-cream-deep));
+    }
+
+    body[data-theme="dark"] {
+      background:
+        radial-gradient(circle at 22% 10%, rgba(255, 238, 212, 0.08), transparent 28rem),
+        linear-gradient(145deg, var(--note-canvas-cream), var(--note-canvas-cream-deep));
+    }
+
+    .phone {
+      width: min(430px, 100%);
+      min-height: 860px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+      border: 1px solid var(--note-soft-line);
+      border-radius: 42px;
+      background: linear-gradient(180deg, rgba(255, 251, 244, 0.72), rgba(255, 245, 229, 0.9));
+      box-shadow: var(--note-shadow);
+    }
+
+    body[data-theme="dark"] .phone { background: linear-gradient(180deg, rgba(36, 30, 25, 0.82), rgba(28, 23, 19, 0.94)); }
+
+    .preview {
+      position: absolute;
+      inset: 26px 18px auto;
+      min-height: 330px;
+      padding: 28px;
+      border: 1px solid var(--note-soft-line);
+      border-radius: var(--note-radius-card);
+      background: rgba(255, 250, 241, 0.78);
+    }
+
+    body[data-theme="dark"] .preview { background: rgba(40, 33, 27, 0.72); }
+
+    .eyebrow {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 0 0 18px;
+      color: var(--note-muted);
+      font-size: calc(12px * var(--note-type-scale));
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--note-pill-glyph);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 9ch;
+      font-family: var(--note-serif-display);
+      font-size: clamp(38px, 12vw, 62px);
+      line-height: 0.94;
+      letter-spacing: 0;
+    }
+
+    .preview p {
+      margin: 24px 0 0;
+      color: var(--note-muted);
+      font-family: var(--note-serif-display);
+      font-size: calc(21px * var(--note-type-scale));
+      line-height: 1.25;
+    }
+
+    .top-actions {
+      position: absolute;
+      z-index: 2;
+      top: 42px;
+      right: 32px;
+      display: flex;
+      gap: 8px;
+    }
+
+    button,
+    .chip,
+    select {
+      min-height: 44px;
+      border: 1px solid var(--note-soft-line);
+      color: var(--note-ink);
+      font: 800 calc(14px * var(--note-type-scale)) var(--note-sans);
+    }
+
+    button { cursor: pointer; }
+
+    .icon-button,
+    .theme-toggle {
+      border-radius: var(--note-radius-pill);
+      background: var(--note-glass-fill);
+      backdrop-filter: blur(20px) saturate(1.25);
+      -webkit-backdrop-filter: blur(20px) saturate(1.25);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.09);
+    }
+
+    .icon-button { width: 44px; padding: 0; }
+    .theme-toggle { padding: 0 14px; }
+
+    .sheet {
+      position: relative;
+      z-index: 1;
+      padding: 12px 16px 18px;
+      border-top: 1px solid var(--note-soft-line);
+      border-radius: 30px 30px 0 0;
+      background: var(--note-sheet-fill);
+      backdrop-filter: blur(24px) saturate(1.28);
+      -webkit-backdrop-filter: blur(24px) saturate(1.28);
+      box-shadow: 0 -18px 54px rgba(0, 0, 0, 0.13);
+    }
+
+    .grabber {
+      width: 42px;
+      height: 5px;
+      margin: 0 auto 14px;
+      border-radius: var(--note-radius-pill);
+      background: var(--note-soft-line);
+    }
+
+    .sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .sheet-title {
+      margin: 0;
+      font-size: calc(22px * var(--note-type-scale));
+      line-height: 1.1;
+    }
+
+    .sheet-subtitle {
+      display: block;
+      margin-top: 4px;
+      color: var(--note-muted);
+      font-size: calc(13px * var(--note-type-scale));
+      line-height: 1.35;
+      font-weight: 600;
+    }
+
+    .section {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .section-label {
+      color: var(--note-muted);
+      font-size: calc(12px * var(--note-type-scale));
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .segmented,
+    .row,
+    .preview-card {
+      border: 1px solid var(--note-soft-line);
+      border-radius: var(--note-radius-control);
+      background: var(--note-row-capsule);
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .segment {
+      min-height: 42px;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .segment.active {
+      background: var(--note-solid-fill);
+      box-shadow: 0 5px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 12px 14px;
+    }
+
+    .row strong {
+      display: block;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    .row span {
+      display: block;
+      margin-top: 3px;
+      color: var(--note-muted);
+      font-size: calc(13px * var(--note-type-scale));
+      line-height: 1.35;
+    }
+
+    .switch {
+      width: 54px;
+      height: 32px;
+      position: relative;
+      border-radius: var(--note-radius-pill);
+      background: var(--note-pill-glyph);
+      flex: none;
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .switch.off {
+      background: var(--note-row-capsule-strong);
+    }
+
+    .switch.off::after { left: 4px; right: auto; }
+
+    select {
+      width: 100%;
+      border-radius: 16px;
+      padding: 0 12px;
+      background: var(--note-solid-fill);
+    }
+
+    .preview-card {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .pill-demo {
+      min-height: 58px;
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: var(--note-radius-pill);
+      border: 1px solid var(--note-soft-line);
+      background: var(--note-solid-fill);
+    }
+
+    .glyph {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: var(--note-pill-glyph);
+      background: rgba(152, 105, 63, 0.14);
+      font-weight: 900;
+    }
+
+    .pill-title {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 900;
+    }
+
+    .pill-context {
+      display: block;
+      color: var(--note-muted);
+      font-size: calc(13px * var(--note-type-scale));
+    }
+
+    .primary {
+      width: 100%;
+      min-height: 54px;
+      margin-top: 16px;
+      border-radius: var(--note-radius-pill);
+      background: var(--note-ink);
+      color: var(--note-canvas-cream);
+    }
+
+    .xl-preview {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 20px;
+      background: var(--note-row-capsule-strong);
+      --note-type-scale: 1.35;
+    }
+
+    .xl-preview .row { background: var(--note-solid-fill); }
+
+    @media (max-width: 480px) {
+      body { padding: 0; place-items: stretch; }
+      .phone { width: 100%; min-height: 100vh; border-radius: 0; border: 0; }
+      .preview { inset: 20px 14px auto; }
+      .top-actions { top: 34px; right: 24px; }
+      .segmented { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="phone" aria-label="Author share controls">
+    <div class="top-actions">
+      <button class="icon-button" type="button" aria-label="Close share sheet">×</button>
+      <button class="theme-toggle" type="button" id="themeToggle" aria-pressed="false">Dark</button>
+    </div>
+
+    <article class="preview" aria-label="Note preview">
+      <p class="eyebrow">Author preview</p>
+      <h1>Share this note with care.</h1>
+      <p>The author chooses audience, comments, attribution, and export behavior before the share exists.</p>
+    </article>
+
+    <section class="sheet" aria-label="Author control sheet">
+      <div class="grabber" aria-hidden="true"></div>
+      <header class="sheet-header">
+        <div>
+          <h2 class="sheet-title">Share note</h2>
+          <span class="sheet-subtitle">Author controls only · callables enforce permissions</span>
+        </div>
+      </header>
+
+      <div class="section">
+        <span class="section-label">Audience</span>
+        <div class="segmented" role="group" aria-label="Visibility">
+          <button class="segment active" type="button">Link</button>
+          <button class="segment" type="button">Church</button>
+          <button class="segment" type="button">Followers</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <span class="section-label">Permissions</span>
+        <div class="row"><span><strong>Allow amens</strong><span>Toggle is UX; server validates `allowAmens`.</span></span><span class="switch" aria-hidden="true"></span></div>
+        <div class="row"><span><strong>Allow reshare</strong><span>Recipients may create a new share reference.</span></span><span class="switch off" aria-hidden="true"></span></div>
+        <div class="row"><span><strong>Show counts</strong><span>Off keeps public payload free of counts and lists.</span></span><span class="switch off" aria-hidden="true"></span></div>
+      </div>
+
+      <div class="section">
+        <span class="section-label">Reflection scope</span>
+        <select aria-label="Reflection scope">
+          <option>Everyone who can view</option>
+          <option>Church only</option>
+          <option>Off</option>
+        </select>
+      </div>
+
+      <div class="section">
+        <span class="section-label">Attribution</span>
+        <select aria-label="Attribution">
+          <option>Full name</option>
+          <option>First name</option>
+          <option>Anonymous</option>
+        </select>
+      </div>
+
+      <div class="section">
+        <span class="section-label">Post-card pill preview</span>
+        <div class="preview-card">
+          <div class="pill-demo">
+            <span class="glyph" aria-hidden="true">✦</span>
+            <span><span class="pill-title">Patience is practiced attention</span><span class="pill-context">Link share · first-name attribution</span></span>
+            <strong>Open</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="xl-preview" aria-label="Dynamic Type XL preview">
+        <span class="section-label">Dynamic Type XL preview</span>
+        <div class="row"><span><strong>Watermark exports</strong><span>Long labels wrap while keeping the switch aligned.</span></span><span class="switch" aria-hidden="true"></span></div>
+      </div>
+
+      <button class="primary" type="button">Create secure share</button>
+    </section>
+  </main>
+
+  <script>
+    const body = document.body;
+    const toggle = document.getElementById('themeToggle');
+    toggle.addEventListener('click', () => {
+      const isDark = body.dataset.theme !== 'dark';
+      body.dataset.theme = isDark ? 'dark' : 'light';
+      toggle.textContent = isDark ? 'Light' : 'Dark';
+      toggle.setAttribute('aria-pressed', String(isDark));
+    });
+  </script>
+</body>
+</html>

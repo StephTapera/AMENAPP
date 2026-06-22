@@ -108,10 +108,10 @@ private struct BlurOverlayLabel: View {
             Color.black.opacity(0.25)
             VStack(spacing: 12) {
                 Image(systemName: "eye.slash.fill")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(.white.opacity(0.85))
                 Text("Under Review")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                 Text("Our team is reviewing this content.")
                     .font(.caption)
@@ -145,10 +145,10 @@ private struct HiddenMediaView: View {
             Color(.secondarySystemBackground)
             VStack(spacing: 10) {
                 Image(systemName: "shield.fill")
-                    .font(.system(size: 30))
+                    .font(.systemScaled(30))
                     .foregroundStyle(.orange)
                 Text("Pending Review")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text("This media has been flagged and is hidden\nuntil reviewed by our moderation team.")
                     .font(.caption)
@@ -159,7 +159,7 @@ private struct HiddenMediaView: View {
                     HStack(spacing: 6) {
                         ForEach(result.flagCategories.prefix(2), id: \.self) { cat in
                             Text(cat)
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.systemScaled(10, weight: .medium))
                                 .foregroundStyle(.orange)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
@@ -184,10 +184,10 @@ private struct RejectedMediaView: View {
             Color(.secondarySystemBackground)
             VStack(spacing: 10) {
                 Image(systemName: "xmark.shield.fill")
-                    .font(.system(size: 30))
+                    .font(.systemScaled(30))
                     .foregroundStyle(.red)
                 Text("Content Removed")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text("This media was removed for violating\nAMEN's community standards.")
                     .font(.caption)
@@ -210,10 +210,10 @@ struct ModerationWarningBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.yellow)
             Text(message)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.white.opacity(0.9))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -221,7 +221,7 @@ struct ModerationWarningBanner: View {
             if let dismiss = onDismiss {
                 Button(action: dismiss) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundStyle(.white.opacity(0.6))
                 }
                 .buttonStyle(.plain)

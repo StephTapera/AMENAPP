@@ -2,59 +2,16 @@
 //  BereanChatsListView.swift
 //  AMENAPP
 //
-//  Neumorphic conversation history for Berean AI
+//  Liquid Glass conversations panel for Berean AI.
+//  Visual redesign: neumorphic → translucent glass on white.
+//  Functionality, navigation, and data loading unchanged.
 //
 
 import SwiftUI
 
-// MARK: - Neumorphic Helpers
+// MARK: - Models (unchanged)
 
-private let neuBackground = Color(red: 0.94, green: 0.94, blue: 0.96)
-private let neuDark = Color(red: 0.78, green: 0.78, blue: 0.82).opacity(0.8)
-private let neuLight = Color.white.opacity(0.95)
-
-struct NeumorphicCard: ViewModifier {
-    var radius: CGFloat = 16
-    func body(content: Content) -> some View {
-        content
-            .background(neuBackground)
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .shadow(color: neuDark, radius: 8, x: 4, y: 4)
-            .shadow(color: neuLight, radius: 8, x: -4, y: -4)
-    }
-}
-
-struct NeumorphicInset: ViewModifier {
-    var radius: CGFloat = 12
-    func body(content: Content) -> some View {
-        content
-            .background(neuBackground)
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(neuLight, lineWidth: 1)
-                    .blur(radius: 1)
-                    .offset(x: -1, y: -1)
-                    .mask(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(neuDark, lineWidth: 1)
-                    .blur(radius: 1)
-                    .offset(x: 1, y: 1)
-                    .mask(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            )
-    }
-}
-
-extension View {
-    func neuCard(radius: CGFloat = 16) -> some View { modifier(NeumorphicCard(radius: radius)) }
-    func neuInset(radius: CGFloat = 12) -> some View { modifier(NeumorphicInset(radius: radius)) }
-}
-
-// MARK: - Models
-
-struct BereanConversation: Identifiable {
+struct BereanChatListItem: Identifiable {
     let id: String
     let title: String
     let translation: String
@@ -68,128 +25,131 @@ struct BereanChatsListView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var bereanVM = BereanViewModel()
     @State private var searchText = ""
-    @State private var conversations: [BereanConversation] = []
+    @State private var conversations: [BereanChatListItem] = []
     @State private var showNewConversation = false
     @State private var animateIn = false
+    @State private var showCollectionsSheet = false
 
-    var filtered: [BereanConversation] {
+    var filtered: [BereanChatListItem] {
         guard !searchText.isEmpty else { return conversations }
         return conversations.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
     }
 
     var body: some View {
         ZStack {
-            neuBackground.ignoresSafeArea()
+            // Pure white base — Liquid Glass philosophy
+            Color.white.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Header
                 headerView
-                    .padding(.top, 20)
+                    .padding(.top, 16)
                     .padding(.horizontal, 20)
 
-                // Search
                 searchBar
                     .padding(.horizontal, 20)
-                    .padding(.top, 16)
-
-                // Suggest pill
-                suggestPill
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                    .padding(.top, 14)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
-                        // New Conversation
-                        newConversationRow
+                        newConversationButton
                             .padding(.horizontal, 20)
                             .padding(.top, 20)
 
-                        // Recent Section
                         if !filtered.isEmpty {
-                            sectionHeader("RECENT")
+                            sectionLabel("RECENT")
                                 .padding(.horizontal, 20)
                                 .padding(.top, 24)
                                 .padding(.bottom, 8)
 
                             conversationList
                                 .padding(.horizontal, 20)
+                        } else if !searchText.isEmpty {
+                            emptySearchState
+                                .padding(.top, 40)
                         }
 
-                        // Tools Section
-                        sectionHeader("TOOLS")
+                        sectionLabel("TOOLS")
                             .padding(.horizontal, 20)
-                            .padding(.top, 24)
+                            .padding(.top, 28)
                             .padding(.bottom, 8)
 
                         toolsList
                             .padding(.horizontal, 20)
 
-                        // Clear All
-                        clearAllButton
+                        clearAllRow
                             .padding(.horizontal, 20)
-                            .padding(.top, 16)
+                            .padding(.top, 8)
                             .padding(.bottom, 100)
                     }
                 }
             }
-
-            // Floating Ask Button
-            VStack {
-                Spacer()
-                floatingAskButton
-                    .padding(.bottom, 30)
-            }
         }
         .onAppear {
             loadConversations()
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
                 animateIn = true
             }
+        }
+        .sheet(isPresented: $showCollectionsSheet) {
+            BereanChatCollectionsSheet()
         }
     }
 
     // MARK: - Header
 
     private var headerView: some View {
-        HStack {
+        HStack(spacing: 0) {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.secondary)
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundStyle(.primary)
                     .frame(width: 40, height: 40)
-                    .neuCard(radius: 12)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
+                    )
             }
 
             Spacer()
 
             VStack(spacing: 2) {
                 Text("Conversations")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Color(white: 0.2))
+                    .font(.systemScaled(17, weight: .semibold))
+                    .foregroundStyle(.primary)
                 Text("\(conversations.count) saved")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
+                    .font(.systemScaled(12, weight: .regular))
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Button {
-                    // folder action
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showCollectionsSheet = true
                 } label: {
                     Image(systemName: "folder")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .font(.systemScaled(15, weight: .medium))
+                        .foregroundStyle(.secondary)
                         .frame(width: 40, height: 40)
-                        .neuCard(radius: 12)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
+                        )
                 }
 
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.secondary)
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(.secondary)
                         .frame(width: 40, height: 40)
-                        .neuCard(radius: 12)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
+                        )
                 }
             }
         }
@@ -200,90 +160,76 @@ struct BereanChatsListView: View {
     private var searchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
-                .font(.system(size: 15))
-            TextField("Search conversations...", text: $searchText)
-                .font(.system(size: 15))
-                .foregroundColor(Color(white: 0.25))
+                .foregroundStyle(.secondary)
+                .font(.systemScaled(14))
+            TextField("Search conversations", text: $searchText)
+                .font(.systemScaled(15))
+                .foregroundStyle(.primary)
+            if !searchText.isEmpty {
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.systemScaled(14))
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 13)
-        .neuInset()
-    }
-
-    // MARK: - Suggest Pill
-
-    private var suggestPill: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(Color(red: 0.3, green: 0.7, blue: 0.5))
-            Text("Suggest for you")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Color(white: 0.3))
-            Spacer()
-        }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.85, green: 0.95, blue: 0.88),
-                    Color(red: 0.86, green: 0.90, blue: 0.98)
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.primary.opacity(0.07), lineWidth: 0.5)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: neuDark, radius: 6, x: 3, y: 3)
-        .shadow(color: neuLight, radius: 6, x: -3, y: -3)
     }
 
-    // MARK: - New Conversation Row
+    // MARK: - New Conversation
 
-    private var newConversationRow: some View {
+    private var newConversationButton: some View {
         Button {
             showNewConversation = true
         } label: {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(Color(red: 0.98, green: 0.42, blue: 0.32))
-                        .frame(width: 44, height: 44)
-                        .shadow(color: Color(red: 0.98, green: 0.42, blue: 0.32).opacity(0.4), radius: 8, x: 0, y: 4)
+                        .fill(Color.primary)
+                        .frame(width: 40, height: 40)
                     Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
+                        .font(.systemScaled(16, weight: .semibold))
+                        .foregroundStyle(.background)
                 }
 
                 Text("New Conversation")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color(white: 0.2))
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundStyle(.primary)
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .font(.systemScaled(12, weight: .medium))
+                    .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
-            .neuCard()
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.primary.opacity(0.07), lineWidth: 0.5)
+            )
         }
         .buttonStyle(.plain)
         .fullScreenCover(isPresented: $showNewConversation) {
-            BereanAIAssistantView()
+            BereanChatView()
         }
     }
 
-    // MARK: - Section Header
+    // MARK: - Section Label
 
-    private func sectionHeader(_ title: String) -> some View {
+    private func sectionLabel(_ title: String) -> some View {
         HStack {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(Color(white: 0.55))
+                .font(.systemScaled(11, weight: .semibold))
+                .foregroundStyle(.tertiary)
                 .kerning(1.2)
             Spacer()
         }
@@ -292,63 +238,62 @@ struct BereanChatsListView: View {
     // MARK: - Conversation List
 
     private var conversationList: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 0) {
             ForEach(Array(filtered.enumerated()), id: \.element.id) { index, convo in
                 conversationRow(convo, isLast: index == filtered.count - 1)
             }
         }
-        .neuCard()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
+        )
     }
 
-    private func conversationRow(_ convo: BereanConversation, isLast: Bool) -> some View {
+    private func conversationRow(_ convo: BereanChatListItem, isLast: Bool) -> some View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(neuBackground)
-                    .frame(width: 40, height: 40)
-                    .shadow(color: neuDark, radius: 4, x: 2, y: 2)
-                    .shadow(color: neuLight, radius: 4, x: -2, y: -2)
+                    .fill(Color.primary.opacity(0.06))
+                    .frame(width: 38, height: 38)
                 Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .font(.systemScaled(13, weight: .medium))
+                    .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(convo.title)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color(white: 0.2))
+                    .font(.systemScaled(14, weight: .medium))
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
                     Text(convo.translation)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(Color(red: 0.98, green: 0.42, blue: 0.32))
+                        .font(.systemScaled(11, weight: .semibold))
+                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(
-                            Color(red: 0.98, green: 0.42, blue: 0.32).opacity(0.1)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 4))
 
                     Text(convo.date.relativeFormatted)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
+                        .font(.systemScaled(11))
+                        .foregroundStyle(.tertiary)
                 }
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(Color(white: 0.7))
+                .font(.systemScaled(11, weight: .medium))
+                .foregroundStyle(.quaternary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
-        .background(neuBackground)
         .overlay(alignment: .bottom) {
             if !isLast {
                 Divider()
-                    .padding(.leading, 70)
+                    .padding(.leading, 68)
+                    .opacity(0.5)
             }
         }
     }
@@ -356,128 +301,132 @@ struct BereanChatsListView: View {
     // MARK: - Tools List
 
     private var toolsList: some View {
-        VStack(spacing: 2) {
-            toolRow(icon: "bookmark.fill", iconColor: Color(red: 0.35, green: 0.5, blue: 0.95), title: "Saved Messages", isLast: false)
-            toolRow(icon: "book.closed.fill", iconColor: Color(red: 0.98, green: 0.42, blue: 0.32), title: "Bible Translation", isLast: false)
-            toolRow(icon: "questionmark.circle.fill", iconColor: Color(red: 0.3, green: 0.7, blue: 0.5), title: "Berean Tutorial", isLast: true)
+        VStack(spacing: 0) {
+            toolRow(icon: "bookmark.fill", title: "Saved Messages", isLast: false)
+            toolRow(icon: "book.closed.fill", title: "Bible Translation", isLast: false)
+            toolRow(icon: "questionmark.circle.fill", title: "Berean Tutorial", isLast: true)
         }
-        .neuCard()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
+        )
     }
 
-    private func toolRow(icon: String, iconColor: Color, title: String, isLast: Bool) -> some View {
+    private func toolRow(icon: String, title: String, isLast: Bool) -> some View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(neuBackground)
-                    .frame(width: 40, height: 40)
-                    .shadow(color: neuDark, radius: 4, x: 2, y: 2)
-                    .shadow(color: neuLight, radius: 4, x: -2, y: -2)
+                    .fill(Color.primary.opacity(0.06))
+                    .frame(width: 38, height: 38)
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(iconColor)
+                    .font(.systemScaled(14, weight: .medium))
+                    .foregroundStyle(.secondary)
             }
 
             Text(title)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(Color(white: 0.2))
+                .font(.systemScaled(15, weight: .regular))
+                .foregroundStyle(.primary)
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(Color(white: 0.7))
+                .font(.systemScaled(12, weight: .medium))
+                .foregroundStyle(.quaternary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(neuBackground)
         .overlay(alignment: .bottom) {
             if !isLast {
                 Divider()
-                    .padding(.leading, 70)
+                    .padding(.leading, 68)
+                    .opacity(0.5)
             }
         }
     }
 
     // MARK: - Clear All
 
-    private var clearAllButton: some View {
+    private var clearAllRow: some View {
         Button {
             bereanVM.clearAllData()
         } label: {
             HStack(spacing: 14) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(neuBackground)
-                        .frame(width: 40, height: 40)
-                        .shadow(color: neuDark, radius: 4, x: 2, y: 2)
-                        .shadow(color: neuLight, radius: 4, x: -2, y: -2)
-                    Image(systemName: "trash.fill")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Color(red: 0.98, green: 0.42, blue: 0.32))
+                        .fill(Color.red.opacity(0.08))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "trash")
+                        .font(.systemScaled(14, weight: .medium))
+                        .foregroundStyle(Color.red.opacity(0.7))
                 }
 
                 Text("Clear All Conversations")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(Color(red: 0.98, green: 0.42, blue: 0.32))
+                    .font(.systemScaled(15, weight: .regular))
+                    .foregroundStyle(Color.red.opacity(0.75))
 
                 Spacer()
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
-            .neuCard()
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.red.opacity(0.12), lineWidth: 0.5)
+            )
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: - Floating Ask Button
+    // MARK: - Empty Search State
 
-    private var floatingAskButton: some View {
-        VStack(spacing: 6) {
-            ZStack {
-                Circle()
-                    .fill(neuBackground)
-                    .frame(width: 56, height: 56)
-                    .shadow(color: neuDark, radius: 10, x: 5, y: 5)
-                    .shadow(color: neuLight, radius: 10, x: -5, y: -5)
-
-                // Decorative ring
-                Circle()
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.3, green: 0.7, blue: 0.5).opacity(0.6),
-                                Color(red: 0.35, green: 0.5, blue: 0.95).opacity(0.6)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.5
-                    )
-                    .frame(width: 52, height: 52)
-
-                Image(systemName: "sparkle")
-                    .font(.system(size: 22, weight: .light))
-                    .foregroundColor(Color(white: 0.35))
-            }
-
-            Text("ask anything...")
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
+    private var emptySearchState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.systemScaled(32))
+                .foregroundStyle(.quaternary)
+            Text("No results for \"\(searchText)\"")
+                .font(.systemScaled(15))
+                .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Load
 
     private func loadConversations() {
-        // Load from existing BereanViewModel saved conversations
         conversations = bereanVM.savedConversations.map { saved in
-            BereanConversation(
+            BereanChatListItem(
                 id: saved.id.uuidString,
                 title: saved.title,
-                translation: "ESV",
+                translation: "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
                 date: saved.date
             )
         }
+    }
+}
+
+// MARK: - Collections Sheet
+
+private struct BereanChatCollectionsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            List {
+                Label("All Conversations", systemImage: "bubble.left.and.bubble.right")
+                Label("Saved", systemImage: "bookmark.fill")
+                Label("Scripture Study", systemImage: "book.fill")
+                Label("Prayer", systemImage: "hands.and.sparkles.fill")
+            }
+            .navigationTitle("Collections")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
 

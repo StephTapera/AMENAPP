@@ -32,7 +32,7 @@ struct BereanStreamingTextView: View {
     /// `true` while the backend stream is active; `false` once complete.
     var isStreaming: Bool = false
 
-    var font: Font = .system(size: 16, weight: .regular)
+    var font: Font = .systemScaled(16, weight: .regular)
     var textColor: Color = Color(white: 0.14)
     var lineSpacing: CGFloat = 9
 
@@ -287,7 +287,7 @@ struct BereanStreamingTextView: View {
 struct TypewriterTextView: View {
 
     let text: String
-    var font: Font = .system(size: 36, weight: .bold, design: .default)
+    var font: Font = .systemScaled(36, weight: .bold, design: .default)
     var textColor: Color = Color(.label)
     var typingInterval: TimeInterval = 0.07   // per-word interval
     var cursorVisible: Bool = true
@@ -409,7 +409,7 @@ struct TypewriterTextView: View {
 // MARK: - BereanHeroGreetingView
 
 /// Landing screen hero: greeting word-types in, follow-up fades up beneath it.
-/// Centered vertically and horizontally. Subtitle removed for cleaner UI.
+/// Centered vertically and horizontally.
 struct BereanHeroGreetingView: View {
 
     let greeting: BereanGreeting
@@ -422,15 +422,24 @@ struct BereanHeroGreetingView: View {
     @State private var followUpVisible = false
     @State private var heroOpacity: Double = 0
     @State private var heroOffset: CGFloat = 16
+    @State private var brandLabelVisible = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
+            // — Brand label —
+            Text("BEREAN AI")
+                .font(.systemScaled(11, weight: .semibold))
+                .kerning(2.0)
+                .foregroundColor(Color(white: 0.60))
+                .opacity(shouldAnimate ? (brandLabelVisible ? 1 : 0) : 1)
+                .animation(.easeOut(duration: 0.4), value: brandLabelVisible)
+
             // — Greeting line —
             TypewriterTextView(
                 text: greeting.greeting,
-                font: .system(size: 42, weight: .bold, design: .default),
+                font: .systemScaled(40, weight: .bold, design: .default),
                 textColor: Color(.label),
                 typingInterval: shouldAnimate ? 0.055 : 0,
                 cursorVisible: shouldAnimate,
@@ -448,10 +457,10 @@ struct BereanHeroGreetingView: View {
             )
             .multilineTextAlignment(.center)
 
-            // — Follow-up question —
+            // — Follow-up / tagline —
             Text(greeting.followUp)
-                .font(.system(size: 20, weight: .regular))
-                .foregroundColor(Color(.secondaryLabel))
+                .font(.systemScaled(17, weight: .regular))
+                .foregroundColor(Color(white: 0.52))
                 .multilineTextAlignment(.center)
                 .opacity(shouldAnimate ? (followUpVisible ? 1 : 0) : 1)
                 .offset(y: shouldAnimate ? (followUpVisible ? 0 : 7) : 0)
@@ -466,14 +475,18 @@ struct BereanHeroGreetingView: View {
         .offset(y: heroOffset)
         .onAppear {
             if shouldAnimate && !reduceMotion {
-                withAnimation(.spring(response: 0.60, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.60, dampingFraction: 0.82))) {
                     heroOpacity = 1
                     heroOffset = 0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    brandLabelVisible = true
                 }
             } else {
                 heroOpacity = 1
                 heroOffset = 0
                 followUpVisible = true
+                brandLabelVisible = true
             }
         }
         .onChange(of: shouldAnimate) { _, newValue in
@@ -481,6 +494,7 @@ struct BereanHeroGreetingView: View {
                 followUpVisible = false
                 heroOpacity = 0
                 heroOffset = 16
+                brandLabelVisible = false
             }
         }
     }

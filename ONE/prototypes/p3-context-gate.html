@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ONE — Context Gate (p3)</title>
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:            #0A0A0F;
+      --gold:          #D4A843;
+      --gold-dim:      #9A7630;
+      --glass-bg:      rgba(255,255,255,0.08);
+      --glass-border:  rgba(255,255,255,0.12);
+      --matte-bg:      rgba(255,255,255,0.04);
+      --matte-border:  rgba(255,255,255,0.07);
+      --text-primary:  #F2F2F7;
+      --text-secondary:#A0A0B0;
+      --text-dim:      #60606A;
+      --success:       #34C759;
+      --error:         #FF453A;
+      --radius-lg:     20px;
+      --radius-md:     14px;
+      --radius-sm:     10px;
+      --transition:    0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ─── Layout ────────────────────────────────────────────────────────────── */
+    .screen {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 120px;
+      gap: 24px;
+    }
+
+    .nav-bar {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 8px;
+    }
+
+    .nav-back {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: var(--text-primary);
+      font-size: 18px;
+      transition: background var(--transition);
+    }
+    .nav-back:hover { background: rgba(255,255,255,0.13); }
+
+    .nav-title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    /* ─── Moment Card (matte) ────────────────────────────────────────────────── */
+    .moment-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--matte-bg);
+      border: 1px solid var(--matte-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .moment-thumbnail {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: linear-gradient(135deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%);
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .play-icon {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.55);
+      border: 2px solid rgba(255,255,255,0.3);
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(8px);
+    }
+
+    .play-icon::after {
+      content: "";
+      border-style: solid;
+      border-width: 9px 0 9px 18px;
+      border-color: transparent transparent transparent #fff;
+      margin-left: 4px;
+    }
+
+    .moment-duration {
+      position: absolute;
+      bottom: 10px; right: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(0,0,0,0.65);
+      padding: 2px 7px;
+      border-radius: 5px;
+      color: #fff;
+    }
+
+    .moment-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .moment-author {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .author-avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #0A0A0F;
+    }
+
+    .author-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .author-handle {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .moment-title {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.35;
+      letter-spacing: -0.3px;
+    }
+
+    .provenance-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(212,168,67,0.10);
+      border: 1px solid rgba(212,168,67,0.25);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: 11px;
+      color: var(--gold);
+      cursor: pointer;
+      transition: background var(--transition);
+      align-self: flex-start;
+    }
+    .provenance-badge:hover { background: rgba(212,168,67,0.18); }
+    .provenance-badge .badge-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--gold);
+    }
+
+    .moment-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding-top: 4px;
+      border-top: 1px solid var(--matte-border);
+    }
+
+    .action-btn {
+      display: flex; align-items: center; gap: 6px;
+      background: none; border: none;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      padding: 6px 2px;
+      transition: color var(--transition);
+    }
+    .action-btn:hover { color: var(--text-primary); }
+    .action-btn .icon { font-size: 15px; }
+
+    .comment-trigger-btn {
+      margin-left: auto;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .comment-trigger-btn:hover { background: rgba(255,255,255,0.12); }
+
+    /* ─── Sheet Overlay ──────────────────────────────────────────────────────── */
+    .sheet-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition);
+    }
+    .sheet-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* ─── Gate Sheet (glass) ─────────────────────────────────────────────────── */
+    .gate-sheet {
+      width: 100%;
+      max-width: 480px;
+      background: rgba(18, 18, 30, 0.88);
+      border: 1px solid var(--glass-border);
+      border-bottom: none;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 28px 24px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      transform: translateY(30px);
+      transition: transform var(--transition);
+    }
+    .sheet-overlay.visible .gate-sheet { transform: translateY(0); }
+
+    .sheet-handle {
+      width: 40px; height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.2);
+      align-self: center;
+      margin-bottom: -6px;
+    }
+
+    .sheet-header { display: flex; flex-direction: column; gap: 6px; }
+
+    .sheet-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    .sheet-subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    /* ─── Gate Rows ──────────────────────────────────────────────────────────── */
+    .gate-rows { display: flex; flex-direction: column; gap: 12px; }
+
+    .gate-row {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .gate-row.complete {
+      border-color: rgba(52,199,89,0.35);
+      background: rgba(52,199,89,0.06);
+    }
+
+    .gate-check {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      border: 2px solid var(--text-dim);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: border-color var(--transition), background var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .gate-row.complete .gate-check {
+      border-color: var(--success);
+      background: var(--success);
+    }
+    .gate-row.checking .gate-check {
+      border-color: var(--gold);
+    }
+    .gate-check-icon {
+      font-size: 13px;
+      color: #fff;
+      opacity: 0;
+      transform: scale(0.5);
+      transition: opacity var(--transition), transform var(--transition);
+    }
+    .gate-row.complete .gate-check-icon {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* spinner for "checking" state */
+    .gate-check-spinner {
+      position: absolute;
+      width: 14px; height: 14px;
+      border: 2px solid transparent;
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .gate-row.checking .gate-check-spinner { display: block; }
+    .gate-row.checking .gate-check-icon { display: none; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .gate-check-spinner { animation: none; border-top-color: var(--gold); border-right-color: var(--gold); }
+    }
+
+    .gate-row-info { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+
+    .gate-row-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .gate-row.complete .gate-row-label { color: rgba(255,255,255,0.6); }
+
+    .gate-row-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* progress bar for row 2 */
+    .watch-progress-wrap {
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      margin-top: 5px;
+      overflow: hidden;
+    }
+    .watch-progress-bar {
+      height: 100%;
+      background: var(--gold);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .gate-row.complete .watch-progress-bar { background: var(--success); }
+
+    .gate-row-action {
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gold);
+      background: rgba(212,168,67,0.12);
+      border: 1px solid rgba(212,168,67,0.28);
+      border-radius: 8px;
+      padding: 7px 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background var(--transition), opacity var(--transition);
+    }
+    .gate-row-action:hover { background: rgba(212,168,67,0.22); }
+    .gate-row-action:disabled,
+    .gate-row.complete .gate-row-action {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    /* ─── Add Comment Button ─────────────────────────────────────────────────── */
+    .add-comment-btn {
+      width: 100%;
+      padding: 15px;
+      border-radius: var(--radius-md);
+      border: none;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background var(--transition), opacity var(--transition), transform 0.15s ease;
+    }
+    .add-comment-btn.locked {
+      background: rgba(255,255,255,0.08);
+      color: var(--text-dim);
+      cursor: not-allowed;
+    }
+    .add-comment-btn.unlocked {
+      background: var(--gold);
+      color: #0A0A0F;
+    }
+    .add-comment-btn.unlocked:hover { background: #E0B854; }
+    .add-comment-btn.unlocked:active { transform: scale(0.98); }
+
+    /* ─── Comment Box ────────────────────────────────────────────────────────── */
+    .comment-box-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease;
+    }
+    .comment-box-wrap.open {
+      max-height: 200px;
+      opacity: 1;
+    }
+
+    .comment-textarea {
+      width: 100%;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 15px;
+      line-height: 1.5;
+      padding: 13px 14px;
+      resize: none;
+      outline: none;
+      transition: border-color var(--transition);
+      min-height: 88px;
+    }
+    .comment-textarea::placeholder { color: var(--text-dim); }
+    .comment-textarea:focus { border-color: rgba(255,255,255,0.25); }
+
+    .comment-send-btn {
+      align-self: flex-end;
+      background: var(--gold);
+      color: #0A0A0F;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 10px 20px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 7px;
+      transition: background var(--transition);
+    }
+    .comment-send-btn:hover { background: #E0B854; }
+
+    /* ─── Why This Matters ───────────────────────────────────────────────────── */
+    .why-section { display: flex; flex-direction: column; gap: 0; }
+
+    .why-toggle {
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      text-align: left;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color var(--transition);
+    }
+    .why-toggle:hover { color: var(--text-primary); }
+    .why-toggle .why-caret {
+      font-size: 10px;
+      transition: transform var(--transition);
+      display: inline-block;
+    }
+    .why-toggle.open .why-caret { transform: rotate(90deg); }
+
+    .why-body {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding var(--transition);
+      padding-top: 0;
+    }
+    .why-body.open {
+      max-height: 100px;
+      padding-top: 10px;
+    }
+
+    /* ─── Provenance Popup ───────────────────────────────────────────────────── */
+    .provenance-popup-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition);
+    }
+    .provenance-popup-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .provenance-popup {
+      background: rgba(22, 22, 38, 0.96);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 24px;
+      max-width: 360px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transform: scale(0.95);
+      transition: transform var(--transition);
+    }
+    .provenance-popup-overlay.visible .provenance-popup { transform: scale(1); }
+
+    .provenance-popup-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--gold);
+    }
+
+    .provenance-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .prov-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.6px; }
+    .prov-value { font-size: 14px; color: var(--text-primary); line-height: 1.4; }
+
+    .confidence-meter {
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .confidence-fill {
+      height: 100%;
+      width: 72%;
+      background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+      border-radius: 3px;
+    }
+
+    .provenance-close-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--transition);
+    }
+    .provenance-close-btn:hover { background: rgba(255,255,255,0.13); }
+
+    /* ─── Success Banner ─────────────────────────────────────────────────────── */
+    .success-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(52,199,89,0.1);
+      border: 1px solid rgba(52,199,89,0.25);
+      border-radius: var(--radius-sm);
+      padding: 11px 14px;
+      font-size: 13px;
+      color: var(--success);
+      font-weight: 500;
+      opacity: 0;
+      max-height: 0;
+      overflow: hidden;
+      transition: opacity 0.3s ease, max-height 0.3s ease;
+    }
+    .success-banner.visible {
+      opacity: 1;
+      max-height: 60px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Screen ──────────────────────────────────────────────────────────────── -->
+<main class="screen" aria-label="Moment detail">
+
+  <div class="nav-bar">
+    <button class="nav-back" aria-label="Go back">‹</button>
+    <span class="nav-title">ONE · Moment</span>
+  </div>
+
+  <!-- Moment Card -->
+  <article class="moment-card" aria-label="Moment: What Christians miss about community">
+
+    <div class="moment-thumbnail" aria-label="Video thumbnail">
+      <div class="play-icon" aria-hidden="true"></div>
+      <span class="moment-duration" aria-label="Duration 6 minutes 14 seconds">6:14</span>
+    </div>
+
+    <div class="moment-body">
+
+      <div class="moment-author">
+        <div class="author-avatar" aria-hidden="true">JM</div>
+        <div>
+          <div class="author-name">James Mitchell</div>
+          <div class="author-handle">@jmitchell · 2h ago</div>
+        </div>
+      </div>
+
+      <h1 class="moment-title">What Christians miss about community</h1>
+
+      <button
+        class="provenance-badge"
+        id="provenance-badge-btn"
+        aria-label="AI-Assisted content, confidence 72%. Tap to view provenance details."
+        aria-haspopup="dialog"
+      >
+        <span class="badge-dot" aria-hidden="true"></span>
+        AI-Assisted · 0.72 confidence
+      </button>
+
+      <div class="moment-actions">
+        <button class="action-btn" aria-label="16 amens">
+          <span class="icon" aria-hidden="true">🙏</span> 16
+        </button>
+        <button class="action-btn" aria-label="4 comments">
+          <span class="icon" aria-hidden="true">💬</span> 4
+        </button>
+        <button
+          class="comment-trigger-btn"
+          id="open-gate-btn"
+          aria-label="Add a comment"
+          aria-haspopup="dialog"
+          aria-controls="gate-sheet"
+        >
+          Add a comment
+        </button>
+      </div>
+
+    </div>
+  </article>
+
+</main>
+
+<!-- ─── Sheet Overlay ─────────────────────────────────────────────────────────── -->
+<div
+  class="sheet-overlay"
+  id="sheet-overlay"
+  role="presentation"
+  aria-hidden="true"
+>
+  <div
+    class="gate-sheet"
+    id="gate-sheet"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="gate-title"
+    aria-describedby="gate-subtitle"
+    tabindex="-1"
+  >
+    <div class="sheet-handle" aria-hidden="true"></div>
+
+    <div class="sheet-header">
+      <h2 class="sheet-title" id="gate-title">Know before you respond</h2>
+      <p class="sheet-subtitle" id="gate-subtitle">
+        ONE asks you to engage with the content before commenting.
+      </p>
+    </div>
+
+    <div class="gate-rows" role="list" aria-label="Context requirements">
+
+      <!-- Row 1: Read the source -->
+      <div
+        class="gate-row"
+        id="row-1"
+        role="listitem"
+        aria-label="Requirement 1: Read the source"
+      >
+        <div class="gate-check" aria-hidden="true">
+          <div class="gate-check-spinner"></div>
+          <span class="gate-check-icon">✓</span>
+        </div>
+        <div class="gate-row-info">
+          <span class="gate-row-label">Read the source</span>
+          <span class="gate-row-sub" id="row-1-status">Original article · Christianity Today</span>
+        </div>
+        <button
+          class="gate-row-action"
+          id="btn-row-1"
+          aria-label="Open source article in new tab"
+          onclick="handleReadSource()"
+        >
+          Open Source →
+        </button>
+      </div>
+
+      <!-- Row 2: Watched enough -->
+      <div
+        class="gate-row"
+        id="row-2"
+        role="listitem"
+        aria-label="Requirement 2: Watch 30% of video"
+      >
+        <div class="gate-check" aria-hidden="true">
+          <div class="gate-check-spinner"></div>
+          <span class="gate-check-icon">✓</span>
+        </div>
+        <div class="gate-row-info">
+          <span class="gate-row-label">Watched 30% of video</span>
+          <div class="watch-progress-wrap" aria-hidden="true">
+            <div class="watch-progress-bar" id="watch-bar"></div>
+          </div>
+          <span class="gate-row-sub" id="row-2-status" aria-live="polite" aria-atomic="true">0% watched</span>
+        </div>
+        <button
+          class="gate-row-action"
+          id="btn-row-2"
+          aria-label="Start watching the video"
+          onclick="handleWatch()"
+        >
+          Watch →
+        </button>
+      </div>
+
+      <!-- Row 3: Acknowledged provenance -->
+      <div
+        class="gate-row"
+        id="row-3"
+        role="listitem"
+        aria-label="Requirement 3: Acknowledge provenance label"
+      >
+        <div class="gate-check" aria-hidden="true">
+          <div class="gate-check-spinner"></div>
+          <span class="gate-check-icon">✓</span>
+        </div>
+        <div class="gate-row-info">
+          <span class="gate-row-label">Acknowledged provenance</span>
+          <span class="gate-row-sub" id="row-3-status">AI-Assisted · 0.72 confidence</span>
+        </div>
+        <button
+          class="gate-row-action"
+          id="btn-row-3"
+          aria-label="View provenance label details"
+          aria-haspopup="dialog"
+          onclick="handleProvenance()"
+        >
+          View label →
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Success Banner -->
+    <div class="success-banner" id="success-banner" aria-live="polite" role="status">
+      <span aria-hidden="true">✓</span> All checks passed — your voice matters here.
+    </div>
+
+    <!-- Add Comment Button -->
+    <button
+      class="add-comment-btn locked"
+      id="add-comment-btn"
+      aria-disabled="true"
+      aria-label="Add comment — complete all requirements first"
+      onclick="handleAddComment()"
+    >
+      Add Comment
+    </button>
+
+    <!-- Comment Box (revealed after all pass) -->
+    <div class="comment-box-wrap" id="comment-box-wrap" aria-live="polite">
+      <textarea
+        class="comment-textarea"
+        id="comment-textarea"
+        placeholder="Share a thoughtful response…"
+        aria-label="Comment text"
+        rows="3"
+        tabindex="-1"
+      ></textarea>
+      <button class="comment-send-btn" aria-label="Send comment" onclick="handleSend()">
+        <span aria-hidden="true">↑</span> Send
+      </button>
+    </div>
+
+    <!-- Why This Matters -->
+    <div class="why-section">
+      <button
+        class="why-toggle"
+        id="why-toggle"
+        aria-expanded="false"
+        aria-controls="why-body"
+        onclick="toggleWhy()"
+      >
+        <span class="why-caret" aria-hidden="true">›</span>
+        Why does this matter?
+      </button>
+      <div
+        class="why-body"
+        id="why-body"
+        role="note"
+      >
+        ONE's context gate exists to reduce hot-take reactions — comments that arrive before someone has actually engaged with the content they're responding to. By requiring a minimum of genuine engagement, we protect the quality of discourse and honor the effort of creators.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── Provenance Popup ───────────────────────────────────────────────────────── -->
+<div
+  class="provenance-popup-overlay"
+  id="provenance-overlay"
+  role="presentation"
+  aria-hidden="true"
+>
+  <div
+    class="provenance-popup"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="prov-title"
+    tabindex="-1"
+    id="provenance-dialog"
+  >
+    <div class="provenance-popup-title" id="prov-title">Provenance Label</div>
+
+    <div class="provenance-row">
+      <span class="prov-label">Creation method</span>
+      <span class="prov-value">AI-Assisted — written by a human, refined with generative AI</span>
+    </div>
+
+    <div class="provenance-row">
+      <span class="prov-label">Confidence score</span>
+      <span class="prov-value">0.72 / 1.0</span>
+      <div class="confidence-meter" aria-label="Confidence 72%">
+        <div class="confidence-fill"></div>
+      </div>
+    </div>
+
+    <div class="provenance-row">
+      <span class="prov-label">Source</span>
+      <span class="prov-value">Christianity Today, May 2026</span>
+    </div>
+
+    <div class="provenance-row">
+      <span class="prov-label">Verified by</span>
+      <span class="prov-value">ONE Berean Engine v2 · 2026-06-01</span>
+    </div>
+
+    <button
+      class="provenance-close-btn"
+      id="prov-close-btn"
+      onclick="closeProvenance()"
+      aria-label="Close provenance details"
+    >
+      Acknowledged
+    </button>
+  </div>
+</div>
+
+<!-- ─── JavaScript ─────────────────────────────────────────────────────────────── -->
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  const state = {
+    row1: false,   // read source
+    row2: false,   // watched 30%
+    row3: false,   // provenance acknowledged
+    commentOpen: false,
+    watchProgress: 0,
+    watchTimer: null,
+    provenanceFromGate: false,   // was provenance popup opened from gate?
+  };
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function openSheet() {
+    const overlay = document.getElementById('sheet-overlay');
+    const sheet   = document.getElementById('gate-sheet');
+    overlay.classList.add('visible');
+    overlay.setAttribute('aria-hidden', 'false');
+    sheet.focus();
+    // trap focus within sheet
+    document.addEventListener('keydown', sheetKeyHandler);
+  }
+
+  function closeSheet() {
+    const overlay = document.getElementById('sheet-overlay');
+    overlay.classList.remove('visible');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.removeEventListener('keydown', sheetKeyHandler);
+    document.getElementById('open-gate-btn').focus();
+  }
+
+  function sheetKeyHandler(e) {
+    if (e.key === 'Escape') closeSheet();
+  }
+
+  function markRowComplete(rowId) {
+    const row = document.getElementById('row-' + rowId);
+    row.classList.remove('checking');
+    row.classList.add('complete');
+    const btn = document.getElementById('btn-row-' + rowId);
+    btn.setAttribute('aria-disabled', 'true');
+    checkAllComplete();
+  }
+
+  function markRowChecking(rowId) {
+    const row = document.getElementById('row-' + rowId);
+    row.classList.add('checking');
+  }
+
+  function checkAllComplete() {
+    if (state.row1 && state.row2 && state.row3) {
+      const btn = document.getElementById('add-comment-btn');
+      btn.classList.remove('locked');
+      btn.classList.add('unlocked');
+      btn.setAttribute('aria-disabled', 'false');
+      btn.setAttribute('aria-label', 'Add comment');
+      document.getElementById('success-banner').classList.add('visible');
+    }
+  }
+
+  // ── Row 1: Read Source ─────────────────────────────────────────────────────
+  function handleReadSource() {
+    if (state.row1) return;
+    markRowChecking(1);
+
+    // Simulate user opening link + confirming read (1.5s delay)
+    setTimeout(() => {
+      state.row1 = true;
+      document.getElementById('row-1-status').textContent = 'Source opened ✓';
+      markRowComplete(1);
+    }, 1500);
+  }
+
+  // ── Row 2: Watch Progress ──────────────────────────────────────────────────
+  function handleWatch() {
+    if (state.row2 || state.watchTimer) return;
+    markRowChecking(2);
+    document.getElementById('btn-row-2').textContent = 'Watching…';
+    document.getElementById('btn-row-2').disabled = true;
+
+    // Simulate video progress incrementing to 30%
+    const bar = document.getElementById('watch-bar');
+    const statusEl = document.getElementById('row-2-status');
+
+    state.watchTimer = setInterval(() => {
+      state.watchProgress += 2;
+      if (state.watchProgress > 100) state.watchProgress = 100;
+
+      bar.style.width = state.watchProgress + '%';
+      statusEl.textContent = state.watchProgress + '% watched';
+
+      if (state.watchProgress >= 30) {
+        clearInterval(state.watchTimer);
+        state.watchTimer = null;
+        state.row2 = true;
+        statusEl.textContent = '30% reached ✓';
+        markRowComplete(2);
+      }
+    }, 80); // ~1.2 seconds to reach 30%
+  }
+
+  // ── Row 3: Provenance ──────────────────────────────────────────────────────
+  function handleProvenance() {
+    if (state.row3) return;
+    state.provenanceFromGate = true;
+    openProvenance();
+  }
+
+  function openProvenance() {
+    const overlay = document.getElementById('provenance-overlay');
+    const dialog  = document.getElementById('provenance-dialog');
+    overlay.classList.add('visible');
+    overlay.setAttribute('aria-hidden', 'false');
+    dialog.focus();
+    document.addEventListener('keydown', provenanceKeyHandler);
+  }
+
+  function closeProvenance() {
+    const overlay = document.getElementById('provenance-overlay');
+    overlay.classList.remove('visible');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.removeEventListener('keydown', provenanceKeyHandler);
+
+    if (state.provenanceFromGate && !state.row3) {
+      state.row3 = true;
+      document.getElementById('row-3-status').textContent = 'Label reviewed ✓';
+      markRowChecking(3);
+      setTimeout(() => markRowComplete(3), 400);
+    }
+
+    // Return focus
+    if (state.provenanceFromGate) {
+      document.getElementById('gate-sheet').focus();
+    } else {
+      document.getElementById('provenance-badge-btn').focus();
+    }
+    state.provenanceFromGate = false;
+  }
+
+  function provenanceKeyHandler(e) {
+    if (e.key === 'Escape') closeProvenance();
+  }
+
+  // ── Provenance badge from moment card (outside sheet)
+  document.getElementById('provenance-badge-btn').addEventListener('click', function() {
+    state.provenanceFromGate = false;
+    openProvenance();
+  });
+
+  // ── Add Comment ────────────────────────────────────────────────────────────
+  function handleAddComment() {
+    if (!state.row1 || !state.row2 || !state.row3) return;
+    if (state.commentOpen) return;
+    state.commentOpen = true;
+
+    const wrap = document.getElementById('comment-box-wrap');
+    const textarea = document.getElementById('comment-textarea');
+    wrap.classList.add('open');
+    textarea.setAttribute('tabindex', '0');
+
+    // Scroll sheet into view and focus textarea
+    setTimeout(() => textarea.focus(), 350);
+  }
+
+  // ── Send Comment ───────────────────────────────────────────────────────────
+  function handleSend() {
+    const textarea = document.getElementById('comment-textarea');
+    const text = textarea.value.trim();
+    if (!text) {
+      textarea.focus();
+      return;
+    }
+    // Simulate send success
+    textarea.value = '';
+    textarea.placeholder = 'Comment sent — thank you for engaging thoughtfully.';
+    textarea.disabled = true;
+    document.querySelector('.comment-send-btn').disabled = true;
+    document.querySelector('.comment-send-btn').textContent = 'Sent ✓';
+    setTimeout(closeSheet, 1800);
+  }
+
+  // ── Why Toggle ─────────────────────────────────────────────────────────────
+  function toggleWhy() {
+    const toggle = document.getElementById('why-toggle');
+    const body   = document.getElementById('why-body');
+    const open   = body.classList.toggle('open');
+    toggle.classList.toggle('open', open);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  // ── Open Gate on "Add a comment" button ───────────────────────────────────
+  document.getElementById('open-gate-btn').addEventListener('click', openSheet);
+
+  // ── Close sheet when clicking overlay backdrop ─────────────────────────────
+  document.getElementById('sheet-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeSheet();
+  });
+
+  // ── Close provenance when clicking overlay backdrop ────────────────────────
+  document.getElementById('provenance-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeProvenance();
+  });
+</script>
+
+</body>
+</html>

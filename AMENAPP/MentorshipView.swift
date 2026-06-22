@@ -136,7 +136,7 @@ final class MentorshipStore: ObservableObject {
     @Published var pendingRequests: [MentorRequest] = []
     @Published var isLoaded = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
 
     private init() {}
@@ -391,10 +391,10 @@ struct MentorshipView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 0) {
                     Text("Mentor")
-                        .font(.system(size: 28, weight: .black))
+                        .font(.systemScaled(28, weight: .black))
                         .foregroundStyle(.white)
                     Text("ship")
-                        .font(.system(size: 28, weight: .black))
+                        .font(.systemScaled(28, weight: .black))
                         .foregroundStyle(
                             LinearGradient(colors: [green, Color(red: 0.55, green: 0.95, blue: 0.65)],
                                            startPoint: .leading, endPoint: .trailing)
@@ -422,7 +422,7 @@ struct MentorshipView: View {
                 ForEach(MentorshipTab.allCases, id: \.self) { tab in
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                             selectedTab = tab
                         }
                     } label: {
@@ -496,7 +496,7 @@ struct MentorshipView: View {
     private var emptyMentorsView: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.fill.questionmark")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary.opacity(0.4))
                 .padding(.top, 40)
             Text("Mentors coming soon")
@@ -534,7 +534,7 @@ struct MentorshipView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                         Text("Create Circle")
                             .font(.custom("OpenSans-Bold", size: 14))
                     }
@@ -550,7 +550,7 @@ struct MentorshipView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "person.badge.plus")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                         Text("Join Circle")
                             .font(.custom("OpenSans-Bold", size: 14))
                     }
@@ -602,7 +602,7 @@ struct MentorshipView: View {
     private var emptyCirclesView: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.3.fill")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary.opacity(0.4))
                 .padding(.top, 40)
             Text("No circles yet")
@@ -658,7 +658,7 @@ struct MentorshipView: View {
                     .fill(accentColor.opacity(0.12))
                     .frame(width: 40, height: 40)
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(accentColor)
             }
             VStack(alignment: .leading, spacing: 4) {
@@ -697,7 +697,7 @@ struct MentorCard: View {
                             .frame(width: 54, height: 54)
                         if mentor.photoURL.isEmpty {
                             Text(String(mentor.displayName.prefix(1)))
-                                .font(.system(size: 20, weight: .bold))
+                                .font(.systemScaled(20, weight: .bold))
                                 .foregroundStyle(.secondary)
                         } else {
                             CachedAsyncImage(url: URL(string: mentor.photoURL)) { image in
@@ -711,7 +711,7 @@ struct MentorCard: View {
                         // Verified badge
                         if mentor.isVerified {
                             Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.82))
                                 .background(Circle().fill(Color(.systemBackground)).padding(-2))
                                 .offset(x: 18, y: 18)
@@ -781,7 +781,7 @@ struct MentorCard: View {
                         Text("Request Mentorship")
                             .font(.custom("OpenSans-SemiBold", size: 13))
                         Image(systemName: "arrow.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                     }
                     .foregroundStyle(Color(red: 0.08, green: 0.10, blue: 0.22))
                     .padding(.horizontal, 14)
@@ -808,7 +808,7 @@ struct MentorCard: View {
         .scaleEffect(appeared ? 1 : 0.95)
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75).delay(Double.random(in: 0...0.15))) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)).delay(Double.random(in: 0...0.15))) {
                 appeared = true
             }
         }
@@ -829,7 +829,7 @@ struct CircleCard: View {
                         .fill(Color(red: 0.42, green: 0.24, blue: 0.82).opacity(0.12))
                         .frame(width: 44, height: 44)
                     Image(systemName: "person.3.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
                 }
 
@@ -853,7 +853,7 @@ struct CircleCard: View {
             Button(action: onCheckIn) {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Check In Now")
                         .font(.custom("OpenSans-Bold", size: 14))
                 }
@@ -892,7 +892,7 @@ struct TrackCard: View {
                     .fill(track.color.opacity(0.12))
                     .frame(width: 52, height: 52)
                 Image(systemName: track.icon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(track.color)
             }
 
@@ -948,7 +948,7 @@ struct MentorRequestSheet: View {
                         ZStack {
                             Circle().fill(Color(.secondarySystemBackground)).frame(width: 52, height: 52)
                             Text(String(mentor.displayName.prefix(1)))
-                                .font(.system(size: 18, weight: .bold))
+                                .font(.systemScaled(18, weight: .bold))
                                 .foregroundStyle(.secondary)
                         }
                         VStack(alignment: .leading, spacing: 3) {
@@ -999,7 +999,7 @@ struct MentorRequestSheet: View {
                     // Privacy note
                     HStack(spacing: 8) {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                         Text("Your request is private. Only the mentor will see your message.")
                             .font(.custom("OpenSans-Regular", size: 12))
@@ -1198,7 +1198,7 @@ struct JoinCircleSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "person.badge.plus")
-                    .font(.system(size: 52))
+                    .font(.systemScaled(52))
                     .foregroundStyle(Color(red: 0.42, green: 0.24, blue: 0.82))
                     .padding(.top, 20)
 
@@ -1324,10 +1324,10 @@ struct CircleCheckInSheet: View {
                         HStack(spacing: 10) {
                             ForEach(CircleCheckInMood.allCases, id: \.self) { m in
                                 Button {
-                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) { mood = m }
+                                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) { mood = m }
                                 } label: {
                                     VStack(spacing: 5) {
-                                        Text(m.emoji).font(.system(size: 24))
+                                        Text(m.emoji).font(.systemScaled(24))
                                         Text(m.rawValue)
                                             .font(.custom("OpenSans-Regular", size: 10))
                                             .foregroundStyle(mood == m ? .white : .secondary)
@@ -1448,14 +1448,14 @@ struct TrackDetailSheet: View {
                         .frame(height: 160)
 
                         Image(systemName: track.icon)
-                            .font(.system(size: 100, weight: .ultraLight))
+                            .font(.systemScaled(100, weight: .ultraLight))
                             .foregroundStyle(Color.white.opacity(0.06))
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                             .padding(.top, 20).padding(.trailing, 20)
 
                         VStack(alignment: .leading, spacing: 6) {
                             Text(track.title)
-                                .font(.system(size: 24, weight: .black))
+                                .font(.systemScaled(24, weight: .black))
                                 .foregroundStyle(.white)
                             Text(track.description)
                                 .font(.custom("OpenSans-Regular", size: 13))
@@ -1471,7 +1471,7 @@ struct TrackDetailSheet: View {
                         HStack(spacing: 8) {
                             ForEach(1...track.weekCount, id: \.self) { week in
                                 Button {
-                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.8))) {
                                         currentWeek = week
                                     }
                                 } label: {
@@ -1532,7 +1532,7 @@ struct TrackDetailSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(color)
                 Text(title)
                     .font(.custom("OpenSans-Bold", size: 14))

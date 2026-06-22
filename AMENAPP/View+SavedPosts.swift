@@ -119,7 +119,7 @@ extension View {
                  showSavedPosts = true
              } label: {
                  Image(systemName: "bookmark.fill")
-                     .font(.system(size: 20, weight: .semibold))
+                     .font(.systemScaled(20, weight: .semibold))
                      .foregroundStyle(.white)
                      .frame(width: 56, height: 56)
                      .background(Color.blue)

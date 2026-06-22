@@ -8,8 +8,9 @@
 //
 
 import Foundation
+import Combine
 import FirebaseFirestore
-import Search
+import AlgoliaSearch
 
 // MARK: - Algolia Record Models
 
@@ -51,7 +52,7 @@ class AlgoliaSyncService {
     private var writeClient: SearchClient?
     private let usersIndexName = "users"
     private let postsIndexName = "posts"
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Initialization
     
@@ -93,6 +94,12 @@ class AlgoliaSyncService {
         }
         
         dlog("🔄 Syncing user \(userId) to Algolia...")
+
+        if Self.shouldExcludeFromPeopleIndex(userData) {
+            try await deleteUser(userId: userId)
+            dlog("✅ Minor user \(userId) removed from Algolia people index")
+            return
+        }
         
         // Prepare user data for Algolia
         let algoliaRecord = AlgoliaUserRecord(
@@ -245,6 +252,10 @@ class AlgoliaSyncService {
             var records: [AlgoliaUserRecord] = []
             for document in snapshot.documents {
                 let data = document.data()
+                guard !Self.shouldExcludeFromPeopleIndex(data) else {
+                    continue
+                }
+
                 let record = AlgoliaUserRecord(
                     objectID: document.documentID,
                     displayName: data["displayName"] as? String ?? "",
@@ -259,6 +270,12 @@ class AlgoliaSyncService {
                     _tags: ["user"]
                 )
                 records.append(record)
+            }
+
+            guard !records.isEmpty else {
+                dlog("✅ Skipped batch with no adult users eligible for Algolia")
+                if snapshot.documents.count < batchSize { break }
+                continue
             }
 
             let responses = try await client.saveObjects(
@@ -290,8 +307,11 @@ class AlgoliaSyncService {
         
         dlog("🔄 Starting bulk post sync (limit: \(limit))...")
         
-        // Fetch posts from Firestore
+        // Fetch posts from Firestore — only publicly visible, non-prayer posts
+        // Visibility filter applied server-side; prayer filter applied client-side
+        // to avoid requiring a composite Firestore index for notIn + isEqualTo on different fields.
         let snapshot = try await db.collection("posts")
+            .whereField("visibility", isEqualTo: "everyone")
             .limit(to: limit)
             .getDocuments()
         
@@ -302,6 +322,8 @@ class AlgoliaSyncService {
         for document in snapshot.documents {
             let data = document.data()
             let category = data["category"] as? String ?? "general"
+            // Skip prayer posts — they must never appear in search indexes regardless of visibility
+            guard category != "prayer" else { continue }
             let record = AlgoliaPostRecord(
                 objectID: document.documentID,
                 content: data["content"] as? String ?? "",
@@ -331,6 +353,13 @@ class AlgoliaSyncService {
         }
     }
     
+    nonisolated static func shouldExcludeFromPeopleIndex(_ data: [String: Any]) -> Bool {
+        if let minorScoped = data["minorScoped"] as? Bool, minorScoped { return true }
+        if let isMinor = data["isMinor"] as? Bool, isMinor { return true }
+        guard let ageTier = data["ageTier"] as? String else { return true }
+        return AgeCategory.resolving(ageTier).isMinor
+    }
+
     /// Sync all data (users + posts) to Algolia
     /// Use this for initial setup to populate Algolia with existing Firestore data
     func syncAllData() async throws {

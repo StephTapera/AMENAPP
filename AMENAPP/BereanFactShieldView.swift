@@ -26,24 +26,24 @@ struct BereanFactShieldView: View {
         VStack(alignment: .leading, spacing: 4) {
             // Header row — tap to expand/collapse
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.72))) {
                     expanded.toggle()
                 }
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "shield.checkered")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(averageColor)
                     Text("Fact Shield")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(Color(.secondaryLabel))
                     Text("· \(claims.count) claim\(claims.count == 1 ? "" : "s")")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color(.tertiaryLabel))
                     Spacer()
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 8, weight: .semibold))
+                        .font(.systemScaled(8, weight: .semibold))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
             }
@@ -60,18 +60,18 @@ struct BereanFactShieldView: View {
                                 .frame(minHeight: 28)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(claim.text)
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(Color(.label))
                                     .lineLimit(2)
                                 HStack(spacing: 4) {
                                     Text(claim.badge.rawValue)
-                                        .font(.system(size: 9, weight: .semibold))
+                                        .font(.systemScaled(9, weight: .semibold))
                                         .foregroundStyle(.white)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
                                         .background(confidenceColor(claim.confidence), in: Capsule())
                                     Text("\(Int(claim.confidence * 100))% confidence")
-                                        .font(.system(size: 9))
+                                        .font(.systemScaled(9))
                                         .foregroundStyle(Color(.tertiaryLabel))
                                 }
                             }

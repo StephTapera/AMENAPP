@@ -3,10 +3,12 @@
 //
 // The first auth screen shown after the splash dissolves.
 // Pure white. Logo zone (top) + button zone (bottom).
-// Funnels into existing SignInView for email auth.
+// Email routes to MinimalAuthenticationView; phone auth is inline.
 
 import SwiftUI
+import Combine
 import AuthenticationServices
+import CryptoKit
 
 struct AMENAuthLandingView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
@@ -15,6 +17,7 @@ struct AMENAuthLandingView: View {
     @State private var logoScale:    CGFloat = 0.9
     @State private var logoOpacity:  Double  = 0
     @State private var wordOpacity:  Double  = 0
+    @State private var taglineOpacity: Double = 0
     @State private var btn1Opacity:  Double  = 0
     @State private var btn1Offset:   CGFloat = 10
     @State private var btn2Opacity:  Double  = 0
@@ -22,41 +25,98 @@ struct AMENAuthLandingView: View {
     @State private var divOpacity:   Double  = 0
     @State private var btn3Opacity:  Double  = 0
     @State private var btn3Offset:   CGFloat = 10
+    @State private var btn4Opacity:  Double  = 0
+    @State private var btn4Offset:   CGFloat = 10
     @State private var linkOpacity:  Double  = 0
 
     // Button press states
     @State private var applePressed = false
     @State private var googlePressed = false
-    @State private var emailBg = Color(white: 0.957)   // #F4F4F4
 
-    // Email flows
+    // Auth flows
     @State private var showEmailSignUp = false
     @State private var showEmailSignIn = false
+    @State private var showsInlinePhoneAuth = false
+    @State private var inlinePhoneNumber = ""
+    @State private var inlinePhoneCode = ""
+    @State private var inlinePhoneCodeSent = false
+    @State private var inlinePhoneError: String?
+
+    private var rememberedIdentity: AmenIdentityHint? {
+        AmenIdentityHintStore.shared.primary()
+    }
+
+    private var rememberedDisplayName: String? {
+        nonEmpty(UserDefaults.standard.string(forKey: "currentUserDisplayName"))
+            ?? nonEmpty(UserDefaults.standard.string(forKey: "cachedUsername"))
+            ?? nonEmpty(rememberedIdentity?.displayName)
+            ?? nonEmpty(rememberedIdentity?.username)
+    }
+
+    private var rememberedPhotoURL: URL? {
+        if let currentURL = nonEmpty(UserDefaults.standard.string(forKey: "currentUserProfileImageURL")) {
+            return URL(string: currentURL)
+        }
+        if let cachedURL = nonEmpty(UserDefaults.standard.string(forKey: "cachedPhotoURL")) {
+            return URL(string: cachedURL)
+        }
+        if let hintURL = nonEmpty(rememberedIdentity?.profilePhotoURL) {
+            return URL(string: hintURL)
+        }
+        return nil
+    }
+
+    private var rememberedSubtitle: String {
+        if let username = nonEmpty(rememberedIdentity?.username) {
+            return username.hasPrefix("@") ? username : "@\(username)"
+        }
+        if let masked = nonEmpty(rememberedIdentity?.maskedIdentifier) {
+            return masked
+        }
+        return "This device remembers your AMEN profile."
+    }
+
+    private var rememberedInitials: String {
+        let source = rememberedDisplayName ?? "AMEN"
+        let initials = source.split(separator: " ").prefix(2).compactMap(\.first)
+        return initials.isEmpty ? "A" : String(initials).uppercased()
+    }
+
+    private var hasRememberedIdentity: Bool {
+        rememberedDisplayName != nil || rememberedPhotoURL != nil || rememberedIdentity != nil
+    }
+
+    // Apple Sign In nonce
+    @State private var currentNonce: String?
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.white.ignoresSafeArea()
+                Color(.systemBackground).ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // ── Logo zone ──────────────────────────────────────────
-                    Spacer()
+                    // ── Logo zone: fixed top padding keeps logo in upper third ──
+                    Spacer().frame(height: 96)
 
-                    VStack(spacing: 14) {
+                    VStack(spacing: 10) {
                         Image("amen-logo")
                             .resizable()
-                            .renderingMode(.template)
-                            .foregroundStyle(Color.black)
+                            .renderingMode(.original)
                             .scaledToFit()
                             .frame(width: 52, height: 56)
                             .scaleEffect(logoScale)
                             .opacity(logoOpacity)
 
                         Text("AMEN")
-                            .font(.system(size: 22, weight: .black))
+                            .font(.systemScaled(22, weight: .black))
                             .tracking(7)
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(.primary)
                             .opacity(wordOpacity)
+
+                        Text("Pray. Worship. Connect.")
+                            .font(.systemScaled(13))
+                            .foregroundStyle(Color(white: 0.55))
+                            .opacity(taglineOpacity)
                     }
 
                     Spacer()
@@ -64,12 +124,19 @@ struct AMENAuthLandingView: View {
                     // ── Button zone ────────────────────────────────────────
                     VStack(spacing: 12) {
 
-                        // Button 1 — Apple
+                        if hasRememberedIdentity {
+                            rememberedAccountCard
+                                .opacity(btn1Opacity)
+                                .offset(y: btn1Offset)
+                                .padding(.bottom, 2)
+                        }
+
+                        // Apple
                         appleButton
                             .opacity(btn1Opacity)
                             .offset(y: btn1Offset)
 
-                        // Button 2 — Google
+                        // Google
                         googleButton
                             .opacity(btn2Opacity)
                             .offset(y: btn2Offset)
@@ -78,16 +145,64 @@ struct AMENAuthLandingView: View {
                         orDivider
                             .opacity(divOpacity)
 
-                        // Button 3 — Email sign up
-                        emailButton
-                            .opacity(btn3Opacity)
-                            .offset(y: btn3Offset)
+                        if showsInlinePhoneAuth {
+                            inlinePhoneAuthPanel
+                                .opacity(btn3Opacity)
+                                .offset(y: btn3Offset)
+                        } else {
+                            // Phone — primary alternative for people without Google/Apple
+                            phoneButton
+                                .opacity(btn3Opacity)
+                                .offset(y: btn3Offset)
 
-                        // Sign-in link
-                        signInLink
+                            // Email
+                            emailButton
+                                .opacity(btn4Opacity)
+                                .offset(y: btn4Offset)
+
+                            // Sign-in link
+                            signInLink
+                                .opacity(linkOpacity)
+                                .padding(.top, 4)
+
+#if DEBUG
+                            // Debug-only: skip auth entirely for simulator testing
+                            Button {
+                                authViewModel.bypassAuthForTesting()
+                            } label: {
+                                Text("Skip — Test Mode")
+                                    .font(.systemScaled(13, weight: .semibold))
+                                    .foregroundStyle(Color(white: 0.42))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 48)
+                                    .background(
+                                        Capsule()
+                                            .stroke(Color(white: 0.78), lineWidth: 1)
+                                    )
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Skip Test Mode")
                             .opacity(linkOpacity)
-                            .padding(.top, 4)
+                            .padding(.top, 8)
+#endif
+                        }
+
+                        HStack(spacing: 4) {
+                            Link("Privacy Policy", destination: URL(string: "https://amenapp.com/privacy")!)
+                                .font(.systemScaled(11))
+                                .foregroundStyle(Color(white: 0.55))
+                            Text("·")
+                                .font(.systemScaled(11))
+                                .foregroundStyle(Color(white: 0.55))
+                            Link("Terms of Service", destination: URL(string: "https://amenapp.com/terms")!)
+                                .font(.systemScaled(11))
+                                .foregroundStyle(Color(white: 0.55))
+                        }
+                        .opacity(linkOpacity)
+                        .padding(.top, 8)
                     }
+                    .frame(maxWidth: 375)
                     .padding(.horizontal, 28)
                     .padding(.bottom, 52)
                 }
@@ -103,38 +218,44 @@ struct AMENAuthLandingView: View {
             }
         }
         .onAppear { runEntryAnimation() }
+        .alert("Sign-in Failed", isPresented: $authViewModel.showError) {
+            Button("OK", role: .cancel) {
+                authViewModel.errorMessage = nil
+            }
+        } message: {
+            Text(authViewModel.errorMessage ?? "An error occurred. Please try again.")
+        }
     }
 
     // MARK: - Apple button
 
     private var appleButton: some View {
-        Button {
-            print("Apple sign in")
-        } label: {
-            HStack(spacing: 0) {
-                Image(systemName: "apple.logo")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(width: 52, alignment: .leading)
-                Spacer()
-                Text("Continue with Apple")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
-                Spacer()
-                Color.clear.frame(width: 52)
+        SignInWithAppleButton(
+            onRequest: { request in
+                let nonce = randomNonceString()
+                currentNonce = nonce
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = sha256(nonce)
+            },
+            onCompletion: { result in
+                Task {
+                    await handleAppleSignIn(result: result)
+                }
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(Color.black, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        }
-        .buttonStyle(ScaleButtonStyle())
+        )
+        .signInWithAppleButtonStyle(.black)
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+        .cornerRadius(14)
     }
 
     // MARK: - Google button
 
     private var googleButton: some View {
         Button {
-            print("Google sign in")
+            Task {
+                await handleGoogleSignIn()
+            }
         } label: {
             HStack(spacing: 0) {
                 GoogleGLogo()
@@ -143,18 +264,12 @@ struct AMENAuthLandingView: View {
                     .frame(width: 52, alignment: .leading)
                 Spacer()
                 Text("Continue with Google")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(15, weight: .semibold))
+                    .foregroundStyle(.primary)
                 Spacer()
                 Color.clear.frame(width: 52)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color(white: 0.898), lineWidth: 1.5)
-            )
+            .modifier(AuthSecondaryButtonSurface())
         }
         .buttonStyle(ScaleButtonStyle())
     }
@@ -167,7 +282,7 @@ struct AMENAuthLandingView: View {
                 .fill(Color(white: 0.922))
                 .frame(height: 1)
             Text("or")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color(white: 0.733))
                 .fixedSize()
             Rectangle()
@@ -175,6 +290,30 @@ struct AMENAuthLandingView: View {
                 .frame(height: 1)
         }
         .padding(.vertical, 4)
+    }
+
+    // MARK: - Phone button
+
+    private var phoneButton: some View {
+        Button {
+            openInlinePhoneAuth()
+        } label: {
+            HStack(spacing: 0) {
+                Image(systemName: "phone.fill")
+                    .font(.systemScaled(15, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .padding(.leading, 18)
+                    .frame(width: 52, alignment: .leading)
+                Spacer()
+                Text("Continue with phone")
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Color.clear.frame(width: 52)
+            }
+            .modifier(AuthSecondaryButtonSurface())
+        }
+        .buttonStyle(ScaleButtonStyle())
     }
 
     // MARK: - Email button
@@ -185,69 +324,430 @@ struct AMENAuthLandingView: View {
         } label: {
             HStack(spacing: 0) {
                 Image(systemName: "envelope")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(16, weight: .medium))
+                    .foregroundStyle(.primary)
                     .padding(.leading, 18)
                     .frame(width: 52, alignment: .leading)
                 Spacer()
                 Text("Sign up with email")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.primary)
                 Spacer()
                 Color.clear.frame(width: 52)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(emailBg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .modifier(AuthSecondaryButtonSurface())
         }
-        .buttonStyle(EmailButtonStyle(bg: $emailBg))
+        .buttonStyle(ScaleButtonStyle())
     }
 
     // MARK: - Sign-in link
 
     private var signInLink: some View {
-        HStack(spacing: 4) {
-            Text("Already have an account?")
-                .font(.system(size: 12))
-                .foregroundStyle(Color(white: 0.667))
+        VStack(spacing: 6) {
+            HStack(spacing: 4) {
+                Text("Already have an account?")
+                    .font(.systemScaled(12))
+                    .foregroundStyle(Color(white: 0.667))
+                Button {
+                    showEmailSignIn = true
+                } label: {
+                    Text("Sign in with email")
+                        .font(.systemScaled(12, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+            }
             Button {
-                showEmailSignIn = true
+                openInlinePhoneAuth()
             } label: {
-                Text("Sign in")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.black)
+                Text("Sign in with phone number")
+                    .font(.systemScaled(12, weight: .semibold))
+                    .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Sign in with phone number")
+        }
+    }
+
+    // MARK: - Inline phone auth
+
+    private var inlinePhoneAuthPanel: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Button {
+                    resetInlinePhoneAuth()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(Color(white: 0.35))
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(Color(white: 0.94)))
+                }
+                .accessibilityLabel("Back to sign in options")
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(inlinePhoneCodeSent ? "Enter your code" : "Continue with phone")
+                        .font(.systemScaled(15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(inlinePhoneCodeSent ? "Sent to \(formattedInlinePhoneNumber)" : "We'll text you a verification code.")
+                        .font(.systemScaled(12))
+                        .foregroundStyle(Color(white: 0.55))
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            if let inlinePhoneError {
+                Text(inlinePhoneError)
+                    .font(.systemScaled(12))
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if inlinePhoneCodeSent {
+                TextField("6-digit code", text: $inlinePhoneCode)
+                    .keyboardType(.numberPad)
+                    .textContentType(.oneTimeCode)
+                    .multilineTextAlignment(.center)
+                    .font(.system(.title3, design: .monospaced).weight(.semibold))
+                    .tracking(6)
+                    .padding(.horizontal, 18)
+                    .frame(height: 52)
+                    .background(phoneFieldBackground)
+                    .onChange(of: inlinePhoneCode) { _, newValue in
+                        let capped = String(newValue.filter(\.isNumber).prefix(6))
+                        if capped != newValue { inlinePhoneCode = capped }
+                    }
+                    .accessibilityLabel("Verification code")
+            } else {
+                TextField("Phone number", text: $inlinePhoneNumber)
+                    .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+                    .font(.systemScaled(15, weight: .medium))
+                    .padding(.horizontal, 18)
+                    .frame(height: 52)
+                    .background(phoneFieldBackground)
+                    .accessibilityLabel("Phone number")
+            }
+
+            Button {
+                if inlinePhoneCodeSent {
+                    verifyInlinePhoneCode()
+                } else {
+                    sendInlinePhoneCode()
+                }
+            } label: {
+                ZStack {
+                    if authViewModel.isSendingPhoneCode || authViewModel.isLoading {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                    } else {
+                        Text(inlinePhoneCodeSent ? "Verify & Sign In" : "Send Code")
+                            .font(.systemScaled(15, weight: .semibold))
+                    }
+                }
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .amenLiquidGlassCapsuleSurface(isSelected: inlinePhoneCodeSent ? canVerifyInlinePhoneCode : canSendInlinePhoneCode)
+                .opacity((inlinePhoneCodeSent ? canVerifyInlinePhoneCode : canSendInlinePhoneCode) ? 1 : 0.55)
+            }
+            .disabled(authViewModel.isSendingPhoneCode || authViewModel.isLoading || (inlinePhoneCodeSent ? !canVerifyInlinePhoneCode : !canSendInlinePhoneCode))
+
+            if inlinePhoneCodeSent {
+                Button("Use a different number") {
+                    inlinePhoneCodeSent = false
+                    inlinePhoneCode = ""
+                    inlinePhoneError = nil
+                    authViewModel.cleanupPhoneAuthState()
+                }
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundStyle(Color(white: 0.35))
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color(white: 0.88), lineWidth: 1)
+                )
+        )
+        .shadow(color: .black.opacity(0.06), radius: 18, x: 0, y: 10)
+    }
+
+    private var phoneFieldBackground: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(Color(white: 0.98))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color(white: 0.86), lineWidth: 1)
+            )
+    }
+
+    private var inlinePhoneDigits: String {
+        inlinePhoneNumber.filter(\.isNumber)
+    }
+
+    private var formattedInlinePhoneNumber: String {
+        if inlinePhoneNumber.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("+") {
+            return "+\(inlinePhoneDigits)"
+        }
+        if inlinePhoneDigits.count == 11, inlinePhoneDigits.hasPrefix("1") {
+            return "+\(inlinePhoneDigits)"
+        }
+        return "+1\(inlinePhoneDigits)"
+    }
+
+    private var canSendInlinePhoneCode: Bool {
+        inlinePhoneDigits.count >= 7
+    }
+
+    private var canVerifyInlinePhoneCode: Bool {
+        inlinePhoneCode.filter(\.isNumber).count == 6
+    }
+
+    private func openInlinePhoneAuth() {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            showsInlinePhoneAuth = true
+            inlinePhoneError = nil
+        }
+    }
+
+    private func resetInlinePhoneAuth() {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            showsInlinePhoneAuth = false
+            inlinePhoneCodeSent = false
+            inlinePhoneCode = ""
+            inlinePhoneError = nil
+        }
+        authViewModel.cleanupPhoneAuthState()
+    }
+
+    private func sendInlinePhoneCode() {
+        guard canSendInlinePhoneCode else { return }
+        inlinePhoneError = nil
+        Task {
+            await authViewModel.sendPhoneVerificationCode(phoneNumber: formattedInlinePhoneNumber)
+            await MainActor.run {
+                if authViewModel.phoneVerificationId != nil {
+                    inlinePhoneCodeSent = true
+                    inlinePhoneCode = ""
+                } else {
+                    inlinePhoneError = authViewModel.errorMessage ?? "Could not send the code. Please try again."
+                }
+            }
+        }
+    }
+
+    private func verifyInlinePhoneCode() {
+        guard canVerifyInlinePhoneCode else { return }
+        inlinePhoneError = nil
+        Task {
+            await authViewModel.verifyPhoneCode(inlinePhoneCode, displayName: "", username: "", isSignUp: false)
+            await MainActor.run {
+                if authViewModel.showError {
+                    inlinePhoneError = authViewModel.errorMessage ?? "Could not verify the code. Please try again."
+                }
+            }
+        }
+    }
+
+    // MARK: - Remembered account
+
+    private var rememberedAccountCard: some View {
+        HStack(spacing: 12) {
+            Group {
+                if let rememberedPhotoURL {
+                    AsyncImage(url: rememberedPhotoURL) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        default:
+                            rememberedAvatarFallback
+                        }
+                    }
+                } else {
+                    rememberedAvatarFallback
+                }
+            }
+            .frame(width: 46, height: 46)
+            .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(rememberedDisplayName ?? "Welcome back")
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                Text(rememberedSubtitle)
+                    .font(.systemScaled(12, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity)
+        .frame(height: 62)
+        .amenLiquidGlassCapsuleSurface(isSelected: true)
+        .accessibilityElement(children: .combine)  // A11Y-LABELS: read avatar + name + subtitle as one unit
+    }
+
+    private var rememberedAvatarFallback: some View {
+        ZStack {
+            Circle()
+                .fill(Color.white.opacity(0.72))
+            Text(rememberedInitials)
+                .font(.systemScaled(15, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.76))
+        }
+    }
+
+    private func nonEmpty(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+
+    // MARK: - Authentication Handlers
+    
+    private func handleAppleSignIn(result: Result<ASAuthorization, Error>) async {
+        switch result {
+        case .success(let authorization):
+            guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let identityToken = appleIDCredential.identityToken,
+                  let idTokenString = String(data: identityToken, encoding: .utf8),
+                  let nonce = currentNonce else {
+                print("❌ Missing Apple credential data")
+                authViewModel.errorMessage = "Apple sign-in failed. Please try again."
+                authViewModel.showError = true
+                return
+            }
+
+            do {
+                _ = try await FirebaseManager.shared.signInWithApple(
+                    idToken: idTokenString,
+                    nonce: nonce,
+                    fullName: appleIDCredential.fullName
+                )
+                print("✅ Apple sign-in successful")
+            } catch {
+                print("❌ Apple sign-in failed: \(error.localizedDescription)")
+                authViewModel.errorMessage = error.localizedDescription
+                authViewModel.showError = true
+            }
+
+        case .failure(let error):
+            let nsError = error as NSError
+            // 1000 = unknown (simulator/no Apple ID), 1001 = user cancelled — both silent
+            let silentCodes = [1000, 1001]
+            if !silentCodes.contains(nsError.code) {
+                print("❌ Apple sign-in error: \(error.localizedDescription)")
+                authViewModel.errorMessage = error.localizedDescription
+                authViewModel.showError = true
+            }
+        }
+    }
+
+    private func handleGoogleSignIn() async {
+        do {
+            _ = try await FirebaseManager.shared.signInWithGoogle()
+            print("✅ Google sign-in successful")
+        } catch let error as NSError {
+            print("❌ Google sign-in failed: \(error.localizedDescription)")
+            // -5 is the user-cancelled code from Google Sign-In SDK
+            if error.code != -5 {
+                authViewModel.errorMessage = error.localizedDescription
+                authViewModel.showError = true
+            }
         }
     }
 
     // MARK: - Entry animation
 
     private func runEntryAnimation() {
-        let easeOut35 = Animation.easeOut(duration: 0.35)
+        let stagger = Motion.adaptive(Motion.appearEase)
 
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.amenSpringEntry)) {
             logoScale   = 1.0
             logoOpacity = 1
         }
-        withAnimation(easeOut35.delay(0.08)) {
+        withAnimation(stagger.delay(0.08)) {
             wordOpacity = 1
         }
-        withAnimation(easeOut35.delay(0.18)) {
+        withAnimation(stagger.delay(0.14)) {
+            taglineOpacity = 1
+        }
+        withAnimation(stagger.delay(0.22)) {
             btn1Opacity = 1; btn1Offset = 0
         }
-        withAnimation(easeOut35.delay(0.26)) {
+        withAnimation(stagger.delay(0.30)) {
             btn2Opacity = 1; btn2Offset = 0
         }
-        withAnimation(.easeOut(duration: 0.3).delay(0.32)) {
+        withAnimation(stagger.delay(0.36)) {
             divOpacity = 1
         }
-        withAnimation(easeOut35.delay(0.38)) {
+        withAnimation(stagger.delay(0.42)) {
             btn3Opacity = 1; btn3Offset = 0
         }
-        withAnimation(.easeOut(duration: 0.3).delay(0.46)) {
+        withAnimation(stagger.delay(0.48)) {
+            btn4Opacity = 1; btn4Offset = 0
+        }
+        withAnimation(stagger.delay(0.54)) {
             linkOpacity = 1
         }
+    }
+    
+    // MARK: - Nonce Helpers
+    
+    private func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        var result = ""
+        var remainingLength = length
+        
+        while remainingLength > 0 {
+            let randoms: [UInt8] = (0..<16).map { _ in
+                var random: UInt8 = 0
+                let errorCode = SecRandomCopyBytes(kSecRandomDefault, 1, &random)
+                if errorCode != errSecSuccess {
+                    assertionFailure("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+                    random = UInt8.random(in: 0...UInt8.max)
+                }
+                return random
+            }
+            
+            randoms.forEach { random in
+                if remainingLength == 0 {
+                    return
+                }
+                
+                if random < charset.count {
+                    result.append(charset[Int(random)])
+                    remainingLength -= 1
+                }
+            }
+        }
+        
+        return result
+    }
+    
+    private func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashedData = SHA256.hash(data: inputData)
+        let hashString = hashedData.compactMap {
+            String(format: "%02x", $0)
+        }.joined()
+        
+        return hashString
     }
 }
 
@@ -298,43 +798,40 @@ private struct GoogleGLogo: View {
     }
 }
 
-// MARK: - Button styles
-// (ScaleButtonStyle is defined in SharedUIComponents.swift)
+// MARK: - Secondary provider button surface
 
-private struct EmailButtonStyle: ButtonStyle {
-    @Binding var bg: Color
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .onChange(of: configuration.isPressed) { _, pressed in
-                withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
-                    bg = pressed ? Color(white: 0.922) : Color(white: 0.957)
-                }
-            }
+/// Shared liquid-glass pill surface for non-platform auth buttons.
+private struct AuthSecondaryButtonSurface: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .amenLiquidGlassCapsuleSurface(isSelected: true)
+            .contentShape(Capsule(style: .continuous))
     }
 }
+
+// MARK: - Button styles
+// (ScaleButtonStyle is defined in SharedUIComponents.swift)
 
 // MARK: - Stub email views
 
 struct EmailSignUpView: View {
-    @EnvironmentObject var authViewModel: AuthenticationViewModel
-    @Environment(\.dismiss) private var dismiss
-
     var body: some View {
-        // Hands off to the full existing SignInView in sign-up mode.
-        // Replace with real email sign-up flow when ready.
-        SignInView()
-            .environmentObject(authViewModel)
+        MinimalAuthenticationView(
+            initialMode: .signup,
+            showsEmailFormOnAppear: true
+        )
             .navigationBarHidden(true)
     }
 }
 
 struct EmailSignInView: View {
-    @EnvironmentObject var authViewModel: AuthenticationViewModel
-    @Environment(\.dismiss) private var dismiss
-
     var body: some View {
-        SignInView()
-            .environmentObject(authViewModel)
+        MinimalAuthenticationView(
+            initialMode: .login,
+            showsEmailFormOnAppear: true
+        )
             .navigationBarHidden(true)
     }
 }

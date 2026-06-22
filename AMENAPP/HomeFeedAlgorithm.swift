@@ -59,6 +59,26 @@ class HomeFeedAlgorithm: ObservableObject {
         let modeWeightsRecency: Double
         let modeWeightsFollowing: Double
         let currentUserId: String?
+        // Feature 8: pre-captured trust scores keyed by author UID (0–100)
+        let trustScores: [String: Double]
+        // P2 FIX: pre-captured recommendation relevance scores keyed by post ID (0–1.0)
+        // from RecommendationIntelligenceService. Lets the feed ranking reward posts
+        // that are semantically relevant to the user's interests.
+        let recommendationScores: [String: Double]
+        // Author UIDs who both follow the viewer and are followed back (mutual connections).
+        // Used to add a depth signal: prefer content from reciprocal relationships over
+        // one-way broadcast accounts.
+        let mutualFollowIds: Set<String>
+
+        // Hey Feed NL layer — pre-captured deltas keyed by FeedTopic raw value.
+        // nlRankingDeltas:   user's explicit duration-aware NL preferences (±0.35 cap per topic)
+        // sessionModeDeltas: contextual session-mode adjustments for the current scroll session
+        // saturationPenalties: topic overexposure penalty from rolling 25-post window (0 to -0.25)
+        // contradictionMultipliers: behavior-vs-preference contradiction correction (0.2–1.0)
+        let nlRankingDeltas:           [String: Double]
+        let sessionModeDeltas:         [String: Double]
+        let saturationPenalties:       [String: Double]
+        let contradictionMultipliers:  [String: Double]
 
         @MainActor
         static func capture() -> ScoringContext {
@@ -70,6 +90,47 @@ class HomeFeedAlgorithm: ObservableObject {
             for topic in FeedTopic.allCases {
                 topicWeights[topic] = svc.getTopicWeight(topic)
             }
+            // Capture cached trust scores for all authors currently in the feed.
+            // TrustScoreService.getCachedScore returns 0 on miss and kicks off a background refresh.
+            // The feed will improve on subsequent sorts as scores warm up.
+            let cachedTrust = HomeFeedAlgorithm.shared.personalizedPosts.reduce(into: [String: Double]()) {
+                $0[$1.authorId] = ContentTrustScoreService.shared.getCachedScore(for: $1.authorId)
+            }
+            // P2 FIX: Capture recommendation relevance scores so scorePost can use them.
+            // RecommendationIntelligenceService.getCachedRelevance returns 0 on miss.
+            let cachedRecommendations = HomeFeedAlgorithm.shared.personalizedPosts.reduce(into: [String: Double]()) {
+                let id = $1.id.uuidString
+                $0[id] = RecommendationIntelligenceService.shared.getCachedRelevance(for: id)
+            }
+            let mutualFollowIds = FollowService.shared.following.intersection(FollowService.shared.followers)
+
+            // Capture Hey Feed NL intelligence signals for all NL taxonomy topics.
+            // Each service returns a per-topic dictionary keyed by taxonomy string ID.
+            let nlService       = HeyFeedNLPreferencesService.shared
+            let sessionService  = HeyFeedSessionModeService.shared
+            let satService      = HeyFeedSaturationService.shared
+            let contraService   = HeyFeedContradictionService.shared
+
+            // All taxonomy topic IDs used by the NL layer
+            let nlTopicIds: [String] = [
+                "testimonies", "prayer_requests", "bible_teaching", "practical_faith",
+                "encouragement", "church_discovery", "debate", "promotional_content",
+                "grief_support", "worship_music", "theology", "community",
+                "relationship_followed", "local_relevance", "repetition", "intensity",
+            ]
+
+            var nlDeltas:     [String: Double] = [:]
+            var sessionDeltas:[String: Double] = [:]
+            var satPenalties: [String: Double] = [:]
+            var contraMults:  [String: Double] = [:]
+
+            for tid in nlTopicIds {
+                nlDeltas[tid]     = nlService.rankingDelta(for: tid)
+                sessionDeltas[tid] = sessionService.rankingDelta(for: tid)
+                satPenalties[tid] = satService.saturationPenalty(for: tid)
+                contraMults[tid]  = contraService.boostMultiplier(for: tid)
+            }
+
             return ScoringContext(
                 prefsLoaded: svc.lastRefreshTime != nil,
                 mutedAuthors: prefs.mutedAuthors,
@@ -80,7 +141,14 @@ class HomeFeedAlgorithm: ObservableObject {
                 topicWeights: topicWeights,
                 modeWeightsRecency: weights.recency,
                 modeWeightsFollowing: weights.following,
-                currentUserId: Auth.auth().currentUser?.uid
+                currentUserId: Auth.auth().currentUser?.uid,
+                trustScores: cachedTrust,
+                recommendationScores: cachedRecommendations,
+                mutualFollowIds: mutualFollowIds,
+                nlRankingDeltas: nlDeltas,
+                sessionModeDeltas: sessionDeltas,
+                saturationPenalties: satPenalties,
+                contradictionMultipliers: contraMults
             )
         }
     }
@@ -151,8 +219,20 @@ class HomeFeedAlgorithm: ObservableObject {
         if prefsLoaded && mutedAuthors.contains(post.authorId) { return 0.0 }
         if prefsLoaded && hiddenPosts.contains(post.firebaseId ?? post.id.uuidString) { return 0.0 }
 
-        // Privacy gate: followers-only posts must not appear for non-followers.
-        if post.visibility == .followers && !followingIds.contains(post.authorId) {
+        // Privacy gate: only block non-followers from seeing a post when the author
+        // has a private account. Public accounts' posts are visible to everyone
+        // regardless of visibility setting — matching Instagram/Threads behaviour.
+        // Server-side Firestore rules enforce the same logic authoritatively.
+        if post.visibility == .followers
+            && post.authorIsPrivate == true
+            && !followingIds.contains(post.authorId) {
+            if let uid = currentUserId, post.authorId != uid { return 0.0 }
+        }
+
+        // Trusted-circle gate: posts scoped to a circle are handled server-side
+        // via Firestore rules. Client-side we hide them from the feed unless the
+        // viewer is the author (own posts always visible in own feed).
+        if post.trustedCircle != nil {
             if let uid = currentUserId, post.authorId != uid { return 0.0 }
         }
 
@@ -200,9 +280,56 @@ class HomeFeedAlgorithm: ObservableObject {
 
         // 13. Living Wall spiritual momentum (prayer/testimony posts only)
         if post.category == .prayer || post.category == .testimonies {
-            let livingWallScore = LivingWallRanker.shared.score(post)
+            let livingWallScore = LivingWallRanker().score(post)
             // Normalize to 0-10 contribution to avoid overpowering other signals
             score += min(10, livingWallScore * 0.05)
+        }
+
+        // 14. Trust signal boost (Feature 8)
+        // Pre-captured from TrustScoreService cache — 0 on miss, warms up over time.
+        // Contributes up to ~15 points for fully-trusted mutuals/verified leaders.
+        let trustScore = context?.trustScores[post.authorId] ?? 0
+        score += trustScore * 0.15
+
+        // P2 FIX: Feed back recommendation relevance scores from RecommendationIntelligenceService.
+        // Posts that already appear as "related content" recommendations have high semantic
+        // relevance for this user — reward them with up to 8 additional score points.
+        // The relevance score is a 0–1 float from on-device embedding similarity.
+        let recommendationBoost = context?.recommendationScores[post.id.uuidString] ?? 0
+        score += recommendationBoost * 8.0
+
+        // 15. Mutual follow depth signal (+6 pts)
+        // Posts from mutual connections (viewer follows them AND they follow viewer) represent
+        // the highest-trust peer relationships. Prefer their content over one-way broadcast
+        // accounts to reward depth over reach — a core AMEN product principle.
+        if context?.mutualFollowIds.contains(post.authorId) == true {
+            score += 6.0
+        }
+
+        // 16. Hey Feed NL Intelligence Layer
+        // Maps the post to the most relevant NL taxonomy topic, then applies four
+        // independent signals captured from the new intelligence services.
+        // All four are additive/multiplicative adjustments on top of the base score.
+        if let ctx = context {
+            let nlTopicId = nlTopicId(for: post)
+
+            // 16a. User's explicit NL preference delta (±0.35 normalized to score units × 35)
+            let nlDelta = ctx.nlRankingDeltas[nlTopicId] ?? 0.0
+            score += nlDelta * 35.0
+
+            // 16b. Session mode delta (e.g. Devotional mode boosts bible_teaching by 0.3)
+            let sessionDelta = ctx.sessionModeDeltas[nlTopicId] ?? 0.0
+            score += sessionDelta * 25.0
+
+            // 16c. Saturation penalty — user has seen too much of this topic recently
+            // penalty is already 0 to -0.25; scale to meaningful score impact
+            let satPenalty = ctx.saturationPenalties[nlTopicId] ?? 0.0
+            score += satPenalty * 40.0   // e.g. max -10 pts at -0.25 × 40
+
+            // 16d. Contradiction multiplier — dampen score when user says "more X"
+            // but keeps skipping X (signals the stated preference isn't actionable)
+            let contraMult = ctx.contradictionMultipliers[nlTopicId] ?? 1.0
+            score *= contraMult
         }
 
         return min(100, max(0, score))
@@ -396,16 +523,18 @@ class HomeFeedAlgorithm: ObservableObject {
         var penalty: Double = 0.0
         
         // Signal 1: Abnormally high comment-to-reaction ratio (debate/argument)
-        // Healthy posts have ~1:3 comment-to-reaction ratio
-        // Controversial posts have ~1:1 or higher (lots of debate)
-        if post.amenCount > 0 {
+        // Healthy posts have ~1:3 comment-to-reaction ratio.
+        // Require ≥10 comments before firing — small discussions (3 comments, 1 amen)
+        // are genuine depth, not controversy. Only penalize posts where the volume
+        // itself signals a wide debate rather than a focused exchange.
+        if post.amenCount > 0 && post.commentCount >= 10 {
             let commentToReactionRatio = Double(post.commentCount) / Double(post.amenCount)
-            
+
             if commentToReactionRatio > 1.5 {
-                // Very high ratio = likely controversial
+                // Very high ratio at scale = likely controversial
                 penalty += 30
             } else if commentToReactionRatio > 1.0 {
-                // Moderate ratio = possibly controversial
+                // Moderate ratio at scale = possibly controversial
                 penalty += 15
             }
         }
@@ -490,7 +619,7 @@ class HomeFeedAlgorithm: ObservableObject {
             // Filter 1: No duplicate/near-duplicate content
             let contentHash = post.content.lowercased().prefix(50)
             guard !seen.contains(String(contentHash)) else {
-                dlog("🚫 [SPAM FILTER] Duplicate content blocked")
+                // ✅ Silently filter duplicates (reduced logging to avoid spam)
                 return false
             }
             seen.insert(String(contentHash))
@@ -656,10 +785,16 @@ class HomeFeedAlgorithm: ObservableObject {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let doc = try await db.collection("users").document(userId).getDocument()
             
-            if let goals = doc.data()?["goals"] as? [String], !goals.isEmpty {
+            // Onboarding saves selected chips under "interests". Legacy / server-written
+            // profiles may use "goals". Check both fields so neither version is silently dropped.
+            let rawGoals = (doc.data()?["goals"] as? [String])
+                ?? (doc.data()?["interests"] as? [String])
+                ?? []
+            let goals = rawGoals.filter { !$0.isEmpty }
+            if !goals.isEmpty {
                 await MainActor.run {
                     userInterests.onboardingGoals = goals
                     dlog("✅ Loaded \(goals.count) goals from Firestore: \(goals.joined(separator: ", "))")
@@ -704,8 +839,7 @@ class HomeFeedAlgorithm: ObservableObject {
                 guard !Task.isCancelled else { return }
 
                 // Perform CPU-heavy ranking entirely off the main thread
-                let ranked = await Task.detached(priority: .userInitiated) { [weak self] () -> [Post] in
-                    guard let self else { return posts }
+                let ranked = await Task.detached(priority: .userInitiated) { () -> [Post] in
                     return self.rankPosts(posts,
                                          for: snapshotInterests,
                                          followingIds: snapshotFollowingIds,
@@ -726,8 +860,7 @@ class HomeFeedAlgorithm: ObservableObject {
             // First call or outside debounce window — still rank off main thread
             lastPersonalizationTime = Date()
             personalizationTask = Task {
-                let ranked = await Task.detached(priority: .userInitiated) { [weak self] () -> [Post] in
-                    guard let self else { return posts }
+                let ranked = await Task.detached(priority: .userInitiated) { () -> [Post] in
                     return self.rankPosts(posts,
                                          for: snapshotInterests,
                                          followingIds: snapshotFollowingIds,
@@ -1199,6 +1332,21 @@ class HomeFeedAlgorithm: ObservableObject {
     
     // MARK: - HeyFeed Integration Helpers
     
+    /// Map a post to the Hey Feed NL taxonomy topic ID used by the NL intelligence layer.
+    /// The NL taxonomy uses fine-grained string IDs ("testimonies", "prayer_requests", etc.)
+    /// that map more precisely than the broader FeedTopic enum.
+    nonisolated private func nlTopicId(for post: Post) -> String {
+        // topicTag on the post takes priority — it's the author-chosen fine-grained tag
+        if let tag = post.topicTag, !tag.isEmpty { return tag }
+        switch post.category {
+        case .testimonies: return "testimonies"
+        case .prayer:      return "prayer_requests"
+        case .tip:         return "bible_teaching"
+        case .funFact:     return "bible_teaching"
+        case .openTable:   return "community"
+        }
+    }
+
     /// Map Post category to HeyFeed topic
     nonisolated private func mapCategoryToTopic(_ category: Post.PostCategory) -> FeedTopic {
         switch category {

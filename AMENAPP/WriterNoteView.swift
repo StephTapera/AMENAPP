@@ -91,7 +91,7 @@ struct WriterNoteView: View {
                 dismiss()
             } label: {
                 Text("Cancel")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.7))
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
@@ -135,9 +135,9 @@ struct WriterNoteView: View {
                             .scaleEffect(0.9)
                     } else {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                         Text("Save")
-                            .font(.system(size: 17, weight: .bold))
+                            .font(.systemScaled(17, weight: .bold))
                     }
                 }
                 .foregroundStyle(.white)
@@ -204,7 +204,7 @@ struct WriterNoteView: View {
             // Encouraging prompt
             if title.isEmpty && focusedField != .title {
                 Text("What's your note about?")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.4))
                     .padding(.horizontal, 20)
                     .padding(.top, 24)
@@ -212,8 +212,8 @@ struct WriterNoteView: View {
             
             // Title input
             TextField("", text: $title, prompt: Text("Note Title").foregroundStyle(Color.black.opacity(0.25)))
-                .font(.system(size: 36, weight: .bold))
-                .foregroundStyle(Color.black)
+                .font(.systemScaled(36, weight: .bold))
+                .foregroundStyle(.primary)
                 .tint(.blue)
                 .focused($focusedField, equals: .title)
                 .padding(.horizontal, 20)
@@ -226,7 +226,7 @@ struct WriterNoteView: View {
     
     private var metadataToggle: some View {
         Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                 showMetadata.toggle()
             }
             let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -234,16 +234,16 @@ struct WriterNoteView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: showMetadata ? "chevron.down.circle.fill" : "chevron.right.circle.fill")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(.blue)
                     .rotationEffect(.degrees(showMetadata ? 0 : 0))
                 
                 Text("Sermon Details")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.8))
                 
                 Text("(Optional)")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.4))
                 
                 Spacer()
@@ -298,7 +298,7 @@ struct WriterNoteView: View {
             // Date
             HStack(spacing: 12) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.5))
                     .frame(width: 24)
                 
@@ -334,11 +334,11 @@ struct WriterNoteView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Your Reflection")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.8))
                     
                     Text("Write freely about what moved you")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(Color.black.opacity(0.5))
                 }
                 
@@ -352,7 +352,7 @@ struct WriterNoteView: View {
                 if content.isEmpty {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Start writing...")
-                            .font(.system(size: 18, weight: .regular))
+                            .font(.systemScaled(18, weight: .regular))
                             .foregroundStyle(Color.black.opacity(0.25))
                         
                         VStack(alignment: .leading, spacing: 8) {
@@ -366,8 +366,8 @@ struct WriterNoteView: View {
                 }
                 
                 TextEditor(text: $content)
-                    .font(.system(size: 18, weight: .regular))
-                    .foregroundStyle(Color.black)
+                    .font(.systemScaled(18, weight: .regular))
+                    .foregroundStyle(.primary)
                     .lineSpacing(6)
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 400)
@@ -466,13 +466,13 @@ struct CleanTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(isFocused ? 0.7 : 0.4))
                 .frame(width: 24)
             
             TextField(placeholder, text: $text)
-                .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(Color.black)
+                .font(.systemScaled(17, weight: .medium))
+                .foregroundStyle(.primary)
                 .tint(.blue)
                 .focused(focusedField, equals: field)
         }
@@ -505,7 +505,7 @@ struct PromptText: View {
     
     var body: some View {
         Text(text)
-            .font(.system(size: 15, weight: .regular))
+            .font(.systemScaled(15, weight: .regular))
             .foregroundStyle(Color.black.opacity(0.35))
             .padding(.leading, 4)
     }
@@ -521,11 +521,11 @@ struct StatPill: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
             Text(value)
-                .font(.system(size: 14, weight: .bold))
+                .font(.systemScaled(14, weight: .bold))
             Text(label)
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
         }
         .foregroundStyle(Color.black.opacity(0.6))
         .padding(.horizontal, 12)

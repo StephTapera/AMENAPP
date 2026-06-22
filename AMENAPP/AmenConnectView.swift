@@ -1,468 +1,1045 @@
+// DEFERRED-WIRING: This view is superseded by AmenConnectSpacesHubView (ConnectSpaces/AmenConnectSpacesHubView.swift).
+// It has zero call sites and is dead code in the active source tree. It should be deleted in a
+// future cleanup sprint, or formally replaced/merged into the newer view. — GAP A2-P1
+
 //
 //  AMENConnectView.swift
 //  AMENAPP
 //
-//  AMEN Connect hub — jobs, networking, serve, mentorship, events.
-//  Visual layer: warm liquid glass aesthetic inspired by Apple Music Now Playing.
+//  Amen Connect launches from Resources and owns its internal spatial navigation.
 //
 
 import SwiftUI
+import FirebaseAuth
 
-enum AMENConnectTab: String, CaseIterable, Codable {
-    case all = "All"
-    case forYou = "For You"
-    case jobs = "Jobs"
-    case network = "Network"
-    case serve = "Serve"
-    case events = "Events"
-    case ministries = "Ministries"
-    case converse = "Conversations"
-    case mentorship = "Mentorship"
-    case marketplace = "Marketplace"
-    case forum = "Forum"
-    case prayer = "Prayer"
-}
-
-// MARK: - Main View
+// MARK: - Compatibility Entry
 
 struct AMENConnectView: View {
-    var initialTab: AMENConnectTab = .forYou
+    var body: some View {
+        AmenConnectRootView()
+    }
+}
 
-    @State private var selectedTab: AMENConnectTab = .forYou
-
-    // Orb pulse scales (staggered)
-    @State private var orb1Scale: CGFloat = 1.0
-    @State private var orb2Scale: CGFloat = 1.0
-    @State private var orb3Scale: CGFloat = 1.0
-    @State private var orb4Scale: CGFloat = 1.0
+struct AmenConnectRootView: View {
+    @ObservedObject private var flags = AMENFeatureFlags.shared
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            // For You tab
-            ConnectForYouView()
-                .tag(AMENConnectTab.forYou)
-                .tabItem {
-                    Label("For You", systemImage: "star.fill")
-                }
-            
-            // Marketplace tab
-            ConnectMarketplaceView()
-                .tag(AMENConnectTab.marketplace)
-                .tabItem {
-                    Label("Marketplace", systemImage: "cart.fill")
-                }
-            
-            // Conversations tab
-            ConnectConverseView()
-                .tag(AMENConnectTab.converse)
-                .tabItem {
-                    Label("Conversations", systemImage: "bubble.left.and.bubble.right.fill")
-                }
-            
-            // Serve tab
-            ConnectServeView()
-                .tag(AMENConnectTab.serve)
-                .tabItem {
-                    Label("Serve", systemImage: "hands.sparkles.fill")
-                }
-            
-            // Ministries tab
-            ConnectMinistriesView()
-                .tag(AMENConnectTab.ministries)
-                .tabItem {
-                    Label("Ministries", systemImage: "building.2.fill")
-                }
-            
-            // Network tab (existing)
-            ConnectNetworkView()
-                .tag(AMENConnectTab.network)
-                .tabItem {
-                    Label("Network", systemImage: "person.2.fill")
-                }
+        if flags.connectLayoutV2Enabled {
+            AmenConnectV2RootView()
+        } else {
+            AmenConnectRootViewLegacy()
         }
-        .navigationTitle("AMEN Connect")
+    }
+}
+
+private struct AmenConnectRootViewLegacy: View {
+    @StateObject private var viewModel = AmenConnectViewModel()
+    @State private var scrollOffset: CGFloat = 0
+
+    private var visibleRooms: [AmenConnectRoom] {
+        [.lobby, .discover, .spaces, .dms, .activity, .announcements, .discussions, .meetings, .calendar, .boards, .marketplace, .creators, .safety, .admin]
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            AmenConnectSpatialBackground()
+
+            ScrollView {
+                GeometryReader { proxy in
+                    Color.clear.preference(key: AmenConnectScrollOffsetKey.self, value: proxy.frame(in: .named("AmenConnectScroll")).minY)
+                }
+                .frame(height: 0)
+
+                VStack(spacing: 16) {
+                    AmenConnectGlassHeader(scrollOpacity: min(max(-scrollOffset / 360, 0), 0.10)) {
+                        viewModel.isShowingCatchUp = true
+                    } onProfile: {
+                        viewModel.selectedRoom = .creators
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+
+                    AmenConnectRoomSwitcher(selectedRoom: $viewModel.selectedRoom, rooms: visibleRooms)
+                        .padding(.horizontal, 16)
+
+                    roomContent
+                        .padding(.bottom, 92)
+                }
+            }
+            .coordinateSpace(name: "AmenConnectScroll")
+            .onPreferenceChange(AmenConnectScrollOffsetKey.self) { scrollOffset = $0 }
+
+            AmenConnectFloatingActionButton {
+                viewModel.isShowingCommandSheet = true
+            }
+            .padding(.trailing, 20)
+            .padding(.bottom, 24)
+        }
+        .navigationTitle("Amen Connect")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            selectedTab = initialTab
+        .task { await viewModel.load() }
+        .sheet(isPresented: $viewModel.isShowingCatchUp) {
+            AmenConnectAICatchUpSheet(activityItems: viewModel.activityItems)
+        }
+        .sheet(isPresented: $viewModel.isShowingCommandSheet) {
+            AmenConnectAICommandSheet(contracts: viewModel.backendContracts)
         }
     }
 
-    // MARK: - Orb Background
+    @ViewBuilder
+    private var roomContent: some View {
+        switch viewModel.selectedRoom {
+        case .lobby:
+            AmenConnectLobbyView(viewModel: viewModel)
+        case .discover:
+            AmenConnectDiscoverView(viewModel: viewModel)
+        case .spaces:
+            AmenConnectSpaceListView(viewModel: viewModel)
+        case .dms:
+            AmenConnectDMsView()
+        case .activity:
+            AmenConnectActivityView(items: viewModel.activityItems)
+        case .announcements:
+            AmenConnectAnnouncementsView()
+        case .discussions:
+            AmenConnectChannelListView(channels: viewModel.channels)
+        case .meetings:
+            AmenConnectMeetingsView(meetings: viewModel.meetings)
+        case .calendar:
+            AmenConnectCalendarView(meetings: viewModel.meetings)
+        case .boards:
+            AmenConnectBoardsView(boards: viewModel.boards)
+        case .marketplace:
+            AmenConnectMarketplaceView(listings: viewModel.listings)
+        case .creators:
+            AmenConnectCreatorDirectoryView(viewModel: viewModel)
+        case .safety:
+            AmenConnectSafetyCenterView(contracts: viewModel.backendContracts)
+        case .admin:
+            AmenConnectAdminView(contracts: viewModel.backendContracts)
+        }
+    }
+}
 
-    private var orbBackground: some View {
-        GeometryReader { geo in
-            ZStack {
-                // Orb 1: coral-red — top-left
-                Circle()
-                    .fill(RadialGradient(
-                        colors: [Color(red: 1.0, green: 0.235, blue: 0.314, opacity: 0.60), .clear],
-                        center: .center, startRadius: 0, endRadius: 160
-                    ))
-                    .frame(width: 320, height: 320)
-                    .offset(x: -80, y: -100)
-                    .scaleEffect(orb1Scale)
-                    .blur(radius: 20)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+private struct AmenConnectScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
 
-                // Orb 2: orange — top-right
-                Circle()
-                    .fill(RadialGradient(
-                        colors: [Color(red: 1.0, green: 0.549, blue: 0.0, opacity: 0.45), .clear],
-                        center: .center, startRadius: 0, endRadius: 130
-                    ))
-                    .frame(width: 260, height: 260)
-                    .offset(x: 100, y: -20)
-                    .scaleEffect(orb2Scale)
-                    .blur(radius: 16)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+private struct AmenConnectSpatialBackground: View {
+    var body: some View {
+        ZStack {
+            Color(.systemBackground)
+            VStack(spacing: 0) {
+                LinearGradient(
+                    colors: [Color(red: 0.91, green: 0.96, blue: 1.0), Color.white, Color(red: 0.98, green: 0.98, blue: 0.96)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .frame(height: 340)
+                Spacer()
+            }
+            .ignoresSafeArea()
+        }
+    }
+}
 
-                // Orb 3: magenta — mid-left
-                Circle()
-                    .fill(RadialGradient(
-                        colors: [Color(red: 0.784, green: 0.196, blue: 0.706, opacity: 0.40), .clear],
-                        center: .center, startRadius: 0, endRadius: 120
-                    ))
-                    .frame(width: 240, height: 240)
-                    .offset(x: -40, y: 200)
-                    .scaleEffect(orb3Scale)
-                    .blur(radius: 18)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+// MARK: - Lobby
 
-                // Orb 4: gold — bottom-right
-                Circle()
-                    .fill(RadialGradient(
-                        colors: [Color(red: 1.0, green: 0.784, blue: 0.235, opacity: 0.30), .clear],
-                        center: .center, startRadius: 0, endRadius: 100
-                    ))
-                    .frame(width: 200, height: 200)
-                    .offset(x: 80, y: 360)
-                    .scaleEffect(orb4Scale)
-                    .blur(radius: 14)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+struct AmenConnectLobbyView: View {
+    @ObservedObject var viewModel: AmenConnectViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Amen Connect")
+                    .font(.systemScaled(36, weight: .black))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Text("Community spaces, announcements, discussions, meetings, events, jobs, mentorship, resources, and safe group communication.")
+                    .font(.systemScaled(15))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 20)
+
+            AmenConnectSearchCapsule(placeholder: "Search spaces, DMs, jobs, boards, creators", text: $viewModel.searchText)
+                .padding(.horizontal, 20)
+
+            AmenConnectPriorityPanel(items: viewModel.activityItems) {
+                viewModel.isShowingCatchUp = true
+            }
+            .padding(.horizontal, 20)
+
+            AmenConnectSectionGrid(viewModel: viewModel)
+                .padding(.horizontal, 20)
+        }
+    }
+}
+
+private struct AmenConnectPriorityPanel: View {
+    var items: [AmenConnectActivityItem]
+    var catchUpAction: () -> Void
+
+    var body: some View {
+        AmenConnectCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label("Here is what matters", systemImage: "sparkles")
+                        .font(.systemScaled(17, weight: .bold))
+                    Spacer()
+                    Button("Catch Up", action: catchUpAction)
+                        .font(.systemScaled(13, weight: .semibold))
+                }
+                ForEach(items.prefix(5)) { item in
+                    HStack(alignment: .top, spacing: 9) {
+                        Circle()
+                            .fill(item.isPriority ? Color.red : Color.blue)
+                            .frame(width: 7, height: 7)
+                            .padding(.top, 7)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.title)
+                                .font(.systemScaled(14, weight: .semibold))
+                            Text(item.detail)
+                                .font(.systemScaled(12))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Text(ConnectStrings.aiSummaryDisclosure)
+                    .font(.systemScaled(11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("AI summaries are permission-aware and exclude restricted content.")
             }
         }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
+    }
+}
+
+private struct AmenConnectSectionGrid: View {
+    @ObservedObject var viewModel: AmenConnectViewModel
+
+    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 12) {
+            sectionCard("Spaces", icon: "square.grid.2x2", detail: "\(viewModel.spaces.count) workspaces", room: .spaces)
+            sectionCard("Announcements", icon: "megaphone", detail: "Pinned, urgent, scheduled", room: .announcements)
+            sectionCard("Discussions", icon: "number", detail: "Channels, threads, reactions", room: .discussions)
+            sectionCard("Meetings", icon: "video", detail: "Huddles, rooms, recaps", room: .meetings)
+            sectionCard("Calendar", icon: "calendar", detail: "Events, RSVPs, bookings", room: .calendar)
+            sectionCard("Marketplace", icon: "storefront", detail: "Jobs, babysitting, help", room: .marketplace)
+            sectionCard("Creators", icon: "person.crop.rectangle.stack", detail: "Tiers, posts, products", room: .creators)
+            sectionCard("Safety", icon: "shield.checkered", detail: "Reports and AI guardrails", room: .safety)
+        }
     }
 
-    private func startOrbAnimations() {
-        withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) {
-            orb1Scale = 1.08
-        }
-        withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true).delay(1.5)) {
-            orb2Scale = 0.92
-        }
-        withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true).delay(3.0)) {
-            orb3Scale = 1.06
-        }
-        withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true).delay(4.5)) {
-            orb4Scale = 0.94
-        }
-    }
-
-    // MARK: - Hero Banner
-
-    private var heroBanner: some View {
-        ZStack(alignment: .topLeading) {
-            // Specular shine
-            Circle()
-                .fill(RadialGradient(
-                    colors: [Color.white.opacity(0.18), .clear],
-                    center: .center, startRadius: 0, endRadius: 100
-                ))
-                .frame(width: 200, height: 200)
-                .offset(x: -20, y: -40)
-                .allowsHitTesting(false)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("FOR YOU")
-                    .font(.system(size: 10, weight: .bold))
-                    .tracking(0.1)
-                    .foregroundStyle(.white.opacity(0.55))
-                    .textCase(.uppercase)
-
-                Text("Your Connect Hub")
-                    .font(.system(size: 28, weight: .heavy))
-                    .foregroundStyle(.white)
-                    .lineSpacing(-1)
-
-                Text("Jobs, mentorship, events and community — all within the AMEN network.")
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(.white.opacity(0.60))
-                    .lineLimit(2)
+    private func sectionCard(_ title: String, icon: String, detail: String, room: AmenConnectRoom) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                viewModel.selectedRoom = room
             }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            AmenConnectCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    Image(systemName: icon)
+                        .font(.systemScaled(22, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 44, height: 44)
+                        .background(Circle().fill(Color(.systemGray6)))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(.systemScaled(15, weight: .bold))
+                            .foregroundStyle(.primary)
+                        Text(detail)
+                            .font(.systemScaled(12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+            }
         }
-        .background(.regularMaterial)
-        .overlay(
-            RoundedRectangle(cornerRadius: 24)
-                .stroke(Color.white.opacity(0.20), lineWidth: 0.5)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open \(title)")
+    }
+}
+
+// MARK: - Discover
+
+struct AmenConnectDiscoverView: View {
+    @ObservedObject var viewModel: AmenConnectViewModel
+    @State private var selectedFilter = "All"
+    private let filters = ["All", "Faith", "College", "Career", "Lifestyle", "Parenting", "Finance", "Health", "Music", "Creative", "Jobs", "Babysitting", "Tutoring", "Mentorship", "Local Help", "Events", "Organizations"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "Discover", subtitle: "Find communities, mentors, jobs, trusted local help, events, cohorts, and creators.")
+            AmenConnectFilterChips(filters: filters, selected: $selectedFilter)
+                .padding(.horizontal, 20)
+            horizontalCreatorSection(title: "Based on your memberships")
+            horizontalCreatorSection(title: "Creators for you")
+            AmenConnectListingSection(title: "Jobs, babysitters, tutoring, and trusted local help", listings: viewModel.listings)
+            AmenConnectSpaceSection(title: "University groups near you", spaces: viewModel.spaces)
+        }
+    }
+
+    private func horizontalCreatorSection(title: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.systemScaled(18, weight: .bold))
+                .padding(.horizontal, 20)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(viewModel.creators) { creator in
+                        AmenConnectCreatorCard(creator: creator)
+                            .frame(width: 260)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+}
+
+// MARK: - Room Views
+
+struct AmenConnectSpaceListView: View {
+    @ObservedObject var viewModel: AmenConnectViewModel
+    @State private var showCreateSpace = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "Amen Spaces", subtitle: "Workspaces for churches, colleges, nonprofits, local help, creators, teams, and personal communities.")
+
+            if viewModel.spaces.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "building.2.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(.secondary)
+                    Text("No Spaces Yet")
+                        .font(.systemScaled(20, weight: .bold))
+                        .foregroundStyle(.primary)
+                    Text("Create your first space to bring your community together.")
+                        .font(.systemScaled(14))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button {
+                        showCreateSpace = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Create Space")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(.regularMaterial, in: Capsule())
+                        .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+                .padding(.horizontal, 20)
+            } else {
+                AmenConnectSpaceSection(title: "Your spaces", spaces: viewModel.spaces)
+                HStack {
+                    Spacer()
+                    Button {
+                        showCreateSpace = true
+                    } label: {
+                        Label("New Space", systemImage: "plus.circle.fill")
+                            .font(.systemScaled(15, weight: .semibold))
+                    }
+                    .padding(.trailing, 20)
+                }
+            }
+        }
+        .sheet(isPresented: $showCreateSpace) {
+            AmenCreateSpaceEnhancedSheet(
+                userId: Auth.auth().currentUser?.uid ?? "",
+                onDismiss: { showCreateSpace = false },
+                onCreated: { _ in showCreateSpace = false }
+            )
+        }
+    }
+}
+
+struct AmenConnectChannelListView: View {
+    var channels: [AmenConnectChannel]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "Amen Channels", subtitle: "Public, private, announcement, marketplace, meeting, study, volunteer, youth-protected, and paid-member channels.")
+            VStack(spacing: 10) {
+                ForEach(channels) { channel in
+                    AmenConnectCard {
+                        HStack(spacing: 12) {
+                            Image(systemName: channel.visibility == .confidential ? "lock.fill" : "number")
+                                .frame(width: 30)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("#\(channel.name)")
+                                    .font(.systemScaled(16, weight: .bold))
+                                Text(channel.pinnedMessage ?? "Threads, mentions, reactions, polls, pinned messages, files, and AI summaries.")
+                                    .font(.systemScaled(12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if channel.unreadCount > 0 {
+                                Text("\(channel.unreadCount)")
+                                    .font(.systemScaled(12, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Capsule().fill(Color.red))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+            }
+        }
+    }
+}
+
+struct AmenConnectDMsView: View {
+    private let filters = ["All", "Direct Messages", "Group Chats", "VIP", "Requests", "External", "Marketplace", "Mentorship"]
+    @State private var selected = "All"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "DMs", subtitle: "Personal DMs, group DMs, message requests, VIP filters, safe contact controls, and marketplace conversation warnings.")
+            AmenConnectFilterChips(filters: filters, selected: $selected)
+                .padding(.horizontal, 20)
+            AmenConnectFeatureList(items: [
+                ("Message requests", "Untrusted external contact starts here before a DM opens."),
+                ("Youth/minor restrictions", "Safe contact, no unsolicited sensitive media, guardian controls where required."),
+                ("AI conversation summary", "Summaries only use messages this user may access and skips excluded content."),
+                ("Block and report", "Every DM has block, report, and safety escalation contracts.")
+            ])
+        }
+    }
+}
+
+struct AmenConnectActivityView: View {
+    var items: [AmenConnectActivityItem]
+    @State private var selected = "All"
+    private let filters = ["All", "Mentions", "Threads", "Announcements", "Meetings", "Tasks", "Marketplace", "Memberships", "Safety", "VIP"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "Amen Pulse", subtitle: "Mentions, threads, announcements, meetings, tasks, marketplace, memberships, safety, and AI catch-up.")
+            AmenConnectFilterChips(filters: filters, selected: $selected)
+                .padding(.horizontal, 20)
+            ForEach(items) { item in
+                AmenConnectCard {
+                    HStack(spacing: 12) {
+                        Image(systemName: item.requiresAction ? "exclamationmark.circle.fill" : item.room.iconName)
+                            .foregroundStyle(item.isPriority ? .red : .blue)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.title)
+                                .font(.systemScaled(15, weight: .bold))
+                            Text(item.detail)
+                                .font(.systemScaled(12))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+}
+
+struct AmenConnectAnnouncementsView: View {
+    var body: some View {
+        AmenConnectFeatureRoom(
+            title: "Announcements",
+            subtitle: "Outlook-priority and Teams-style broadcast messages.",
+            features: [
+                ("Pinned and urgent", "Scheduled announcements, expiration, audience targeting, and read receipts."),
+                ("AI rewrite and translation", "Permission-aware drafts with AI-assisted labels."),
+                ("Safety before publish", "Monetized, youth-facing, urgent, and coercive content routes through moderation."),
+                ("Audit logs", "Publish, edit, target, and moderation events are server-authoritative.")
+            ]
         )
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .padding(.horizontal, 16)
     }
+}
 
-    // MARK: - Filter Chips
+struct AmenConnectMeetingsView: View {
+    var meetings: [AmenConnectMeeting]
 
-    private var filterChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(AMENConnectTab.allCases, id: \.self) { tab in
-                    ConnectFilterChip(
-                        label: tab.rawValue,
-                        isSelected: selectedTab == tab
-                    ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
-                            selectedTab = tab
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "Amen Meetings", subtitle: "Huddles, study rooms, office hours, webinars, paid live sessions, attendance, transcripts, and recaps.")
+            ForEach(meetings) { meeting in
+                AmenConnectCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Label(meeting.type, systemImage: meeting.isPaid ? "ticket.fill" : "video.fill")
+                                .font(.systemScaled(12, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(meeting.startsIn)
+                                .font(.systemScaled(12, weight: .bold))
+                                .foregroundStyle(.blue)
+                        }
+                        Text(meeting.title)
+                            .font(.systemScaled(18, weight: .bold))
+                        Text("Hosted by \(meeting.hostName) · \(meeting.attendeeCount) attending · waiting room, host controls, recording consent, report flow, and AI recap contract.")
+                            .font(.systemScaled(13))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+}
+
+struct AmenConnectCalendarView: View {
+    var meetings: [AmenConnectMeeting]
+    @State private var selected = "Today"
+    private let filters = ["Today", "Week", "Month", "My Commitments", "Space Events", "Marketplace Bookings", "Volunteer Shifts", "Live Sessions", "Office Hours"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "Amen Calendar", subtitle: "Personal and Space calendars for meetings, events, RSVPs, bookings, shifts, reminders, and paid sessions.")
+            AmenConnectFilterChips(filters: filters, selected: $selected)
+                .padding(.horizontal, 20)
+            AmenConnectFeatureList(items: [
+                ("UCF Ministry Study Room", "Starts in 20 minutes · 34 attending · event chat enabled."),
+                ("Babysitting booking request", "Pending verification before exact location is visible."),
+                ("Volunteer shift", "Saturday 9:00 AM · RSVP and reminders enabled."),
+                ("AI scheduling assistant", "Finds permitted times and never exposes private calendar details.")
+            ])
+        }
+    }
+}
+
+struct AmenConnectBoardsView: View {
+    var boards: [AmenConnectBoard]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "Amen Boards", subtitle: "Notion-style dashboards, pages, resources, templates, onboarding, cohort, class, ministry, and marketplace boards.")
+            ForEach(boards) { board in
+                AmenConnectCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text(board.title)
+                                .font(.systemScaled(17, weight: .bold))
+                            Spacer()
+                            Text(board.visibility == .paidTier ? "Paid" : "Open")
+                                .font(.systemScaled(11, weight: .bold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(Color(.systemGray6)))
+                        }
+                        Text(board.blocks.joined(separator: " · "))
+                            .font(.systemScaled(13))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+}
+
+struct AmenConnectMarketplaceView: View {
+    var listings: [AmenConnectMarketplaceListing]
+    @State private var selected = "All"
+    private let filters = ["All", "Jobs", "Babysitting", "Tutoring", "Services", "Rides", "Housing", "Volunteering", "Mentorship", "Items", "Local Help", "Digital Products", "Paid Events", "Bookings"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "Amen Marketplace", subtitle: "Trusted jobs, babysitting, tutoring, services, rides, housing, volunteering, mentorship, items, local help, products, sessions, and bookings.")
+            AmenConnectFilterChips(filters: filters, selected: $selected)
+                .padding(.horizontal, 20)
+            AmenConnectListingSection(title: "Safety-reviewed opportunities", listings: listings)
+            AmenConnectFeatureList(items: [
+                ("Marketplace safety", "Identity, trust badges, report listing/user, expiration, location privacy, scam and off-platform pressure detection."),
+                ("Babysitting controls", "Parent/guardian posting, sitter applications, approximate location, verified sitter badges, guardian approval, and safe contact."),
+                ("Job moderation", "Verified organizations, expiration, vague listing, exploitative pay, and scam detection contracts.")
+            ])
+        }
+    }
+}
+
+struct AmenConnectCreatorDirectoryView: View {
+    @ObservedObject var viewModel: AmenConnectViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "Creator and Leader Profiles", subtitle: "Amen-native trusted community economy for creators, mentors, teachers, tutors, babysitters, coaches, organizations, and service providers.")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(viewModel.creators) { creator in
+                        AmenConnectCreatorCard(creator: creator)
+                            .frame(width: 280)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+            AmenConnectMembershipTiersView(tiers: viewModel.tiers)
+            AmenConnectFeatureList(items: [
+                ("Smart Tier Builder", "AI suggests tier names, pricing, benefits, access rules, safe boundaries, cadence, refund language, and onboarding."),
+                ("Posts and collections", "Public, member-only, tier-specific posts, comments, reactions, scheduled posts, translations, and resource collections."),
+                ("Products and bookings", "Digital products, paid sessions, mentorship, tutoring, babysitting, consulting, courses, and replay access use server-authoritative purchase state."),
+                ("Leader dashboard", "Members, paid members, revenue contracts, engagement, top posts, attendance, safety reports, and AI recommendations.")
+            ])
+        }
+    }
+}
+
+struct AmenConnectSafetyCenterView: View {
+    var contracts: [AmenConnectBackendContract]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "Safety Center", subtitle: "Reports, blocks, youth protections, marketplace safety, AI exclusions, monetization safety, moderation, and audit logs.")
+            AmenConnectFeatureList(items: [
+                ("AI permission boundary", "AI can only use content the current user can access and skips paid, confidential, deleted, youth-protected, and excluded content."),
+                ("Moderation outcomes", "Allow, allow with warning, suggest rewrite, require confirmation, send to moderation, block, escalate, or crisis support."),
+                ("Monetization safety", "Flags scams, spiritual coercion, unrealistic guarantees, financial overclaims, unsafe minor contact, predatory pricing, and off-platform payment pressure."),
+                ("Marketplace protection", "Jobs, babysitting, tutoring, services, rides, housing, volunteering, mentorship, and local help include trust and audit contracts.")
+            ])
+            AmenConnectBackendContractPanel(title: "Safety contracts", contracts: contracts.filter { $0.functionName.contains("moderate") || $0.functionName.contains("report") || $0.functionName.contains("CatchUp") })
+        }
+    }
+}
+
+struct AmenConnectAdminView: View {
+    var contracts: [AmenConnectBackendContract]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: "Admin", subtitle: "Visible only when permitted. Role changes, invites, listing approval, audit logs, trust badges, verification badges, moderation, payment state, and AI summaries are server-authoritative.")
+            AmenConnectBackendContractPanel(title: "Cloud Function contracts", contracts: contracts)
+        }
+    }
+}
+
+// MARK: - Sheets
+
+struct AmenConnectAICatchUpSheet: View {
+    var activityItems: [AmenConnectActivityItem]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+
+                    // Header icon
+                    HStack {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 32, weight: .semibold))
+                            .foregroundStyle(.blue)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                    // Summary section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Recent Activity")
+                            .font(.title3.weight(.bold))
+                            .padding(.horizontal, 20)
+
+                        if activityItems.isEmpty {
+                            // Placeholder when no activity
+                            VStack(alignment: .leading, spacing: 10) {
+                                Image(systemName: "tray")
+                                    .font(.system(size: 28))
+                                    .foregroundStyle(.secondary)
+                                Text("Your AI catch-up will summarize recent activity in spaces you're part of. Join or create a space to get started.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(18)
+                            .background(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(Color(.secondarySystemBackground))
+                            )
+                            .padding(.horizontal, 20)
+                        } else {
+                            ForEach(activityItems) { item in
+                                HStack(alignment: .top, spacing: 12) {
+                                    Circle()
+                                        .fill(item.isPriority ? Color.red : Color.blue)
+                                        .frame(width: 8, height: 8)
+                                        .padding(.top, 6)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(item.title)
+                                            .font(.subheadline.weight(.semibold))
+                                        Text(item.detail)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                            }
+                        }
+                    }
+
+                    // Permission footnote
+                    Text(ConnectStrings.aiSummaryDisclosure)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
+                        .accessibilityLabel("AI summaries are permission-aware and exclude restricted content.")
+                }
+                .padding(.vertical, 8)
+            }
+            .navigationTitle("AI Catch Up")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+}
+
+struct AmenConnectAICommandSheet: View {
+    var contracts: [AmenConnectBackendContract]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Amen Guide actions") {
+                    ForEach(["Summarize unread messages", "Turn chat into tasks", "Create event from discussion", "Draft announcement", "Create board from prompt", "Create job listing", "Create babysitting listing", "Build safe paid tier", "Review monetized offer"], id: \.self) { action in
+                        Label(action, systemImage: "sparkles")
+                    }
+                }
+                Section("Backend contracts") {
+                    ForEach(contracts.prefix(6)) { contract in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(contract.functionName).font(.headline)
+                            Text(contract.purpose).font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
             }
-            .padding(.horizontal, 16)
+            .navigationTitle("Amen Guide")
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
         }
-    }
-
-    // MARK: - 2×2 Category Grid
-
-    private var categoryGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            ConnectCategoryCard(
-                icon: "briefcase.fill",
-                label: "Browse Jobs",
-                tintColor: Color(red: 1.0, green: 0.392, blue: 0.314)
-            ) {
-                // Navigation handled by NavigationLink below
-            }
-            .overlay(
-                NavigationLink(destination: JobSearchView()) { Color.clear }
-            )
-
-            ConnectCategoryCard(
-                icon: "calendar.badge.plus",
-                label: "Events",
-                tintColor: Color(red: 1.0, green: 0.627, blue: 0.157)
-            ) {}
-            .overlay(
-                NavigationLink(destination: EventsView()) { Color.clear }
-            )
-
-            ConnectCategoryCard(
-                icon: "person.2.fill",
-                label: "Mentorship",
-                tintColor: Color(red: 0.706, green: 0.314, blue: 0.941)
-            ) {}
-            .overlay(
-                NavigationLink(destination: MentorshipView()) { Color.clear }
-            )
-
-            ConnectCategoryCard(
-                icon: "hands.sparkles.fill",
-                label: "Prayer",
-                tintColor: Color(red: 1.0, green: 0.784, blue: 0.235)
-            ) {}
-            .overlay(
-                NavigationLink(destination: PrayerView()) { Color.clear }
-            )
-        }
-        .padding(.horizontal, 16)
-    }
-
-    // MARK: - Upcoming Events
-
-    private var upcomingEventsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Upcoming Events")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-
-            Text("No upcoming events yet")
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.35))
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, 20)
-        }
-        .padding(.vertical, 16)
-        .background(.ultraThinMaterial)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .padding(.horizontal, 16)
-    }
-
-    // MARK: - Mentor Banner
-
-    private var mentorBanner: some View {
-        ZStack(alignment: .leading) {
-            // Gradient wash inside the card
-            LinearGradient(
-                colors: [
-                    Color(red: 1.0, green: 0.471, blue: 0.235, opacity: 0.15),
-                    Color(red: 0.706, green: 0.235, blue: 0.941, opacity: 0.10)
-                ],
-                startPoint: .leading, endPoint: .trailing
-            )
-            .allowsHitTesting(false)
-
-            HStack(spacing: 14) {
-                // CTA icon
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(red: 1.0, green: 0.471, blue: 0.235, opacity: 0.25))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color(red: 1.0, green: 0.471, blue: 0.235, opacity: 0.35), lineWidth: 1)
-                        )
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "person.badge.shield.checkmark.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color(hex: "FFB060"))
-                }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Find a Mentor")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(Color(hex: "FFB060"))
-                    Text("Connect with experienced faith leaders")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.55))
-                }
-
-                Spacer()
-
-                Text("See All")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color(hex: "FFB060"))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
-        }
-        .background(.ultraThinMaterial)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .padding(.horizontal, 16)
     }
 }
 
-// MARK: - Filter Chip
+// MARK: - Reusable Local Views
 
-private struct ConnectFilterChip: View {
-    let label: String
-    let isSelected: Bool
-    let action: () -> Void
+private struct AmenConnectRoomTitle: View {
+    var title: String
+    var subtitle: String
 
     var body: some View {
-        Button(action: action) {
-            Text(label)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? .white : .white.opacity(0.55))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(isSelected ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.ultraThinMaterial))
-                .overlay(
-                    Capsule()
-                        .stroke(Color.white.opacity(isSelected ? 0.30 : 0.12), lineWidth: 0.75)
-                )
-                .clipShape(Capsule())
-                .scaleEffect(isSelected ? 1.04 : 1.0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.65), value: isSelected)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.systemScaled(28, weight: .black))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
+            Text(subtitle)
+                .font(.systemScaled(14))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
     }
 }
 
-// MARK: - Category Card
-
-private struct ConnectCategoryCard: View {
-    let icon: String
-    let label: String
-    let tintColor: Color
-    let action: () -> Void
-
-    @GestureState private var isPressed = false
+private struct AmenConnectCard<Content: View>: View {
+    var content: () -> Content
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // Tint leak from top-right
-            Circle()
-                .fill(RadialGradient(
-                    colors: [tintColor.opacity(0.35), .clear],
-                    center: .center, startRadius: 0, endRadius: 70
-                ))
-                .frame(width: 140, height: 140)
-                .offset(x: 30, y: -30)
-                .allowsHitTesting(false)
-
-            // Specular shine dot
-            Circle()
-                .fill(RadialGradient(
-                    colors: [Color.white.opacity(0.30), .clear],
-                    center: .center, startRadius: 0, endRadius: 50
-                ))
-                .frame(width: 100, height: 100)
-                .offset(x: 30, y: -30)
-                .allowsHitTesting(false)
-
-            // Content
-            VStack(alignment: .leading, spacing: 10) {
-                Text(icon.isEmpty ? "" : "")   // spacer for top-right orb room
-                    .frame(height: 8)
-
-                Image(systemName: icon)
-                    .font(.system(size: 24))
-                    .foregroundStyle(.white)
-
-                Spacer()
-
-                Text(label)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        content()
             .padding(16)
-        }
-        .frame(height: 120)
-        .background(.regularMaterial)
-        .overlay(
-            RoundedRectangle(cornerRadius: 22)
-                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 22))
-        .scaleEffect(isPressed ? 0.96 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .updating($isPressed) { _, state, _ in state = true }
-                .onEnded { _ in action() }
-        )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color(.secondarySystemBackground)))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(.separator).opacity(0.28), lineWidth: 0.5))
     }
 }
 
-// MARK: - Entry card (used elsewhere in the app — preserved)
+private struct AmenConnectFilterChips: View {
+    var filters: [String]
+    @Binding var selected: String
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(filters, id: \.self) { filter in
+                    AmenConnectGlassPill(title: filter, iconName: nil, isSelected: selected == filter) {
+                        selected = filter
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+}
+
+private struct AmenConnectSpaceSection: View {
+    var title: String
+    var spaces: [AmenConnectSpace]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.systemScaled(18, weight: .bold))
+                .padding(.horizontal, 20)
+            ForEach(spaces) { space in
+                AmenConnectCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(space.name)
+                                    .font(.systemScaled(17, weight: .bold))
+                                Text(space.type.rawValue)
+                                    .font(.systemScaled(12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if space.unreadCount > 0 {
+                                Text("\(space.unreadCount)")
+                                    .font(.systemScaled(12, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Capsule().fill(Color.red))
+                            }
+                        }
+                        Text(space.description)
+                            .font(.systemScaled(13))
+                            .foregroundStyle(.secondary)
+                        AmenConnectBadgeRow(badges: space.trustBadges)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+}
+
+private struct AmenConnectListingSection: View {
+    var title: String
+    var listings: [AmenConnectMarketplaceListing]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.systemScaled(18, weight: .bold))
+                .padding(.horizontal, 20)
+            ForEach(listings) { listing in
+                AmenConnectCard {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(listing.title)
+                                    .font(.systemScaled(16, weight: .bold))
+                                Text("\(listing.category.rawValue) · \(listing.locationLabel)")
+                                    .font(.systemScaled(12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(listing.compensation)
+                                .font(.systemScaled(12, weight: .bold))
+                        }
+                        Text("\(listing.posterName) · \(listing.verificationLevel) · \(listing.expiresLabel)")
+                            .font(.systemScaled(12))
+                            .foregroundStyle(.secondary)
+                        AmenConnectBadgeRow(badges: listing.trustBadges)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+}
+
+private struct AmenConnectCreatorCard: View {
+    var creator: AmenConnectCreatorProfile
+
+    var body: some View {
+        AmenConnectCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(LinearGradient(colors: [Color.blue.opacity(0.25), Color.green.opacity(0.18)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 58, height: 58)
+                        .overlay(Image(systemName: "person.crop.rectangle.stack").foregroundStyle(.primary))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(creator.displayName)
+                            .font(.systemScaled(16, weight: .bold))
+                            .lineLimit(2)
+                        Text(creator.type.rawValue.capitalized)
+                            .font(.systemScaled(12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Text(creator.bio)
+                    .font(.systemScaled(13))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                HStack {
+                    Text("\(creator.memberCount) members")
+                    Text(creator.isPaidEnabled ? "Free + paid" : "Free")
+                    if let liveSoonLabel = creator.liveSoonLabel { Text(liveSoonLabel) }
+                }
+                .font(.systemScaled(11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                AmenConnectBadgeRow(badges: creator.trustBadges)
+            }
+        }
+    }
+}
+
+struct AmenConnectMembershipTiersView: View {
+    var tiers: [AmenConnectMembershipTier]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Memberships")
+                .font(.systemScaled(18, weight: .bold))
+                .padding(.horizontal, 20)
+            ForEach(tiers) { tier in
+                AmenConnectCard {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(tier.name).font(.systemScaled(16, weight: .bold))
+                            Spacer()
+                            Text(tier.priceLabel).font(.systemScaled(13, weight: .bold))
+                        }
+                        Text(tier.benefits.joined(separator: " · "))
+                            .font(.systemScaled(12))
+                            .foregroundStyle(.secondary)
+                        if !tier.safetyFlags.isEmpty {
+                            Text("Safety: \(tier.safetyFlags.joined(separator: " · "))")
+                                .font(.systemScaled(11, weight: .medium))
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+}
+
+private struct AmenConnectBadgeRow: View {
+    var badges: [AmenConnectTrustBadge]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(badges) { badge in
+                    Label(badge.rawValue, systemImage: "checkmark.seal.fill")
+                        .font(.systemScaled(10, weight: .semibold))
+                        .foregroundStyle(.green)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.green.opacity(0.10)))
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct AmenConnectFeatureRoom: View {
+    var title: String
+    var subtitle: String
+    var features: [(String, String)]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AmenConnectRoomTitle(title: title, subtitle: subtitle)
+            AmenConnectFeatureList(items: features)
+        }
+    }
+}
+
+private struct AmenConnectFeatureList: View {
+    var items: [(String, String)]
+
+    var body: some View {
+        ForEach(items, id: \.0) { item in
+            AmenConnectCard {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(item.0)
+                        .font(.systemScaled(16, weight: .bold))
+                    Text(item.1)
+                        .font(.systemScaled(13))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+}
+
+private struct AmenConnectBackendContractPanel: View {
+    var title: String
+    var contracts: [AmenConnectBackendContract]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.systemScaled(18, weight: .bold))
+                .padding(.horizontal, 20)
+            ForEach(contracts) { contract in
+                AmenConnectCard {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(contract.functionName)
+                            .font(.systemScaled(15, weight: .bold))
+                        Text(contract.purpose)
+                            .font(.systemScaled(12))
+                            .foregroundStyle(.secondary)
+                        Text("Server-owned: \(contract.serverAuthoritativeFields.joined(separator: ", "))")
+                            .font(.systemScaled(11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+}
 
 struct AMENConnectEntryCard: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: "person.3.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.blue)
-                Text("AMEN Connect")
-                    .font(.system(size: 18, weight: .bold))
+        AmenConnectCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Image(systemName: "person.3.fill")
+                        .font(.systemScaled(20))
+                        .foregroundStyle(.blue)
+                    Text("Amen Connect")
+                        .font(.systemScaled(18, weight: .bold))
+                }
+                Text("Community spaces, announcements, discussions, meetings, events, jobs, help, and safe group communication.")
+                    .font(.systemScaled(14))
+                    .foregroundStyle(.secondary)
             }
-            Text("Jobs, serve, mentor, and connect with the faith community")
-                .font(.system(size: 14))
-                .foregroundStyle(.secondary)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(.systemGray6)))
+    }
+}
+
+struct AMENConnectView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationStack { AMENConnectView() }
     }
 }

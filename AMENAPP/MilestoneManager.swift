@@ -28,7 +28,7 @@ class MilestoneManager: ObservableObject {
     @Published var activeMilestone: AMENMilestone?
     @Published var showSheet = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var shownMilestoneIds: Set<String> = []
 
     private init() {}
@@ -67,7 +67,7 @@ class MilestoneManager: ObservableObject {
             if !alreadySeen && !shownMilestoneIds.contains(milestone.id) {
                 shownMilestoneIds.insert(milestone.id)
                 activeMilestone = milestone
-                withAnimation(.spring(response: 0.44, dampingFraction: 0.78)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.44, dampingFraction: 0.78))) {
                     showSheet = true
                 }
                 await markMilestoneSeen(userId: userId, milestoneId: milestone.id)
@@ -84,7 +84,7 @@ class MilestoneManager: ObservableObject {
     }
 
     func dismiss() {
-        withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.36, dampingFraction: 0.8))) {
             showSheet = false
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
@@ -155,7 +155,7 @@ class MilestoneManager: ObservableObject {
             secondaryLabel: "Dismiss",
             primaryAction: {
                 dlog("🎉 First post milestone - navigate to post")
-                // TODO: Navigate to user's first post
+                NotificationCenter.default.post(name: Notification.Name("AmenNavigateTo"), object: "profile")
             },
             secondaryAction: {
                 dlog("👋 First post milestone dismissed")
@@ -170,8 +170,8 @@ class MilestoneManager: ObservableObject {
             badgeLabel: "\(days) day streak",
             badgeColor: .orange,
             title: "\(days) days of showing up",
-            body: "You've posted every day for \(days) days. Consistency is a spiritual discipline — don't break the chain.",
-            primaryLabel: "Keep it going",
+            body: "You've posted every day for \(days) days. Keep going at your own pace — every step of faithfulness counts.",
+            primaryLabel: "Continue",
             secondaryLabel: "Dismiss",
             primaryAction: {
                 dlog("🔥 Streak milestone \(days) - keep going")
@@ -195,7 +195,7 @@ class MilestoneManager: ObservableObject {
             secondaryLabel: "Dismiss",
             primaryAction: {
                 dlog("💜 Testimony milestone \(count) - view responses")
-                // TODO: Navigate to testimony engagements
+                NotificationCenter.default.post(name: Notification.Name("AmenNavigateTo"), object: "profile")
             },
             secondaryAction: {
                 dlog("👋 Testimony milestone dismissed")
@@ -215,7 +215,7 @@ class MilestoneManager: ObservableObject {
             secondaryLabel: "Dismiss",
             primaryAction: {
                 dlog("🙏 Prayer milestone \(count) - view prayers")
-                // TODO: Navigate to prayer responses
+                NotificationCenter.default.post(name: Notification.Name("AmenNavigateTo"), object: "inbox")
             },
             secondaryAction: {
                 dlog("👋 Prayer milestone dismissed")
@@ -237,7 +237,7 @@ class MilestoneManager: ObservableObject {
             secondaryLabel: "Dismiss",
             primaryAction: {
                 dlog("👥 Community milestone \(count) - view followers")
-                // TODO: Navigate to followers list
+                NotificationCenter.default.post(name: Notification.Name("AmenNavigateTo"), object: "profile")
             },
             secondaryAction: {
                 dlog("👋 Community milestone dismissed")

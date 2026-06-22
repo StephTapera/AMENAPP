@@ -30,7 +30,7 @@ final class StudioVoiceRecorderViewModel: ObservableObject {
     // MARK: - Public API
 
     func startRecording() {
-        AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
+        AVAudioApplication.requestRecordPermission { [weak self] granted in
             guard let self else { return }
             guard granted else {
                 Task { @MainActor in
@@ -145,7 +145,7 @@ struct StudioVoiceButton: View {
                         .scaleEffect(0.7)
                 } else {
                     Image(systemName: vm.state == .recording ? "stop.fill" : "mic.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.white)
                 }
             }
@@ -155,7 +155,7 @@ struct StudioVoiceButton: View {
         .overlay(alignment: .bottom) {
             if vm.state == .recording {
                 Text("Stop")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.systemScaled(9, weight: .medium))
                     .foregroundStyle(.secondary)
                     .offset(y: 18)
             }

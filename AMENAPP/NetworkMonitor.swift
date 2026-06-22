@@ -78,7 +78,7 @@ struct NetworkStatusBanner: ViewModifier {
     private var offlineBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "wifi.slash")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
             
             Text("No internet connection")
                 .font(.custom("OpenSans-SemiBold", size: 13))

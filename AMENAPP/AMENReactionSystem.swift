@@ -99,14 +99,14 @@ final class ReactionPresentationState: ObservableObject {
         self.selectedEmoji    = selectedEmoji
         self.onSelect         = onSelect
 
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.70)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.70))) {
             activeAnchorID = anchorID
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     func dismiss() {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.80)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.80))) {
             activeAnchorID = nil
         }
     }
@@ -306,7 +306,7 @@ struct ReactionItemView: View {
 
     var body: some View {
         Text(item.emoji)
-            .font(.system(size: isHovered ? 28 : 22))
+            .font(.systemScaled(isHovered ? 28 : 22))
             .frame(width: baseSize, height: baseSize)
             .scaleEffect(isHovered ? hoverScale : (isSelected ? 1.12 : 1.0))
             .offset(
@@ -394,10 +394,10 @@ struct ReactionAnchorBadgeView: View {
         }) {
             HStack(spacing: 3) {
                 Text(emoji)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                 if count > 1 {
                     Text("\(count)")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(isFromCurrentUser ? Color.accentColor : .secondary)
                         .contentTransition(.numericText())
                 }
@@ -424,7 +424,7 @@ struct ReactionAnchorBadgeView: View {
         .scaleEffect(didLand ? 1.0 : 0.4)
         .opacity(didLand ? 1.0 : 0.0)
         .onAppear {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.55)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.55))) {
                 didLand = true
             }
         }

@@ -55,40 +55,65 @@ struct EssentialBooksView: View {
                     .padding()
             }
             
-            // Smart Search bar
-            HStack(spacing: 12) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                
-                TextField("Search books or authors", text: $searchText)
-                    .font(.custom("OpenSans-Regular", size: 16))
-                
-                if !searchText.isEmpty {
-                    Button {
-                        withAnimation {
-                            searchText = ""
-                        }
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+            searchBar
+            categoryFilterBar
+            
+            ScrollView {
+                VStack(spacing: 24) {
+                    // For You Section
+                    if searchText.isEmpty && !recommendedBooks.isEmpty {
+                        recommendedSection
                     }
+                    
+                    // Trending Now
+                    if searchText.isEmpty && !trendingBooks.isEmpty {
+                        trendingSection
+                    }
+                    
+                    // All Books Section
+                    allBooksSection
+                }
+                .padding(.vertical, 20)
+            }
+        }
+        .navigationTitle("Essential Books")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+    
+    private var searchBar: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            
+            TextField("Search books or authors", text: $searchText)
+                .font(AMENFont.regular(16))
+            
+            if !searchText.isEmpty {
+                Button {
+                    withAnimation {
+                        searchText = ""
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
                 }
             }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.systemGray6))
-            )
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            
-            // Category filter + View mode
-            HStack {
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+    
+    private var categoryFilterBar: some View {
+        HStack {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(BookCategory.allCases, id: \.self) { category in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedCategory = category
                                     let haptic = UIImpactFeedbackGenerator(style: .light)
                                     haptic.impactOccurred()
@@ -96,16 +121,25 @@ struct EssentialBooksView: View {
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: category.icon)
-                                        .font(.system(size: 12))
+                                        .font(.systemScaled(12))
                                     Text(category.rawValue)
-                                        .font(.custom("OpenSans-SemiBold", size: 14))
+                                        .font(AMENFont.semiBold(14))
                                 }
                                 .foregroundStyle(selectedCategory == category ? .white : .primary)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
                                 .background(
+                                    Group {
+                                        if selectedCategory == category {
+                                            Capsule().fill(Color.black)
+                                        } else {
+                                            Capsule().fill(.regularMaterial)
+                                        }
+                                    }
+                                )
+                                .overlay(
                                     Capsule()
-                                        .fill(selectedCategory == category ? Color.black : Color(.systemGray6))
+                                        .strokeBorder(selectedCategory == category ? Color.clear : Color.black.opacity(0.06), lineWidth: 0.5)
                                 )
                             }
                         }
@@ -118,96 +152,89 @@ struct EssentialBooksView: View {
                     showSortOptions.toggle()
                 } label: {
                     Image(systemName: "arrow.up.arrow.down")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
-                        .background(
-                            Circle()
-                                .fill(Color(.systemGray6))
-                        )
+                        .background(.regularMaterial, in: Circle())
+                        .overlay(Circle().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 }
                 .padding(.trailing, 4)
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         viewMode = viewMode == .list ? .grid : .list
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
                     }
                 } label: {
                     Image(systemName: viewMode == .list ? "square.grid.2x2" : "list.bullet")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
-                        .background(
-                            Circle()
-                                .fill(Color(.systemGray6))
-                        )
+                        .background(.regularMaterial, in: Circle())
+                        .overlay(Circle().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 }
                 .padding(.trailing, 20)
             }
             .padding(.vertical, 12)
+    }
+    
+    private var recommendedSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(.blue)
+                Text(selectedCategory == .all ? "Recommended For You" : "Recommended \(selectedCategory.rawValue)")
+                    .font(AMENFont.bold(22))
+                
+                Spacer()
+            }
+            .padding(.horizontal, 20)
             
-            ScrollView {
-                VStack(spacing: 24) {
-                    // For You Section - Smart Recommendations (only show if not searching)
-                    if searchText.isEmpty && !recommendedBooks.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Image(systemName: "sparkles")
-                                    .foregroundStyle(.blue)
-                                Text(selectedCategory == .all ? "Recommended For You" : "Recommended \(selectedCategory.rawValue)")
-                                    .font(.custom("OpenSans-Bold", size: 22))
-                                
-                                Spacer()
-                            }
-                            .padding(.horizontal, 20)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 16) {
-                                    ForEach(recommendedBooks) { book in
-                                        ForYouBookCard(book: book)
-                                    }
-                                }
-                                .padding(.horizontal, 20)
-                            }
-                        }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(recommendedBooks) { book in
+                        ForYouBookCard(book: book)
                     }
-                    
-                    // Trending Now (only show if not searching)
-                    if searchText.isEmpty && !trendingBooks.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Image(systemName: "chart.line.uptrend.xyaxis")
-                                    .foregroundStyle(.orange)
-                                Text(selectedCategory == .all ? "Trending This Week" : "Trending in \(selectedCategory.rawValue)")
-                                    .font(.custom("OpenSans-Bold", size: 22))
-                                
-                                Spacer()
-                            }
-                            .padding(.horizontal, 20)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 16) {
-                                    ForEach(trendingBooks) { book in
-                                        TrendingBookCard(book: book)
-                                    }
-                                }
-                                .padding(.horizontal, 20)
-                            }
-                        }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+    
+    private var trendingSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(.orange)
+                Text(selectedCategory == .all ? "New This Week" : "New in \(selectedCategory.rawValue)")
+                    .font(AMENFont.bold(22))
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(trendingBooks) { book in
+                        TrendingBookCard(book: book)
                     }
-                    
-                    // All Books Section
-                    VStack(alignment: .leading, spacing: 12) {
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+    
+    private var allBooksSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text(searchText.isEmpty ? (selectedCategory == .all ? "All Books" : selectedCategory.rawValue) : "Search Results")
-                                .font(.custom("OpenSans-Bold", size: 22))
+                                .font(AMENFont.bold(22))
                             
                             Spacer()
                             
                             Text("\(filteredBooks.count)")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .font(AMENFont.semiBold(14))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
@@ -222,15 +249,15 @@ struct EssentialBooksView: View {
                             // Empty state
                             VStack(spacing: 16) {
                                 Image(systemName: "books.vertical")
-                                    .font(.system(size: 60))
+                                    .font(.systemScaled(60))
                                     .foregroundStyle(.secondary)
                                 
                                 Text(searchText.isEmpty ? "No books in this category" : "No books found")
-                                    .font(.custom("OpenSans-Bold", size: 18))
+                                    .font(AMENFont.bold(18))
                                     .foregroundStyle(.primary)
                                 
                                 Text(searchText.isEmpty ? "Try selecting a different category" : "Try adjusting your search terms")
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity)
@@ -248,12 +275,6 @@ struct EssentialBooksView: View {
                             .padding(.horizontal, 20)
                         }
                     }
-                }
-                .padding(.vertical, 20)
-            }
-        }
-        .navigationTitle("Essential Books")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -277,26 +298,26 @@ struct ForYouBookCard: View {
                     .frame(width: 140, height: 200)
                 
                 Image(systemName: "book.fill")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(.white.opacity(0.4))
             }
             .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(book.title)
-                    .font(.custom("OpenSans-Bold", size: 14))
+                    .font(AMENFont.bold(14))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                 
                 Text(book.author)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 
                 HStack(spacing: 2) {
                     ForEach(0..<5) { index in
                         Image(systemName: index < book.rating ? "star.fill" : "star")
-                            .font(.system(size: 9))
+                            .font(.systemScaled(9))
                             .foregroundStyle(.orange)
                     }
                 }
@@ -325,16 +346,16 @@ struct TrendingBookCard: View {
                         .frame(width: 160, height: 220)
                     
                     Image(systemName: "book.fill")
-                        .font(.system(size: 56))
+                        .font(.systemScaled(56))
                         .foregroundStyle(.white.opacity(0.3))
                 }
                 
-                // Trending badge
+                // "New" badge based on presence in new-this-week rail (no engagement count)
                 HStack(spacing: 4) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 10))
-                    Text("Trending")
-                        .font(.custom("OpenSans-Bold", size: 10))
+                    Image(systemName: "sparkles")
+                        .font(.systemScaled(10))
+                    Text("New")
+                        .font(AMENFont.bold(10))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 8)
@@ -349,18 +370,18 @@ struct TrendingBookCard: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(book.title)
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                 
                 Text(book.author)
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(AMENFont.semiBold(12))
                     .foregroundStyle(.secondary)
                 
                 HStack(spacing: 2) {
                     ForEach(0..<5) { index in
                         Image(systemName: index < book.rating ? "star.fill" : "star")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.orange)
                     }
                 }
@@ -393,24 +414,24 @@ struct SmartBookCard: View {
                         .frame(width: 80, height: 120)
                     
                     Image(systemName: "book.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
                 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(book.title)
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                     
                     Text("by \(book.author)")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .font(AMENFont.semiBold(13))
                         .foregroundStyle(.secondary)
                     
                     Text(book.description)
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                     
@@ -419,13 +440,13 @@ struct SmartBookCard: View {
                         HStack(spacing: 2) {
                             ForEach(0..<5) { index in
                                 Image(systemName: index < book.rating ? "star.fill" : "star")
-                                    .font(.system(size: 10))
+                                    .font(.systemScaled(10))
                                     .foregroundStyle(.orange)
                             }
                         }
                         
                         Text(book.category)
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .font(AMENFont.semiBold(11))
                             .foregroundStyle(.blue)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -439,24 +460,23 @@ struct SmartBookCard: View {
                 Spacer()
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         isSaved.toggle()
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
                     }
                 } label: {
                     Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(isSaved ? .blue : .secondary)
                 }
             }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-            )
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+            .padding(.horizontal, 16)
         }
         .buttonStyle(PlainButtonStyle())
         .sheet(isPresented: $showDetail) {
@@ -488,19 +508,19 @@ struct GridBookCard: View {
                             .aspectRatio(0.67, contentMode: .fit)
                         
                         Image(systemName: "book.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.white.opacity(0.4))
                     }
                     
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             isSaved.toggle()
                             let haptic = UIImpactFeedbackGenerator(style: .light)
                             haptic.impactOccurred()
                         }
                     } label: {
                         Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(isSaved ? .blue : .white)
                             .padding(8)
                             .background(
@@ -514,19 +534,19 @@ struct GridBookCard: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(book.title)
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
                     
                     Text(book.author)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     
                     HStack(spacing: 2) {
                         ForEach(0..<5) { index in
                             Image(systemName: index < book.rating ? "star.fill" : "star")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                                 .foregroundStyle(.orange)
                         }
                     }
@@ -564,7 +584,7 @@ struct BookDetailView: View {
                             .frame(width: 200, height: 300)
                         
                         Image(systemName: "book.fill")
-                            .font(.system(size: 80))
+                            .font(.systemScaled(80))
                             .foregroundStyle(.white.opacity(0.4))
                     }
                     .shadow(color: .black.opacity(0.2), radius: 16, y: 8)
@@ -572,25 +592,25 @@ struct BookDetailView: View {
                     
                     VStack(spacing: 12) {
                         Text(book.title)
-                            .font(.custom("OpenSans-Bold", size: 26))
+                            .font(AMENFont.bold(26))
                             .foregroundStyle(.primary)
                             .multilineTextAlignment(.center)
                         
                         Text("by \(book.author)")
-                            .font(.custom("OpenSans-SemiBold", size: 18))
+                            .font(AMENFont.semiBold(18))
                             .foregroundStyle(.secondary)
                         
                         HStack(spacing: 16) {
                             HStack(spacing: 2) {
                                 ForEach(0..<5) { index in
                                     Image(systemName: index < book.rating ? "star.fill" : "star")
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(.orange)
                                 }
                             }
                             
                             Text(book.category)
-                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .font(AMENFont.semiBold(14))
                                 .foregroundStyle(.blue)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
@@ -608,7 +628,7 @@ struct BookDetailView: View {
                             // Purchase action
                         } label: {
                             Text("Get Book")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -619,14 +639,14 @@ struct BookDetailView: View {
                         }
                         
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                                 isSaved.toggle()
                                 let haptic = UIImpactFeedbackGenerator(style: .light)
                                 haptic.impactOccurred()
                             }
                         } label: {
                             Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(isSaved ? .white : .primary)
                                 .frame(width: 50, height: 50)
                                 .background(
@@ -639,7 +659,7 @@ struct BookDetailView: View {
                             // Share action
                         } label: {
                             Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(.primary)
                                 .frame(width: 50, height: 50)
                                 .background(
@@ -653,15 +673,15 @@ struct BookDetailView: View {
                     // Description
                     VStack(alignment: .leading, spacing: 12) {
                         Text("About This Book")
-                            .font(.custom("OpenSans-Bold", size: 20))
+                            .font(AMENFont.bold(20))
                         
                         Text(book.description)
-                            .font(.custom("OpenSans-Regular", size: 16))
+                            .font(AMENFont.regular(16))
                             .foregroundStyle(.secondary)
                             .lineSpacing(6)
                         
                         Text("This essential book has transformed countless lives and continues to be a powerful resource for believers seeking to deepen their understanding and grow in their faith journey.")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
                             .lineSpacing(6)
                     }
@@ -678,7 +698,7 @@ struct BookDetailView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }

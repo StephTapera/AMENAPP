@@ -87,7 +87,7 @@ struct AMENConnectSignUpView: View {
             Spacer()
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(Color(.secondarySystemBackground)))
@@ -185,7 +185,7 @@ struct AMENConnectSignUpView: View {
                         isSelected: selectedTier == tier,
                         billingAnnual: billingAnnual
                     ) {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.8))) {
                             selectedTier = tier
                         }
                     }
@@ -194,7 +194,7 @@ struct AMENConnectSignUpView: View {
                 // Money-back note
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.shield.fill")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.green)
                     Text("7-day money-back guarantee. Cancel anytime.")
                         .font(.custom("OpenSans-Regular", size: 12))
@@ -240,7 +240,7 @@ struct AMENConnectSignUpView: View {
                     // Pro CTA note
                     HStack(spacing: 10) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color(red: 0.85, green: 0.58, blue: 0.10))
                         Text("Pro unlocks AI matching, direct connects, and marketplace listings — helping you find the right people for your calling.")
                             .font(.custom("OpenSans-Regular", size: 13))
@@ -275,7 +275,7 @@ struct AMENConnectSignUpView: View {
                     withAnimation(.easeOut(duration: 0.25)) { step -= 1 }
                 } label: {
                     Image(systemName: "arrow.left")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 52, height: 52)
                         .background(
@@ -340,14 +340,14 @@ struct AMENConnectSignUpView: View {
             if !purchased {
                 // User cancelled purchase — keep free tier, still proceed to success
                 isSubmitting = false
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { showSuccess = true }
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) { showSuccess = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { dismiss() }
                 return
             }
         }
 
         isSubmitting = false
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             showSuccess = true
         }
         // Auto dismiss after showing success
@@ -380,7 +380,7 @@ struct AMENConnectSignUpView: View {
                           : Color(red: 0.18, green: 0.30, blue: 0.60).opacity(0.12))
                     .frame(width: 100, height: 100)
                 Image(systemName: selectedTier == .pro ? "star.fill" : "checkmark.circle.fill")
-                    .font(.system(size: 44))
+                    .font(.systemScaled(44))
                     .foregroundStyle(selectedTier == .pro
                                      ? Color(red: 0.85, green: 0.58, blue: 0.10)
                                      : Color(red: 0.18, green: 0.30, blue: 0.60))
@@ -456,7 +456,7 @@ struct AMENConnectSignUpView: View {
     private func reviewRow(icon: String, label: String, value: String, valueColor: Color = .primary) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
             Text(label)
@@ -512,7 +512,7 @@ private struct TierCard: View {
                         HStack(spacing: 6) {
                             if tier == .pro {
                                 Image(systemName: "star.fill")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(proGold)
                             }
                             Text(tier.displayName)
@@ -543,7 +543,7 @@ private struct TierCard: View {
                     ForEach(tier.features) { feature in
                         HStack(spacing: 10) {
                             Image(systemName: feature.included ? "checkmark" : "xmark")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.systemScaled(11, weight: .bold))
                                 .foregroundStyle(feature.included
                                                  ? (tier == .pro ? proGold : .green)
                                                  : Color(.systemGray4))

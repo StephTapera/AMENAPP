@@ -70,7 +70,7 @@ final class FellowshipService: ObservableObject {
     @Published var isLoading = false
 
     private var listener: ListenerRegistration?
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // MARK: - Start / Stop
 

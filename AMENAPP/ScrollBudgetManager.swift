@@ -36,7 +36,7 @@ class ScrollBudgetManager: ObservableObject {
     private var lastAppCloseTime: Date?
     
     private var cancellables = Set<AnyCancellable>()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Configuration Types
     

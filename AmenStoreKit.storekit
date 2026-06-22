@@ -1,0 +1,435 @@
+{
+  "identifier" : "AmenStoreKit",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "0",
+    "_developerTeamID" : "LOCAL",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 767664000,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "amen.platform.amenplus",
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "name" : "AMEN Plus"
+        }
+      ],
+      "name" : "AMEN Plus",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen_amenplus_monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "AMEN Plus monthly subscription. AI writing coach, advanced search, photo memory vault.",
+              "displayName" : "AMEN Plus",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amen.amenplus.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "AMEN Plus Monthly",
+          "subscriptionGroupID" : "amen.platform.amenplus",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen_amenplus_annual",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "AMEN Plus annual subscription — save over 15% vs monthly.",
+              "displayName" : "AMEN Plus (Annual)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amen.amenplus.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "AMEN Plus Annual",
+          "subscriptionGroupID" : "amen.platform.amenplus",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    },
+    {
+      "id" : "amen.platform.amenpro",
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "name" : "AMEN Pro"
+        }
+      ],
+      "name" : "AMEN Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "9.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen_amenpro_monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "AMEN Pro monthly subscription. AI Memory OS, advanced camera, family guardian dashboard.",
+              "displayName" : "AMEN Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amen.amenpro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "AMEN Pro Monthly",
+          "subscriptionGroupID" : "amen.platform.amenpro",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "99.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen_amenpro_annual",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "AMEN Pro annual subscription — save over 15% vs monthly.",
+              "displayName" : "AMEN Pro (Annual)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amen.amenpro.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "AMEN Pro Annual",
+          "subscriptionGroupID" : "amen.platform.amenpro",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    },
+    {
+      "id" : "amen.platform.creatorpro",
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "name" : "Creator Pro"
+        }
+      ],
+      "name" : "Creator Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "19.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen_creatorpro_monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Creator Pro monthly subscription. Live streaming, AI Producer, Clip Studio, monetization tools.",
+              "displayName" : "Creator Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amen.creatorpro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Creator Pro Monthly",
+          "subscriptionGroupID" : "amen.platform.creatorpro",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "199.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen_creatorpro_annual",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Creator Pro annual subscription — save over 15% vs monthly.",
+              "displayName" : "Creator Pro (Annual)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amen.creatorpro.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Creator Pro Annual",
+          "subscriptionGroupID" : "amen.platform.creatorpro",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    },
+    {
+      "id" : "amen.platform.churchpro",
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "name" : "Church Pro"
+        }
+      ],
+      "name" : "Church Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen_churchpro_monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Church Pro monthly subscription. Broadcast tools, live giving, multi-campus management.",
+              "displayName" : "Church Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amen.churchpro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Church Pro Monthly",
+          "subscriptionGroupID" : "amen.platform.churchpro",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "499.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen_churchpro_annual",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Church Pro annual subscription — save over 15% vs monthly.",
+              "displayName" : "Church Pro (Annual)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amen.churchpro.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Church Pro Annual",
+          "subscriptionGroupID" : "amen.platform.churchpro",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    },
+    {
+      "id" : "amen.mentorship",
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "name" : "AMEN Mentorship"
+        }
+      ],
+      "name" : "AMEN Mentorship",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "19.00",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen.mentorship.growth.monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Bi-weekly mentorship sessions and check-ins.",
+              "displayName" : "Growth Mentorship",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "amen.mentorship.growth.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Growth Mentorship Monthly",
+          "subscriptionGroupID" : "amen.mentorship",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "39.00",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen.mentorship.deep.monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Weekly mentorship sessions with a custom growth plan.",
+              "displayName" : "Deep Discipleship",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "amen.mentorship.deep.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Deep Discipleship Monthly",
+          "subscriptionGroupID" : "amen.mentorship",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    },
+    {
+      "id" : "amen.twofourtwohub",
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "name" : "242 Hub"
+        }
+      ],
+      "name" : "242 Hub",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen_twofourtwohub_grow_monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Grow tier: Sermon Library, mentorship matching, Intercessors Network, Covenant Academy.",
+              "displayName" : "Grow",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amen.twofourtwohub.grow.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "242 Hub Grow Monthly",
+          "subscriptionGroupID" : "amen.twofourtwohub",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "12.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "amen_twofourtwohub_lead_monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Lead tier: Everything in Grow plus Flock Intelligence, Covenant Metrics, pastoral care tools.",
+              "displayName" : "Lead",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amen.twofourtwohub.lead.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "242 Hub Lead Monthly",
+          "subscriptionGroupID" : "amen.twofourtwohub",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    },
+    {
+      "id" : "amen.creator.subscription",
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "name" : "Creator Subscription"
+        }
+      ],
+      "name" : "Creator Subscription",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "amen_creator_subscription_monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Monthly subscription to a creator. Actual price is set per creator.",
+              "displayName" : "Creator Subscription",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.amen.creator.subscription.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Creator Subscription Monthly",
+          "subscriptionGroupID" : "amen.creator.subscription",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

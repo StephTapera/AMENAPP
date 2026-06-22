@@ -42,7 +42,7 @@ struct DiscoverySearchResultsView: View {
             HStack(spacing: 0) {
                 ForEach(DiscoverySearchTab.allCases) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                             selectedTab = tab
                         }
                     } label: {
@@ -285,7 +285,7 @@ struct DiscoverySearchResultsView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.tertiary)
             Text("No \(tab.rawValue.lowercased()) found for \"\(query)\"")
                 .font(.custom("OpenSans-Regular", size: 15))
@@ -353,7 +353,7 @@ struct SearchPersonRow: View {
                                 .foregroundStyle(.primary)
                             if person.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.blue)
                             }
                         }
@@ -464,12 +464,9 @@ struct SearchPostRow: View {
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Color.primary.opacity(0.07)))
                     }
-                    Label("\(post.amenCount)", systemImage: "hands.sparkles")
+                    Text(RelativeDateTimeFormatter().localizedString(for: post.createdAt, relativeTo: Date()))
                         .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
-                    Label("\(post.commentCount)", systemImage: "bubble.left")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.tertiary)
                 }
             }
 
@@ -497,41 +494,26 @@ struct DiscoveryTopicRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: topic.icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(topic.iconColor)
                 .frame(width: 44, height: 44)
                 .background(topic.backgroundColor)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
 
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(topic.title)
-                        .font(.custom("OpenSans-SemiBold", size: 14))
-                        .foregroundStyle(.primary)
-                    if topic.isTrending {
-                        Text("Trending")
-                            .font(.custom("OpenSans-SemiBold", size: 10))
-                            .foregroundStyle(.orange)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.orange.opacity(0.1)))
-                    }
-                }
+                Text(topic.title)
+                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .foregroundStyle(.primary)
                 Text(topic.description)
                     .font(.custom("OpenSans-Regular", size: 12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                if topic.postCount > 0 {
-                    Text("\(topic.postCount) posts")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.tertiary)
-                }
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -572,7 +554,7 @@ struct SearchChurchRow: View {
                         .foregroundStyle(.primary)
                     if church.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -631,7 +613,7 @@ struct DiscoveryNoteRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)

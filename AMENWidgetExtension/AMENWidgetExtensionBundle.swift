@@ -16,7 +16,9 @@ struct AMENWidgetExtensionBundle: WidgetBundle {
         // Dynamic Island / Live Activity widget for Reply Assist
         ReplyAssistWidget()
         // Home screen widgets
+        ReplyAssistHomeWidget()
         DailyVerseWidget()
+        SelahVerseWidget()
         PrayerCountWidget()
         QuickActionsWidget()
         AMENStatsWidget()
@@ -30,5 +32,13 @@ struct AMENWidgetExtensionBundle: WidgetBundle {
         BereanLiveActivityWidget()
         // Dynamic Island — Prayer Chain Live Activity
         PrayerChainLiveActivityWidget()
+        // Dynamic Island — Living Intelligence Cards
+        if #available(iOSApplicationExtension 16.2, *) {
+            AmenLiveActivityWidget()
+        }
+        // Dynamic Island — Prayer Session (local timer, Phase 1)
+        PrayerSessionLiveActivity()
+        // Dynamic Island — Prayer Request (push-driven counter, Phase 2)
+        PrayerRequestLiveActivity()
     }
 }

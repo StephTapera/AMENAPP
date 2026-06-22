@@ -57,7 +57,7 @@ struct JobListing: Identifiable, Codable {
     var searchKeywords: [String]
     // P1 #7: Geohash proximity index — 5-char precision (~2.4 km bounding box).
     // Written on job creation via JobService.postJob. Used for Firestore range queries.
-    // TODO: Deploy Firestore index for jobs(geohash ASC, isActive ASC)
+    // Deploy: Firestore composite index jobs(geohash ASC, isActive ASC) required for nearby queries.
     var latitude: Double?
     var longitude: Double?
     var geohash: String?

@@ -37,7 +37,7 @@ struct MentorAvatarView: View {
         ZStack {
             Circle().fill(Color(red: 0.49, green: 0.23, blue: 0.93).opacity(0.15))
             Text(initials)
-                .font(.system(size: size * 0.32, weight: .semibold))
+                .font(.systemScaled(size * 0.32, weight: .semibold))
                 .foregroundStyle(Color(red: 0.49, green: 0.23, blue: 0.93))
         }
     }

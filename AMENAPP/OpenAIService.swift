@@ -14,17 +14,6 @@ import FirebaseFunctions
 
 // MARK: - Supporting Enums
 
-/// Berean personality modes. Maps to distinct system-prompt shaping.
-enum BereanMode: String, CaseIterable {
-    case shepherd   = "shepherd"
-    case scholar    = "scholar"
-    case builder    = "builder"
-    case strategist = "strategist"
-    case creator    = "creator"
-    case coach      = "coach"
-    case debater    = "debater"
-}
-
 /// Where a Berean request originates. Used for prompt shaping and audit context.
 enum BereanSource {
     case chat
@@ -64,7 +53,7 @@ struct BereanResponseMetadata {
     let model: String
     let startedAt: Date
     let completedAt: Date
-    let mode: BereanMode
+    let mode: BereanPersonalityMode
 }
 
 // MARK: - Error Types
@@ -153,6 +142,20 @@ enum OpenAIServiceError: LocalizedError, Equatable {
             }
         }
 
+        // Firebase Cloud Function errors (NSError domain: com.firebase.functions)
+        // FunctionsErrorCode values: 1=cancelled, 2=unknown, 7=permission-denied,
+        // 8=resource-exhausted, 13=internal, 14=unavailable, 16=unauthenticated
+        let nsError = error as NSError
+        if nsError.domain == "com.firebase.functions" {
+            switch nsError.code {
+            case 1:  return .cancelled
+            case 7, 16: return .unauthorized
+            case 8:  return .rateLimited
+            case 14: return .serverError
+            default: return .serverError
+            }
+        }
+
         return .unknown
     }
 }
@@ -198,7 +201,7 @@ class OpenAIService: ObservableObject {
 
     /// All OpenAI calls are proxied through the "openAIProxy" Cloud Function.
     /// The API key never leaves the server.
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private let modelID = "gpt-4o"
 
     // One active stream at a time — cancel previous before starting new one.
@@ -241,7 +244,7 @@ class OpenAIService: ObservableObject {
         conversationHistory: [OpenAIChatMessage] = [],
         maxTokens: Int = 2000,
         temperature: Double = 0.7,
-        mode: BereanMode = .shepherd,
+        mode: BereanPersonalityMode = .shepherd,
         systemPromptSuffix: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
 
@@ -336,7 +339,7 @@ class OpenAIService: ObservableObject {
         selectedText: String,
         source: BereanSource,
         action: BereanSelectionAction,
-        mode: BereanMode = .scholar
+        mode: BereanPersonalityMode = .scholar
     ) -> AsyncThrowingStream<String, Error> {
         let prompt = buildSelectionPrompt(
             selectedText: selectedText,
@@ -352,7 +355,7 @@ class OpenAIService: ObservableObject {
     func sendMessageSync(
         _ message: String,
         conversationHistory: [OpenAIChatMessage] = [],
-        mode: BereanMode = .shepherd
+        mode: BereanPersonalityMode = .shepherd
     ) async throws -> String {
         try validateOutgoingMessage(message)
 
@@ -376,7 +379,7 @@ class OpenAIService: ObservableObject {
     private func buildMessages(
         userMessage: String,
         history: [OpenAIChatMessage],
-        mode: BereanMode,
+        mode: BereanPersonalityMode,
         suffix: String?
     ) -> [ChatCompletionRequest.Message] {
         var messages: [ChatCompletionRequest.Message] = []
@@ -388,7 +391,7 @@ class OpenAIService: ObservableObject {
         return messages
     }
 
-    private func buildSystemPrompt(mode: BereanMode, suffix: String?) -> String {
+    private func buildSystemPrompt(mode: BereanPersonalityMode, suffix: String?) -> String {
         var prompt = """
             You are Berean AI, the in-app faith, wisdom, and life assistant inside AMEN.
 
@@ -623,7 +626,7 @@ class OpenAIService: ObservableObject {
 
     // MARK: - Cache Management
 
-    private func makeCacheKey(message: String, mode: BereanMode, suffix: String?) -> String {
+    private func makeCacheKey(message: String, mode: BereanPersonalityMode, suffix: String?) -> String {
         "\(modelID)|\(mode.rawValue)|\(suffix ?? "")|\(message.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())"
     }
 

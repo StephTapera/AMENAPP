@@ -13,6 +13,10 @@ extension Notification.Name {
     /// Posted when a conversation should be opened
     /// UserInfo should contain: ["conversationId": String]
     static let openConversation = Notification.Name("openConversation")
+    
+    /// Posted when a group join link should be opened
+    /// UserInfo should contain: ["token": String]
+    static let openGroupJoinLink = Notification.Name("openGroupJoinLink")
 
     /// Posted when the Berean Live Activity "Go Deeper" button is tapped
     /// UserInfo: ["postID": String]
@@ -71,4 +75,17 @@ extension Notification.Name {
     /// Posted when a push notification tap requests opening a specific user profile.
     /// UserInfo: ["userId": String]
     static let openProfileFromNotification = Notification.Name("openProfileFromNotification")
+
+    /// Posted when a deep link resolves to a user profile.
+    /// UserInfo: ["userId": String]
+    static let navigateToUser = Notification.Name("navigateToUser")
+
+    /// Posted when a deep link resolves to a specific post.
+    /// UserInfo: ["postId": String]
+    static let navigateToPost = Notification.Name("navigateToPost")
+
+    /// Posted when crisis-support resources should be surfaced to the user.
+    /// Safety-critical: posted from message/prayer pre-scans and moderation escalations.
+    /// UserInfo (optional): ["resources": [CrisisResource]]
+    static let showCrisisResources = Notification.Name("showCrisisResources")
 }

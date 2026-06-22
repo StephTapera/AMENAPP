@@ -28,6 +28,7 @@ struct AMENLoadingIndicator: View {
     @State private var dot1Up = false
     @State private var dot2Up = false
     @State private var dot3Up = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: spacing) {
@@ -44,22 +45,31 @@ struct AMENLoadingIndicator: View {
             .frame(width: dotSize, height: dotSize)
             .offset(y: isUp ? -bounceHeight : 0)
             .animation(
-                .easeInOut(duration: animDuration).repeatForever(autoreverses: true),
+                reduceMotion ? .easeInOut(duration: 0) : .easeInOut(duration: animDuration).repeatForever(autoreverses: true),
                 value: isUp
             )
     }
 
     private func startBouncing() {
+        guard !reduceMotion else { return }
         let stagger = animDuration * 0.55
         withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
             dot1Up = true
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + stagger) {
+        // SECURITY FIX (MEDIUM 2026-06-11): Re-check reduceMotion inside each Task body.
+        // The outer guard can become stale if reduceMotion changes between creation and execution.
+        Task { @MainActor in
+            guard !reduceMotion else { return }
+            try? await Task.sleep(for: .seconds(stagger))
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
                 dot2Up = true
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + stagger * 2) {
+        Task { @MainActor in
+            guard !reduceMotion else { return }
+            try? await Task.sleep(for: .seconds(stagger * 2))
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
                 dot3Up = true
             }
@@ -282,11 +292,11 @@ struct ToastView: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: toast.type.icon)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundColor(.white)
             
             Text(toast.message)
-                .font(.custom("OpenSans-SemiBold", size: 14))
+                .font(AMENFont.semiBold(14))
                 .foregroundColor(.white)
                 .lineLimit(2)
             
@@ -302,7 +312,7 @@ struct ToastView: View {
         .offset(y: offset)
         .opacity(opacity)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                 offset = 0
                 opacity = 1
             }
@@ -329,7 +339,7 @@ struct ToastModifier: ViewModifier {
                 .onAppear {
                     // Auto-dismiss after specified duration
                     DispatchQueue.main.asyncAfter(deadline: .now() + toast.duration) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             self.toast = nil
                         }
                     }
@@ -361,7 +371,7 @@ struct LoadingOverlay: View {
                 AMENLoadingIndicator(color: .white)
                 
                 Text(message)
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundColor(.white)
             }
             .padding(24)
@@ -405,30 +415,30 @@ struct ErrorView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundColor(.orange)
             
             Text("Something Went Wrong")
-                .font(.custom("OpenSans-Bold", size: 18))
-                .foregroundColor(.black)
-            
+                .font(AMENFont.bold(18))
+                .foregroundStyle(.primary)
+
             Text(error.localizedDescription)
-                .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundColor(.gray)
+                .font(AMENFont.regular(14))
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
-            
+
             if let retryAction = retryAction {
                 Button(action: retryAction) {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.clockwise")
                         Text("Try Again")
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .foregroundColor(.white)
+                    .font(AMENFont.semiBold(15))
+                    .foregroundStyle(Color(.systemBackground))
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Color.black)
+                    .background(Color(.label))
                     .cornerRadius(25)
                 }
             }
@@ -452,8 +462,8 @@ struct SharedUIInlineErrorBanner: View {
                 .foregroundColor(.orange)
             
             Text(message)
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundColor(.black)
+                .font(AMENFont.regular(13))
+                .foregroundStyle(.primary)
                 .lineLimit(2)
             
             Spacer()
@@ -461,7 +471,7 @@ struct SharedUIInlineErrorBanner: View {
             if let retryAction = retryAction {
                 Button(action: retryAction) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(.blue)
                 }
             }

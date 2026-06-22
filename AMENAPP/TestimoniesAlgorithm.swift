@@ -107,9 +107,9 @@ class TestimoniesAlgorithm: ObservableObject {
     private func calculateCategoryScore(_ post: Post, preferences: TestimonyPreferences) -> Double {
         var categoryScore: Double = 50 // Baseline neutral
 
-        // Check category preference
-        if let topicTag = post.topicTag,
-           let preference = preferences.engagedCategories[topicTag] {
+        // Check category preference using canonical semantic keys first.
+        if let category = TestimonyCategory.category(for: post),
+           let preference = preferences.engagedCategories[category.id] {
             categoryScore = preference
         }
 
@@ -143,7 +143,8 @@ class TestimoniesAlgorithm: ObservableObject {
 
     private func calculateDiversityScore(_ post: Post, preferences: TestimonyPreferences) -> Double {
         // Reward testimonies from categories user hasn't engaged with
-        let categoryEngagement = preferences.engagedCategories[post.topicTag ?? ""] ?? 0
+        let categoryKey = TestimonyCategory.category(for: post)?.id ?? ""
+        let categoryEngagement = preferences.engagedCategories[categoryKey] ?? 0
 
         if categoryEngagement < 20 {
             return 80 // High diversity bonus
@@ -172,7 +173,7 @@ class TestimoniesAlgorithm: ObservableObject {
     /// Update preferences based on interaction
     func recordInteraction(with post: Post, type: InteractionType) {
         // Update category preferences
-        if let category = post.topicTag {
+        if let category = TestimonyCategory.category(for: post)?.id {
             let currentScore = userPreferences.engagedCategories[category] ?? 50
             let boost = type.scoreBoost
             userPreferences.engagedCategories[category] = min(100, currentScore + boost)
@@ -191,7 +192,7 @@ class TestimoniesAlgorithm: ObservableObject {
         savePreferences()
 
         #if DEBUG
-        dlog("📊 Testimony preference updated: Category=\(post.topicTag ?? "none") +\(type.scoreBoost)")
+        dlog("📊 Testimony preference updated: Category=\(TestimonyCategory.category(for: post)?.id ?? "none") +\(type.scoreBoost)")
         #endif
     }
 

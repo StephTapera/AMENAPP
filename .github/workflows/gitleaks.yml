@@ -1,0 +1,21 @@
+name: gitleaks
+
+# Backstop secret scan. The pre-commit hook is the first line of defense;
+# this catches anything committed without the hook installed (e.g. another
+# agent's environment, or a hook that was bypassed with --no-verify).
+on:
+  pull_request:
+  push:
+    branches: ["**"]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history so the scan sees every commit on the ref
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: .gitleaks.toml

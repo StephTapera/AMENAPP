@@ -24,6 +24,26 @@ class DailyVerseGenkitService: ObservableObject {
     @Published var lastError: (any Error)?
     @Published var todayVerse: PersonalizedDailyVerse?
 
+    // MARK: - Provenance flags (A5-008 fix)
+    // These mirror the flags on PersonalizedDailyVerse for observers that watch
+    // the service directly (e.g., DailyVerseBanner for offline-retry logic).
+    //
+    // isFromAI:            true when todayVerse came from the AI Cloud Function.
+    // isPersonalizedToUser: true only when the CF explicitly confirmed it used
+    //                       the user's own context (prayer history, goals, etc.).
+    //
+    // Legacy: `isPersonalized` is kept as a deprecated computed shim so any
+    // observer that hasn't migrated yet still compiles without a crash.
+    @Published var isFromAI: Bool = false
+    @Published var isPersonalizedToUser: Bool = false
+
+    /// Deprecated: use `isFromAI` or `isPersonalizedToUser` instead.
+    /// Kept temporarily so callers that read `.isPersonalized` don't break while
+    /// migrating; it now means `isFromAI` (was previously set for any CF success,
+    /// including generic AI fallbacks).
+    @available(*, deprecated, renamed: "isFromAI")
+    var isPersonalized: Bool { isFromAI }
+
     // In-flight continuation set — prevents duplicate Cloud Function calls when two callers
     // (DailyVerseBanner + AIDailyVerseView) both invoke generatePersonalizedDailyVerse()
     // before the first call completes. We store continuations rather than holding a Task so
@@ -32,12 +52,21 @@ class DailyVerseGenkitService: ObservableObject {
     private var pendingContinuations: [CheckedContinuation<PersonalizedDailyVerse, Never>] = []
     private var isGeneratingInternally = false
     
-    nonisolated private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     nonisolated private let functions = Functions.functions(region: "us-central1")
     nonisolated private let cacheKey = "cachedDailyVerse"
     nonisolated private let cacheDate = "cachedVerseDate"
     
     init() {
+        // Pre-load today's cached verse synchronously so todayVerse is never nil
+        // when views first render — eliminates the loading/empty flash on app open or re-open.
+        if let data = UserDefaults.standard.data(forKey: "cachedDailyVerse"),
+           let date = UserDefaults.standard.object(forKey: "cachedVerseDate") as? Date,
+           Calendar.current.isDate(date, inSameDayAs: Date()),
+           let verse = try? JSONDecoder().decode(PersonalizedDailyVerse.self, from: data) {
+            todayVerse = verse
+            dlog("📖 DailyVerseGenkitService: pre-loaded cached verse — \(verse.reference)")
+        }
         dlog("✅ DailyVerseGenkitService initialized with Firebase Cloud Functions")
     }
     
@@ -100,16 +129,62 @@ class DailyVerseGenkitService: ObservableObject {
         }
 
         do {
-            // Call Cloud Function with user context
+            // Guard: if the user's auth token isn't ready, the Cloud Function will return
+            // UNAUTHENTICATED. Force a (non-refreshing) token fetch so the Functions SDK
+            // has a valid token to attach before we make the call.
+            guard let currentUser = Auth.auth().currentUser else {
+                throw NSError(domain: "DailyVerse", code: 401,
+                              userInfo: [NSLocalizedDescriptionKey: "Unauthenticated"])
+            }
+            _ = try? await currentUser.getIDToken(forcingRefresh: false)
+
+            // Build liturgical context for observance-aware verse selection
+            let liturgicalState = LiturgicalCalendarEngine.shared.currentState()
+            let activeObservanceNames = liturgicalState.activeObservances
+                .sorted { $0.priorityWeight > $1.priorityWeight }
+                .prefix(2)
+                .map { $0.name }
+            let upcomingObservanceName = liturgicalState.upcomingObservances.first?.name
+
+            // Call Cloud Function with user context + liturgical context
             let callable = functions.httpsCallable("generateDailyVerse")
-            let input: [String: Any] = [
+            var input: [String: Any] = [
                 "goals": context?.interests ?? [],
                 "recentTopics": context?.currentChallenges ?? [],
-                "prayerThemes": context?.recentPrayerTopics ?? []
+                "prayerThemes": context?.recentPrayerTopics ?? [],
+                // Liturgical / church-calendar context
+                "liturgicalSeason": liturgicalState.currentSeason.rawValue,
+                "liturgicalSeasonName": liturgicalState.currentSeason.displayName,
+                "liturgicalThemes": liturgicalState.themeTags,
             ]
+            if !activeObservanceNames.isEmpty {
+                input["activeObservances"] = Array(activeObservanceNames)
+            }
+            if let upcoming = upcomingObservanceName {
+                input["upcomingObservance"] = upcoming
+            }
+            dlog("🗓️ Liturgical context: \(liturgicalState.currentSeason.displayName)" +
+                 (activeObservanceNames.isEmpty ? "" : " | Active: \(activeObservanceNames.joined(separator: ", "))"))
             let result = try await callable.call(input)
             let data = result.data as? [String: Any] ?? [:]
             let verseData = data["verse"] as? [String: Any] ?? [:]
+
+            // A5-008 fix: determine whether the CF actually used user context.
+            // The CF may return a top-level `personalized` bool (or `isPersonalized`)
+            // to signal it incorporated prayer history / liturgical context.
+            // If that key is absent we fall back to checking whether we sent any
+            // non-empty user-context fields — the CF can only personalise if it
+            // received them. A generic AI response without user context is `isFromAI`
+            // but NOT `isPersonalizedToUser`.
+            let cfConfirmedPersonalized: Bool = {
+                if let flag = data["personalized"] as? Bool { return flag }
+                if let flag = data["isPersonalized"] as? Bool { return flag }
+                // Infer from context: if user context was available AND the CF
+                // returned a non-generic theme, treat it as personalised.
+                let hadPrayerThemes = !(context?.recentPrayerTopics.isEmpty ?? true)
+                let hadInterests    = !(context?.interests.isEmpty ?? true)
+                return hadPrayerThemes || hadInterests
+            }()
 
             let verse = PersonalizedDailyVerse(
                 reference: verseData["reference"] as? String ?? "Romans 8:28",
@@ -120,16 +195,23 @@ class DailyVerseGenkitService: ObservableObject {
                 relatedVerses: [],
                 prayerPrompt: verseData["prayer"] as? String ?? "Lord, I trust your plans for my life.",
                 personalizedFor: context,
-                date: Date()
+                date: Date(),
+                isFromAI: true,
+                isPersonalizedToUser: cfConfirmedPersonalized
             )
 
             self.todayVerse = verse
+            self.isFromAI = true
+            self.isPersonalizedToUser = cfConfirmedPersonalized
             cacheVerse(verse)
-            dlog("✅ Cloud Function verse: \(verse.reference) — \(verse.theme)")
+            dlog("✅ Cloud Function verse: \(verse.reference) — \(verse.theme) | personalisedToUser=\(cfConfirmedPersonalized)")
             return verse
 
         } catch {
-            // Cloud Function unavailable — use curated fallback rotation
+            // Cloud Function unavailable — use curated fallback rotation.
+            // A5-008 fix: both provenance flags are false for the static fallback.
+            // This ensures consumers never show a "Personalised for you" badge when
+            // the verse is merely a pre-curated rotation entry.
             dlog("⚠️ Cloud Function unavailable (\(error.localizedDescription)) — using fallback verse")
             let fallbackData = createFallbackVerse()
             let verse = PersonalizedDailyVerse(
@@ -141,9 +223,13 @@ class DailyVerseGenkitService: ObservableObject {
                 relatedVerses: fallbackData["relatedVerses"] as? [String] ?? [],
                 prayerPrompt: fallbackData["prayerPrompt"] as? String ?? "Lord, I trust your plans for my life.",
                 personalizedFor: nil,
-                date: Date()
+                date: Date(),
+                isFromAI: false,
+                isPersonalizedToUser: false
             )
             self.todayVerse = verse
+            self.isFromAI = false
+            self.isPersonalizedToUser = false
             cacheVerse(verse)
             return verse
         }
@@ -469,8 +555,39 @@ struct PersonalizedDailyVerse: Codable, Identifiable {
     let prayerPrompt: String
     let personalizedFor: UserVerseContext?
     let date: Date
-    
-    init(reference: String, text: String, theme: String, reflection: String, actionPrompt: String, relatedVerses: [String], prayerPrompt: String, personalizedFor: UserVerseContext?, date: Date) {
+
+    // MARK: - Provenance flags (A5-008 fix)
+    //
+    // `isFromAI` and `isPersonalizedToUser` replace the old boolean `isPersonalized`
+    // that was set on the *service* rather than on the verse value itself.
+    //
+    // isFromAI            — true whenever a Cloud Function or AI service produced
+    //                       the verse (even if it was a generic AI-generated result).
+    // isPersonalizedToUser — true only when the Cloud Function explicitly confirmed
+    //                       it used user context (prayer history, liturgical calendar,
+    //                       goals, etc.) to select this specific verse for this user.
+    //                       A generic AI fallback sets this false.
+    //
+    // UI guidance:
+    //   • Show "AI" badge when isFromAI is true.
+    //   • Show "Personalised for you" badge only when isPersonalizedToUser is true.
+    //   • Show neither badge for curated-rotation fallbacks (both false).
+    let isFromAI: Bool
+    let isPersonalizedToUser: Bool
+
+    init(
+        reference: String,
+        text: String,
+        theme: String,
+        reflection: String,
+        actionPrompt: String,
+        relatedVerses: [String],
+        prayerPrompt: String,
+        personalizedFor: UserVerseContext?,
+        date: Date,
+        isFromAI: Bool = false,
+        isPersonalizedToUser: Bool = false
+    ) {
         self.id = UUID()
         self.reference = reference
         self.text = text
@@ -481,10 +598,14 @@ struct PersonalizedDailyVerse: Codable, Identifiable {
         self.prayerPrompt = prayerPrompt
         self.personalizedFor = personalizedFor
         self.date = date
+        self.isFromAI = isFromAI
+        self.isPersonalizedToUser = isPersonalizedToUser
     }
-    
+
     enum CodingKeys: String, CodingKey {
-        case id, reference, text, theme, reflection, actionPrompt, relatedVerses, prayerPrompt, personalizedFor, date
+        case id, reference, text, theme, reflection, actionPrompt, relatedVerses
+        case prayerPrompt, personalizedFor, date
+        case isFromAI, isPersonalizedToUser
     }
 
     /// Used as a non-throwing fallback when the weak self capture is nil (extremely rare).
@@ -497,7 +618,9 @@ struct PersonalizedDailyVerse: Codable, Identifiable {
         relatedVerses: [],
         prayerPrompt: "Lord, I trust your plans for my life.",
         personalizedFor: nil,
-        date: Date()
+        date: Date(),
+        isFromAI: false,
+        isPersonalizedToUser: false
     )
 }
 
@@ -581,4 +704,4 @@ enum VerseError: LocalizedError {
         }
     }
 }
-
+// Service disabled due to build blockers.

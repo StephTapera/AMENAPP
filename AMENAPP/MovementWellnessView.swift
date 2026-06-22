@@ -80,7 +80,7 @@ struct MovementWellnessView: View {
             HStack {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.white.opacity(0.6))
                         .frame(width: 36, height: 36)
                         .background(Color.white.opacity(0.1), in: Circle())
@@ -96,7 +96,7 @@ struct MovementWellnessView: View {
             .padding(.top, 56)
 
             Image(systemName: "figure.walk")
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(accent)
                 .padding(.top, 36)
 
@@ -122,7 +122,7 @@ struct MovementWellnessView: View {
                     } label: {
                         HStack(spacing: 14) {
                             Image(systemName: mode.icon)
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(selectedMode == mode ? .white : .white.opacity(0.5))
                                 .frame(width: 36)
                             VStack(alignment: .leading, spacing: 2) {
@@ -181,14 +181,14 @@ struct MovementWellnessView: View {
                     }
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.white.opacity(0.7))
                         .frame(width: 36, height: 36)
                         .background(Color.white.opacity(0.1), in: Circle())
                 }
                 Spacer()
                 Text("\(stepIndex + 1) of \(steps.count)")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.white.opacity(0.45))
                 Spacer()
                 Color.clear.frame(width: 36)
@@ -200,7 +200,7 @@ struct MovementWellnessView: View {
 
             VStack(spacing: 20) {
                 Image(systemName: step.1)
-                    .font(.system(size: 56))
+                    .font(.systemScaled(56))
                     .foregroundStyle(accent)
 
                 Text(step.0)
@@ -231,7 +231,7 @@ struct MovementWellnessView: View {
             Button {
                 haptic.impactOccurred()
                 if stepIndex < steps.count - 1 {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { stepIndex += 1 }
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) { stepIndex += 1 }
                 } else {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     Task { await writeHealthKit() }
@@ -254,7 +254,7 @@ struct MovementWellnessView: View {
         VStack(spacing: 24) {
             Spacer()
             Image(systemName: selectedMode == .walking ? "figure.walk" : "figure.flexibility")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(accent)
             Text("Well done.")
                 .font(.custom("OpenSans-Bold", size: 28))

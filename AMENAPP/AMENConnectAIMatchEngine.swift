@@ -127,7 +127,7 @@ final class AMENConnectAIMatchEngine {
 
     func scanRecentPostsForCurrentUser() async -> [AIConnectMatch] {
         guard let uid = Auth.auth().currentUser?.uid else { return [] }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("posts")
                 .whereField("authorId", isEqualTo: uid)
@@ -154,7 +154,7 @@ final class AMENConnectAIMatchEngine {
 
         // Store intent signals to Firestore
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         for match in matches.prefix(3) {
             var signal = IntentSignal()
             signal.uid = uid
@@ -164,7 +164,11 @@ final class AMENConnectAIMatchEngine {
             signal.confidence = match.confidence
             signal.sourcePostID = postID
             if let encoded = try? Firestore.Encoder().encode(signal) {
-                try? await db.collection("amenConnectIntentSignals").document(signal.id).setData(encoded)
+                do {
+                    try await db.collection("amenConnectIntentSignals").document(signal.id).setData(encoded)
+                } catch {
+                    print("AMENConnectAIMatchEngine: failed to write intent signal — \(error.localizedDescription)")
+                }
             }
         }
 

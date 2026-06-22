@@ -18,7 +18,7 @@ enum CommentReaction: String, CaseIterable, Codable {
     case hundred = "💯"   // Truth/agreement
     case thinking = "🤔"  // Thoughtful
     case praise = "🙌"    // Celebration
-    
+
     var displayName: String {
         switch self {
         case .amen: return "Amen"
@@ -29,7 +29,7 @@ enum CommentReaction: String, CaseIterable, Codable {
         case .praise: return "Praise"
         }
     }
-    
+
     var color: Color {
         switch self {
         case .amen: return .purple
@@ -59,18 +59,18 @@ struct EnhancedCommentRow: View {
     let onReply: () -> Void
     let onDelete: () -> Void
     let onReact: (CommentReaction) -> Void
-    
+
     @State private var showReactionPicker = false
     @State private var showReactionDetails = false
     @State private var reactions: [CommentReaction: Int] = [:]
     @State private var userReaction: CommentReaction?
     @State private var showOptions = false
     @State private var reactionScale: CGFloat = 1.0
-    
+
     private var isOwnComment: Bool {
         comment.authorId == FirebaseManager.shared.currentUser?.uid
     }
-    
+
     // Group reactions by type
     private var groupedReactions: [(reaction: CommentReaction, count: Int)] {
         reactions.sorted { $0.value > $1.value }
@@ -78,22 +78,22 @@ struct EnhancedCommentRow: View {
             .prefix(3)
             .map { $0 }
     }
-    
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             // Avatar
             CommentAvatar(comment: comment, isReply: isReply)
-            
+
             VStack(alignment: .leading, spacing: 8) {
                 // Author info
                 CommentHeader(comment: comment, isReply: isReply)
-                
+
                 // Content
                 Text(comment.content)
                     .font(.custom("OpenSans-Regular", size: isReply ? 13 : 14))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
-                
+
                 // Reactions Display (if any reactions exist)
                 if !reactions.isEmpty {
                     HStack(spacing: 8) {
@@ -107,21 +107,21 @@ struct EnhancedCommentRow: View {
                                 showReactionDetails = true
                             }
                         }
-                        
+
                         if reactions.count > 3 {
                             Text("+\(reactions.count - 3)")
-                                .font(.custom("OpenSans-Regular", size: 11))
+                                .font(AMENFont.regular(11))
                                 .foregroundStyle(.black.opacity(0.5))
                         }
                     }
                     .padding(.vertical, 6)
                 }
-                
+
                 // Actions
                 HStack(spacing: 16) {
                     // Reaction Picker Button
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                             showReactionPicker.toggle()
                         }
                         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -129,15 +129,15 @@ struct EnhancedCommentRow: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: userReaction != nil ? "heart.fill" : "heart")
-                                .font(.system(size: 13, weight: .medium))
-                            
+                                .font(.systemScaled(13, weight: .medium))
+
                             Text(userReaction?.rawValue ?? "React")
-                                .font(.custom("OpenSans-Medium", size: 12))
+                                .font(AMENFont.medium(12))
                         }
                         .foregroundStyle(userReaction?.color ?? .black.opacity(0.6))
                         .scaleEffect(reactionScale)
                     }
-                    
+
                     // Reply button
                     if !isReply {
                         Button {
@@ -145,26 +145,26 @@ struct EnhancedCommentRow: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrowshape.turn.up.left")
-                                    .font(.system(size: 12))
-                                
+                                    .font(.systemScaled(12))
+
                                 if comment.replyCount > 0 {
                                     Text("\(comment.replyCount)")
-                                        .font(.custom("OpenSans-Regular", size: 12))
+                                        .font(AMENFont.regular(12))
                                 }
                             }
                             .foregroundStyle(.black.opacity(0.6))
                         }
                     }
-                    
+
                     Spacer()
-                    
+
                     // Options
                     if isOwnComment {
                         Button {
                             showOptions = true
                         } label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.black.opacity(0.6))
                         }
                         .confirmationDialog("Comment Options", isPresented: $showOptions) {
@@ -185,7 +185,7 @@ struct EnhancedCommentRow: View {
                 ReactionPicker(onSelect: { reaction in
                     selectReaction(reaction)
                 }, onDismiss: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         showReactionPicker = false
                     }
                 })
@@ -200,21 +200,21 @@ struct EnhancedCommentRow: View {
             await loadReactions()
         }
     }
-    
+
     // MARK: - Actions
-    
+
     private func selectReaction(_ reaction: CommentReaction) {
         // Animate reaction selection
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
             reactionScale = 1.3
         }
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 reactionScale = 1.0
             }
         }
-        
+
         // Update local state immediately
         if userReaction == reaction {
             // Remove reaction
@@ -234,16 +234,16 @@ struct EnhancedCommentRow: View {
             userReaction = reaction
             reactions[reaction, default: 0] += 1
         }
-        
+
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
-        
+
         // Close picker
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             showReactionPicker = false
         }
-        
+
         // P2 #2: Persist reaction to Firestore using deterministic doc ID
         // ("{userId}_{emoji}") so duplicate reactions from the same user are a no-op.
         saveReactionToFirestore(reaction)
@@ -258,7 +258,7 @@ struct EnhancedCommentRow: View {
         guard let commentId = comment.id,
               let userId = FirebaseManager.shared.currentUser?.uid else { return }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let postId = comment.postId
         let reactionsCollection = db
             .collection("posts").document(postId)
@@ -290,7 +290,7 @@ struct EnhancedCommentRow: View {
 
     private func loadReactions() async {
         guard let commentId = comment.id else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let postId = comment.postId
         let userId = FirebaseManager.shared.currentUser?.uid ?? ""
 
@@ -329,9 +329,9 @@ struct EnhancedCommentRow: View {
 struct ReactionPicker: View {
     let onSelect: (CommentReaction) -> Void
     let onDismiss: () -> Void
-    
+
     @State private var appearedReactions: Set<CommentReaction> = []
-    
+
     var body: some View {
         HStack(spacing: 8) {
             ForEach(CommentReaction.allCases, id: \.self) { reaction in
@@ -340,13 +340,13 @@ struct ReactionPicker: View {
                 } label: {
                     VStack(spacing: 4) {
                         Text(reaction.rawValue)
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .scaleEffect(appearedReactions.contains(reaction) ? 1.0 : 0.5)
                             .opacity(appearedReactions.contains(reaction) ? 1.0 : 0.0)
-                        
+
                         Text(reaction.displayName)
-                            .font(.custom("OpenSans-Medium", size: 10))
-                            .foregroundStyle(.black.opacity(0.6))
+                            .font(AMENFont.medium(10))
+                            .foregroundStyle(.secondary)
                     }
                     .frame(width: 50)
                 }
@@ -357,18 +357,18 @@ struct ReactionPicker: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(.ultraThinMaterial)
+                .fill(.regularMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
                 )
-                .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         )
         .onAppear {
             // Stagger animation
             for (index, reaction) in CommentReaction.allCases.enumerated() {
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.05) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6))) {
                         _ = appearedReactions.insert(reaction)
                     }
                 }
@@ -381,7 +381,7 @@ struct ReactionPicker: View {
 
 struct ReactionButtonStyle: ButtonStyle {
     let color: Color
-    
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 1.2 : 1.0)
@@ -395,15 +395,15 @@ struct ReactionBubble: View {
     let reaction: CommentReaction
     let count: Int
     let isUserReaction: Bool
-    
+
     var body: some View {
         HStack(spacing: 4) {
             Text(reaction.rawValue)
-                .font(.system(size: 14))
-            
+                .font(.systemScaled(14))
+
             if count > 1 {
                 Text("\(count)")
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(isUserReaction ? reaction.color : .black.opacity(0.7))
             }
         }
@@ -426,24 +426,58 @@ struct ReactionDetailsSheet: View {
     let commentId: String
     let reactions: [CommentReaction: Int]
     @Environment(\.dismiss) var dismiss
-    
+
+    private var sortedReactions: [(key: CommentReaction, value: Int)] {
+        reactions.sorted { $0.value > $1.value }
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(reactions.sorted { $0.value > $1.value }, id: \.key) { reaction, count in
-                    Section {
-                        // In real implementation, fetch users who reacted with this type
-                        Text("\(count) people reacted with \(reaction.rawValue)")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                    } header: {
-                        HStack {
-                            Text(reaction.rawValue)
-                            Text(reaction.displayName)
-                                .font(.custom("OpenSans-SemiBold", size: 13))
+            ScrollView {
+                VStack(spacing: 0) {
+
+                    Text("REACTIONS")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(sortedReactions.enumerated()), id: \.element.key) { index, item in
+                            HStack(spacing: 12) {
+                                Text(item.key.rawValue)
+                                    .font(.systemScaled(24))
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.key.displayName)
+                                        .font(AMENFont.semiBold(15))
+                                        .foregroundStyle(.primary)
+                                    Text("\(item.value) \(item.value == 1 ? "person" : "people")")
+                                        .font(AMENFont.regular(13))
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+
+                            if index < sortedReactions.count - 1 {
+                                Divider().padding(.leading, 16)
+                            }
                         }
                     }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Spacer(minLength: 32)
                 }
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Reactions")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -462,7 +496,7 @@ struct ReactionDetailsSheet: View {
 private struct CommentAvatar: View {
     let comment: Comment
     let isReply: Bool
-    
+
     var body: some View {
         if let imageURL = comment.authorProfileImageURL,
            let url = URL(string: imageURL) {
@@ -497,21 +531,21 @@ private struct CommentAvatar: View {
 private struct CommentHeader: View {
     let comment: Comment
     let isReply: Bool
-    
+
     var body: some View {
         HStack(spacing: 8) {
             Text(comment.authorName)
                 .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
-                .foregroundStyle(.black)
-            
+                .foregroundStyle(.primary)
+
             Text(comment.authorUsername.hasPrefix("@") ? comment.authorUsername : "@\(comment.authorUsername)")
                 .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
                 .foregroundStyle(.black.opacity(0.5))
-            
+
             Text("•")
                 .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
                 .foregroundStyle(.black.opacity(0.3))
-            
+
             Text(comment.timeAgo)
                 .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
                 .foregroundStyle(.black.opacity(0.5))

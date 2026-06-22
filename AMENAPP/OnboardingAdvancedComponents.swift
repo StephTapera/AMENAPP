@@ -40,7 +40,7 @@ struct ConversationStartersStep: View {
                 VStack(spacing: 12) {
                     ForEach(starters, id: \.self) { starter in
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 if selectedStarters.contains(starter) {
                                     selectedStarters.remove(starter)
                                 } else {
@@ -50,7 +50,7 @@ struct ConversationStartersStep: View {
                         } label: {
                             HStack {
                                 Image(systemName: selectedStarters.contains(starter) ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 22))
+                                    .font(.systemScaled(22))
                                     .foregroundStyle(selectedStarters.contains(starter) ? gradientColors[0] : .secondary)
                                 
                                 Text(starter)
@@ -125,7 +125,7 @@ struct MentorMenteeStep: View {
                     isSelected: mentorPreference == .seekingMentor,
                     gradientColors: gradientColors
                 ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         mentorPreference = .seekingMentor
                     }
                 }
@@ -137,7 +137,7 @@ struct MentorMenteeStep: View {
                     isSelected: mentorPreference == .willingToMentor,
                     gradientColors: gradientColors
                 ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         mentorPreference = .willingToMentor
                     }
                 }
@@ -149,7 +149,7 @@ struct MentorMenteeStep: View {
                     isSelected: mentorPreference == .peerToPeer,
                     gradientColors: gradientColors
                 ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         mentorPreference = .peerToPeer
                     }
                 }
@@ -164,7 +164,7 @@ struct MentorMenteeStep: View {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         ForEach(areas, id: \.self) { area in
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     if experienceAreas.contains(area) {
                                         experienceAreas.remove(area)
                                     } else {
@@ -182,7 +182,7 @@ struct MentorMenteeStep: View {
                                     
                                     if experienceAreas.contains(area) {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                             .foregroundStyle(.white)
                                     }
                                 }
@@ -226,7 +226,7 @@ struct MentorOptionCard: View {
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(isSelected ? .white : .secondary)
                 }
                 
@@ -244,7 +244,7 @@ struct MentorOptionCard: View {
                 Spacer()
                 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(isSelected ? gradientColors[0] : .secondary)
             }
             .padding()
@@ -340,7 +340,7 @@ struct ReviewStep: View {
                         ReviewSection(title: "Interests", icon: "star.fill", gradientColors: gradientColors) {
                             onEdit("interests")
                         } content: {
-                            FlowLayout(spacing: 8) {
+                            AMENFlowLayout(spacing: 8) {
                                 ForEach(Array(profileData.interests), id: \.self) { interest in
                                     Text(interest)
                                         .font(.custom("OpenSans-SemiBold", size: 13))
@@ -532,7 +532,7 @@ struct OnboardingSuccessScreen: View {
                         .scaleEffect(scale)
                     
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 80))
+                        .font(.systemScaled(80))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: gradientColors,
@@ -573,7 +573,7 @@ struct OnboardingSuccessScreen: View {
                     Text("Start Connecting")
                         .font(.custom("OpenSans-Bold", size: 18))
                     Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
@@ -596,7 +596,7 @@ struct OnboardingSuccessScreen: View {
         .padding()
         .onAppear {
             // Animate entrance
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.7)).delay(0.1)) {
                 scale = 1.0
             }
             
@@ -624,7 +624,7 @@ struct SuccessFeatureRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(gradientColors[0])
             
             Text(text)

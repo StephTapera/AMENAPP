@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI  // For Color type
 import Combine  // For ObservableObjectPublisher
-// import FirebaseVertexAI  // TODO: Add VertexAI package later to enable AI features
+// import FirebaseVertexAI  // Requires Firebase VertexAI package — add when available
 
 /// Service for AI-powered Bible study using Firebase VertexAI (Gemini)
 /// NOTE: AI features are currently DISABLED - uncomment import and code to enable

@@ -31,9 +31,11 @@ class RealtimePostService: ObservableObject {
     static let shared = RealtimePostService()
     
     private nonisolated(unsafe) let database: DatabaseReference
-    // listenerTokens is only accessed on MainActor except in deinit.
-    // Using nonisolated(unsafe) + NSLock ensures safe cross-thread access during deinit.
-    private nonisolated(unsafe) var listenerTokens: [ListenerToken] = []
+    // listenerTokens is keyed by observer tag (e.g. "userPosts:uid" / "categoryPosts:openTable")
+    // so re-registering the same path removes the previous listener before adding the new one,
+    // preventing unbounded growth when observeCategoryPosts/observeUserPosts is called repeatedly.
+    // Access is guarded by listenersLock; nonisolated(unsafe) allows use from deinit.
+    private nonisolated(unsafe) var listenerTokens: [String: ListenerToken] = [:]
     private let listenersLock = NSLock()
 
     // Per-observer cancellable tasks — keyed by an observer tag string.
@@ -323,22 +325,38 @@ class RealtimePostService: ObservableObject {
             firebaseId: postId,
             authorId: authorId,
             authorName: authorName,
+            authorUsername: nil,  // ✅ Required parameter (optional String)
             authorInitials: authorInitials,
+            authorProfileImageURL: nil,  // ✅ Required parameter (optional String)
             timeAgo: createdAt.timeAgo(),
             content: content,
             category: category,
             topicTag: topicTag,
             visibility: visibility,
             allowComments: allowComments,
+            commentPermissions: nil,  // ✅ Required parameter (optional)
+            replyPermission: nil,  // ✅ Required parameter (optional)
+            quotesAllowed: nil,  // ✅ Required parameter (optional)
+            trustedCircle: nil,  // ✅ Required parameter (optional)
             imageURLs: imageURLs,
             linkURL: linkURL,
+            linkPreviewTitle: nil,  // ✅ Required parameter (optional String)
+            linkPreviewDescription: nil,  // ✅ Required parameter (optional String)
+            linkPreviewImageURL: nil,  // ✅ Required parameter (optional String)
+            linkPreviewSiteName: nil,  // ✅ Required parameter (optional String)
+            linkPreviewType: nil,  // ✅ Required parameter (optional String)
+            verseReference: nil,  // ✅ Required parameter (optional String)
+            verseText: nil,  // ✅ Required parameter (optional String)
             createdAt: createdAt,
             amenCount: amenCount,
             lightbulbCount: lightbulbCount,
             commentCount: commentCount,
             repostCount: repostCount,
             isRepost: isRepost,
-            originalAuthorName: originalAuthorName
+            originalAuthorName: originalAuthorName,
+            originalAuthorId: nil,  // ✅ Required parameter (optional String)
+            churchNoteId: nil,  // ✅ Required parameter (optional String)
+            contentSource: nil  // ✅ Required parameter (optional String)
         )
     }
     
@@ -468,7 +486,7 @@ class RealtimePostService: ObservableObject {
             }
         }
         
-        appendListenerToken(ListenerToken(query: query, handle: handle))
+        upsertListenerToken(key: taskKey, ListenerToken(query: query, handle: handle))
     }
 
     // MARK: - Real-time Listener for Category Posts
@@ -512,7 +530,7 @@ class RealtimePostService: ObservableObject {
             }
         }
 
-        appendListenerToken(ListenerToken(query: query, handle: handle))
+        upsertListenerToken(key: taskKey, ListenerToken(query: query, handle: handle))
     }
 
 
@@ -536,16 +554,25 @@ class RealtimePostService: ObservableObject {
         listenerTokens.removeAll()
         listenersLock.unlock()
 
-        for token in snapshot {
+        for (_, token) in snapshot {
             token.query.removeObserver(withHandle: token.handle)
         }
         dlog("🔇 All real-time listeners removed")
     }
 
-    private func appendListenerToken(_ token: ListenerToken) {
+    /// Registers a listener under `key`. If a listener is already registered for
+    /// the same key, it is removed first — preventing unbounded token accumulation
+    /// when the same path is observed multiple times (e.g. view re-appear).
+    private func upsertListenerToken(key: String, _ token: ListenerToken) {
         listenersLock.lock()
-        listenerTokens.append(token)
+        let existing = listenerTokens[key]
+        listenerTokens[key] = token
         listenersLock.unlock()
+
+        // Remove old listener outside the lock to avoid deadlock
+        if let old = existing {
+            old.query.removeObserver(withHandle: old.handle)
+        }
     }
 }
 

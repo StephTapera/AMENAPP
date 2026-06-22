@@ -24,10 +24,9 @@ struct MentalHealthDetailView: View {
         case crisis   = "Crisis"
     }
 
-    // Parchment design tokens
-    private let parchment     = Color(red: 0.97, green: 0.95, blue: 0.91)
-    private let ink           = Color(red: 0.14, green: 0.12, blue: 0.10)
-    private let inkSecondary  = Color(red: 0.42, green: 0.38, blue: 0.34)
+    private let parchment     = Color(.systemBackground)
+    private let ink           = Color(.label)
+    private let inkSecondary  = Color(.secondaryLabel)
     private let tealAccent    = Color(red: 0.12, green: 0.52, blue: 0.50)
     private let crisisRed     = Color(red: 0.82, green: 0.14, blue: 0.16)
 
@@ -64,10 +63,9 @@ struct MentalHealthDetailView: View {
                             .padding(.top, 28)
                     }
 
-                    Spacer(minLength: 60)
+                    Spacer(minLength: 220)
                 }
             }
-            .ignoresSafeArea(edges: .top)
         }
         .navigationBarHidden(true)
         .onAppear {
@@ -79,100 +77,57 @@ struct MentalHealthDetailView: View {
 
     // MARK: Hero
 
-    // Wellness-unique palette — deep teal/forest, not used elsewhere in the app
-    private let wellnessDark    = Color(red: 0.06, green: 0.18, blue: 0.20)   // deep ocean teal
-    private let wellnessMid     = Color(red: 0.10, green: 0.32, blue: 0.30)   // forest teal
-    private let wellnessAccent  = Color(red: 0.22, green: 0.58, blue: 0.52)   // mid teal
-    private let wellnessSage    = Color(red: 0.52, green: 0.72, blue: 0.56)   // sage green
-    private let wellnessLight   = Color.white.opacity(0.92)
-    private let wellnessSub     = Color.white.opacity(0.60)
+    private let wellnessAccent  = Color(red: 0.12, green: 0.52, blue: 0.50)
+    private let wellnessSage    = Color(red: 0.52, green: 0.72, blue: 0.56)
+    private let wellnessLight   = Color(.label)
+    private let wellnessSub     = Color(.secondaryLabel)
 
     private var heroSection: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .bottomLeading) {
-                // Base — deep teal gradient
-                LinearGradient(
-                    colors: [wellnessDark, wellnessMid],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
-                // Sage bloom from bottom-right
-                RadialGradient(
-                    colors: [wellnessSage.opacity(0.25), Color.clear],
-                    center: UnitPoint(x: 0.85, y: 0.90),
-                    startRadius: 10,
-                    endRadius: 260
-                )
-
-                // Teal accent — top-left
-                RadialGradient(
-                    colors: [wellnessAccent.opacity(0.30), Color.clear],
-                    center: UnitPoint(x: 0.10, y: 0.10),
-                    startRadius: 0,
-                    endRadius: 220
-                )
-
-                // Subtle horizontal editorial lines
-                VStack(spacing: 28) {
-                    ForEach(0..<6, id: \.self) { _ in
-                        Rectangle()
-                            .fill(Color.white.opacity(0.03))
-                            .frame(height: 1)
-                    }
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 42, height: 42)
+                        .amenGlassEffect(in: Circle())
+                        .overlay(Circle().strokeBorder(Color(.separator).opacity(0.22), lineWidth: 0.75))
                 }
-                .frame(maxWidth: .infinity)
-
-                // Content
-                VStack(alignment: .leading, spacing: 0) {
-                    // Dismiss button
-                    HStack {
-                        Button { dismiss() } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.white.opacity(0.18))
-                                    .frame(width: 34, height: 34)
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(wellnessLight)
-                            }
-                        }
-                        Spacer()
-                    }
-                    .padding(.top, 56)
-                    .padding(.bottom, 18)
-
-                    Spacer()
-
-                    // Eyebrow
-                    Text("WELLNESS & MENTAL HEALTH")
-                        .font(.system(size: 9, weight: .semibold))
-                        .kerning(2.5)
-                        .foregroundStyle(wellnessSub)
-                        .padding(.bottom, 10)
-
-                    // Large serif headline
-                    Text("Mind,\nBody & Soul")
-                        .font(.custom("Georgia", size: 38))
-                        .fontWeight(.regular)
-                        .foregroundStyle(wellnessLight)
-                        .lineSpacing(4)
-                        .padding(.bottom, 10)
-
-                    // Subtitle
-                    Text("Faith-based care at every level of need.")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundStyle(wellnessSub)
-                        .padding(.bottom, 28)
-                }
-                .padding(.horizontal, 24)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer()
             }
-            .frame(width: geo.size.width, height: geo.size.height)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("WELLNESS & MENTAL HEALTH")
+                    .font(.systemScaled(9, weight: .semibold))
+                    .kerning(2.5)
+                    .foregroundStyle(wellnessSub)
+
+                Text("Mind,\nBody & Soul")
+                    .font(.custom("Georgia", size: 36))
+                    .fontWeight(.regular)
+                    .foregroundStyle(wellnessLight)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.86)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(3)
+
+                Text("Faith-based care at every level of need.")
+                    .font(.systemScaled(14, weight: .regular))
+                    .foregroundStyle(wellnessSub)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 320)
-        .ignoresSafeArea(edges: .top)
+        .padding(.horizontal, 24)
+        .padding(.top, 18)
+        .padding(.bottom, 22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 188, alignment: .topLeading)
+        .background(Color(.systemBackground))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(.separator).opacity(0.14))
+                .frame(height: 1)
+        }
         .opacity(appeared ? 1 : 0)
     }
 
@@ -183,17 +138,17 @@ struct MentalHealthDetailView: View {
             // Header bar
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(crisisRed)
                 Text("NEED HELP NOW?")
                     .font(.custom("OpenSans-Bold", size: 13))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ink)
                     .kerning(0.5)
                 Spacer()
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(crisisRed)
+            .background(Color(.systemBackground))
 
             // Quick-dial rows
             VStack(spacing: 0) {
@@ -225,7 +180,7 @@ struct MentalHealthDetailView: View {
                     urlString: "tel:911"
                 )
             }
-            .background(Color(red: 0.99, green: 0.97, blue: 0.97))
+            .background(Color(.systemBackground))
 
             // For a friend row
             Button {
@@ -234,29 +189,27 @@ struct MentalHealthDetailView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "person.fill.questionmark")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(crisisRed)
                     Text("Helping someone else? See the \"For a Friend\" guide")
                         .font(.custom("OpenSans-Regular", size: 13))
                         .foregroundStyle(ink)
                     Spacer()
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(inkSecondary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color(red: 1.0, green: 0.95, blue: 0.95))
+                .background(Color(.systemBackground))
             }
             .buttonStyle(PlainButtonStyle())
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .amenGlassCard(cornerRadius: 16, shadow: true)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(crisisRed.opacity(0.25), lineWidth: 1)
+                .stroke(crisisRed.opacity(0.24), lineWidth: 1)
         )
-        .shadow(color: crisisRed.opacity(0.10), radius: 12, y: 4)
-        .shadow(color: Color.black.opacity(0.04), radius: 4, y: 2)
     }
 
     // MARK: Tab Switcher
@@ -266,7 +219,7 @@ struct MentalHealthDetailView: View {
             HStack(spacing: 0) {
                 ForEach(WellnessTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.78))) {
                             selectedTab = tab
                         }
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -275,7 +228,7 @@ struct MentalHealthDetailView: View {
                             HStack(spacing: 5) {
                                 if tab == .crisis {
                                     Image(systemName: "exclamationmark.circle.fill")
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .font(.systemScaled(11, weight: .semibold))
                                         .foregroundStyle(selectedTab == tab ? crisisRed : inkSecondary)
                                 }
                                 Text(tab.rawValue)
@@ -337,7 +290,7 @@ struct MentalHealthDetailView: View {
                 spacing: 14
             ) {
                 ForEach(tools, id: \.0) { tool in
-                    WellnessToolCard(
+                    MentalHealthToolCard(
                         icon: tool.0,
                         title: tool.1,
                         subtitle: tool.2,
@@ -514,7 +467,7 @@ struct MentalHealthDetailView: View {
                     .fill(color.opacity(0.12))
                     .frame(width: 42, height: 42)
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(color)
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -559,7 +512,7 @@ struct MentalHealthDetailView: View {
                     .fill(tealAccent.opacity(0.12))
                     .frame(width: 44, height: 44)
                 Image(systemName: "bubble.left.and.text.bubble.right.fill")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(tealAccent)
             }
             VStack(alignment: .leading, spacing: 3) {
@@ -572,7 +525,7 @@ struct MentalHealthDetailView: View {
             }
             Spacer()
             Image(systemName: "arrow.right")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(tealAccent)
         }
         .padding(16)
@@ -594,7 +547,7 @@ struct MentalHealthDetailView: View {
                         .fill(Color(red: 0.22, green: 0.42, blue: 0.72).opacity(0.12))
                         .frame(width: 44, height: 44)
                     Image(systemName: "location.magnifyingglass")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(Color(red: 0.22, green: 0.42, blue: 0.72))
                 }
                 VStack(alignment: .leading, spacing: 3) {
@@ -607,7 +560,7 @@ struct MentalHealthDetailView: View {
                 }
                 Spacer()
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(inkSecondary)
             }
             .padding(16)
@@ -627,7 +580,7 @@ struct MentalHealthDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: "person.fill.questionmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(crisisRed)
                 Text("Helping Someone Else?")
                     .font(.custom("OpenSans-Bold", size: 15))
@@ -677,7 +630,7 @@ struct MentalHealthDetailView: View {
                         .fill(Color(red: 0.22, green: 0.42, blue: 0.46).opacity(0.12))
                         .frame(width: 44, height: 44)
                     Image(systemName: "list.clipboard.fill")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(Color(red: 0.22, green: 0.42, blue: 0.46))
                 }
                 VStack(alignment: .leading, spacing: 3) {
@@ -690,7 +643,7 @@ struct MentalHealthDetailView: View {
                 }
                 Spacer()
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(inkSecondary)
             }
             .padding(16)
@@ -711,7 +664,7 @@ struct MentalHealthDetailView: View {
     private var wellnessFooterGuardrail: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "info.circle")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(inkSecondary)
                 .padding(.top, 1)
             Text("These tools support wellness and spiritual growth. They are not a substitute for professional mental health care. If you're in crisis, tap the red card above or call 988.")
@@ -729,7 +682,7 @@ struct MentalHealthDetailView: View {
     private var counselingGuardrailNote: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "info.circle")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(inkSecondary)
                 .padding(.top, 1)
             Text("Directory listings are for informational purposes. AMEN does not endorse or verify individual providers. Always review credentials and insurance coverage directly with the provider.")
@@ -747,7 +700,7 @@ struct MentalHealthDetailView: View {
     private var peerSupportGuardrailNote: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "info.circle")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(inkSecondary)
                 .padding(.top, 1)
             Text("Peer support is not a replacement for licensed therapy or crisis intervention. If you or someone you know needs immediate help, call or text 988.")
@@ -765,7 +718,7 @@ struct MentalHealthDetailView: View {
     private var crisisFooterNote: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(crisisRed.opacity(0.7))
                 .padding(.top, 1)
             Text("If you are in immediate danger, call 911. The resources above are for mental health crises and emotional support. Prayer, scripture, and peer support listed in other tabs are not crisis care.")
@@ -807,7 +760,7 @@ private struct CrisisQuickDialRow: View {
                         .fill(color.opacity(0.12))
                         .frame(width: 36, height: 36)
                     Image(systemName: icon)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(color)
                 }
 
@@ -823,7 +776,7 @@ private struct CrisisQuickDialRow: View {
                 Spacer()
 
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(red: 0.42, green: 0.38, blue: 0.34))
             }
             .padding(.horizontal, 16)
@@ -850,7 +803,7 @@ private struct ForAFriendActionButton: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text(label)
                     .font(.custom("OpenSans-SemiBold", size: 13))
             }
@@ -865,9 +818,9 @@ private struct ForAFriendActionButton: View {
     }
 }
 
-// MARK: - Wellness Tool Card
+// MARK: - Mental Health Tool Card
 
-private struct WellnessToolCard: View {
+private struct MentalHealthToolCard: View {
     let icon: String
     let title: String
     let subtitle: String
@@ -886,7 +839,7 @@ private struct WellnessToolCard: View {
                         .fill(accent.opacity(0.13))
                         .frame(width: 40, height: 40)
                     Image(systemName: icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(accent)
                 }
 
@@ -935,7 +888,7 @@ private struct EditorialResourceCard: View {
                             .fill(resource.color.opacity(0.13))
                             .frame(width: 48, height: 48)
                         Image(systemName: resource.icon)
-                            .font(.system(size: 20, weight: .medium))
+                            .font(.systemScaled(20, weight: .medium))
                             .foregroundStyle(resource.color)
                     }
 
@@ -971,7 +924,7 @@ private struct EditorialResourceCard: View {
                             .fill(ink.opacity(0.88))
                             .frame(width: 34, height: 34)
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.white)
                     }
                 }

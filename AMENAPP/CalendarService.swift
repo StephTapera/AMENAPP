@@ -25,7 +25,7 @@ final class CalendarService: NSObject, ObservableObject {
     // MARK: - Private Properties
 
     private let eventStore = EKEventStore()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
     private var isListening = false
 
@@ -51,7 +51,13 @@ final class CalendarService: NSObject, ObservableObject {
         let status = EKEventStore.authorizationStatus(for: .event)
 
         // If already decided, return immediately (.authorized is the pre-iOS-17 name for .fullAccess)
-        if status == .fullAccess || status == .authorized {
+        let alreadyAuthorized: Bool
+        if #available(iOS 17.0, *) {
+            alreadyAuthorized = status == .fullAccess
+        } else {
+            alreadyAuthorized = status == .authorized
+        }
+        if alreadyAuthorized {
             permissionState = .authorized
             return true
         }
@@ -95,8 +101,9 @@ final class CalendarService: NSObject, ObservableObject {
     /// Returns the EKEvent identifier or nil on failure.
     func addEventToCalendar(
         _ amenEvent: AMENEvent,
-        options: CalendarAddOptions = CalendarAddOptions()
+        options: CalendarAddOptions? = nil
     ) async -> String? {
+        let options = options ?? CalendarAddOptions()
         guard permissionState.canAddEvents else { return nil }
 
         // Duplicate check
@@ -145,7 +152,8 @@ final class CalendarService: NSObject, ObservableObject {
     }
 
     /// Create a prefilled event using the native EKEventEditViewController (low-friction, user controls it)
-    func makeEKEvent(for amenEvent: AMENEvent, options: CalendarAddOptions = CalendarAddOptions()) -> EKEvent {
+    func makeEKEvent(for amenEvent: AMENEvent, options: CalendarAddOptions? = nil) -> EKEvent {
+        let options = options ?? CalendarAddOptions()
         let event = EKEvent(eventStore: eventStore)
         event.title = amenEvent.title
         event.startDate = amenEvent.startDate

@@ -18,7 +18,7 @@ class PersonalizationService: ObservableObject {
     @Published var isPersonalizing = false
     @Published var userProfile: UserModel?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {
         // Load user profile on init
@@ -30,10 +30,7 @@ class PersonalizationService: ObservableObject {
     // MARK: - User Profile Management
     
     func loadUserProfile() async {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            dlog("⚠️ PersonalizationService: No authenticated user")
-            return
-        }
+        guard let userId = Auth.auth().currentUser?.uid else { return }
         
         do {
             let document = try await db.collection("users").document(userId).getDocument()

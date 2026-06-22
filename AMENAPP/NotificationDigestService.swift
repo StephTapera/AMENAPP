@@ -8,7 +8,7 @@ import Combine
 class NotificationDigestService: ObservableObject {
     static let shared = NotificationDigestService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     @Published var pendingDigest: NotificationDigest?
     @Published var digestHistory: [NotificationDigest] = []
     

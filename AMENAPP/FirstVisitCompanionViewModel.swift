@@ -40,7 +40,60 @@ class FirstVisitCompanionViewModel: ObservableObject {
     // AI Visit Guide
     @Published var aiVisitTips: String?
     @Published var isLoadingAITips = false
+
+    // Checklist
+    @Published var checklist = ChurchVisitChecklist()
+
+    // Note / PostCard creation state
+    @Published var showNoteTemplateSheet = false
+    @Published var showPostCardComposerSheet = false
+    @Published var selectedNoteTemplate: String?           // "preVisit" or "sermonCapture"
+    @Published var selectedPostCardType: ChurchPostCardType?
     
+    // MARK: - Checklist Updates
+
+    /// Toggles a single checklist item and syncs to Firestore via ChurchInteractionService.
+    func updateChecklistItem(key: String, value: Bool) {
+        switch key {
+        case "gotDirections":    checklist.gotDirections = value
+        case "enabledQuietMode": checklist.enabledQuietMode = value
+        case "invitedFriend":    checklist.invitedFriend = value
+        case "createdNote":      checklist.createdNote = value
+        case "preparedPostCard": checklist.preparedPostCard = value
+        default: break
+        }
+
+        // Map Swift property key to Firestore snake_case key
+        let firestoreKey: String
+        switch key {
+        case "gotDirections":    firestoreKey = "got_directions"
+        case "enabledQuietMode": firestoreKey = "enabled_quiet_mode"
+        case "invitedFriend":    firestoreKey = "invited_friend"
+        case "createdNote":      firestoreKey = "created_note"
+        case "preparedPostCard": firestoreKey = "prepared_post_card"
+        default: firestoreKey = key
+        }
+
+        // Push to interaction service
+        if let churchId = selectedChurch?.id {
+            ChurchInteractionService.shared.updateChecklist(
+                churchId: churchId,
+                key: firestoreKey,
+                value: value
+            )
+        }
+    }
+
+    /// Called after a note is created from a template.
+    func didCreateNote() {
+        updateChecklistItem(key: "createdNote", value: true)
+    }
+
+    /// Called after a PostCard draft is created.
+    func didCreatePostCard() {
+        updateChecklistItem(key: "preparedPostCard", value: true)
+    }
+
     // MARK: - Create Visit Plan
     
     func createVisitPlan() async {
@@ -64,6 +117,13 @@ class FirstVisitCompanionViewModel: ObservableObject {
                 date: selectedDate,
                 serviceTime: service.startTime
             )
+
+            // Transition interaction to planning phase
+            if let churchId = church.id {
+                ChurchInteractionService.shared.transitionToPlanning(
+                    churchId: churchId
+                )
+            }
             
             // Create visit plan (idempotent)
             var plan = try await visitPlanService.createVisitPlan(
@@ -154,6 +214,25 @@ class FirstVisitCompanionViewModel: ObservableObject {
                         Logger.error("Failed to schedule post-visit reminder: \(error.localizedDescription)")
                     }
                 }
+
+                // Follow-up growth loop notifications
+                do {
+                    _ = try await notificationScheduler.scheduleFollowUpSameDay(
+                        church: church, serviceDate: serviceDateTime, visitPlanId: planId
+                    )
+                } catch { Logger.debug("Same-day follow-up skipped: \(error.localizedDescription)") }
+
+                do {
+                    _ = try await notificationScheduler.scheduleFollowUpNextDay(
+                        church: church, serviceDate: serviceDateTime, visitPlanId: planId
+                    )
+                } catch { Logger.debug("Next-day follow-up skipped: \(error.localizedDescription)") }
+
+                do {
+                    _ = try await notificationScheduler.scheduleFollowUpThreeDays(
+                        church: church, serviceDate: serviceDateTime, visitPlanId: planId
+                    )
+                } catch { Logger.debug("3-day follow-up skipped: \(error.localizedDescription)") }
                 
                 // Fetch updated plan
                 plan = try await visitPlanService.getVisitPlan(
@@ -190,7 +269,7 @@ class FirstVisitCompanionViewModel: ObservableObject {
             // 1. Create the note first, linked to the visit plan
             let note = ChurchNote(
                 userId: plan.userId,
-                title: "\(plan.churchName) — \(plan.serviceType ?? "Service")",
+                title: "\(plan.churchName) — \(plan.serviceType)",
                 churchName: plan.churchName,
                 churchId: plan.churchId,
                 pastor: nil,
@@ -209,7 +288,7 @@ class FirstVisitCompanionViewModel: ObservableObject {
             )
 
             // 3. Refresh the plan
-            if let church = selectedChurch {
+            if selectedChurch != nil {
                 visitPlan = try await visitPlanService.getVisitPlan(
                     userId: plan.userId,
                     churchId: plan.churchId,
@@ -233,7 +312,7 @@ class FirstVisitCompanionViewModel: ObservableObject {
         isLoading = true
         do {
             try await visitPlanService.markVisited(visitPlanId: planId, noteId: nil)
-            if let church = selectedChurch, let plan = visitPlan {
+            if selectedChurch != nil, let plan = visitPlan {
                 visitPlan = try await visitPlanService.getVisitPlan(
                     userId: plan.userId,
                     churchId: plan.churchId,

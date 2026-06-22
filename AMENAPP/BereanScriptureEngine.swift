@@ -248,20 +248,20 @@ struct ScriptureEnrichmentCard:
         VStack(alignment: .leading, spacing: 0) {
             // Header row
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                     expanded.toggle()
                 }
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "book.closed.fill")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.purple)
                     Text(insight.reference)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.purple)
                     Spacer()
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .padding(.horizontal, 12)
@@ -274,7 +274,7 @@ struct ScriptureEnrichmentCard:
                     // Verse text
                     if !insight.verseText.isEmpty {
                         Text(insight.verseText)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color(.label))
                             .italic()
                             .padding(.horizontal, 12)
@@ -284,7 +284,7 @@ struct ScriptureEnrichmentCard:
                     if !insight.crossRefs.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Cross-References")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .foregroundStyle(Color(.tertiaryLabel))
                                 .textCase(.uppercase)
                                 .padding(.horizontal, 12)
@@ -292,7 +292,7 @@ struct ScriptureEnrichmentCard:
                                 HStack(spacing: 6) {
                                     ForEach(insight.crossRefs, id: \.self) { ref in
                                         Text(ref)
-                                            .font(.system(size: 11, weight: .medium))
+                                            .font(.systemScaled(11, weight: .medium))
                                             .foregroundStyle(.purple)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 4)
@@ -327,7 +327,7 @@ struct ScriptureEnrichmentStrip: View {
             VStack(spacing: 6) {
                 HStack {
                     Text("Scripture Insights")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(Color(.tertiaryLabel))
                         .textCase(.uppercase)
                     Spacer()

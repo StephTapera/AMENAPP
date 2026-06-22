@@ -8,116 +8,19 @@
 //
 
 import SwiftUI
+import Combine
 
 // MARK: - AI Daily Verse Card
 
 struct AIDailyVerseCard: View {
     @ObservedObject private var verseService = DailyVerseGenkitService.shared
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header - simple black and white
-            HStack {
-                HStack(spacing: 6) {
-                    Image(systemName: "book.closed.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(6)
-                        .background(
-                            Circle()
-                                .fill(.white.opacity(0.2))
-                        )
-
-                    Text("Daily Verse")
-                        .font(.custom("OpenSans-Bold", size: 13))
-                        .foregroundStyle(.white)
-                }
-
-                Spacer()
-
-                Menu {
-                    Button {
-                        refreshVerse()
-                    } label: {
-                        Label("Refresh", systemImage: "arrow.clockwise")
-                    }
-
-                    Button {
-                        shareVerse()
-                    } label: {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(6)
-                        .background(
-                            Circle()
-                                .fill(.white.opacity(0.15))
-                        )
-                }
-            }
-            .padding(12)
-            
-            // Verse Content
-            if let verse = verseService.todayVerse {
-                verseContent(verse)
-            } else if verseService.isGenerating {
-                loadingView
-            } else {
-                emptyStateView
-            }
-        }
-        .background(
-            ZStack {
-                // Black and white liquid glass base
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(.ultraThinMaterial)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.black.opacity(0.6),
-                                        Color.black.opacity(0.5)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    )
-
-                // Subtle white glass overlay
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.08),
-                                Color.clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .center
-                        )
-                    )
-
-                // Glass border
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.2),
-                                Color.white.opacity(0.1)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
+        DailyVerseBannerView(
+            verse: verseService.todayVerse,
+            isLoading: verseService.isGenerating,
+            onLoad: { Task { await loadDailyVerse() } }
         )
-        .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
-        .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
         .padding(.horizontal)
         .task {
             // ✅ FIXED: Load cached verse first to prevent crash
@@ -139,115 +42,332 @@ struct AIDailyVerseCard: View {
             }
         }
     }
-    
-    // MARK: - Verse Content
 
-    @ViewBuilder
-    private func verseContent(_ verse: PersonalizedDailyVerse) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Verse Text - simple and clean
-            Text(verse.text)
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.white)
-                .lineSpacing(4)
-                .fixedSize(horizontal: false, vertical: true)
-
-            // Reference
-            Text("— \(verse.reference)")
-                .font(.custom("OpenSans-SemiBold", size: 12))
-                .foregroundStyle(.white.opacity(0.8))
-        }
-        .padding(.horizontal, 12)
-        .padding(.bottom, 12)
-    }
-    
-    
-    // MARK: - Loading View
-
-    private var loadingView: some View {
-        HStack(spacing: 12) {
-            ProgressView()
-                .scaleEffect(0.9)
-                .tint(.white)
-
-            Text("Loading verse...")
-                .font(.custom("OpenSans-Regular", size: 12))
-                .foregroundStyle(.white.opacity(0.8))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-    }
-
-    // MARK: - Empty State
-
-    private var emptyStateView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "book.closed")
-                .font(.system(size: 32))
-                .foregroundStyle(.white.opacity(0.4))
-
-            Text("No verse loaded")
-                .font(.custom("OpenSans-SemiBold", size: 13))
-                .foregroundStyle(.white)
-
-            Button("Load Verse") {
-                Task {
-                    await loadDailyVerse()
-                }
-            }
-            .font(.custom("OpenSans-SemiBold", size: 12))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.white.opacity(0.2))
-            .cornerRadius(8)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-    }
-    
     // MARK: - Actions
-    
+
     private func loadDailyVerse() async {
         _ = await verseService.generatePersonalizedDailyVerse()
     }
-    
-    private func refreshVerse() {
-        Task {
-            _ = await verseService.generatePersonalizedDailyVerse(forceRefresh: true)
-        }
+}
+
+// MARK: - Daily Verse Banner (Liquid Glass)
+
+struct DailyVerseBannerView: View {
+    let verse: PersonalizedDailyVerse?
+    let isLoading: Bool
+    let onLoad: () -> Void
+
+    @State private var isExpanded = false
+    @State private var showSelahView = false
+    @State private var didSaveToday = false
+
+    private var dayString: String {
+        String(Calendar.current.component(.day, from: Date()))
     }
-    
-    private func loadThemedVerse(theme: VerseTheme) {
-        Task {
-            let verse = await verseService.generateThemedVerse(theme: theme)
-            await MainActor.run {
-                verseService.todayVerse = verse
+
+    private var monthString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        return formatter.string(from: Date()).uppercased()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                dayMonthStack
+
+                VStack(alignment: .leading, spacing: 8) {
+                    headerRow
+
+                    if let verse {
+                        VerseContentView(
+                            verse: verse,
+                            isExpanded: isExpanded,
+                            onToggle: toggleExpanded
+                        )
+                    } else if isLoading {
+                        loadingView
+                    } else {
+                        emptyStateView
+                    }
+                }
+            }
+
+            ExpandableSection(
+                isExpanded: isExpanded,
+                didSaveToday: didSaveToday,
+                onSelah: { showSelahView = true },
+                onSave: saveToday
+            )
+        }
+        .padding(12)
+        .background(liquidGlassBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.35), lineWidth: 0.6)
+        )
+        .shadow(color: Color.black.opacity(0.08), radius: 14, y: 6)
+        .shadow(color: Color.black.opacity(0.03), radius: 6, y: 2)
+        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: isExpanded)
+        .sheet(isPresented: $showSelahView) {
+            if let verse {
+                SelahView(
+                    message: bereanMessage(from: verse),
+                    originalQuery: "Daily Verse"
+                )
             }
         }
     }
-    
-    private func shareVerse() {
-        guard let verse = verseService.todayVerse else { return }
-        
-        let shareText = """
-        \(verse.text)
-        — \(verse.reference)
-        
-        \(verse.reflection)
-        
-        Shared from AMEN App
-        """
-        
-        let activityVC = UIActivityViewController(
-            activityItems: [shareText],
-            applicationActivities: nil
-        )
-        
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController {
-            rootVC.present(activityVC, animated: true)
+
+    private var dayMonthStack: some View {
+        VStack(spacing: 2) {
+            Text(dayString)
+                .font(.systemScaled(24, weight: .semibold))
+                .foregroundStyle(.primary)
+            Text(monthString)
+                .font(.systemScaled(10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .tracking(1.1)
         }
+        .frame(width: 44)
+    }
+
+    private var headerRow: some View {
+        HStack(spacing: 8) {
+            Text("DAILY VERSE")
+                .font(.systemScaled(9, weight: .semibold))
+                .tracking(1.1)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(0.5))
+                )
+
+            HStack(spacing: 3) {
+                Image(systemName: "sparkles")
+                    .font(.systemScaled(8, weight: .medium))
+                Text("AI")
+                    .font(.systemScaled(8, weight: .semibold))
+                    .tracking(0.8)
+            }
+            .foregroundStyle(.tertiary)
+            .accessibilityLabel("AI-generated reflection")
+
+            Spacer()
+
+            Button(action: toggleExpanded) {
+                Image(systemName: "chevron.right")
+                    .font(.systemScaled(12, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isExpanded ? "Collapse daily verse" : "Expand daily verse")
+        }
+    }
+
+    private var liquidGlassBackground: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.55), Color.clear],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                )
+        }
+    }
+
+    private var loadingView: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .scaleEffect(0.85)
+                .tint(Color.black.opacity(0.5))
+            Text("Loading verse...")
+                .font(.systemScaled(12, weight: .regular))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var emptyStateView: some View {
+        Button(action: onLoad) {
+            HStack(spacing: 6) {
+                Image(systemName: "book.closed")
+                    .font(.systemScaled(12, weight: .semibold))
+                Text("Load Verse")
+                    .font(.systemScaled(12, weight: .semibold))
+            }
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func toggleExpanded() {
+        guard verse != nil else { return }
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.82))) {
+            isExpanded.toggle()
+        }
+    }
+
+    private func saveToday() {
+        guard let verse else { return }
+        didSaveToday = saveDailyVerse(verse)
+    }
+
+    private func saveDailyVerse(_ verse: PersonalizedDailyVerse) -> Bool {
+        let key = "savedDailyVerses"
+        let saved = loadSavedVerses(key: key)
+        let today = Calendar.current.startOfDay(for: Date())
+
+        let alreadySaved = saved.contains {
+            $0.reference == verse.reference &&
+            $0.text == verse.text &&
+            Calendar.current.isDate($0.date, inSameDayAs: today)
+        }
+        if alreadySaved {
+            return true
+        }
+
+        let newItem = SavedDailyVerse(
+            date: today,
+            reference: verse.reference,
+            text: verse.text
+        )
+        var updated = saved
+        updated.insert(newItem, at: 0)
+        let encoder = JSONEncoder()
+        if let data = try? encoder.encode(updated) {
+            UserDefaults.standard.set(data, forKey: key)
+        }
+        return true
+    }
+
+    private func loadSavedVerses(key: String) -> [SavedDailyVerse] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([SavedDailyVerse].self, from: data) else {
+            return []
+        }
+        return decoded
+    }
+
+    private func bereanMessage(from verse: PersonalizedDailyVerse) -> BereanMessage {
+        BereanMessage(
+            id: UUID(),
+            content: "\(verse.text)\n\n— \(verse.reference)",
+            role: .assistant,
+            timestamp: Date(),
+            verseReferences: [verse.reference],
+            feedback: nil,
+            isBookmarked: false
+        )
+    }
+}
+
+struct VerseContentView: View {
+    let verse: PersonalizedDailyVerse
+    let isExpanded: Bool
+    let onToggle: () -> Void
+
+    private var collapsedLineLimit: Int {
+        let count = verse.text.count
+        if count < 80 { return 2 }
+        return 3
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(verse.text)
+                .font(.custom("OpenSans-Regular", size: 13))
+                .foregroundStyle(.primary)
+                .lineSpacing(4)
+                .lineLimit(isExpanded ? nil : collapsedLineLimit)
+                .truncationMode(.tail)
+                .animation(.easeInOut(duration: 0.2), value: isExpanded)
+
+            Text(verse.reference)
+                .font(.custom("OpenSans-SemiBold", size: 11))
+                .foregroundStyle(.secondary)
+
+            Text("Tap to reflect")
+                .font(.custom("OpenSans-SemiBold", size: 10))
+                .foregroundStyle(.tertiary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { onToggle() }
+    }
+}
+
+struct ExpandableSection: View {
+    let isExpanded: Bool
+    let didSaveToday: Bool
+    let onSelah: () -> Void
+    let onSave: () -> Void
+
+    var body: some View {
+        if isExpanded {
+            VStack(spacing: 8) {
+                Button(action: onSelah) {
+                    HStack {
+                        Text("Selah View")
+                            .font(.systemScaled(13, weight: .semibold))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.systemScaled(11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.regularMaterial)
+                    )
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onSave) {
+                    HStack {
+                        Text(didSaveToday ? "Saved Today" : "Save Today")
+                            .font(.systemScaled(12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Image(systemName: didSaveToday ? "checkmark" : "bookmark")
+                            .font(.systemScaled(11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white.opacity(0.45))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+}
+
+struct SavedDailyVerse: Codable, Identifiable {
+    let id: UUID
+    let date: Date
+    let reference: String
+    let text: String
+
+    init(id: UUID = UUID(), date: Date, reference: String, text: String) {
+        self.id = id
+        self.date = date
+        self.reference = reference
+        self.text = text
     }
 }
 
@@ -268,7 +388,7 @@ struct ThemePickerSheet: View {
                         } label: {
                             VStack(spacing: 12) {
                                 Image(systemName: theme.icon)
-                                    .font(.system(size: 30))
+                                    .font(.systemScaled(30))
                                     .foregroundStyle(.blue)
                                 
                                 Text(theme.rawValue)

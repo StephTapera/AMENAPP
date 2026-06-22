@@ -38,7 +38,7 @@ final class SpiritualSeasonService: ObservableObject {
     @AppStorage("spiritualSeasonRaw")   private var seasonRaw: String     = ""
     @AppStorage("spiritualSeasonDate")  private var seasonDateTS: Double  = 0
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let cacheTTL: TimeInterval = 7 * 86400  // 7 days
 
     // MARK: - Public API

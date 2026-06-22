@@ -129,7 +129,7 @@ struct ProactiveFrictionView: View {
 
             if !acknowledged {
                 Button {
-                    withAnimation(.spring(response: 0.3)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                         acknowledged = true
                         onAcknowledge?()
                     }
@@ -294,7 +294,7 @@ final class RepeatOffenderCache {
     static let shared = RepeatOffenderCache()
     private var cachedValue: Bool = false
     private var lastFetched: Date = .distantPast
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let cacheInterval: TimeInterval = 300  // 5 min
 
     private init() {}

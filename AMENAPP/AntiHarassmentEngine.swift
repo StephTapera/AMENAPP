@@ -16,7 +16,7 @@ import FirebaseAuth
 class AntiHarassmentEngine {
     static let shared = AntiHarassmentEngine()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // MARK: - Enforcement History Tracking
 
@@ -374,8 +374,13 @@ class AntiHarassmentEngine {
             ], merge: true)
 
         // Notify target user — only if this is a new or extended activation
-        _ = try? await db.collection("notifications").addDocument(data: [
+        _ = try? await db
+            .collection("users")
+            .document(userId)
+            .collection("notifications")
+            .addDocument(data: [
             "type": "system_protection_enabled",
+            "userId": userId,
             "toUserId": userId,
             "title": "Enhanced Protection Enabled",
             "body": "We've noticed activity that may be affecting your experience. We've enabled extra safety features on your account. Comments will require your approval.",
@@ -458,8 +463,13 @@ class AntiHarassmentEngine {
             ])
 
         // Notify restricted user about the temporary restriction
-        _ = try? await db.collection("notifications").addDocument(data: [
+        _ = try? await db
+            .collection("users")
+            .document(userId)
+            .collection("notifications")
+            .addDocument(data: [
             "type": "system_restriction",
+            "userId": userId,
             "toUserId": userId,
             "title": "Temporary Restriction",
             "body": "Your account has been temporarily restricted for \(durationHours) hours due to a community guideline violation. You can appeal this decision in Settings.",
@@ -809,15 +819,19 @@ class AntiHarassmentEngine {
                 expiresAfterDays: 30
             )
             // Flag for immediate human review
-            _ = try? await db.collection("moderationQueue").addDocument(data: [
-                "type": "minor_safety_pattern",
-                "offenderId": pattern.userId,
-                "targetId": pattern.targetUserId,
-                "priority": "immediate",
-                "incidentCount": pattern.incidentCount,
-                "createdAt": FieldValue.serverTimestamp(),
-                "policyVersion": AntiHarassmentEngine.currentPolicyVersion
-            ])
+            do {
+                try await db.collection("moderationQueue").addDocument(data: [
+                    "type": "minor_safety_pattern",
+                    "offenderId": pattern.userId,
+                    "targetId": pattern.targetUserId,
+                    "priority": "immediate",
+                    "incidentCount": pattern.incidentCount,
+                    "createdAt": FieldValue.serverTimestamp(),
+                    "policyVersion": AntiHarassmentEngine.currentPolicyVersion
+                ])
+            } catch {
+                print("AntiHarassmentEngine: failed to enqueue minor_safety_pattern — \(error.localizedDescription)")
+            }
             return
         }
 
@@ -888,8 +902,13 @@ class AntiHarassmentEngine {
 
         case .low:
             // Warning only — scripture-grounded civility reminder
-            _ = try? await db.collection("notifications").addDocument(data: [
+            _ = try? await db
+                .collection("users")
+                .document(pattern.userId)
+                .collection("notifications")
+                .addDocument(data: [
                 "type": "system_warning",
+                "userId": pattern.userId,
                 "toUserId": pattern.userId,
                 "title": "A Gentle Reminder",
                 "body": "\"Be kind to one another, tenderhearted\" (Ephesians 4:32). Repeated targeting of other members may result in restrictions.",

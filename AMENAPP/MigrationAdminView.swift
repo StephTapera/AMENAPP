@@ -24,7 +24,7 @@ struct MigrationAdminView: View {
                     // Header
                     VStack(spacing: 8) {
                         Image(systemName: "person.crop.circle.badge.checkmark")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(.blue)
                         
                         Text("Profile Image Migration")
@@ -42,7 +42,7 @@ struct MigrationAdminView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             HStack {
                                 Image(systemName: "chart.bar.doc.horizontal")
-                                    .font(.system(size: 20))
+                                    .font(.systemScaled(20))
                                     .foregroundStyle(.blue)
                                 
                                 Text("Migration Status")

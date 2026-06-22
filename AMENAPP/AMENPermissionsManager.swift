@@ -272,7 +272,7 @@ struct AMENPermissionEducationView: View {
                     .fill(Color.accentColor.opacity(0.10))
                     .frame(width: 90, height: 90)
                 Image(systemName: context.educationIcon)
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(Color.accentColor)
             }
             .padding(.top, 48)
@@ -328,7 +328,7 @@ struct AMENPermissionDeniedView: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
                 .padding(.top, 40)
 

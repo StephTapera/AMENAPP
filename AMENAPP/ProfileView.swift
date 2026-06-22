@@ -1,3 +1,7 @@
+// DEFERRED-FEATURE: UserProfileViewWrapper and HashtagSearchViewWrapper show
+// "coming soon" placeholder text. Full profile and hashtag search views not yet
+// built. (GAP A1-P1)
+
 //
 //  ProfileView.swift
 //  AMENAPP
@@ -22,6 +26,7 @@ import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
 import FirebaseDatabase
+import FirebaseFunctions
 
 // MARK: - Profile Tab Enum
 
@@ -55,6 +60,9 @@ struct ProfileView: View {
         case loginHistory
         case followersList
         case followingList
+        case journey
+        case followRequests
+        case changePhoto
         var id: String {
             switch self {
             case .settings: return "settings"
@@ -64,18 +72,34 @@ struct ProfileView: View {
             case .loginHistory: return "loginHistory"
             case .followersList: return "followersList"
             case .followingList: return "followingList"
+            case .journey: return "journey"
+            case .followRequests: return "followRequests"
+            case .changePhoto: return "changePhoto"
             }
         }
     }
     @State private var activeSheet: ProfileSheet? = nil
 
+    // Digest Brain: AI spiritual journey summary banner
+    @State private var digestSummary: String = ""
+    @State private var showDigestBanner: Bool = false
+    @State private var digestDismissTask: Task<Void, Never>? = nil
+    @State private var digestFetchStarted: Bool = false
+
     @State private var showSettings = false     // kept for any legacy call sites
     @State private var showEditProfile = false  // kept for any legacy call sites
     @State private var selectedTab = ProfileTab.posts
+    @State private var feedViewMode: FeedViewMode = .posts
+    @StateObject private var mediaFeedVM = MediaFeedViewModel()
     @State private var showQRCode = false
     @State private var isLoading = false
     @State private var isRefreshing = false
     @State private var avatarPressed = false
+    
+    @AppStorage("profileChurchId") private var profileChurchId: String = ""
+    @AppStorage("profileChurchName") private var profileChurchName: String = ""
+    @AppStorage("profileChurchVisibility") private var profileChurchVisibility: String = "private"
+    @AppStorage("amen_journey_engine_enabled") private var journeyEnabled: Bool = true
     
     // PERFORMANCE: Profile data caching to prevent re-fetches
     @State private var lastProfileLoad: Date?
@@ -119,6 +143,9 @@ struct ProfileView: View {
     
     // NEW: Login History state
     @State private var showLoginHistory = false
+
+    // Journey onboarding — shown first-time when engine has no saved journey
+    @State private var showJourneyOnboarding = false
     
     // NEW: Stats Display
     @State private var followerCount = 0
@@ -126,7 +153,8 @@ struct ProfileView: View {
     @State private var showFollowersList = false
     @State private var showFollowingList = false
     @ObservedObject private var followService = FollowService.shared
-    
+    @ObservedObject private var followRequestsViewModel = FollowRequestsViewModel.shared
+
     @Namespace private var tabNamespace
     
     // NEW: Toolbar expand/collapse
@@ -146,117 +174,199 @@ struct ProfileView: View {
     // Scroll offset tracking for header animation
     @State private var scrollOffset: CGFloat = 0
     @State private var showCompactHeader = false
-    
+
     // Enhanced refresh state
     @State private var lastRefreshDate: Date?
     @State private var newPostsCount = 0
     @State private var showRefreshToast = false
+
+    // P0-1: Load error state
+    @State private var showLoadError = false
+    @State private var loadErrorMessage = ""
+
+    // Quick sign out
+    @State private var showSignOutConfirmation = false
+
+    // P0-2: Track pending post-creation refresh so rapid taps cancel the previous one
+    @State private var refreshAfterCreationTask: Task<Void, Never>?
+
+    // P0-3: Lifecycle-bound task for digest fetch so it cancels on view disappear
+    @State private var digestFetchTask: Task<Void, Never>?
+    @StateObject private var commandCenterViewModel = AmenCommandCenterViewModel()
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Profile Header
-                    profileHeaderViewWithoutTabs
-                        .background(
-                            GeometryReader { geometry in
-                                Color.clear
-                                    .preference(
-                                        key: ScrollOffsetPreferenceKey.self,
-                                        value: geometry.frame(in: .named("scroll")).minY
-                                    )
-                            }
-                        )
-                    
-                    // Living Memory — preserved life stories section
-                    LivingMemorySection()
-                        .padding(.top, 8)
-
-                    // 🎯 TAB BAR - Right under action buttons (like Threads)
-                    stickyTabBar
-                        .padding(.top, 0)
-                    
-                    // Content - flows naturally after tabs
-                    if isLoading {
-                        VStack(spacing: 20) {
-                            AMENLoadingIndicator()
-
-                            Text("Loading...")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 40)
-                    } else {
-                        contentView
-                            .padding(.top, 12)
+            // Adaptive Ambient: wrap the profile root so the screen's palette/intensity
+            // is installed into the environment. Default-safe: AdaptiveColorsMode == .off
+            // renders byte-identical neutral, and a nil hero image fails closed to neutral.
+            AmbientScope { coordinator in
+                profileRootView
+                    // Collapse progress derived from the existing scroll offset.
+                    // scrollOffset is 0 at top and grows negative as the hero scrolls up;
+                    // it reaches the compact-header threshold at -200pt, so map [-200, 0] -> [1, 0].
+                    .adaptiveNavigationChrome(
+                        collapseProgress: min(max(-scrollOffset / 200.0, 0.0), 1.0)
+                    )
+                    .onAppear { driveAmbient(coordinator) }
+                    // Re-drive when the avatar URL changes (e.g. after a photo edit).
+                    .onChange(of: profileData.profileImageURL) { _, _ in
+                        driveAmbient(coordinator)
                     }
-                }
-            }
-            .coordinateSpace(name: "scroll")
-            .refreshable {
-                await fastRefreshProfile()
-            }
-            .simultaneousGesture(scrollDragGesture)
-            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                scrollOffset = value
-                
-                // Show compact header when scrolled past 200 points
-                let shouldShow = value < -200
-                if showCompactHeader != shouldShow {
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        showCompactHeader = shouldShow
+                    // Clear the tint on the way out so the next screen starts neutral.
+                    .onDisappear {
+                        coordinator.reset(scheme: ambientScheme, reduceMotion: ambientReduceMotion)
                     }
-                }
-                
-                // Show tab bar when at top of scroll
-                if value >= 0 {
-                    tabBarVisible.wrappedValue = true
+            }
+        }
+    }
+
+    // MARK: - Adaptive Ambient wiring
+
+    @Environment(\.colorScheme) private var ambientScheme
+    @Environment(\.accessibilityReduceMotion) private var ambientReduceMotion
+
+    /// Drive the ambient palette from the user's avatar/hero.
+    private func driveAmbient(_ coordinator: AmbientCoordinator) {
+        let uid = Auth.auth().currentUser?.uid ?? "self"
+        // Revision: profileImageURL changes when the photo changes, so use it (or "1") as the revision token.
+        let revision = profileData.profileImageURL ?? "1"
+        let key = AmbientSourceKey(id: "user/\(uid)/hero", revision: revision)
+        // TODO(gate: HUMAN-MACHINE) — ambient: avatar is AsyncImage-by-URL; no decoded UIImage reachable here.
+        // Pass decoded hero UIImage once hoisted via a cached image lookup keyed on profileData.profileImageURL.
+        coordinator.drive(with: nil, key: key, scheme: ambientScheme, reduceMotion: ambientReduceMotion)
+    }
+
+    private var profileRootView: some View {
+        profilePresentationHost(profileBaseView)
+            // P1-6: Bust profile cache when EditProfileView saves changes
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("profileDataUpdated"))) { _ in
+                lastProfileLoad = nil
+                Task { await loadProfileData() }
+            }
+            .task {
+            // Load profile data BEFORE view appears (ensures username shows immediately)
+            dlog("👁️ ProfileView task started")
+            guard Auth.auth().currentUser?.uid != nil else {
+                dlog("👁️ ProfileView task skipped — no Firebase Auth user")
+                isLoading = false
+                return
+            }
+            printDataState(context: "task - Before")
+            
+            // ⚡️ INSTANT: Pre-populate posts from PostsManager cache so posts show
+            // immediately without waiting for the Firestore fetch to complete.
+            if userPosts.isEmpty, let currentUserId = Auth.auth().currentUser?.uid {
+                let cached = PostsManager.shared.allPosts.filter { $0.authorId == currentUserId }
+                if !cached.isEmpty {
+                    userPosts = cached.sorted { $0.createdAt > $1.createdAt }
+                    dlog("⚡️ [INSTANT] Pre-populated \(userPosts.count) posts from cache")
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(Color.white)
-            .overlay(refreshToastOverlay)
-            .background(Color.white.ignoresSafeArea())
-            .navigationTitle("")  // Empty to use custom title
+            
+            // Load profile data immediately if cache is stale or missing
+            if let lastLoad = lastProfileLoad,
+               Date().timeIntervalSince(lastLoad) < cacheValidityDuration {
+                dlog("   ✅ Using cached profile data (loaded \(Int(Date().timeIntervalSince(lastLoad)))s ago)")
+                printDataState(context: "task - Cache Hit")
+                // Re-establish listeners if they were torn down on disappear
+                if !listenersActive, let userId = Auth.auth().currentUser?.uid {
+                    dlog("   🔄 Re-establishing real-time listeners after navigation...")
+                    setupRealtimeDatabaseListeners(userId: userId)
+                    listenersActive = true
+                }
+            } else {
+                dlog("   🔄 Cache stale or missing, loading profile data...")
+                await loadProfileData()
+                lastProfileLoad = Date()
+                printDataState(context: "task - After Load")
+            }
+            
+            // Journey engine — initialize (no-op if already loaded for this user)
+            if journeyEnabled, let uid = Auth.auth().currentUser?.uid {
+                await AmenJourneyEngine.shared.initialize(userId: uid)
+                // First-use: show selection picker if no journey has been saved yet
+                if AmenJourneyEngine.shared.currentJourney == nil {
+                    showJourneyOnboarding = true
+                }
+            }
+
+            // Start follow service listeners
+            followService.startListening()
+            dlog("✅ FollowService listeners started")
+            dlog("   Followers: \(followService.currentUserFollowersCount)")
+            dlog("   Following: \(followService.currentUserFollowingCount)")
+        }
+        .onAppear {
+            dlog("👁️ ProfileView appeared")
+            // Set up notification observers
+            setupNotificationObservers()
+            // P0-3: Digest fetch stored in a lifecycle-bound Task so it is
+            // cancelled immediately if the view disappears before the delay fires.
+            digestFetchTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5s
+                guard !Task.isCancelled else { return }
+                fetchDigestBrain()
+            }
+        }
+        .onDisappear {
+            dlog("👋 ProfileView disappeared")
+            printDataState(context: "onDisappear")
+
+            // P0-3: Cancel pending digest fetch so it doesn't fire after teardown
+            digestFetchTask?.cancel()
+            digestFetchTask = nil
+
+            // P0 FIX: Remove ALL listeners to prevent memory leaks
+            postsListener?.remove()
+            postsListener = nil
+            dlog("   ✅ Posts listener removed")
+
+            // NOTE: Do NOT stop FollowService or RealtimeSavedPostsService here.
+            // Both are global singletons used throughout the app. Stopping them on
+            // profile disappear breaks follow state and saved-post badges app-wide
+            // for the rest of the session. They are only stopped on sign-out.
+            dlog("   ✅ Global singleton listeners kept active (sign-out only)")
+
+            // P0 FIX: Stop reposts real-time listener
+            if let uid = repostObserverUserId {
+                RealtimeRepostsService.shared.removeObserver(userId: uid)
+                repostObserverUserId = nil
+            }
+            dlog("   ✅ Reposts listener stopped")
+
+            // Clean up notification observers
+            cleanupNotificationObservers()
+
+            // P0 FIX: Cancel scroll update tasks
+            scrollUpdateTask?.cancel()
+            scrollUpdateTask = nil
+            // P0-2: Cancel any in-flight post-creation refresh
+            refreshAfterCreationTask?.cancel()
+            refreshAfterCreationTask = nil
+
+            // Mark listeners as inactive
+            listenersActive = false
+            dlog("   ✅ ProfileView cleanup complete")
+        }
+    }
+
+    private var profileBaseView: some View {
+        profileScrollView
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // CENTER: Animated Username Title (without @)
-                ToolbarItem(placement: .principal) {
-                    if !profileData.username.isEmpty {
-                        Text("@\(profileData.username)")
-                            .font(.custom("OpenSans-Bold", size: 17))
-                            .foregroundStyle(.black)
-                    }
-                }
-                
-                // TOP LEFT: Compact Profile Header (shows when scrolled)
-                ToolbarItem(placement: .topBarLeading) {
-                    if showCompactHeader {
-                        HStack(spacing: 12) {
-                            // Compact Avatar with profile photo
-                            compactAvatarView
-                            
-                            // Name only (no username)
-                            Text(profileData.name)
-                                .font(.custom("OpenSans-Bold", size: 14))
-                                .foregroundStyle(.black)
-                                .lineLimit(1)
-                        }
-                        .transition(.move(edge: .leading).combined(with: .opacity))
-                    }
-                }
-                
-                ToolbarItem(placement: .topBarTrailing) {
-                    toolbarTrailingButtons
-                }
-            }
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar { profileToolbarContent }
+    }
+
+    @ViewBuilder
+    private func profilePresentationHost<Content: View>(_ content: Content) -> some View {
+        content
             // Single sheet presentation — avoids "only one sheet at a time" warnings
             // and prevents re-initialisation of sheet content when not presented.
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
                 case .settings:
-                    SettingsView()
+                    AMENSettingsView()
                 case .editProfile:
                     EditProfileView(profileData: $profileData)
                 case .qrCode:
@@ -277,6 +387,18 @@ struct ProfileView: View {
                     } else {
                         Text("Error: Not signed in").padding()
                     }
+                case .journey:
+                    AmenJourneyPrivateGrowthView()
+                case .followRequests:
+                    FollowRequestsView()
+                case .changePhoto:
+                    ProfilePhotoEditView(
+                        currentImageURL: profileData.profileImageURL,
+                        onPhotoUpdated: { newURL in
+                            profileData.profileImageURL = newURL
+                            lastProfileLoad = nil
+                        }
+                    )
                 }
             }
             // Legacy bool bindings: mirror them into activeSheet so old call sites still work
@@ -287,83 +409,142 @@ struct ProfileView: View {
             .onChange(of: showLoginHistory) { _, v in if v { activeSheet = .loginHistory; showLoginHistory = false } }
             .onChange(of: showFollowersList) { _, v in if v { activeSheet = .followersList; showFollowersList = false } }
             .onChange(of: showFollowingList) { _, v in if v { activeSheet = .followingList; showFollowingList = false } }
-            .task {
-                // Load profile data BEFORE view appears (ensures username shows immediately)
-                dlog("👁️ ProfileView task started")
-                printDataState(context: "task - Before")
-                
-                // ⚡️ INSTANT: Pre-populate posts from PostsManager cache so posts show
-                // immediately without waiting for the Firestore fetch to complete.
-                if userPosts.isEmpty, let currentUserId = Auth.auth().currentUser?.uid {
-                    let cached = PostsManager.shared.allPosts.filter { $0.authorId == currentUserId }
-                    if !cached.isEmpty {
-                        userPosts = cached.sorted { $0.createdAt > $1.createdAt }
-                        dlog("⚡️ [INSTANT] Pre-populated \(userPosts.count) posts from cache")
-                    }
-                }
-                
-                // Load profile data immediately if cache is stale or missing
-                if let lastLoad = lastProfileLoad,
-                   Date().timeIntervalSince(lastLoad) < cacheValidityDuration {
-                    dlog("   ✅ Using cached profile data (loaded \(Int(Date().timeIntervalSince(lastLoad)))s ago)")
-                    printDataState(context: "task - Cache Hit")
-                    // Re-establish listeners if they were torn down on disappear
-                    if !listenersActive, let userId = Auth.auth().currentUser?.uid {
-                        dlog("   🔄 Re-establishing real-time listeners after navigation...")
-                        setupRealtimeDatabaseListeners(userId: userId)
-                        listenersActive = true
-                    }
-                } else {
-                    dlog("   🔄 Cache stale or missing, loading profile data...")
-                    await loadProfileData()
-                    lastProfileLoad = Date()
-                    printDataState(context: "task - After Load")
-                }
-                
-                // Start follow service listeners
-                followService.startListening()
-                dlog("✅ FollowService listeners started")
-                dlog("   Followers: \(followService.currentUserFollowersCount)")
-                dlog("   Following: \(followService.currentUserFollowingCount)")
+            // Journey onboarding — first-time picker (separate from the dashboard sheet)
+            .sheet(isPresented: $showJourneyOnboarding) {
+                AmenJourneySelectionView()
             }
-            .onAppear {
-                dlog("👁️ ProfileView appeared")
-                // Set up notification observers
-                setupNotificationObservers()
+            // P0-1: Surface profile load failures so the user can retry
+            .alert("Couldn't Load Profile", isPresented: $showLoadError) {
+                Button("Retry") { Task { await loadProfileData() } }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text(loadErrorMessage)
             }
-            .onDisappear {
-                dlog("👋 ProfileView disappeared")
-                printDataState(context: "onDisappear")
-                
-                // P0 FIX: Remove ALL listeners to prevent memory leaks
-                postsListener?.remove()
-                postsListener = nil
-                dlog("   ✅ Posts listener removed")
-                
-                // NOTE: Do NOT stop FollowService or RealtimeSavedPostsService here.
-                // Both are global singletons used throughout the app. Stopping them on
-                // profile disappear breaks follow state and saved-post badges app-wide
-                // for the rest of the session. They are only stopped on sign-out.
-                dlog("   ✅ Global singleton listeners kept active (sign-out only)")
-                
-                // P0 FIX: Stop reposts real-time listener
-                if let uid = repostObserverUserId {
-                    RealtimeRepostsService.shared.removeObserver(userId: uid)
-                    repostObserverUserId = nil
+            .alert("Sign Out?", isPresented: $showSignOutConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Sign Out", role: .destructive) {
+                    authViewModel.signOut()
                 }
-                dlog("   ✅ Reposts listener stopped")
-                
-                // Clean up notification observers
-                cleanupNotificationObservers()
-                
-                // P0 FIX: Cancel scroll update tasks
-                scrollUpdateTask?.cancel()
-                scrollUpdateTask = nil
+            } message: {
+                Text("You’ll need to sign in again to access your account.")
+            }
+    }
 
-                // Mark listeners as inactive
-                listenersActive = false
-                dlog("   ✅ ProfileView cleanup complete")
+    private var profileScrollView: some View {
+        ScrollView {
+            profileScrollContent
+        }
+        .coordinateSpace(name: "scroll")
+        .refreshable {
+            await fastRefreshProfile()
+        }
+        .simultaneousGesture(scrollDragGesture)
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+            scrollOffset = value
+            
+            // Show compact header when scrolled past 200 points
+            let shouldShow = value < -200
+            if showCompactHeader != shouldShow {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    showCompactHeader = shouldShow
+                }
             }
+            
+            // Show tab bar when at top of scroll
+            if value >= 0 {
+                tabBarVisible.wrappedValue = true
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(Color(uiColor: .systemBackground))
+        .overlay(refreshToastOverlay)
+        .overlay(digestBrainBanner, alignment: .top)
+        .background(
+            ZStack(alignment: .top) {
+                Color(uiColor: .systemBackground)
+                LinearGradient(
+                    colors: [Color.accentColor.opacity(0.18), Color.clear],
+                    startPoint: .top,
+                    endPoint: UnitPoint(x: 0.5, y: 0.30)
+                )
+            }
+            .ignoresSafeArea()
+        )
+    }
+
+    @ViewBuilder
+    private var profileScrollContent: some View {
+        VStack(spacing: 0) {
+            // Spiritual OS — Command Center (Agent F, gated by AppStorage flag)
+            AmenCommandCenterSection(
+                viewModel: commandCenterViewModel,
+                userId: Auth.auth().currentUser?.uid ?? ""
+            )
+
+            // Profile Header
+            profileHeaderViewWithoutTabs
+                .background(
+                    GeometryReader { geometry in
+                        Color.clear
+                            .preference(
+                                key: ScrollOffsetPreferenceKey.self,
+                                value: geometry.frame(in: .named("scroll")).minY
+                            )
+                    }
+                )
+            
+            // 🎯 TAB BAR - Right under action buttons (like Threads)
+            stickyTabBar
+                .padding(.top, 0)
+            
+            // Content - flows naturally after tabs
+            if isLoading {
+                VStack(spacing: 20) {
+                    AMENLoadingIndicator()
+
+                    Text("Loading...")
+                        .font(AMENFont.semiBold(16))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 40)
+            } else {
+                contentView
+                    .padding(.top, 12)
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var profileToolbarContent: some ToolbarContent {
+        // CENTER: Animated Username Title (without @)
+        ToolbarItem(placement: .principal) {
+            if !profileData.username.isEmpty {
+                Text("@\(profileData.username)")
+                    .font(AMENFont.bold(17))
+                    .foregroundStyle(.primary)
+            }
+        }
+        
+        // TOP LEFT: Compact Profile Header (shows when scrolled)
+        ToolbarItem(placement: .topBarLeading) {
+            if showCompactHeader {
+                HStack(spacing: 12) {
+                    // Compact Avatar with profile photo
+                    compactAvatarView
+                    
+                    // Name only (no username)
+                    Text(profileData.name)
+                        .font(AMENFont.bold(14))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                }
+                .transition(.move(edge: .leading).combined(with: .opacity))
+            }
+        }
+        
+        ToolbarItem(placement: .topBarTrailing) {
+            toolbarTrailingButtons
         }
     }
     
@@ -373,64 +554,76 @@ struct ProfileView: View {
     @ViewBuilder
     private var toolbarTrailingButtons: some View {
         HStack(spacing: 10) {
-            // Notification Bell Button (always visible)
-            NotificationBellButton()
-            
-            // Conditionally show the 4 buttons when expanded
-            if isToolbarExpanded {
+            // Follow requests button — always visible when there are pending requests
+            let pendingFollowCount = followRequestsViewModel.requests.count
+            Button {
+                activeSheet = .followRequests
+                HapticManager.impact(style: .light)
+            } label: {
+                Image(systemName: "person.badge.clock")
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .overlay(alignment: .topTrailing) {
+                        if pendingFollowCount > 0 {
+                            Text(pendingFollowCount < 100 ? "\(pendingFollowCount)" : "99+")
+                                .font(.systemScaled(9, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.red))
+                                .offset(x: 6, y: -6)
+                        }
+                    }
+            }
+
+            Menu {
+                if journeyEnabled {
+                    Button {
+                        activeSheet = .journey
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Label("My Journey", systemImage: "chart.line.uptrend.xyaxis")
+                    }
+                }
+
                 Button {
                     showLoginHistory = true
                 } label: {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.black)
+                    Label("Login History", systemImage: "clock.arrow.circlepath")
                 }
-                .transition(.scale.combined(with: .opacity))
-                
+
                 Button {
                     showQRCode = true
                 } label: {
-                    Image(systemName: "qrcode")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.black)
+                    Label("Profile QR", systemImage: "qrcode")
                 }
-                .transition(.scale.combined(with: .opacity))
-                
+
                 Button {
                     shareProfile()
                 } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.black)
+                    Label("Share Profile", systemImage: "square.and.arrow.up")
                 }
-                .transition(.scale.combined(with: .opacity))
-                
+
                 Button {
                     showSettings = true
                 } label: {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.black)
+                    Label("Settings", systemImage: "line.3.horizontal")
                 }
-                .transition(.scale.combined(with: .opacity))
-            }
-            
-            // Toggle button with enhanced animation
-            Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2)) {
-                    isToolbarExpanded.toggle()
+
+                Divider()
+
+                Button(role: .destructive) {
+                    showSignOutConfirmation = true
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                 }
-                
-                HapticManager.impact(style: .light)
             } label: {
-                // Icon morphs between ellipsis ↔ xmark with liquid dissolve-reform
-                Image(systemName: isToolbarExpanded ? "xmark" : "ellipsis")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.black)
+                Image(systemName: "ellipsis")
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundStyle(.primary)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
-                    .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
-                    .scaleEffect(isToolbarExpanded ? 0.95 : 1.0)
             }
             .buttonStyle(.plain)
         }
@@ -445,7 +638,7 @@ struct ProfileView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                     Text("\(newPostsCount) new \(newPostsCount == 1 ? "post" : "posts")")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.white)
                 }
                 .padding(.horizontal, 16)
@@ -536,7 +729,7 @@ struct ProfileView: View {
                 if isOptimistic {
                     // OPTIMISTIC: Add immediately for instant feedback
                     if !self.userPosts.contains(where: { $0.id == newPost.id }) {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                             self.userPosts.insert(newPost, at: 0)  // Add at top
                         }
                         dlog("   ⚡ OPTIMISTIC post added instantly")
@@ -549,9 +742,13 @@ struct ProfileView: View {
                         
                         HapticManager.notification(type: .success)
                         
-                        // Force refresh after 1 second to get confirmed data
-                        Task {
+                        // P0-2: Cancel any in-flight creation refresh before scheduling a new one,
+                        // preventing rapid double-taps from running concurrent fetches that can
+                        // overwrite each other and cause the newest post to vanish.
+                        self.refreshAfterCreationTask?.cancel()
+                        self.refreshAfterCreationTask = Task {
                             try? await Task.sleep(nanoseconds: 1_000_000_000)
+                            guard !Task.isCancelled else { return }
                             await self.refreshPostsAfterCreation()
                         }
                     } else {
@@ -568,7 +765,7 @@ struct ProfileView: View {
                         dlog("   Updated existing post at index \(index)")
                     } else {
                         // Wasn't added optimistically, add now
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                             self.userPosts.insert(newPost, at: 0)
                         }
                         dlog("   Added confirmed post (wasn't optimistic)")
@@ -921,6 +1118,32 @@ struct ProfileView: View {
         }
     }
     
+    private func normalizedUsernameForDisplay(rawUsername: String, authUserId: String) -> String {
+        let trimmed = rawUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "user" }
+        if let dashIndex = trimmed.firstIndex(of: "-") {
+            let base = String(trimmed[..<dashIndex])
+            let suffix = String(trimmed[trimmed.index(after: dashIndex)...])
+            if !base.isEmpty, authUserId.lowercased().hasPrefix(suffix.lowercased()) {
+                return base
+            }
+        }
+        return trimmed
+    }
+
+    // MARK: - Safe RTDB Fetchers
+
+    /// Non-throwing wrapper for user replies. Returns [] on any RTDB error (e.g. Permission Denied
+    /// when rules haven't been deployed yet) so the caller's parallel fetch never aborts.
+    private static func fetchRepliesSafe(userId: String) async -> [AMENAPP.Comment] {
+        do { return try await AMENAPP.RealtimeCommentsService.shared.fetchUserCommentInteractions(userId: userId) } catch { return [] }
+    }
+
+    /// Non-throwing wrapper for user reposts. Same rationale as fetchRepliesSafe.
+    private static func fetchRepostsSafe(userId: String) async -> [Post] {
+        do { return try await RealtimeRepostsService.shared.fetchUserReposts(userId: userId) } catch { return [] }
+    }
+
     @MainActor
     private func loadProfileData() async {
         let _perfToken = PerfBegin("profile_load")
@@ -938,7 +1161,7 @@ struct ProfileView: View {
         dlog("📱 ProfileView: Loading profile for user: \(authUser.uid)")
         
         // DIRECT Firestore fetch for profile data (profile stays in Firestore)
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         do {
             let doc = try await db.collection("users").document(authUser.uid).getDocument()
@@ -955,11 +1178,16 @@ struct ProfileView: View {
             
             // Extract data directly from Firestore
             let displayName = data["displayName"] as? String ?? "User"
-            let username = data["username"] as? String ?? "user"
+            let rawUsername = data["username"] as? String ?? "user"
+            let username = normalizedUsernameForDisplay(rawUsername: rawUsername, authUserId: authUser.uid)
             let bio = data["bio"] as? String ?? ""
             let bioURL = data["bioURL"] as? String // ✅ NEW: Load bio URL
-            let profileImageURL = data["profileImageURL"] as? String
+            // Fallback chain: Firestore field → legacy "photoURL" field → Firebase Auth photoURL
+            let profileImageURL: String? = (data["profileImageURL"] as? String)
+                ?? (data["photoURL"] as? String)
+                ?? authUser.photoURL?.absoluteString
             let interests = data["interests"] as? [String] ?? []
+            let profileTopics = data["profileTopics"] as? [String] ?? []
             
             // Generate initials from display name
             let names = displayName.components(separatedBy: " ")
@@ -987,7 +1215,8 @@ struct ProfileView: View {
                 initials: String(initials),
                 profileImageURL: profileImageURL,
                 interests: interests,
-                socialLinks: socialLinks
+                socialLinks: socialLinks,
+                profileTopics: profileTopics
             )
             
             dlog("✅ ProfileView: Profile data updated")
@@ -1015,36 +1244,23 @@ struct ProfileView: View {
             // Fetch all four data sources in parallel using withThrowingTaskGroup.
             // async let tuple-await causes swift_task_dealloc fatal error when the parent
             // task is cancelled (e.g. user swipes back) before all children complete.
-            var fetchedPosts: [Post] = []
-            var fetchedSavedPosts: [Post] = []
-            var fetchedReplies: [Comment] = []
-            var fetchedReposts: [Post] = []
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    let posts = try await FirebasePostService.shared.fetchUserPosts(userId: userId)
-                    await MainActor.run { fetchedPosts = posts }
-                }
-                group.addTask {
-                    let saved = try await RealtimeSavedPostsService.shared.fetchSavedPosts()
-                    await MainActor.run { fetchedSavedPosts = saved }
-                }
-                group.addTask {
-                    let replies = try await AMENAPP.RealtimeCommentsService.shared.fetchUserCommentInteractions(userId: userId)
-                    await MainActor.run { fetchedReplies = replies }
-                }
-                group.addTask {
-                    let reposts = try await RealtimeRepostsService.shared.fetchUserReposts(userId: userId)
-                    await MainActor.run { fetchedReposts = reposts }
-                }
-                try await group.waitForAll()
-            }
+            // Fetch all four sources in parallel. Reposts and comments are stored in
+            // Realtime Database paths that may not yet have rules deployed — use
+            // safe (non-throwing) wrappers so a permission-denied on RTDB never kills
+            // the Firestore post fetch or collapses the whole profile to an empty state.
+            async let postsTask   = FirebasePostService.shared.fetchUserPosts(userId: userId)
+            async let savedTask   = RealtimeSavedPostsService.shared.fetchSavedPosts()
+            async let repliesTask = ProfileView.fetchRepliesSafe(userId: userId)
+            async let repostsTask = ProfileView.fetchRepostsSafe(userId: userId)
 
-            userPosts = fetchedPosts
-            savedPosts = fetchedSavedPosts
+            let (fetchedPosts, fetchedSaved, fetchedReplies, fetchedReposts) = try await (postsTask, savedTask, repliesTask, repostsTask)
+
+            userPosts   = fetchedPosts
+            savedPosts  = fetchedSaved
             userReplies = fetchedReplies
-            reposts = fetchedReposts
+            reposts     = fetchedReposts
             lastParallelFetchDate = Date()  // PERF: Grace window for observer de-dupe
-            dlog("✅ Parallel fetch complete: \(fetchedPosts.count) posts, \(fetchedSavedPosts.count) saved, \(fetchedReplies.count) replies, \(fetchedReposts.count) reposts")
+            dlog("✅ Parallel fetch complete: \(fetchedPosts.count) posts, \(fetchedSaved.count) saved, \(fetchedReplies.count) replies, \(fetchedReposts.count) reposts")
             
             // 🔥 SET UP REAL-TIME LISTENERS if not already active
             if !listenersActive {
@@ -1077,8 +1293,11 @@ struct ProfileView: View {
             
         } catch {
             dlog("❌ ProfileView: Error loading profile - \(error.localizedDescription)")
+            // P0-1: Surface the error so the user sees a retry option instead of a silent blank screen
+            loadErrorMessage = "Couldn't load your profile. Please check your connection and try again.\n\n\(error.localizedDescription)"
+            showLoadError = true
         }
-        
+
         isLoading = false
     }
     
@@ -1112,21 +1331,13 @@ struct ProfileView: View {
     // MARK: - Open Social Link Function
     
     private func openSocialLink(_ link: SocialLinkUI) {
-        var urlString = ""
-        
-        switch link.platform {
-        case .twitter:
-            urlString = "https://twitter.com/\(link.username)"
-        case .instagram:
-            urlString = "https://instagram.com/\(link.username)"
-        case .linkedin:
-            urlString = "https://linkedin.com/in/\(link.username)"
-        case .youtube:
-            urlString = "https://youtube.com/@\(link.username)"
-        case .tiktok:
-            urlString = "https://tiktok.com/@\(link.username)"
-        }
-        
+        // P2-3: Delegate URL construction to SocialLinkData.generateURL so
+        // this function doesn't duplicate the platform → URL mapping logic.
+        let urlString = SocialLinkData.generateURL(
+            platform: link.platform.rawValue,
+            username: link.username
+        )
+
         guard let url = URL(string: urlString) else {
             dlog("❌ Invalid social link URL: \(urlString)")
             return
@@ -1156,13 +1367,19 @@ struct ProfileView: View {
         // ✅ Posts are stored in Firestore - set up real-time snapshot listener
         dlog("🔥 [POSTS] Setting up real-time Firestore listener for user posts...")
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         // P0 FIX: Remove existing listener before creating new one
         postsListener?.remove()
         
-        postsListener = db.collection("posts")
+        let currentUserId = Auth.auth().currentUser?.uid
+        var postsQuery: Query = db.collection("posts")
             .whereField("authorId", isEqualTo: userId)
+        if userId != currentUserId {
+            postsQuery = postsQuery.whereField("visibility", isEqualTo: "everyone")
+        }
+
+        postsListener = postsQuery
             .order(by: "createdAt", descending: true)
             .addSnapshotListener { querySnapshot, error in
                 
@@ -1231,9 +1448,16 @@ struct ProfileView: View {
             }
 
             Task {
+                // P1-5: Skip state mutation if the view is no longer visible
+                // to avoid updating orphaned state after view teardown.
+                guard self.listenersActive else {
+                    dlog("⏭️ [SAVED] View no longer active — skipping saved posts update")
+                    return
+                }
                 do {
                     let posts = try await RealtimeSavedPostsService.shared.fetchSavedPosts()
                     await MainActor.run {
+                        guard self.listenersActive else { return }
                         let previousCount = self.savedPosts.count
                         let existingIds = Set(self.savedPosts.map { $0.firestoreId })
                         // Only INSERT truly-new posts — never replace the full array.
@@ -1246,7 +1470,6 @@ struct ProfileView: View {
                         }
                         dlog("🔄 [SAVED] Saved posts updated: \(self.savedPosts.count) (was \(previousCount), added \(newPosts.count))")
                         if !newPosts.isEmpty {
-                            // haptic
                             HapticManager.impact(style: .light)
                         }
                     }
@@ -1304,10 +1527,96 @@ struct ProfileView: View {
 
     private func countForTab(_ tab: ProfileTab) -> Int {
         switch tab {
-        case .posts: return userPosts.count
-        case .replies: return 0
-        case .saved: return savedPosts.count
+        case .posts:   return userPosts.count
+        case .replies: return userReplies.count
+        case .saved:   return savedPosts.count
         case .reposts: return reposts.count
+        }
+    }
+
+    // MARK: - Digest Brain
+
+    @ViewBuilder
+    private var digestBrainBanner: some View {
+        if showDigestBanner && !digestSummary.isEmpty {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.systemScaled(11, weight: .semibold))
+                    .foregroundStyle(Color.indigo)
+                Text(digestSummary)
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+                Button { dismissDigestBanner() } label: {
+                    Image(systemName: "xmark")
+                        .font(.systemScaled(10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay(Capsule().strokeBorder(Color.indigo.opacity(0.18), lineWidth: 1))
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    private func shouldShowDigestBrainBanner() -> Bool {
+        let key = "digestBrainLastShownDate"
+        if let lastShown = UserDefaults.standard.object(forKey: key) as? Date {
+            if Calendar.current.isDateInToday(lastShown) {
+                return false
+            }
+        }
+        return true
+    }
+
+    private func fetchDigestBrain() {
+        // Only fetch once per view instance and once per day
+        guard !digestFetchStarted,
+              let uid = FirebaseAuth.Auth.auth().currentUser?.uid,
+              shouldShowDigestBrainBanner() else { return }
+        digestFetchStarted = true
+        // Save date immediately so repeated appearances don't re-trigger
+        UserDefaults.standard.set(Date(), forKey: "digestBrainLastShownDate")
+        Task {
+            do {
+                let functions = FirebaseFunctions.Functions.functions()
+                let result = try await functions.httpsCallable("digestBrain").call(["userId": uid])
+                if let data = result.data as? [String: Any],
+                   let summary = data["summary"] as? String,
+                   !summary.isEmpty {
+                    await MainActor.run {
+                        digestSummary = summary
+                        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.80))) {
+                            showDigestBanner = true
+                        }
+                        // Auto-dismiss after 8 seconds
+                        digestDismissTask = Task {
+                            try? await Task.sleep(nanoseconds: 8_000_000_000)
+                            if !Task.isCancelled {
+                                await MainActor.run { dismissDigestBanner() }
+                            }
+                        }
+                    }
+                }
+            } catch {
+                // Silent fail — digest is optional
+            }
+        }
+    }
+
+    private func dismissDigestBanner() {
+        digestDismissTask?.cancel()
+        withAnimation(.easeOut(duration: 0.25)) {
+            showDigestBanner = false
         }
     }
 
@@ -1315,21 +1624,21 @@ struct ProfileView: View {
 
     private func liquidGlassButtonLabel(text: String) -> some View {
         Text(text)
-            .font(.custom("OpenSans-Bold", size: 15))
-            .foregroundStyle(.black)
+            .font(AMENFont.bold(15))
+            .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(liquidGlassBackground)
     }
     
     private var liquidGlassBackground: some View {
-        RoundedRectangle(cornerRadius: 20)
-            .fill(Color(white: 0.93))
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(AmenTheme.Colors.glassFill)
             .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color(.separator).opacity(0.4), lineWidth: 0.75)
             )
-            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+            .shadow(color: .black.opacity(0.04), radius: 3, y: 1)
     }
     
     // MARK: - Achievement Badges View
@@ -1370,7 +1679,7 @@ struct ProfileView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
         }
-        .background(Color.white)
+        .background(Color.clear)
     }
     
     // MARK: - Profile Header
@@ -1378,35 +1687,69 @@ struct ProfileView: View {
     // Extract complex avatar view to help compiler
     @ViewBuilder
     private var profileAvatarView: some View {
-        if let profileImageURL = profileData.profileImageURL, 
+        if let profileImageURL = profileData.profileImageURL,
            !profileImageURL.isEmpty,
            let url = URL(string: profileImageURL) {
             // P0 FIX: Use CachedAsyncImage for better performance
-            CachedAsyncImage(url: url) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 80, height: 80)
-                    .clipShape(Circle())
-            } placeholder: {
-                avatarPlaceholder(showProgress: true)
+            ZStack(alignment: .bottomTrailing) {
+                CachedAsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 80, height: 80)
+                        .clipShape(Circle())
+                } placeholder: {
+                    avatarPlaceholder(showProgress: true)
+                }
+                .frame(width: 80, height: 80)
+
+                // Camera badge — visible on own profile so user knows the avatar is tappable
+                if isViewingOwnProfile {
+                    cameraBadge
+                }
             }
-            .frame(width: 80, height: 80)
         } else {
             avatarInitials
         }
     }
     
     private var avatarInitials: some View {
-        ZStack {
+        ZStack(alignment: .bottomTrailing) {
             Circle()
-                .fill(Color.black)
+                .fill(Color.accentColor)
                 .frame(width: 80, height: 80)
-            
-            Text(profileData.initials)
-                .font(.custom("OpenSans-Bold", size: 28))
-                .foregroundStyle(.white)
+                .overlay(
+                    Group {
+                        if profileData.initials.isEmpty {
+                            Image(systemName: "person.fill")
+                                .font(.systemScaled(30, weight: .semibold))
+                                .foregroundStyle(.white)
+                        } else {
+                            Text(profileData.initials)
+                                .font(AMENFont.bold(26))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                )
+
+            // Camera badge — signals the avatar is tappable to add a photo (own profile only)
+            if isViewingOwnProfile {
+                cameraBadge
+            }
         }
+    }
+
+    private var cameraBadge: some View {
+        Circle()
+            .fill(.ultraThinMaterial)
+            .frame(width: 22, height: 22)
+            .overlay(
+                Image(systemName: "camera.fill")
+                    .font(.systemScaled(10, weight: .semibold))
+                    .foregroundStyle(.primary)
+            )
+            .overlay(Circle().stroke(.primary.opacity(0.10), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
     }
     
     private func avatarPlaceholder(showProgress: Bool) -> some View {
@@ -1447,325 +1790,324 @@ struct ProfileView: View {
                     .frame(width: 32, height: 32)
                     .overlay(
                         Text(profileData.initials)
-                            .font(.custom("OpenSans-Bold", size: 12))
+                            .font(AMENFont.bold(12))
                             .foregroundStyle(.white)
                     )
             }
         }
     }
     
-    // 🎯 NEW: Sticky Tab Bar View
+    // MARK: - Liquid Glass Tab Pills
     private var stickyTabBar: some View {
         HStack(spacing: 8) {
             ForEach(ProfileTab.allCases, id: \.self) { tab in
                 Button {
-                    // PERFORMANCE: Use reusable haptic generator
                     HapticManager.impact(style: .light)
-                    
-                    // Switch tab with fast, smooth animation
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
                         selectedTab = tab
                     }
-                    
-                    // Analytics tracking
                     dlog("📊 Tab switched to: \(tab.rawValue)")
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(selectedTab == tab ? .white : .black.opacity(0.6))
-                        
+                            .font(.systemScaled(13, weight: selectedTab == tab ? .bold : .medium))
+                        Text(tab.rawValue)
+                            .font(AMENFont.semiBold(12))
+                    }
+                    .foregroundStyle(selectedTab == tab ? .primary : .secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background {
                         if selectedTab == tab {
-                            Text("\(tab.rawValue) (\(countForTab(tab)))")
-                                .font(.custom("OpenSans-Bold", size: 14))
-                                .foregroundStyle(.white)
-                                .transition(.scale(scale: 0.8).combined(with: .opacity))
+                            Capsule(style: .continuous)
+                                .fill(.thinMaterial)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [Color.white.opacity(0.65), Color.white.opacity(0.12)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 0.75
+                                        )
+                                )
+                                .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+                                .matchedGeometryEffect(id: "tabBackground", in: tabNamespace)
+                        } else {
+                            Capsule(style: .continuous)
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+                                )
                         }
                     }
-                    .padding(.horizontal, selectedTab == tab ? 20 : 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        ZStack {
-                            if selectedTab == tab {
-                                // ✨ Selected state - black pill with shadow and subtle bounce
-                                Capsule()
-                                    .fill(Color.black)
-                                    .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)
-                                    .matchedGeometryEffect(id: "tabBackground", in: tabNamespace)
-                                    .scaleEffect(selectedTab == tab ? 1.0 : 0.95)
-                            } else {
-                                // Unselected state - subtle background
-                                Capsule()
-                                    .fill(Color.black.opacity(0.04))
-                            }
-                        }
-                    )
+                    .clipShape(Capsule(style: .continuous))
                 }
                 .buttonStyle(PlainButtonStyle())
-                .scaleEffect(selectedTab == tab ? 1.0 : 0.96)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedTab)
+                .accessibilityLabel(tab.rawValue)
+                .accessibilityAddTraits(selectedTab == tab ? [.isSelected, .isButton] : .isButton)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .padding(.bottom, 0)  // ✅ Zero bottom padding - feed starts RIGHT after tabs
-        .background(Color.white)
-        .overlay(
-            Rectangle()
-                .fill(Color.black.opacity(0.05))
-                .frame(height: 1),
-            alignment: .bottom
-        )
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
     }
     
-    // 🎯 NEW: Profile Header WITHOUT Tab Selector
+    private var isViewingOwnProfile: Bool {
+        let cachedUsername = UserDefaults.standard.string(forKey: "cachedUsername") ?? ""
+        return !cachedUsername.isEmpty && profileData.username == cachedUsername
+    }
+    
+    private var shouldShowProfileChurchCapsule: Bool {
+        guard !profileChurchName.isEmpty else { return false }
+        return profileChurchVisibility != "private" || isViewingOwnProfile
+    }
+    
+    // MARK: - Profile Header (Hero Layout)
     private var profileHeaderViewWithoutTabs: some View {
-        VStack(spacing: 6) {
-            // Top Section: Avatar and Name
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    // Name with verified badge
-                    HStack(spacing: 6) {
-                        Text(profileData.name)
-                            .font(.custom("OpenSans-Bold", size: 26))
-                            .foregroundStyle(.black)
-
-                        // ✅ Verified badge for specific user
-                        if let userId = Auth.auth().currentUser?.uid,
-                           VerifiedBadgeHelper.isVerified(userId: userId) {
-                            VerifiedBadge(size: 20)
-                        }
-                    }
-                }
-                
+        VStack(spacing: 0) {
+            // ── Avatar — centered hero ─────────────────────────
+            HStack {
                 Spacer()
-                
-                // Avatar with bounce animation
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                         avatarPressed = true
                     }
                     Task { @MainActor in
                         try? await Task.sleep(nanoseconds: 150_000_000)
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                             avatarPressed = false
                         }
                         try? await Task.sleep(nanoseconds: 50_000_000)
-                        showFullScreenAvatar = true
+                        let hasPhoto = !(profileData.profileImageURL ?? "").isEmpty
+                        if hasPhoto {
+                            showFullScreenAvatar = true
+                        } else {
+                            activeSheet = .changePhoto
+                        }
                     }
                 } label: {
                     profileAvatarView
-                        .scaleEffect(avatarPressed ? 0.9 : 1.0)
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-            
-            // 🎯 Bio with Link Detection
-            BioLinkText(text: profileData.bio)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            
-            // ✅ Bio URL with liquid glass black and white design
-            if let bioURL = profileData.bioURL, !bioURL.isEmpty, let bioURLParsed = URL(string: bioURL) {
-                Link(destination: bioURLParsed) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "link.circle.fill")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.black)
-
-                        Text(bioURL.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                                .replacingOccurrences(of: "http://", with: ""))
-                            .font(.custom("OpenSans-SemiBold", size: 11))
-                            .foregroundStyle(.black)
-                            .lineLimit(1)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(
-                        ZStack {
-                            // Base frosted glass layer
-                            Capsule()
-                                .fill(.ultraThinMaterial)
-
-                            // Inner glow effect (white from top)
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.5),
-                                            Color.white.opacity(0.2),
-                                            Color.clear
-                                        ],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-
-                            // Rim light (highlight on edges)
-                            Capsule()
+                        .overlay(
+                            Circle()
                                 .strokeBorder(
                                     LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.7),
-                                            Color.white.opacity(0.4),
-                                            Color.white.opacity(0.2)
-                                        ],
+                                        colors: [Color.white.opacity(0.85), Color.white.opacity(0.30)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     ),
-                                    lineWidth: 1.5
+                                    lineWidth: 3
                                 )
-
-                            // Outer border (black)
-                            Capsule()
-                                .strokeBorder(
-                                    Color.black.opacity(0.25),
-                                    lineWidth: 1
-                                )
-                                .padding(0.5)
-                        }
-                        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
-                        .shadow(color: .white.opacity(0.15), radius: 4, x: 0, y: -1)
-                    )
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            
-            // Interests with hand-drawn highlight animation
-            if !profileData.interests.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(Array(profileData.interests.enumerated()), id: \.element) { index, interest in
-                            HandDrawnHighlightText(
-                                text: interest,
-                                animationDelay: Double(index) * 0.15
-                            )
-                        }
-                    }
-                }
-            }
-            
-            // Social Links - Clickable
-            if !profileData.socialLinks.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(profileData.socialLinks) { link in
-                        Button {
-                            openSocialLink(link)
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: link.platform.icon)
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(link.platform.color)
-                                
-                                Text(link.username)
-                                    .font(.custom("OpenSans-Regular", size: 14))
-                                    .foregroundStyle(.black.opacity(0.7))
-                                
-                                Spacer()
-                                
-                                Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.black.opacity(0.3))
-                            }
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                }
-            }
-            
-            // Follower/Following Stats - Tappable (Left Aligned)
-            HStack(spacing: 24) {
-                Button {
-                    dlog("👥 Opening followers list...")
-                    dlog("   Current followers count: \(followService.currentUserFollowersCount)")
-                    showFollowersList = true
-                    
-                    // Haptic feedback
-                    // haptic
-                    HapticManager.impact(style: .light)
-                } label: {
-                    // Follower count de-emphasized: label leads, number is secondary
-                    // Avoids training users to optimize for follower accumulation
-                    HStack(spacing: 4) {
-                        Text("Followers")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.secondary)
-                        Text("\(followService.currentUserFollowersCount)")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.secondary)
-                    }
+                                .frame(width: 84, height: 84)
+                        )
+                        .shadow(color: .black.opacity(0.10), radius: 12, y: 4)
+                        .scaleEffect(avatarPressed ? 0.92 : 1.0)
                 }
                 .buttonStyle(PlainButtonStyle())
-                
-                Button {
-                    showFollowingList = true
-                    // haptic
-                    HapticManager.impact(style: .light)
-                } label: {
-                    HStack(spacing: 4) {
-                        Text("Following")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.secondary)
-                        Text("\(followService.currentUserFollowingCount)")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .buttonStyle(PlainButtonStyle())
-                
                 Spacer()
             }
-            .padding(.vertical, 4)
-            
-            // Action Buttons (Full Width - Expanded)
-            HStack(spacing: 8) {
-                Button {
-                    showEditProfile = true
-                } label: {
-                    Text("Edit profile")
-                        .font(.custom("OpenSans-Bold", size: 14))
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(white: 0.93))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                                )
+            .padding(.top, 24)
+
+            // ── Name + Verified badge + Username ───────────────
+            VStack(spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(profileData.name)
+                        .font(AMENFont.bold(24))
+                        .foregroundStyle(.primary)
+                    if let userId = Auth.auth().currentUser?.uid,
+                       VerifiedBadgeHelper.shared.isVerified(userId: userId) {
+                        VerifiedBadge(
+                            type: VerifiedBadgeHelper.shared.getVerificationType(userId: userId),
+                            size: 18
                         )
+                    }
                 }
-                
-                Button {
-                    shareProfile()
-                } label: {
-                    Text("Share profile")
-                        .font(.custom("OpenSans-Bold", size: 14))
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(white: 0.93))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                                )
-                        )
+                if !profileData.username.isEmpty {
+                    Text("@\(profileData.username)")
+                        .font(AMENFont.regular(14))
+                        .foregroundStyle(.tertiary)
                 }
             }
+            .multilineTextAlignment(.center)
+            .padding(.top, 12)
+
+            // ── Bio ────────────────────────────────────────────
+            if !profileData.bio.isEmpty {
+                BioLinkText(text: profileData.bio)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 8)
+            }
+
+            // ── Bio URL chip ───────────────────────────────────
+            if let bioURL = profileData.bioURL, !bioURL.isEmpty, let bioURLParsed = URL(string: bioURL) {
+                Link(destination: bioURLParsed) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "link")
+                            .font(.systemScaled(10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Text(bioURL
+                                .replacingOccurrences(of: "https://", with: "")
+                                .replacingOccurrences(of: "http://", with: "")
+                                .trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+                            .font(AMENFont.semiBold(12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.white.opacity(AmenOpacity.glassFill)))
+                    .overlay(Capsule().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5))
+                }
+                .padding(.top, 6)
+            }
+
+            if shouldShowProfileChurchCapsule {
+                ChurchNameCapsulePill(churchName: profileChurchName, onTap: {})
+                    .padding(.top, 6)
+            }
+
+            // ── Topics + Interests ─────────────────────────────
+            if !profileData.profileTopics.isEmpty || !profileData.interests.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(profileData.profileTopics, id: \.self) { topic in
+                            TopicPillView(rawTopic: topic)
+                        }
+                        ForEach(profileData.interests, id: \.self) { interest in
+                            TopicPillView(rawTopic: interest)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .padding(.top, 8)
+            }
+
+            // ── Social Links ───────────────────────────────────
+            if !profileData.socialLinks.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(profileData.socialLinks) { link in
+                            Button { openSocialLink(link) } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: link.platform.icon)
+                                        .font(.systemScaled(12))
+                                        .foregroundStyle(link.platform.color)
+                                    Text(link.username)
+                                        .font(AMENFont.regular(12))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(Color.white.opacity(0.7)))
+                                .overlay(Capsule().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .padding(.top, 6)
+            }
+
+            // ── Followers / Following ──────────────────────────
+            HStack(spacing: 20) {
+                Button {
+                    dlog("Opening followers list...")
+                    showFollowersList = true
+                    HapticManager.impact(style: .light)
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(formatCount(followService.currentUserFollowersCount))
+                            .font(AMENFont.bold(14))
+                            .foregroundStyle(.primary)
+                        Text("followers")
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                Button {
+                    showFollowingList = true
+                    HapticManager.impact(style: .light)
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(formatCount(followService.currentUserFollowingCount))
+                            .font(AMENFont.bold(14))
+                            .foregroundStyle(.primary)
+                        Text("following")
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            .padding(.top, 14)
+
+            // ── Action Buttons (Liquid Glass capsules) ─────────
+            HStack(spacing: 8) {
+                Button { showEditProfile = true } label: {
+                    Text("Edit profile")
+                        .font(AMENFont.bold(14))
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(.thinMaterial)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [Color.white.opacity(0.65), Color.white.opacity(0.12)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 0.75
+                                        )
+                                )
+                                .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+                        )
+                        .clipShape(Capsule(style: .continuous))
+                }
+
+                Button { shareProfile() } label: {
+                    Text("Share profile")
+                        .font(AMENFont.bold(14))
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(.thinMaterial)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [Color.white.opacity(0.65), Color.white.opacity(0.12)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 0.75
+                                        )
+                                )
+                                .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+                        )
+                        .clipShape(Capsule(style: .continuous))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 20)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .padding(.bottom, 0)
-        .background(Color.white)
     }
-    
-    // Keep old header for backwards compatibility (may be referenced elsewhere)
-    private var profileHeaderView: some View {
-        profileHeaderViewWithoutTabs
-    }
+
+
     
     // MARK: - Content View
     
@@ -1773,9 +2115,36 @@ struct ProfileView: View {
         VStack(spacing: 0) {
             switch selectedTab {
             case .posts:
-                PostsContentView(posts: $userPosts)
+                if AMENFeatureFlags.shared.feedViewModeSwitcherEnabled {
+                    FeedViewModeSwitcher(selectedMode: $feedViewMode)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                        .onChange(of: feedViewMode) { _, newMode in
+                            AMENAnalyticsService.shared.track(.mediaModeSwitched(toMode: newMode.rawValue))
+                            mediaFeedVM.persistMode(newMode)
+                            if newMode == .media {
+                                mediaFeedVM.ingestPosts(userPosts)
+                            }
+                        }
+                }
+                if feedViewMode == .media && AMENFeatureFlags.shared.feedViewModeSwitcherEnabled {
+                    MediaOnlyFeedView(viewModel: mediaFeedVM) { postId in
+                        AMENAnalyticsService.shared.track(.mediaDetailJumpedToPost(postId: postId))
+                    }
                     .transition(.opacity.animation(.easeOut(duration: 0.15)))
-                    .id("posts")
+                    .id("media")
+                    .onAppear {
+                        mediaFeedVM.ingestPosts(userPosts)
+                    }
+                    .onChange(of: userPosts.count) { _, _ in
+                        mediaFeedVM.ingestPosts(userPosts)
+                    }
+                } else {
+                    PostsContentView(posts: $userPosts)
+                        .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                        .id("posts")
+                }
             case .replies:
                 RepliesContentView(replies: $userReplies)
                     .transition(.opacity.animation(.easeOut(duration: 0.15)))
@@ -1815,17 +2184,17 @@ struct ProfileQRCodeView: View {
                         .frame(width: 80, height: 80)
                         .overlay(
                             Text(name.prefix(2).uppercased())
-                                .font(.custom("OpenSans-Bold", size: 28))
+                                .font(AMENFont.bold(28))
                                 .foregroundStyle(.white)
                         )
                     
                     Text(name)
-                        .font(.custom("OpenSans-Bold", size: 24))
-                        .foregroundStyle(.black)
+                        .font(AMENFont.bold(24))
+                        .foregroundStyle(.primary)
                     
                     Text(username)
-                        .font(.custom("OpenSans-Regular", size: 16))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .font(AMENFont.regular(16))
+                        .foregroundStyle(.secondary)
                 }
                 
                 // QR Code
@@ -1846,14 +2215,14 @@ struct ProfileQRCodeView: View {
                         } else {
                             // Placeholder
                             Image(systemName: "qrcode")
-                                .font(.system(size: 120))
-                                .foregroundStyle(.black.opacity(0.2))
+                                .font(.systemScaled(120))
+                                .foregroundStyle(.tertiary)
                         }
                     }
                     
                     Text("Scan to view profile")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                        .foregroundStyle(.black.opacity(0.6))
+                        .font(AMENFont.semiBold(15))
+                        .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
@@ -1864,9 +2233,9 @@ struct ProfileQRCodeView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                         Text("Share QR Code")
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(AMENFont.bold(16))
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -1888,8 +2257,8 @@ struct ProfileQRCodeView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.black)
+                            .font(.systemScaled(16, weight: .semibold))
+                            .foregroundStyle(.primary)
                     }
                 }
             }
@@ -1992,11 +2361,11 @@ struct ProfilePostCard: View {
                 // Category badge - always show
                 HStack(spacing: 4) {
                     Image(systemName: categoryIcon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                     Text(post.category.displayName)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                 }
-                .foregroundStyle(.black.opacity(0.6))
+                .foregroundStyle(.secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(
@@ -2009,8 +2378,8 @@ struct ProfilePostCard: View {
                 )
                 
                 Text(post.timeAgo)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.4))
+                    .font(.systemScaled(13, weight: .medium))
+                    .foregroundStyle(.tertiary)
                 
                 Spacer()
                 
@@ -2018,8 +2387,8 @@ struct ProfilePostCard: View {
                     menuContent
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.black.opacity(0.3))
+                        .font(.systemScaled(16, weight: .semibold))
+                        .foregroundStyle(.tertiary)
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
@@ -2030,8 +2399,8 @@ struct ProfilePostCard: View {
             
             // CONTENT: Post text
             Text(post.content)
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(.black)
+                .font(.systemScaled(15, weight: .regular))
+                .foregroundStyle(.primary)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
             
@@ -2145,7 +2514,7 @@ struct ProfilePostCard: View {
                     let verticalAmount = abs(value.translation.height)
                     
                     guard horizontalAmount > verticalAmount * 2 else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             swipeOffset = 0
                             swipeDirection = .none
                         }
@@ -2158,7 +2527,7 @@ struct ProfilePostCard: View {
                         triggerSwipeCommentAction()
                     }
                     
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         swipeOffset = 0
                         swipeDirection = .none
                     }
@@ -2167,7 +2536,10 @@ struct ProfilePostCard: View {
         .sheet(item: $activePostCardSheet) { sheet in
             switch sheet {
             case .edit:    EditPostSheet(post: post)
-            case .comments: CommentsView(post: post)
+            case .comments:
+                // Smart Comments drop-in: identical to CommentsView while
+                // smartCommentsEnabled is OFF; upgrades to the smart sheet when ON.
+                SmartCommentsSheet(postId: post.firestoreId) { CommentsView(post: post) }
             }
         }
         .alert("Delete Post", isPresented: $showingDeleteAlert) {
@@ -2192,6 +2564,12 @@ struct ProfilePostCard: View {
             dlog("[ProfileView] Stopped observers for post \(postId.prefix(8))")
             #endif
         }
+        .overlay(alignment: .bottom) {
+            // Threads-style: subtle divider between posts
+            Rectangle()
+                .fill(Color(.separator).opacity(0.5))
+                .frame(height: 0.5)
+        }
     }
 
     // MARK: - Glassmorphic Button Helper
@@ -2207,12 +2585,12 @@ struct ProfilePostCard: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: isActive ? .semibold : .medium))
+                    .font(.systemScaled(15, weight: isActive ? .semibold : .medium))
                     .foregroundStyle(isActive ? activeColor : .black.opacity(0.5))
                 
                 if count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(isActive ? activeColor : .black.opacity(0.6))
                 }
             }
@@ -2244,7 +2622,7 @@ struct ProfilePostCard: View {
             
             if showCount && lightbulbCount > 0 {
                 Text("\(lightbulbCount)")
-                    .font(.custom("OpenSans-SemiBold", size: 10))
+                    .font(AMENFont.semiBold(10))
                     .foregroundStyle(hasLitLightbulb ? Color.primary.opacity(0.8) : Color.secondary.opacity(0.6))
                     .contentTransition(.numericText())
             }
@@ -2261,7 +2639,7 @@ struct ProfilePostCard: View {
     
     private var lightbulbMainIcon: some View {
         Image(systemName: hasLitLightbulb ? "lightbulb.fill" : "lightbulb")
-            .font(.system(size: 17, weight: hasLitLightbulb ? .semibold : .thin))
+            .font(.systemScaled(17, weight: hasLitLightbulb ? .semibold : .thin))
             .foregroundStyle(hasLitLightbulb ? lightbulbGradientActive : lightbulbGradientInactive)
     }
     
@@ -2353,10 +2731,10 @@ struct ProfilePostCard: View {
     private func swipeIndicator(icon: String, color: Color, text: String) -> some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 28, weight: .medium))
+                .font(.systemScaled(28, weight: .medium))
                 .foregroundColor(color)
             Text(text)
-                .font(.custom("OpenSans-SemiBold", size: 12))
+                .font(AMENFont.semiBold(12))
                 .foregroundColor(color)
         }
         .scaleEffect(min(Double(abs(swipeOffset)) / 60.0, 1.2))
@@ -2384,7 +2762,7 @@ struct ProfilePostCard: View {
     // MARK: - Actions
     
     private func toggleLightbulb() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
             hasLitLightbulb.toggle()
             if hasLitLightbulb {
                 lightbulbCount += 1
@@ -2413,7 +2791,7 @@ struct ProfilePostCard: View {
     }
     
     private func toggleAmen() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
             hasSaidAmen.toggle()
             if hasSaidAmen {
                 amenCount += 1
@@ -2500,29 +2878,30 @@ struct PostsContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             if posts.isEmpty {
-                // Simple empty state
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     Image(systemName: "square.grid.2x2")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.secondary)
+                        .font(.systemScaled(36))
+                        .foregroundStyle(.tertiary)
                     
                     Text("No posts yet")
-                        .font(.custom("OpenSans-Bold", size: 18))
-                        .foregroundStyle(.primary)
+                        .font(AMENFont.semiBold(16))
+                        .foregroundStyle(.secondary)
                     
                     Text("Your posts will appear here")
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.secondary)
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.tertiary)
                 }
-                .frame(maxWidth: .infinity, alignment: .top)
-                .padding(.top, 0)
-                .padding(.bottom, 20)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 48)
             } else {
                 // ✅ Posts RIGHT under tabs - zero spacing
                 LazyVStack(spacing: 0) {
                     ForEach(posts) { post in
                         PostCard(post: post)
-                            .padding(.bottom, 10)  // Spacing between cards only
+
+                        if AMENFeatureFlags.shared.postDividerEnabled {
+                            FeedPostDivider()
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -2554,23 +2933,21 @@ struct RepliesContentView: View {
     var body: some View {
         VStack {
             if replies.isEmpty {
-            // Empty state
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
                 Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 48))
-                    .foregroundStyle(Color.secondary)
+                    .font(.systemScaled(36))
+                    .foregroundStyle(.tertiary)
                 
                 Text("No replies yet")
-                    .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(Color.primary)
+                    .font(AMENFont.semiBold(16))
+                    .foregroundStyle(.secondary)
                 
                 Text("Your replies to others will appear here")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(Color.secondary)
+                    .font(AMENFont.regular(13))
+                    .foregroundStyle(.tertiary)
             }
-            .frame(maxWidth: .infinity, alignment: .top)
-            .padding(.top, 0)
-            .padding(.bottom, 20)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 48)
         } else {
             LazyVStack(spacing: 0) {
                 ForEach(replies) { comment in
@@ -2611,28 +2988,25 @@ struct SavedContentView: View {
     var body: some View {
         let _ = dlog("🔍 [SAVED-TAB] SavedContentView body evaluated - savedPosts.count: \(savedPosts.count)")
         if savedPosts.isEmpty {
-            // Empty state
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
                 Image(systemName: "bookmark")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.secondary)
+                    .font(.systemScaled(36))
+                    .foregroundStyle(.tertiary)
                 
                 Text("No saved posts")
-                    .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(.primary)
+                    .font(AMENFont.semiBold(16))
+                    .foregroundStyle(.secondary)
                 
                 Text("Posts you save will appear here")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.secondary)
+                    .font(AMENFont.regular(13))
+                    .foregroundStyle(.tertiary)
             }
-            .frame(maxWidth: .infinity, alignment: .top)
-            .padding(.top, 0)
-            .padding(.bottom, 20)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 48)
         } else {
             LazyVStack(spacing: 0) {
                 ForEach(savedPosts) { post in
                     ProfilePostCard(post: post)
-                        .padding(.bottom, 10)  // Spacing between cards only
                 }
             }
             .padding(.horizontal, 16)
@@ -2648,28 +3022,35 @@ struct RepostsContentView: View {
     var body: some View {
         let _ = dlog("🔍 [REPOSTS-TAB] RepostsContentView body evaluated - reposts.count: \(reposts.count)")
         if reposts.isEmpty {
-            // Empty state
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
                 Image(systemName: "arrow.2.squarepath")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.secondary)
+                    .font(.systemScaled(36))
+                    .foregroundStyle(.tertiary)
                 
                 Text("No reposts yet")
-                    .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(.primary)
+                    .font(AMENFont.semiBold(16))
+                    .foregroundStyle(.secondary)
                 
                 Text("Posts you repost will appear here")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.secondary)
+                    .font(AMENFont.regular(13))
+                    .foregroundStyle(.tertiary)
             }
-            .frame(maxWidth: .infinity, alignment: .top)
-            .padding(.top, 0)
-            .padding(.bottom, 20)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 48)
         } else {
             LazyVStack(spacing: 0) {
-                ForEach(reposts) { post in
-                    ProfilePostCard(post: post)
-                        .padding(.bottom, 10)  // Spacing between cards only
+                ForEach(Array(reposts.enumerated()), id: \.element.id) { index, post in
+                    VStack(spacing: 4) {
+                        // Repost byline strip
+                        RepostBylineStrip(
+                            reposterName: post.authorName,
+                            reposterAvatarURL: post.authorProfileImageURL,
+                            isNew: index == 0
+                        )
+                        .padding(.horizontal, 16)
+                        // Existing post card — unchanged
+                        ProfilePostCard(post: post)
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -2718,7 +3099,7 @@ struct ProfileReplyCard: View {
                                         .frame(width: 32, height: 32)
                                         .overlay(
                                             Text(comment.authorInitials)
-                                                .font(.custom("OpenSans-Bold", size: 14))
+                                                .font(AMENFont.bold(14))
                                                 .foregroundStyle(.white)
                                         )
                                 case .empty:
@@ -2735,7 +3116,7 @@ struct ProfileReplyCard: View {
                                         .frame(width: 32, height: 32)
                                         .overlay(
                                             Text(comment.authorInitials)
-                                                .font(.custom("OpenSans-Bold", size: 14))
+                                                .font(AMENFont.bold(14))
                                                 .foregroundStyle(.white)
                                         )
                                 }
@@ -2746,7 +3127,7 @@ struct ProfileReplyCard: View {
                                 .frame(width: 32, height: 32)
                                 .overlay(
                                     Text(comment.authorInitials)
-                                        .font(.custom("OpenSans-Bold", size: 14))
+                                        .font(AMENFont.bold(14))
                                         .foregroundStyle(.white)
                                 )
                         }
@@ -2756,11 +3137,11 @@ struct ProfileReplyCard: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(comment.authorName)
-                        .font(.custom("OpenSans-Bold", size: 14))
-                        .foregroundStyle(.black)
+                        .font(AMENFont.bold(14))
+                        .foregroundStyle(.primary)
                     
                     Text(comment.timeAgo)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(Color.secondary)
                 }
                 
@@ -2769,18 +3150,18 @@ struct ProfileReplyCard: View {
             
             // Reply content
             Text(comment.content)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.black.opacity(0.9))
+                .font(AMENFont.regular(15))
+                .foregroundStyle(.primary)
                 .lineSpacing(4)
             
             // Replied to post indicator
             HStack(spacing: 6) {
                 Image(systemName: "arrowshape.turn.up.left")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(Color.secondary)
                 
                 Text("Replying to post")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(Color.secondary)
             }
             
@@ -2789,9 +3170,9 @@ struct ProfileReplyCard: View {
                 if comment.amenCount > 0 {
                     HStack(spacing: 4) {
                         Image(systemName: "hands.clap")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text("\(comment.amenCount)")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                     }
                     .foregroundStyle(Color.secondary)
                 }
@@ -2799,9 +3180,9 @@ struct ProfileReplyCard: View {
                 if comment.replyCount > 0 {
                     HStack(spacing: 4) {
                         Image(systemName: "bubble.left")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text("\(comment.replyCount)")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                     }
                     .foregroundStyle(Color.secondary)
                 }
@@ -2833,6 +3214,9 @@ struct EditProfileView: View {
     @State private var bioURL: String // ✅ NEW: Bio URL field
     @State private var interests: [String]
     @State private var socialLinks: [SocialLinkUI]
+    @State private var profileTopics: [String]     // Feature 4
+    @State private var newTopicText = ""
+    @State private var showAddTopic = false
     @State private var showAddInterest = false
     @State private var showAddSocialLink = false
     @State private var showImagePicker = false
@@ -2868,6 +3252,7 @@ struct EditProfileView: View {
         _bioURL = State(initialValue: profileData.wrappedValue.bioURL ?? "")
         _interests = State(initialValue: profileData.wrappedValue.interests)
         _socialLinks = State(initialValue: profileData.wrappedValue.socialLinks)
+        _profileTopics = State(initialValue: profileData.wrappedValue.profileTopics)
         
         // Store original values for change detection
         self.originalName = profileData.wrappedValue.name
@@ -2987,7 +3372,7 @@ struct EditProfileView: View {
                     dismiss()
                 }
             }
-            .font(.custom("OpenSans-SemiBold", size: 16))
+            .font(AMENFont.semiBold(16))
             .disabled(isSaving)
         }
         
@@ -3028,7 +3413,7 @@ struct EditProfileView: View {
                         .progressViewStyle(CircularProgressViewStyle())
                 } else {
                     Text("Done")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(hasValidationErrors ? .gray : .blue)
                 }
             }
@@ -3063,7 +3448,9 @@ struct EditProfileView: View {
             bioEditorWithValidation
             
             interestsSection
-            
+
+            topicsSection
+
             socialLinksSection
         }
     }
@@ -3074,19 +3461,19 @@ struct EditProfileView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Name")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.secondary)
                 
                 Spacer()
                 
                 // Character counter
                 Text("\(name.count)/\(nameCharacterLimit)")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(name.count > nameCharacterLimit ? .red : .secondary)
             }
             
             TextField("Your name", text: $name)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
@@ -3101,11 +3488,11 @@ struct EditProfileView: View {
             if let error = nameError {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.red)
                     
                     Text(error)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.red)
                 }
             }
@@ -3117,17 +3504,17 @@ struct EditProfileView: View {
     private var usernameReadOnlyField: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Username")
-                .font(.custom("OpenSans-SemiBold", size: 14))
-                .foregroundStyle(.black.opacity(0.6))
+                .font(AMENFont.semiBold(14))
+                .foregroundStyle(.secondary)
             
             HStack(spacing: 8) {
                 Text("@")
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.black.opacity(0.4))
+                    .font(AMENFont.regular(15))
+                    .foregroundStyle(.tertiary)
                 
                 Text(username)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .font(AMENFont.regular(15))
+                    .foregroundStyle(.secondary)
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -3141,7 +3528,7 @@ struct EditProfileView: View {
             )
             
             Text("To change your username, go to Account Settings")
-                .font(.custom("OpenSans-Regular", size: 12))
+                .font(AMENFont.regular(12))
                 .foregroundStyle(.secondary)
         }
     }
@@ -3154,8 +3541,8 @@ struct EditProfileView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Bio")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
-                        .foregroundStyle(.black.opacity(0.6))
+                        .font(AMENFont.semiBold(14))
+                        .foregroundStyle(.secondary)
                     
                     Spacer()
                     
@@ -3163,11 +3550,11 @@ struct EditProfileView: View {
                     HStack(spacing: 4) {
                         if bio.count > bioCharacterLimit {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(.red)
                         }
                         Text("\(bio.count)/\(bioCharacterLimit)")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                             .foregroundStyle(bio.count > bioCharacterLimit ? .red : (bio.count > bioCharacterLimit - 10 ? .orange : .secondary))
                     }
                 }
@@ -3176,14 +3563,14 @@ struct EditProfileView: View {
                     // Placeholder text
                     if bio.isEmpty {
                         Text("Tell us about yourself...")
-                            .font(.custom("OpenSans-Regular", size: 15))
-                            .foregroundStyle(.black.opacity(0.3))
+                            .font(AMENFont.regular(15))
+                            .foregroundStyle(.tertiary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 20)
                     }
                     
                     TextEditor(text: $bio)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .frame(height: 100)
                         .padding(8)
                         .scrollContentBackground(.hidden)
@@ -3202,11 +3589,11 @@ struct EditProfileView: View {
                 if let error = bioError {
                     HStack(spacing: 4) {
                         Image(systemName: "exclamationmark.circle.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.red)
                         
                         Text(error)
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.red)
                     }
                 }
@@ -3217,8 +3604,8 @@ struct EditProfileView: View {
             VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Website")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.secondary)
                 
                 Spacer()
                 
@@ -3226,11 +3613,11 @@ struct EditProfileView: View {
                 if !bioURL.isEmpty && bioURLError == nil {
                     HStack(spacing: 4) {
                         Image(systemName: "link.circle.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.green)
                         
                         Text("Valid")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.green)
                     }
                 }
@@ -3238,12 +3625,12 @@ struct EditProfileView: View {
             
             HStack(spacing: 8) {
                 Image(systemName: "link")
-                    .font(.system(size: 16))
-                    .foregroundStyle(.black.opacity(0.4))
+                    .font(.systemScaled(16))
+                    .foregroundStyle(.tertiary)
                     .frame(width: 24)
                 
                 TextField("example.com", text: $bioURL)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .textContentType(.URL)
                     .keyboardType(.URL)
                     .autocapitalization(.none)
@@ -3261,15 +3648,15 @@ struct EditProfileView: View {
                 // Clear button
                 if !bioURL.isEmpty {
                     Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                             bioURL = ""
                             bioURLError = nil
                             hasChanges = true
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.black.opacity(0.3))
+                            .font(.systemScaled(16))
+                            .foregroundStyle(.tertiary)
                     }
                 }
             }
@@ -3284,27 +3671,27 @@ struct EditProfileView: View {
             if let error = bioURLError {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.red)
                     
                     Text(error)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.red)
                 }
             } else if !bioURL.isEmpty && bioURLError == nil {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.green)
                     
                     Text("Will be saved as: \(bioURL)")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             } else {
                 Text("Add a link to your website, portfolio, or social profile")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             }
@@ -3315,8 +3702,8 @@ struct EditProfileView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Interests (Max 3)")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.secondary)
                 
                 Spacer()
                 
@@ -3328,8 +3715,8 @@ struct EditProfileView: View {
                         HapticManager.impact(style: .light)
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.black)
+                            .font(.systemScaled(20))
+                            .foregroundStyle(.primary)
                     }
                 }
             }
@@ -3338,11 +3725,11 @@ struct EditProfileView: View {
                 // Empty state - encourage adding interests
                 VStack(alignment: .leading, spacing: 8) {
                     Text("No interests added yet")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                     
                     Text("Add up to 3 interests to help others connect with you")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -3351,7 +3738,7 @@ struct EditProfileView: View {
             } else {
                 // Display interests as chips with flexible wrapping
                 FlexibleInterestsView(interests: interests) { interest in
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                         if let index = interests.firstIndex(of: interest) {
                             interests.remove(at: index)
                             hasChanges = true
@@ -3366,12 +3753,78 @@ struct EditProfileView: View {
         }
     }
     
+    // Feature 4 — Topic chips editor
+    private var topicsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Topics (Max 5)")
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if profileTopics.count < 5 {
+                    Button {
+                        showAddTopic = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.systemScaled(20))
+                            .foregroundStyle(.primary)
+                    }
+                }
+            }
+            Text("Add topics that describe your perspective (e.g. Theology, Parenting, Worship)")
+                .font(AMENFont.regular(12))
+                .foregroundStyle(.secondary)
+            if profileTopics.isEmpty {
+                Text("No topics added yet")
+                    .font(AMENFont.regular(14))
+                    .foregroundStyle(.secondary)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(profileTopics, id: \.self) { topic in
+                            HStack(spacing: 4) {
+                                Text(topic)
+                                    .font(AMENFont.semiBold(13))
+                                Button {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
+                                        profileTopics.removeAll { $0 == topic }
+                                        hasChanges = true
+                                    }
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.systemScaled(10, weight: .bold))
+                                }
+                            }
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Capsule().fill(Color(.systemGray6)))
+                        }
+                    }
+                }
+            }
+        }
+        .alert("Add Topic", isPresented: $showAddTopic) {
+            TextField("e.g. Theology", text: $newTopicText)
+                .autocorrectionDisabled()
+            Button("Add") {
+                let t = newTopicText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !t.isEmpty && !profileTopics.contains(t) && profileTopics.count < 5 {
+                    withAnimation { profileTopics.append(t) }
+                    hasChanges = true
+                }
+                newTopicText = ""
+            }
+            Button("Cancel", role: .cancel) { newTopicText = "" }
+        }
+    }
+
     private var socialLinksSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Social Links")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.secondary)
                 
                 Spacer()
                 
@@ -3380,17 +3833,17 @@ struct EditProfileView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text("Edit")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 }
             }
             
             if socialLinks.isEmpty {
                 Text("No social links added")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 8)
             } else {
@@ -3398,13 +3851,13 @@ struct EditProfileView: View {
                     ForEach(socialLinks) { link in
                         HStack(spacing: 12) {
                             Image(systemName: link.platform.icon)
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(link.platform.color)
                                 .frame(width: 24)
                             
                             Text(link.username)
-                                .font(.custom("OpenSans-Regular", size: 15))
-                                .foregroundStyle(.black)
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(.primary)
                             
                             Spacer()
                         }
@@ -3441,8 +3894,8 @@ struct EditProfileView: View {
                 showImagePicker = true
             } label: {
                 Text("Change photo")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(.black)
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.primary)
             }
         }
     }
@@ -3480,7 +3933,7 @@ struct EditProfileView: View {
             .frame(width: 100, height: 100)
             .overlay(
                 Text(profileData.initials)
-                    .font(.custom("OpenSans-Bold", size: 32))
+                    .font(AMENFont.bold(32))
                     .foregroundStyle(.white)
             )
     }
@@ -3490,7 +3943,7 @@ struct EditProfileView: View {
             showImagePicker = true
         } label: {
             Image(systemName: "camera.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.white)
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(Color.black))
@@ -3570,7 +4023,7 @@ struct EditProfileView: View {
                 }
                 // ─────────────────────────────────────────────────────────
                 
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 
                 // 1. Update basic profile info (displayName, bio, and bioURL)
                 var updateData: [String: Any] = [
@@ -3578,6 +4031,7 @@ struct EditProfileView: View {
                     "displayNameLowercase": name.lowercased(),
                     "bio": bio,
                     "interests": interests,
+                    "profileTopics": profileTopics,    // Feature 4
                     "updatedAt": FieldValue.serverTimestamp(),
                     // Include profileImageURL so Algolia stays in sync when profile is saved.
                     // Without this, every saveProfile() call would overwrite Algolia with an empty URL.
@@ -3626,6 +4080,7 @@ struct EditProfileView: View {
                 profileData.bioURL = bioURL.isEmpty ? nil : bioURL
                 profileData.interests = interests
                 profileData.socialLinks = socialLinks
+                profileData.profileTopics = profileTopics
                 
                 // ✅ REAL-TIME UPDATE: Cache profile image URL for tab bar
                 if let imageURL = profileData.profileImageURL {
@@ -3643,6 +4098,14 @@ struct EditProfileView: View {
                     userInfo: ["profileImageURL": profileData.profileImageURL ?? ""]
                 )
                 dlog("✅ Posted profilePhotoUpdated notification for tab bar")
+
+                // P1-6: Bust ProfileView's 60s cache so returning to the tab shows
+                // the updated bio/name/links immediately instead of waiting for expiry.
+                NotificationCenter.default.post(
+                    name: Notification.Name("profileDataUpdated"),
+                    object: nil
+                )
+                dlog("✅ Posted profileDataUpdated — ProfileView cache busted")
                 
                 dlog("✅ Profile saved successfully!")
                 
@@ -3838,7 +4301,7 @@ struct EditProfileView: View {
         }
         
         // Add interest with fast animation
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
             interests.append(trimmedInterest)
             hasChanges = true
         }
@@ -3878,18 +4341,18 @@ struct EditFieldView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.custom("OpenSans-SemiBold", size: 14))
-                .foregroundStyle(.black.opacity(0.6))
+                .font(AMENFont.semiBold(14))
+                .foregroundStyle(.secondary)
             
             HStack(spacing: 8) {
                 if !prefix.isEmpty {
                     Text(prefix)
-                        .font(.custom("OpenSans-Regular", size: 15))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .font(AMENFont.regular(15))
+                        .foregroundStyle(.tertiary)
                 }
                 
                 TextField("", text: $text)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
             }
             .padding(12)
             .background(
@@ -3907,15 +4370,15 @@ struct InterestChip: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(interest)
-                .font(.custom("OpenSans-SemiBold", size: 13))
-                .foregroundStyle(.black)
+                .font(AMENFont.semiBold(13))
+                .foregroundStyle(.primary)
             
             Button {
                 onRemove()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.black.opacity(0.3))
+                    .font(.systemScaled(14))
+                    .foregroundStyle(.tertiary)
             }
         }
         .padding(.horizontal, 12)
@@ -3934,7 +4397,7 @@ struct FlexibleInterestsView: View {
     let onRemove: (String) -> Void
     
     var body: some View {
-        FlowLayout(spacing: 8) {
+        AMENFlowLayout(spacing: 8) {
             ForEach(interests, id: \.self) { interest in
                 InterestChip(interest: interest) {
                     onRemove(interest)
@@ -3965,18 +4428,18 @@ struct ProfileSection: View {
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(color)
                 }
                 
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                     .foregroundStyle(.primary)
                 
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding()
@@ -4008,7 +4471,7 @@ struct AboutAmenView: View {
                 // Logo and Title
                 VStack(spacing: 16) {
                     Image(systemName: "hands.sparkles")
-                        .font(.system(size: 80))
+                        .font(.systemScaled(80))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [.blue, .purple],
@@ -4019,20 +4482,27 @@ struct AboutAmenView: View {
                         .padding(.top, 40)
                     
                     Text("AMEN")
-                        .font(.custom("OpenSans-Bold", size: 36))
+                        .font(AMENFont.bold(36))
                     
                     Text("Version 1.0.0 (Build 100)")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
+
+                    Text(AMENBuildInfo.displaySummary)
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
                 }
                 
                 // Tagline
                 VStack(spacing: 8) {
                     Text("Where Faith Meets Innovation")
-                        .font(.custom("OpenSans-SemiBold", size: 18))
+                        .font(AMENFont.semiBold(18))
                     
                     Text("Your digital companion for spiritual growth, authentic community, and AI-powered Bible study")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 30)
@@ -4075,18 +4545,18 @@ struct AboutAmenView: View {
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Privacy Policy")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .font(AMENFont.semiBold(13))
                                     .foregroundStyle(.secondary)
                                 
                                 Text("View Policy")
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.blue)
                             }
                             
                             Spacer()
                             
                             Image(systemName: "arrow.up.right")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -4102,18 +4572,18 @@ struct AboutAmenView: View {
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Terms of Service")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .font(AMENFont.semiBold(13))
                                     .foregroundStyle(.secondary)
                                 
                                 Text("View Terms")
-                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .font(AMENFont.regular(14))
                                     .foregroundStyle(.blue)
                             }
                             
                             Spacer()
                             
                             Image(systemName: "arrow.up.right")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -4126,7 +4596,7 @@ struct AboutAmenView: View {
                 // Features
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Key Features")
-                        .font(.custom("OpenSans-Bold", size: 18))
+                        .font(AMENFont.bold(18))
                         .padding(.horizontal, 30)
                     
                     VStack(spacing: 12) {
@@ -4145,21 +4615,21 @@ struct AboutAmenView: View {
                 // Copyright and Mission
                 VStack(spacing: 16) {
                     Text("Our Mission")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                     
                     Text("To empower believers with technology that deepens their faith, strengthens their community, and spreads the Gospel worldwide.")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                     
                     Text("© 2026 AMEN App. All rights reserved.")
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary)
                         .padding(.top, 8)
                     
                     Text("Made with ❤️ for the Body of Christ")
-                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .font(AMENFont.semiBold(12))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.bottom, 40)
@@ -4187,7 +4657,7 @@ struct PrivacyPolicyView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Text("Last Updated: January 28, 2026")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                     
                     PolicySection(
@@ -4283,7 +4753,7 @@ struct PrivacyPolicyView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
         }
@@ -4300,7 +4770,7 @@ struct TermsOfServiceView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Text("Last Updated: January 28, 2026")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                     
                     PolicySection(
@@ -4410,7 +4880,7 @@ struct TermsOfServiceView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
         }
@@ -4426,11 +4896,11 @@ struct PolicySection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .foregroundStyle(.primary)
             
             Text(content)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.secondary)
                 .lineSpacing(6)
         }
@@ -4454,7 +4924,7 @@ struct AboutInfoRow: View {
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                     .foregroundStyle(.secondary)
                 
                 if isEmail || isURL || isLink {
@@ -4470,12 +4940,12 @@ struct AboutInfoRow: View {
                         }
                     } label: {
                         Text(value)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.blue)
                     }
                 } else {
                     Text(value)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.primary)
                 }
             }
@@ -4484,7 +4954,7 @@ struct AboutInfoRow: View {
             
             if isEmail || isURL || isLink {
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
         }
@@ -4504,16 +4974,16 @@ struct ProfileFeatureRow: View {
                     .frame(width: 40, height: 40)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.blue)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                 
                 Text(description)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             
@@ -4527,7 +4997,7 @@ struct ProfileFeatureRow: View {
     }
 }
 
-struct SettingsRow: View {
+struct ProfileSettingsRow: View {
     let icon: String
     let title: String
     let color: Color
@@ -4538,19 +5008,19 @@ struct SettingsRow: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(color)
                     .frame(width: 24)
                 
                 Text(title)
-                    .font(.custom("OpenSans-Regular", size: 16))
-                    .foregroundStyle(.black)
+                    .font(AMENFont.regular(16))
+                    .foregroundStyle(.primary)
                 
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.black.opacity(0.3))
+                    .font(.systemScaled(12, weight: .semibold))
+                    .foregroundStyle(.tertiary)
             }
         }
         .buttonStyle(PlainButtonStyle())
@@ -4613,7 +5083,7 @@ struct FullScreenAvatarView: View {
                 
                 // Name
                 Text(name)
-                    .font(.custom("OpenSans-Bold", size: 28))
+                    .font(AMENFont.bold(28))
                     .foregroundStyle(.white)
                     .padding(.top, 24)
                     .opacity(opacity)
@@ -4626,7 +5096,7 @@ struct FullScreenAvatarView: View {
                 HStack {
                     Spacer()
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                             scale = 0.8
                             opacity = 0
                         }
@@ -4635,7 +5105,7 @@ struct FullScreenAvatarView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 32))
+                            .font(.systemScaled(32))
                             .foregroundStyle(.white.opacity(0.8))
                             .padding(24)
                     }
@@ -4645,7 +5115,7 @@ struct FullScreenAvatarView: View {
             .opacity(opacity)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                 scale = 1.0
                 opacity = 1.0
             }
@@ -4658,7 +5128,7 @@ struct FullScreenAvatarView: View {
             .frame(width: 300, height: 300)
             .overlay(
                 Text(initials)
-                    .font(.custom("OpenSans-Bold", size: 80))
+                    .font(AMENFont.bold(80))
                     .foregroundStyle(.white)
             )
     }
@@ -4696,9 +5166,9 @@ struct ProfilePhotoEditView: View {
                         PhotosPicker(selection: $selectedItem, matching: .images) {
                             HStack {
                                 Image(systemName: "photo.on.rectangle")
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.systemScaled(18, weight: .semibold))
                                 Text(currentImageURL != nil ? "Change Photo" : "Select Photo")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -4741,11 +5211,11 @@ struct ProfilePhotoEditView: View {
                                         Text("Uploading...")
                                     } else {
                                         Image(systemName: "checkmark.circle")
-                                            .font(.system(size: 18, weight: .semibold))
+                                            .font(.systemScaled(18, weight: .semibold))
                                         Text("Save Photo")
                                     }
                                 }
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -4765,9 +5235,9 @@ struct ProfilePhotoEditView: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "trash")
-                                        .font(.system(size: 18, weight: .semibold))
+                                        .font(.systemScaled(18, weight: .semibold))
                                     Text("Remove Photo")
-                                        .font(.custom("OpenSans-Bold", size: 16))
+                                        .font(AMENFont.bold(16))
                                 }
                                 .foregroundStyle(.red)
                                 .frame(maxWidth: .infinity)
@@ -4784,7 +5254,7 @@ struct ProfilePhotoEditView: View {
                     // Error Message
                     if let error = errorMessage {
                         Text(error)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.red)
                             .multilineTextAlignment(.center)
                             .padding()
@@ -4804,7 +5274,7 @@ struct ProfilePhotoEditView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .alert("Remove Profile Photo?", isPresented: $showDeleteConfirmation) {
@@ -4845,7 +5315,7 @@ struct ProfilePhotoEditView: View {
                     .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
                 
                 Text("New photo selected")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.blue)
             } else if let currentImageURL = currentImageURL,
                       !currentImageURL.isEmpty,
@@ -4869,14 +5339,14 @@ struct ProfilePhotoEditView: View {
                 }
                 
                 Text("Current photo")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
             } else {
                 // No photo placeholder
                 placeholderAvatar
                 
                 Text("No photo set")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
             }
         }
@@ -4888,15 +5358,15 @@ struct ProfilePhotoEditView: View {
             .frame(width: 200, height: 200)
             .overlay(
                 Image(systemName: "person.fill")
-                    .font(.system(size: 80))
-                    .foregroundStyle(.black.opacity(0.3))
+                    .font(.systemScaled(80))
+                    .foregroundStyle(.tertiary)
             )
     }
     
     private var tipsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Tips for a great profile photo:")
-                .font(.custom("OpenSans-Bold", size: 16))
+                .font(AMENFont.bold(16))
                 .padding(.horizontal)
             
             VStack(spacing: 12) {
@@ -4998,12 +5468,12 @@ struct TipRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.blue)
                 .frame(width: 24)
             
             Text(text)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.primary)
             
             Spacer()
@@ -5035,12 +5505,12 @@ struct AchievementBadge: View {
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(isUnlocked ? color : Color.gray.opacity(0.4))
                     
                     if !isUnlocked {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.white)
                             .padding(4)
                             .background(Circle().fill(Color.gray))
@@ -5049,7 +5519,7 @@ struct AchievementBadge: View {
                 }
                 
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(isUnlocked ? .primary : .secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -5099,14 +5569,14 @@ struct ProfileImagePicker: View {
                         .frame(width: 200, height: 200)
                         .overlay(
                             Image(systemName: "person.fill")
-                                .font(.system(size: 80))
-                                .foregroundStyle(.black.opacity(0.3))
+                                .font(.systemScaled(80))
+                                .foregroundStyle(.tertiary)
                         )
                 }
                 
                 PhotosPicker(selection: $selectedItem, matching: .images) {
                     Label("Select Photo", systemImage: "photo")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .font(AMENFont.semiBold(16))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -5138,7 +5608,7 @@ struct ProfileImagePicker: View {
                                 Text("Save Photo")
                             }
                         }
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -5153,7 +5623,7 @@ struct ProfileImagePicker: View {
                 
                 if let error = errorMessage {
                     Text(error)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.red)
                         .padding()
                 }
@@ -5219,6 +5689,7 @@ struct UserProfileData {
     var profileImageURL: String?
     var interests: [String]
     var socialLinks: [SocialLinkUI]
+    var profileTopics: [String] = []   // Feature 4 — topic chips shown below bio
 }
 
 
@@ -5230,21 +5701,21 @@ struct ProfileInfoRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.custom("OpenSans-SemiBold", size: 14))
-                .foregroundStyle(.black.opacity(0.6))
+                .font(AMENFont.semiBold(14))
+                .foregroundStyle(.secondary)
             
             Spacer()
             
             Text(value)
-                .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundStyle(.black)
+                .font(AMENFont.regular(14))
+                .foregroundStyle(.primary)
         }
     }
 }
 
 // MARK: - Appearance Settings View
 
-struct AppearanceSettingsView: View {
+struct ProfileAppearanceSettingsView: View {
     @Environment(\.dismiss) var dismiss
     @AppStorage("appTheme") private var appTheme: String = "auto"
     @AppStorage("fontSize") private var fontSize: String = "medium"
@@ -5264,10 +5735,10 @@ struct AppearanceSettingsView: View {
                     .pickerStyle(.inline)
                 } header: {
                     Text("COLOR SCHEME")
-                        .font(.custom("OpenSans-Bold", size: 12))
+                        .font(AMENFont.bold(12))
                 } footer: {
                     Text("Choose your preferred color scheme or let the system decide")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                 }
                 
                 Section {
@@ -5282,7 +5753,7 @@ struct AppearanceSettingsView: View {
                     // Preview Text
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Preview")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(.secondary)
                         
                         Text("This is how text will appear in the app")
@@ -5292,19 +5763,19 @@ struct AppearanceSettingsView: View {
                     .padding(.vertical, 8)
                 } header: {
                     Text("TEXT SIZE")
-                        .font(.custom("OpenSans-Bold", size: 12))
+                        .font(AMENFont.bold(12))
                 } footer: {
                     Text("Adjust the size of text throughout the app")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                 }
                 
                 Section {
                     Toggle(isOn: $reduceMotion) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Reduce Motion")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                             Text("Minimize animations and transitions")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -5313,35 +5784,35 @@ struct AppearanceSettingsView: View {
                     Toggle(isOn: $highContrast) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("High Contrast")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                             Text("Increase contrast for better readability")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     .toggleStyle(SwitchToggleStyle(tint: .blue))
                 } header: {
                     Text("ACCESSIBILITY")
-                        .font(.custom("OpenSans-Bold", size: 12))
+                        .font(AMENFont.bold(12))
                 } footer: {
                     Text("These settings improve accessibility for users with visual or motion sensitivities")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                 }
                 
                 Section {
                     Toggle(isOn: $showProfileBadges) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Show Profile Badges")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                             Text("Display verification and achievement badges on profiles")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     .toggleStyle(SwitchToggleStyle(tint: .blue))
                 } header: {
                     Text("DISPLAY")
-                        .font(.custom("OpenSans-Bold", size: 12))
+                        .font(AMENFont.bold(12))
                 }
             }
             .navigationTitle("Appearance")
@@ -5351,7 +5822,7 @@ struct AppearanceSettingsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
         }
@@ -5405,7 +5876,7 @@ struct SafetySecurityView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .sheet(item: $activeSecuritySheet) { sheet in
@@ -5426,9 +5897,9 @@ struct SafetySecurityView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Two-Factor Authentication")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                         Text(twoFactorEnabled ? "Enabled" : "Not enabled")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(twoFactorEnabled ? .green : .secondary)
                     }
                     
@@ -5438,26 +5909,26 @@ struct SafetySecurityView: View {
                         activeSecuritySheet = .twoFactor
                     } label: {
                         Text(twoFactorEnabled ? "Manage" : "Enable")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                             .foregroundStyle(.blue)
                     }
                 }
                 .padding(.vertical, 4)
             } header: {
                 Text("AUTHENTICATION")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
             } footer: {
                 Text("Add an extra layer of security to your account by requiring a code in addition to your password")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
             }
             
             Section {
                 Toggle(isOn: $loginAlerts) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Login Alerts")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                         Text("Get notified when your account is accessed from a new device")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -5473,33 +5944,33 @@ struct SafetySecurityView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Login History")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                                 .foregroundStyle(.primary)
                             Text("View devices where you're logged in")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.secondary)
                         }
                         
                         Spacer()
                         
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
             } header: {
                 Text("ACCOUNT ACTIVITY")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
             }
             
             Section {
                 Toggle(isOn: $showSensitiveContent) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Show Sensitive Content")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                         Text("See content that may be sensitive or mature")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -5512,9 +5983,9 @@ struct SafetySecurityView: View {
                 Toggle(isOn: $requirePasswordForPurchases) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Require Password for Purchases")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                         Text("Always require your password before making in-app purchases")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -5525,14 +5996,14 @@ struct SafetySecurityView: View {
                 }
             } header: {
                 Text("CONTENT & PURCHASES")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
             }
             
             Section {
                 securityTipsView
             } header: {
                 Text("SECURITY TIPS")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
             }
             
             Section {
@@ -5546,11 +6017,11 @@ struct SafetySecurityView: View {
                             .foregroundStyle(.blue)
                             .frame(width: 24)
                         Text("Privacy Policy")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.primary)
                         Spacer()
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -5566,18 +6037,18 @@ struct SafetySecurityView: View {
                             .foregroundStyle(.green)
                             .frame(width: 24)
                         Text("Terms of Service")
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.primary)
                         Spacer()
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
             } header: {
                 Text("LEGAL")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
             }
         }
     }
@@ -5589,7 +6060,7 @@ struct SafetySecurityView: View {
                 return
             }
             
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             
             do {
                 let doc = try await db.collection("users").document(userId).getDocument()
@@ -5668,7 +6139,7 @@ struct SafetySecurityView: View {
                 return
             }
             
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             
             do {
                 try await db.collection("users").document(userId).updateData([
@@ -5718,17 +6189,17 @@ struct SecurityTipRow: View {
                     .frame(width: 40, height: 40)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(color)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.primary)
                 
                 Text(description)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -5746,15 +6217,15 @@ struct TwoFactorSetupView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     Image(systemName: "lock.shield.fill")
-                        .font(.system(size: 70))
+                        .font(.systemScaled(70))
                         .foregroundStyle(.blue)
                         .padding(.top, 40)
                     
                     Text("Two-Factor Authentication")
-                        .font(.custom("OpenSans-Bold", size: 24))
+                        .font(AMENFont.bold(24))
                     
                     Text("Add an extra layer of security to your account")
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
@@ -5767,7 +6238,7 @@ struct TwoFactorSetupView: View {
                     .padding()
                     
                     Text("Two-factor authentication setup will be available in a future update")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
@@ -5802,16 +6273,16 @@ struct SetupStepRow: View {
                     .frame(width: 36, height: 36)
                 
                 Text("\(number)")
-                    .font(.custom("OpenSans-Bold", size: 16))
+                    .font(AMENFont.bold(16))
                     .foregroundStyle(.blue)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                 
                 Text(description)
-                    .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
             }
             
@@ -5893,7 +6364,7 @@ struct LoginHistoryView: View {
                 Text("Recent Sessions")
             } footer: {
                 Text("If you see any unfamiliar activity, sign out all other devices and change your password.")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
             }
         }
     }
@@ -5901,14 +6372,14 @@ struct LoginHistoryView: View {
     private var emptyHistoryState: some View {
         VStack(spacing: 16) {
             Image(systemName: "clock")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             
             Text("No login history")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
             
             Text("Your login activity will appear here")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
         }
     }
@@ -5963,28 +6434,28 @@ struct LoginSessionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: deviceIcon)
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(session.isCurrent ? .blue : .secondary)
                 .frame(width: 32)
             
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(session.deviceType)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                     
                     if session.isCurrent {
                         Text("• Current")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.blue)
                     }
                 }
                 
                 Text(session.osVersion)
-                    .font(.custom("OpenSans-Regular", size: 13))
+                    .font(AMENFont.regular(13))
                     .foregroundStyle(.secondary)
                 
                 Text(session.formattedTime)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             
@@ -5995,7 +6466,7 @@ struct LoginSessionRow: View {
                     onRemove()
                 } label: {
                     Text("Remove")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .font(AMENFont.semiBold(13))
                         .foregroundStyle(.red)
                 }
             }
@@ -6038,7 +6509,7 @@ struct HandDrawnHighlightText: View {
     
     var body: some View {
         Text(text)
-            .font(.custom("OpenSans-SemiBold", size: 13))
+            .font(AMENFont.semiBold(13))
             .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -6053,7 +6524,7 @@ struct HandDrawnHighlightText: View {
             .opacity(appeared ? 1 : 0)
             .scaleEffect(appeared ? 1 : 0.85)
             .onAppear {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7).delay(animationDelay)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7)).delay(animationDelay)) {
                     appeared = true
                 }
             }
@@ -6098,7 +6569,7 @@ struct BioLinkText: View {
         switch segment.type {
         case .regular:
             Text(segment.text)
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundColor(.black)
         
         case .url:
@@ -6106,7 +6577,7 @@ struct BioLinkText: View {
                 openURL(segment.text)
             } label: {
                 Text(segment.text)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundColor(.blue)
                     .underline()
             }
@@ -6120,7 +6591,7 @@ struct BioLinkText: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Text(segment.text)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .foregroundColor(.blue)
             }
             .buttonStyle(.plain)
@@ -6133,7 +6604,7 @@ struct BioLinkText: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Text(segment.text)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .foregroundColor(.blue)
             }
             .buttonStyle(.plain)
@@ -6251,7 +6722,7 @@ struct WrappingHStack<Content: View>: View {
     
     var body: some View {
         // Create a flowing text layout
-        FlowLayout(spacing: 4) {
+        AMENFlowLayout(spacing: 4) {
             ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
                 content(segment)
             }
@@ -6269,11 +6740,11 @@ struct UserProfileViewWrapper: View {
         NavigationStack {
             VStack {
                 Text("Profile for @\(username)")
-                    .font(.custom("OpenSans-Bold", size: 20))
+                    .font(AMENFont.bold(20))
                     .padding()
                 
-                Text("User profile view coming soon...")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                Text("Full profile coming soon.")
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                 
                 Spacer()
@@ -6299,11 +6770,11 @@ struct HashtagSearchViewWrapper: View {
         NavigationStack {
             VStack {
                 Text("Search results for #\(hashtag)")
-                    .font(.custom("OpenSans-Bold", size: 20))
+                    .font(AMENFont.bold(20))
                     .padding()
                 
-                Text("Hashtag search view coming soon...")
-                    .font(.custom("OpenSans-Regular", size: 14))
+                Text("Hashtag search coming soon.")
+                    .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                 
                 Spacer()
@@ -6324,6 +6795,4 @@ struct HashtagSearchViewWrapper: View {
 #Preview {
     ProfileView()
 }
-
-
 

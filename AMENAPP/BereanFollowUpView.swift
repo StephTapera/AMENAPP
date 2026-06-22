@@ -24,9 +24,9 @@ struct BereanFollowUpView: View {
                     Button { onSelect(item) } label: {
                         HStack(spacing: 5) {
                             Text(item.icon)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text(item.text)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(Color(white: 0.2))
                                 .lineLimit(1)
                         }

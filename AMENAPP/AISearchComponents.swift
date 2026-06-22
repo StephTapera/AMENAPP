@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // Note: SearchSuggestion is defined in SearchSuggestionsService.swift
 
@@ -34,17 +35,17 @@ struct AISearchSuggestionChip: View {
         }) {
             HStack(spacing: 6) {
                 Image(systemName: suggestion.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(.blue)
 
                 Text(suggestion.text)
                     .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundColor(.black)
+                    .foregroundColor(AmenTheme.Colors.textPrimary)
                     .lineLimit(1)
 
                 if suggestion.popularity > 80 {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundColor(.yellow)
                 }
             }
@@ -52,8 +53,9 @@ struct AISearchSuggestionChip: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(Color.white)
-                    .shadow(color: .black.opacity(isPressed ? 0.15 : 0.08), radius: isPressed ? 2 : 4, y: isPressed ? 1 : 2)
+                    .fill(AmenTheme.Colors.surfaceCard)
+                    .overlay(Capsule().strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5))
+                    .shadow(color: AmenTheme.Colors.shadowCard.opacity(isPressed ? 0.85 : 0.55), radius: isPressed ? 2 : 4, y: isPressed ? 1 : 2)
             )
             .scaleEffect(isPressed ? 0.96 : 1.0)
         }
@@ -97,17 +99,17 @@ struct FilterRecommendationPill: View {
             HStack(spacing: 6) {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundColor(pillColor)
                 }
 
                 Text(recommendation.filter.capitalized)
                     .font(.custom("OpenSans-SemiBold", size: 13))
-                    .foregroundColor(isSelected ? pillColor : .black.opacity(0.7))
+                    .foregroundColor(isSelected ? pillColor : AmenTheme.Colors.textSecondary)
 
                 if recommendation.confidence > 0.85 {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 9))
+                        .font(.systemScaled(9))
                         .foregroundColor(.yellow)
                 }
             }
@@ -115,11 +117,11 @@ struct FilterRecommendationPill: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isSelected ? pillColor.opacity(0.15) : Color.white)
+                    .fill(isSelected ? pillColor.opacity(0.15) : AmenTheme.Colors.surfaceCard)
             )
             .overlay(
                 Capsule()
-                    .stroke(isSelected ? pillColor.opacity(0.5) : Color.black.opacity(0.1), lineWidth: 1.5)
+                    .stroke(isSelected ? pillColor.opacity(0.5) : AmenTheme.Colors.borderSoft, lineWidth: 1.5)
             )
         }
         .buttonStyle(.plain)
@@ -136,7 +138,7 @@ struct AISearchSuggestionsSection: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(.blue)
 
                 Text("AI Suggestions")
@@ -158,7 +160,7 @@ struct AISearchSuggestionsSection: View {
         }
         .padding(.vertical, 10)
         .background(
-            Color(white: 0.97)
+            AmenTheme.Colors.backgroundSecondary
         )
     }
 }
@@ -174,7 +176,7 @@ struct FilterRecommendationsSection: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(.purple)
 
                 Text("Smart Filters")
@@ -216,7 +218,7 @@ struct FilterRecommendationsSection: View {
         }
         .padding(.vertical, 10)
         .background(
-            Color(white: 0.97)
+            AmenTheme.Colors.backgroundSecondary
         )
     }
 }
@@ -233,8 +235,8 @@ struct AIEnhancedSearchBar: View {
         HStack(spacing: 12) {
             // Search icon
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.gray)
+                .font(.systemScaled(16, weight: .semibold))
+                .foregroundColor(AmenTheme.Colors.iconSecondary)
 
             // Search field
             TextField("Search with AI...", text: $searchText)
@@ -249,7 +251,7 @@ struct AIEnhancedSearchBar: View {
             if showAIIndicator {
                 HStack(spacing: 4) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundColor(.blue)
 
                     Text("AI")
@@ -271,8 +273,8 @@ struct AIEnhancedSearchBar: View {
                     isSearching = false
                 }) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
-                        .foregroundColor(.gray)
+                        .font(.systemScaled(18))
+                        .foregroundColor(AmenTheme.Colors.iconSecondary)
                 }
             }
         }
@@ -280,7 +282,8 @@ struct AIEnhancedSearchBar: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(white: 0.95))
+                .fill(AmenTheme.Colors.surfaceInput)
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5))
         )
     }
 }
@@ -298,7 +301,7 @@ struct AISearchLoadingView: View {
             HStack(spacing: 8) {
                 ForEach(0..<3) { index in
                     Image(systemName: "sparkles")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundColor(.blue)
                         .opacity(0.3)
                         .scaleEffect(1.2)
@@ -313,7 +316,7 @@ struct AISearchLoadingView: View {
 
             Text("AI is searching...")
                 .font(.custom("OpenSans-SemiBold", size: 16))
-                .foregroundColor(.black)
+                .foregroundColor(AmenTheme.Colors.textPrimary)
 
             Text("Finding the best results for \"\(query)\"")
                 .font(.custom("OpenSans-Regular", size: 13))
@@ -324,7 +327,7 @@ struct AISearchLoadingView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(white: 0.98))
+        .background(AmenTheme.Colors.backgroundPrimary)
     }
 }
 
@@ -345,14 +348,14 @@ struct AISearchEmptyState: View {
                     .frame(width: 80, height: 80)
 
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 32, weight: .semibold))
+                    .font(.systemScaled(32, weight: .semibold))
                     .foregroundColor(.blue)
             }
 
             // Title
             Text("Try AI-Powered Search")
                 .font(.custom("OpenSans-Bold", size: 20))
-                .foregroundColor(.black)
+                .foregroundColor(AmenTheme.Colors.textPrimary)
 
             // Description
             Text("Get smarter suggestions and filter recommendations as you type")
@@ -373,20 +376,21 @@ struct AISearchEmptyState: View {
                     }) {
                         HStack {
                             Image(systemName: "arrow.right.circle.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundColor(.blue)
 
                             Text(suggestion)
                                 .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundColor(.black)
+                                .foregroundColor(AmenTheme.Colors.textPrimary)
 
                             Spacer()
                         }
                         .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.white)
-                                .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+                                .fill(AmenTheme.Colors.surfaceCard)
+                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5))
+                                .shadow(color: AmenTheme.Colors.shadowCard, radius: 4, y: 2)
                         )
                     }
                 }
@@ -396,6 +400,6 @@ struct AISearchEmptyState: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(white: 0.98))
+        .background(AmenTheme.Colors.backgroundPrimary)
     }
 }

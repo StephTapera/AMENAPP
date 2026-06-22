@@ -32,12 +32,14 @@ extension EnvironmentValues {
 struct ProfileNavigationModifier: ViewModifier {
     let userId: String
     @State private var showProfile = false
-    
+
     func body(content: Content) -> some View {
         content
             .onTapGesture {
                 showProfile = true
             }
+            // NAV-04: Profile is presented as a sheet here; Phase 1 will migrate to push
+            // navigation per the C6 contract to match HomeView/PostDetailView behavior.
             .sheet(isPresented: $showProfile) {
                 UserProfileView(userId: userId)
             }
@@ -79,7 +81,7 @@ struct TappableUserHeader: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(authorName)
                         .font(.custom("OpenSans-Bold", size: 15))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Text(timeAgo)
                         .font(.custom("OpenSans-Regular", size: 13))
@@ -90,6 +92,7 @@ struct TappableUserHeader: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        // NAV-04: Sheet presentation; Phase 1 will migrate to push per C6 contract.
         .sheet(isPresented: $showProfile) {
             UserProfileView(userId: userId)
         }
@@ -121,10 +124,11 @@ struct TappableAvatarName: View {
                 
                 Text(name)
                     .font(.custom("OpenSans-Bold", size: 14))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
             }
         }
         .buttonStyle(PlainButtonStyle())
+        // NAV-04: Sheet presentation; Phase 1 will migrate to push per C6 contract.
         .sheet(isPresented: $showProfile) {
             UserProfileView(userId: userId)
         }

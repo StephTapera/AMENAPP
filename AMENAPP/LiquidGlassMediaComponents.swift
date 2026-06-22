@@ -8,6 +8,7 @@
 
 import SwiftUI
 import AVKit
+import Combine
 
 // MARK: - Liquid Glass Design Tokens
 
@@ -18,6 +19,12 @@ private extension Color {
     static let glassGradientBottom = Color.black.opacity(0.5)
     static let controlBackground = Color.black.opacity(0.3)
     static let controlStroke = Color.white.opacity(0.15)
+}
+
+private extension ShapeStyle where Self == Color {
+    static var glassOverlay: Color { Color.white.opacity(0.08) }
+    static var glassStroke: Color { Color.white.opacity(0.25)  }
+    static var controlBackground: Color { Color.black.opacity(0.3) }
 }
 
 // MARK: - Glass Gradient Overlay
@@ -50,31 +57,31 @@ struct GlassImageView: View {
     var onTap: (() -> Void)? = nil
     
     @State private var imageAppeared = false
+    @State private var containerWidth: CGFloat = 0
     @Namespace private var imageNamespace
     
     var body: some View {
-        CachedAsyncImage(url: URL(string: url)) { phase in
-            switch phase {
-            case .success(let image):
-                imageContent(image)
-                    .opacity(imageAppeared ? 1.0 : 0.0)
-                    .scaleEffect(imageAppeared ? 1.0 : 0.96)
-                    .onAppear {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                            imageAppeared = true
-                        }
+        CachedAsyncImage(url: URL(string: url)) { image in
+            imageContent(image)
+                .opacity(imageAppeared ? 1.0 : 0.0)
+                .scaleEffect(imageAppeared ? 1.0 : 0.96)
+                .onAppear {
+                    withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
+                        imageAppeared = true
                     }
-                
-            case .failure:
-                failureContent
-                
-            case .empty:
-                loadingContent
-                
-            @unknown default:
-                loadingContent
-            }
+                }
+        } placeholder: {
+            loadingContent
         }
+        // Capture the actual layout width instead of using UIScreen.main.bounds.
+        // UIScreen.main.bounds does not account for safe-area insets on notched
+        // or Dynamic Island devices, causing overflow on Plus/Max sizes in landscape.
+        .background(
+            GeometryReader { geo in
+                Color.clear.onAppear { containerWidth = geo.size.width }
+                           .onChange(of: geo.size.width) { _, w in containerWidth = w }
+            }
+        )
     }
     
     private func imageContent(_ image: Image) -> some View {
@@ -124,10 +131,10 @@ struct GlassImageView: View {
             .overlay(
                 VStack(spacing: 8) {
                     Image(systemName: "photo")
-                        .font(.system(size: 28, weight: .light))
+                        .font(.systemScaled(28, weight: .light))
                         .foregroundStyle(.secondary)
                     Text("Image unavailable")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(AMENFont.regular(13))
                         .foregroundStyle(.secondary)
                 }
             )
@@ -136,9 +143,11 @@ struct GlassImageView: View {
     }
     
     private var heightForAspectRatio: CGFloat {
-        let screenWidth = UIScreen.main.bounds.width - 32 // Account for padding
+        // Use the measured container width. Fall back to screen width on first layout
+        // pass before GeometryReader fires (containerWidth == 0).
+        let width = containerWidth > 0 ? containerWidth : ScreenMetrics.bounds.width - 32
         let ratio = aspectRatio ?? 4.0 / 3.0
-        return screenWidth / ratio
+        return width / ratio
     }
 }
 
@@ -151,6 +160,11 @@ struct GlassVideoPlayerView: View {
     var cornerRadius: CGFloat = 20
     var autoplay: Bool = false
     var onTap: (() -> Void)? = nil
+
+    /// Optional IDs for media resume tracking (System 12).
+    /// When provided, the video integrates with MediaSessionCoordinator.
+    var postId: String? = nil
+    var mediaItemId: String? = nil
     
     @StateObject private var viewModel = VideoPlayerViewModel()
     @State private var showControls = true
@@ -191,14 +205,33 @@ struct GlassVideoPlayerView: View {
                 viewModel.togglePlayPause()
             }
         }
+        // Resume pill overlay (bottom-left)
+        .overlay(alignment: .bottomLeading) {
+            if let pId = postId, let mId = mediaItemId,
+               let state = MediaSessionCoordinator.shared.resumeState(for: pId, mediaItemId: mId),
+               state.isResumable, !viewModel.isPlaying {
+                MediaResumePillView(state: state)
+                    .padding(8)
+                    .transition(.opacity)
+            }
+        }
         .onAppear {
             viewModel.setupPlayer(url: url)
+            if let pId = postId, let mId = mediaItemId, let player = viewModel.player {
+                MediaSessionCoordinator.shared.beginSession(
+                    postId: pId, mediaItemId: mId,
+                    surface: .feed, player: player
+                )
+            }
             if autoplay {
                 viewModel.play()
             }
         }
         .onDisappear {
             viewModel.pause()
+            if postId != nil {
+                MediaSessionCoordinator.shared.endSession()
+            }
         }
     }
     
@@ -222,7 +255,7 @@ struct GlassVideoPlayerView: View {
                         .frame(width: 56, height: 56)
                     
                     Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.systemScaled(22, weight: .medium))
                         .foregroundStyle(.white)
                         .offset(x: viewModel.isPlaying ? 0 : 2) // Optical centering for play icon
                 }
@@ -258,7 +291,7 @@ struct GlassVideoPlayerView: View {
                     .frame(width: 36, height: 36)
                 
                 Image(systemName: viewModel.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.white)
             }
         }
@@ -270,7 +303,7 @@ struct GlassVideoPlayerView: View {
             HStack {
                 Spacer()
                 Text(text)
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -315,9 +348,12 @@ class VideoPlayerViewModel: ObservableObject {
             object: player?.currentItem,
             queue: .main
         ) { [weak self] _ in
-            self?.player?.seek(to: .zero)
-            if self?.isPlaying == true {
-                self?.player?.play()
+            guard let self else { return }
+            Task { @MainActor in
+                self.player?.seek(to: .zero)
+                if self.isPlaying == true {
+                    self.player?.play()
+                }
             }
         }
     }
@@ -352,8 +388,13 @@ class VideoPlayerViewModel: ObservableObject {
 
 // MARK: - Shimmer Effect Modifier
 
-struct ShimmerEffect: ViewModifier {
+struct LiquidGlassShimmerEffect: ViewModifier {
     @State private var isAnimating = false
+    // MEDIUM FIX: Respect the system-wide Reduce Motion setting.
+    // The infinite linear loop scrolls a white highlight across the view
+    // continuously — this fails the WCAG 2.1 SC 2.3.3 (no essential animation)
+    // criterion for users who have enabled Reduce Motion.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     func body(content: Content) -> some View {
         content
@@ -361,7 +402,7 @@ struct ShimmerEffect: ViewModifier {
                 LinearGradient(
                     colors: [
                         .clear,
-                        .white.opacity(0.15),
+                        .white.opacity(reduceMotion ? 0 : 0.15),
                         .clear
                     ],
                     startPoint: .leading,
@@ -371,6 +412,9 @@ struct ShimmerEffect: ViewModifier {
                 .allowsHitTesting(false)
             )
             .onAppear {
+                // Skip animation entirely when Reduce Motion is on; the overlay
+                // is also made transparent above so no static artifact remains.
+                guard !reduceMotion else { return }
                 withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
                     isAnimating = true
                 }

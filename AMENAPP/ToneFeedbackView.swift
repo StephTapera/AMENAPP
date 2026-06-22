@@ -22,11 +22,11 @@ struct ToneFeedbackView: View {
             // Header with icon
             HStack(spacing: 8) {
                 Image(systemName: feedback.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(feedbackColor)
                 
                 Text(feedback.message)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.primary)
                     .lineSpacing(2)
             }
@@ -35,12 +35,12 @@ struct ToneFeedbackView: View {
             if let suggestion = feedback.suggestion {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Suggestion:")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                     
                     HStack {
                         Text(suggestion)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                             .lineSpacing(2)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -50,7 +50,7 @@ struct ToneFeedbackView: View {
                                 onUseSuggestion?()
                             } label: {
                                 Text("Use")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                                     .foregroundStyle(.blue)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 4)
@@ -69,11 +69,11 @@ struct ToneFeedbackView: View {
             if let scripture = feedback.scriptureReference {
                 HStack(spacing: 6) {
                     Image(systemName: "book.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.tertiary)
                     
                     Text(scripture)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.tertiary)
                         .italic()
                 }

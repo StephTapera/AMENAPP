@@ -110,7 +110,7 @@ final class BereanCompassService: ObservableObject {
 
     @Published private(set) var isAnalyzing: Bool = false
 
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     private init() {}
 

@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ONE — World Feed Modes</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0A0A0F;
+      --gold:         #D4A843;
+      --gold-dim:     rgba(212, 168, 67, 0.35);
+      --gold-glow:    rgba(212, 168, 67, 0.15);
+      --glass-bg:     rgba(255, 255, 255, 0.08);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --matte-bg:     rgba(255, 255, 255, 0.04);
+      --matte-border: rgba(255, 255, 255, 0.07);
+      --text-primary: rgba(255, 255, 255, 0.92);
+      --text-secondary: rgba(255, 255, 255, 0.55);
+      --text-tertiary:  rgba(255, 255, 255, 0.30);
+      --danger:       rgba(255, 80, 80, 0.85);
+      --radius-sm:    8px;
+      --radius-md:    14px;
+      --radius-lg:    20px;
+      --radius-pill:  999px;
+      --font:         -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+      --transition:   0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Scrollbar ────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+    /* ── Layout Shell ─────────────────────────────────────────────── */
+    .app-shell {
+      max-width: 420px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ── Top Bar ──────────────────────────────────────────────────── */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 14px;
+      background: rgba(10, 10, 15, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .top-bar__title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      color: var(--text-primary);
+    }
+
+    .top-bar__settings {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-pill);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: background var(--transition), color var(--transition);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .top-bar__settings:hover, .top-bar__settings:focus-visible {
+      background: rgba(255,255,255,0.13);
+      color: var(--text-primary);
+      outline: 2px solid var(--gold-dim);
+      outline-offset: 2px;
+    }
+
+    /* ── Mode Switcher ────────────────────────────────────────────── */
+    .mode-switcher-wrap {
+      background: rgba(10, 10, 15, 0.60);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--glass-border);
+      padding: 12px 0 0;
+      position: sticky;
+      top: 65px;
+      z-index: 90;
+    }
+
+    .mode-chips-scroll {
+      display: flex;
+      gap: 8px;
+      padding: 0 20px 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .mode-chips-scroll::-webkit-scrollbar { display: none; }
+
+    .mode-chip {
+      flex-shrink: 0;
+      height: 34px;
+      padding: 0 16px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.1px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background var(--transition), border-color var(--transition),
+                  color var(--transition), box-shadow var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      background: var(--matte-bg);
+      color: var(--text-secondary);
+      border-color: var(--matte-border);
+      user-select: none;
+    }
+
+    .mode-chip[aria-selected="true"] {
+      background: rgba(212, 168, 67, 0.14);
+      border-color: rgba(212, 168, 67, 0.45);
+      color: var(--gold);
+      box-shadow: 0 0 14px rgba(212, 168, 67, 0.10),
+                  inset 0 1px 0 rgba(255,255,255,0.08);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .mode-chip:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    .chip-icon { font-size: 14px; }
+
+    /* ── Budget Bar ───────────────────────────────────────────────── */
+    .budget-bar-wrap {
+      padding: 8px 20px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(10, 10, 15, 0.55);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--matte-border);
+    }
+
+    .budget-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .budget-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .budget-close-btn {
+      font-size: 12px;
+      color: var(--gold);
+      font-weight: 600;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      letter-spacing: 0.05px;
+      transition: opacity var(--transition);
+    }
+    .budget-close-btn:hover { opacity: 0.75; }
+    .budget-close-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 3px; }
+
+    .budget-track {
+      width: 100%;
+      height: 3px;
+      background: rgba(255,255,255,0.08);
+      border-radius: var(--radius-pill);
+      overflow: hidden;
+    }
+
+    .budget-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--gold) 0%, rgba(212, 168, 67, 0.7) 100%);
+      border-radius: var(--radius-pill);
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .budget-fill.exhausted {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    /* ── Mode Description ─────────────────────────────────────────── */
+    .mode-description {
+      padding: 10px 20px;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      font-weight: 400;
+      letter-spacing: 0.05px;
+      border-bottom: 1px solid var(--matte-border);
+      background: rgba(10, 10, 15, 0.4);
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      transition: opacity 0.18s ease;
+    }
+
+    .mode-description span {
+      font-weight: 600;
+      color: var(--gold);
+      margin-right: 4px;
+    }
+
+    /* ── Feed Panel ───────────────────────────────────────────────── */
+    .feed-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+    }
+
+    /* ── Feed Card (MATTE — never glass) ──────────────────────────── */
+    .feed-card {
+      background: var(--matte-bg);
+      border: 1px solid var(--matte-border);
+      border-radius: var(--radius-md);
+      padding: 14px 14px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .feed-card.dimmed {
+      opacity: 0.25;
+      pointer-events: none;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: rgba(0,0,0,0.7);
+    }
+
+    .card-meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .provenance-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      margin-top: 2px;
+      letter-spacing: 0.2px;
+    }
+
+    .provenance-badge.captured {
+      background: rgba(80, 200, 120, 0.12);
+      color: rgba(80, 200, 120, 0.85);
+      border: 1px solid rgba(80, 200, 120, 0.2);
+    }
+    .provenance-badge.edited {
+      background: rgba(100, 160, 255, 0.12);
+      color: rgba(100, 160, 255, 0.85);
+      border: 1px solid rgba(100, 160, 255, 0.2);
+    }
+    .provenance-badge.ai-assisted {
+      background: rgba(180, 120, 255, 0.12);
+      color: rgba(180, 120, 255, 0.85);
+      border: 1px solid rgba(180, 120, 255, 0.2);
+    }
+
+    .card-body {
+      font-size: 13.5px;
+      color: var(--text-primary);
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ── Consent DNA Bar ──────────────────────────────────────────── */
+    .consent-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 8px;
+      border-top: 1px solid var(--matte-border);
+    }
+
+    .consent-icons {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .consent-icon {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-weight: 500;
+    }
+
+    .consent-icon svg {
+      width: 13px;
+      height: 13px;
+      opacity: 0.45;
+    }
+
+    .reach-pill {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: var(--radius-pill);
+      background: var(--gold-glow);
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      letter-spacing: 0.1px;
+      white-space: nowrap;
+    }
+
+    /* ── Session Over Overlay ─────────────────────────────────────── */
+    .session-over-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      background: rgba(10, 10, 15, 0.78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .session-over-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .session-over-panel {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--matte-border);
+      border-radius: var(--radius-lg);
+      padding: 30px 24px 24px;
+      max-width: 340px;
+      width: 100%;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .session-over-icon {
+      font-size: 36px;
+      line-height: 1;
+    }
+
+    .session-over-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.2px;
+    }
+
+    .session-over-body {
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    .switch-mode-btn {
+      margin-top: 4px;
+      height: 44px;
+      padding: 0 28px;
+      border-radius: var(--radius-pill);
+      background: rgba(212, 168, 67, 0.14);
+      border: 1.5px solid rgba(212, 168, 67, 0.5);
+      color: var(--gold);
+      font-size: 14px;
+      font-weight: 700;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background var(--transition), box-shadow var(--transition);
+      letter-spacing: 0.05px;
+    }
+    .switch-mode-btn:hover {
+      background: rgba(212, 168, 67, 0.22);
+      box-shadow: 0 0 20px rgba(212, 168, 67, 0.15);
+    }
+    .switch-mode-btn:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    /* ── Feed Section Header ──────────────────────────────────────── */
+    .feed-section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-tertiary);
+      padding: 4px 2px 2px;
+    }
+
+    /* ── Reduced Motion ───────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+      .budget-fill { transition: none !important; }
+    }
+
+    /* ── Focus ring global ────────────────────────────────────────── */
+    :focus-visible {
+      outline: 2px solid var(--gold-dim);
+      outline-offset: 2px;
+    }
+
+    /* ── Entry animation ──────────────────────────────────────────── */
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .feed-card.entering {
+      animation: cardIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .feed-card.entering { animation: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Top Bar -->
+  <header class="top-bar" role="banner">
+    <h1 class="top-bar__title">World</h1>
+    <button class="top-bar__settings" aria-label="Feed settings" tabindex="0">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33
+                 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33
+                 l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1
+                 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65
+                 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65
+                 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0
+                 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- Mode Switcher -->
+  <div class="mode-switcher-wrap">
+    <div class="mode-chips-scroll"
+         role="tablist"
+         aria-label="Feed modes"
+         id="chipRow">
+      <!-- chips injected by JS -->
+    </div>
+  </div>
+
+  <!-- Budget Bar -->
+  <div class="budget-bar-wrap" aria-live="polite" aria-atomic="true">
+    <div class="budget-row">
+      <span class="budget-label" id="budgetLabel">12 of 20 · session</span>
+      <button class="budget-close-btn" id="closeSessionBtn" aria-label="Close session">
+        Close session
+      </button>
+    </div>
+    <div class="budget-track" role="progressbar" aria-valuemin="0" aria-valuemax="20"
+         aria-valuenow="12" aria-label="Session budget">
+      <div class="budget-fill" id="budgetFill" style="width: 60%"></div>
+    </div>
+  </div>
+
+  <!-- Mode Description -->
+  <div class="mode-description" id="modeDesc" aria-live="polite">
+    <span>Close</span>Close friends + witnesses
+  </div>
+
+  <!-- Feed Panel -->
+  <main class="feed-panel"
+        role="tabpanel"
+        id="feedPanel"
+        aria-label="World feed"
+        tabindex="0">
+    <!-- cards injected by JS -->
+  </main>
+
+</div>
+
+<!-- Session Over Overlay -->
+<div class="session-over-overlay" id="sessionOverOverlay" role="dialog"
+     aria-modal="true" aria-labelledby="sessionOverTitle" aria-hidden="true">
+  <div class="session-over-panel">
+    <div class="session-over-icon">🕊️</div>
+    <h2 class="session-over-title" id="sessionOverTitle">Session complete</h2>
+    <p class="session-over-body">
+      You've seen your 20 items for this session.<br>Come back fresh.
+    </p>
+    <button class="switch-mode-btn" id="switchModeBtn">Switch mode</button>
+  </div>
+</div>
+
+<script>
+  /* ── Data ──────────────────────────────────────────────────────── */
+  const MODES = [
+    {
+      id: 'close',
+      label: 'Close',
+      icon: '🤝',
+      description: 'Close friends + witnesses',
+      cards: [
+        {
+          avatar: 'M', avatarColor: '#5C8DF5',
+          name: 'Marcus W.',
+          provenance: 'captured',
+          text: 'Finished morning quiet time. Philippians 4:7 hit different today — that peace that surpasses understanding isn\'t passive, it\'s like a guard on duty.',
+          noForward: true, noSave: true, relays: 3
+        },
+        {
+          avatar: 'A', avatarColor: '#F59C5C',
+          name: 'Ama Osei',
+          provenance: 'edited',
+          text: 'Shared a sermon clip from Sunday. The part about covenant vs. contract really reframed how I think about community. Editing kept the core, trimmed the edges.',
+          noForward: false, noSave: true, relays: 2
+        },
+        {
+          avatar: 'J', avatarColor: '#50C878',
+          name: 'Joel Rivera',
+          provenance: 'captured',
+          text: 'Prayer walk through the neighborhood this morning. Just noticing people. Didn\'t have words — just presence.',
+          noForward: true, noSave: false, relays: 5
+        }
+      ]
+    },
+    {
+      id: 'create',
+      label: 'Create',
+      icon: '✦',
+      description: 'Creator drops + collaborative',
+      cards: [
+        {
+          avatar: 'D', avatarColor: '#C87CFF',
+          name: 'Divinity Made',
+          provenance: 'edited',
+          text: 'New visual devotional drop: "Wilderness Seasons" — 7 days of curated art + scripture pairs. Collab with @PetraNotes. Day 1 is Isaiah 43:19.',
+          noForward: false, noSave: false, relays: 12
+        },
+        {
+          avatar: 'T', avatarColor: '#FF7CAA',
+          name: 'Theo Streams',
+          provenance: 'ai-assisted',
+          text: 'Rough mix of the worship loop I\'ve been building. AI helped scaffold the chord transitions — all intent is mine. Let me know if the bridge resolves too quickly.',
+          noForward: false, noSave: true, relays: 7
+        },
+        {
+          avatar: 'K', avatarColor: '#5CF5D4',
+          name: 'Kairos Studio',
+          provenance: 'captured',
+          text: 'Behind-the-scenes of filming the testimony series. We\'re at 6 stories recorded so far. No scripts — just chairs, light, and truth.',
+          noForward: true, noSave: false, relays: 4
+        }
+      ]
+    },
+    {
+      id: 'learn',
+      label: 'Learn',
+      icon: '📖',
+      description: 'Long-form · Scripture · Articles',
+      cards: [
+        {
+          avatar: 'S', avatarColor: '#F5D45C',
+          name: 'Selah Scholars',
+          provenance: 'edited',
+          text: 'Long read: "Lament as Liturgy — How the Psalms reframe suffering not as absence of faith but as its deepest expression." 8-minute read, 4 cross-references.',
+          noForward: false, noSave: false, relays: 20
+        },
+        {
+          avatar: 'B', avatarColor: '#5C9CF5',
+          name: 'Berean Daily',
+          provenance: 'captured',
+          text: 'Today\'s deep dive: Romans 8:28 in the original Greek. "Synergei" (work together) is a present active — this isn\'t past comfort, it\'s present agency.',
+          noForward: false, noSave: false, relays: 15
+        },
+        {
+          avatar: 'E', avatarColor: '#F5875C',
+          name: 'Ekklesia Notes',
+          provenance: 'ai-assisted',
+          text: 'Summary thread: Church history of the Council of Nicaea, 325 AD. AI-generated outline reviewed and annotated by Dr. T. Asante. 9 segments.',
+          noForward: true, noSave: false, relays: 8
+        }
+      ]
+    },
+    {
+      id: 'local',
+      label: 'Local',
+      icon: '📍',
+      description: 'Geo-adjacent community',
+      cards: [
+        {
+          avatar: 'G', avatarColor: '#78D45C',
+          name: 'Grace Chapel ATL',
+          provenance: 'captured',
+          text: 'Food pantry this Saturday 9–noon at the Vine St location. 200 families expected. Volunteers still needed — especially for the kids\' corner.',
+          noForward: false, noSave: false, relays: 0
+        },
+        {
+          avatar: 'N', avatarColor: '#5CBFF5',
+          name: 'Nadia P. · 0.8 mi',
+          provenance: 'captured',
+          text: 'Anyone else go to Covenant House ATL? Looking for people to carpool with on Sunday mornings from the Westside.',
+          noForward: true, noSave: true, relays: 1
+        },
+        {
+          avatar: 'R', avatarColor: '#F5A55C',
+          name: 'Renewal Collective',
+          provenance: 'edited',
+          text: 'Night of worship recap — 340 people showed up in the rain. We didn\'t plan for that. Neither did we plan for what happened during the last song.',
+          noForward: false, noSave: true, relays: 6
+        }
+      ]
+    },
+    {
+      id: 'quiet',
+      label: 'Quiet',
+      icon: '🌙',
+      description: 'Slow feed · No video · Low motion',
+      cards: [
+        {
+          avatar: 'H', avatarColor: '#9B8FD4',
+          name: 'Hannah K.',
+          provenance: 'captured',
+          text: '"Be still and know." — Psalm 46:10. That\'s the whole post.',
+          noForward: true, noSave: false, relays: 2
+        },
+        {
+          avatar: 'L', avatarColor: '#8FD4B0',
+          name: 'Lydia Maren',
+          provenance: 'edited',
+          text: 'Slow morning. Made tea. Read two chapters of Job. Did not try to fix anything.',
+          noForward: false, noSave: true, relays: 1
+        },
+        {
+          avatar: 'C', avatarColor: '#D49B8F',
+          name: 'Caleb S.',
+          provenance: 'captured',
+          text: 'Watching the light come through the window at 6 a.m. No caption needed.',
+          noForward: true, noSave: true, relays: 0
+        }
+      ]
+    }
+  ];
+
+  /* ── State ─────────────────────────────────────────────────────── */
+  let activeMode = 0;
+  let budgetUsed  = 12;
+  const BUDGET_MAX = 20;
+  let sessionOver = false;
+
+  /* ── DOM refs ──────────────────────────────────────────────────── */
+  const chipRow          = document.getElementById('chipRow');
+  const budgetLabel      = document.getElementById('budgetLabel');
+  const budgetFill       = document.getElementById('budgetFill');
+  const budgetTrack      = budgetFill.parentElement;
+  const closeSessionBtn  = document.getElementById('closeSessionBtn');
+  const modeDesc         = document.getElementById('modeDesc');
+  const feedPanel        = document.getElementById('feedPanel');
+  const overlay          = document.getElementById('sessionOverOverlay');
+  const switchModeBtn    = document.getElementById('switchModeBtn');
+
+  /* ── Build chips ───────────────────────────────────────────────── */
+  function buildChips() {
+    chipRow.innerHTML = '';
+    MODES.forEach((mode, idx) => {
+      const chip = document.createElement('button');
+      chip.className  = 'mode-chip';
+      chip.id         = `chip-${mode.id}`;
+      chip.role       = 'tab';
+      chip.setAttribute('aria-selected', idx === activeMode ? 'true' : 'false');
+      chip.setAttribute('aria-controls', 'feedPanel');
+      chip.setAttribute('tabindex',       idx === activeMode ? '0' : '-1');
+      chip.innerHTML  = `<span class="chip-icon">${mode.icon}</span>${mode.label}`;
+      chip.addEventListener('click', () => switchMode(idx));
+      chipRow.appendChild(chip);
+    });
+  }
+
+  /* ── Provenance badge HTML ─────────────────────────────────────── */
+  function provenanceBadge(type) {
+    const map = {
+      'captured':    { label: 'Captured',     icon: '◉' },
+      'edited':      { label: 'Edited',        icon: '✎' },
+      'ai-assisted': { label: 'AI-assisted',   icon: '✦' }
+    };
+    const { label, icon } = map[type] || map['captured'];
+    return `<span class="provenance-badge ${type}">${icon} ${label}</span>`;
+  }
+
+  /* ── Consent icons ─────────────────────────────────────────────── */
+  function noForwardIcon() {
+    return `<span class="consent-icon" title="No forwarding">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 17 20 12 15 7"/>
+        <path d="M4 18v-2a4 4 0 0 1 4-4h12"/>
+        <line x1="2" y1="2" x2="22" y2="22"/>
+      </svg>
+      No fwd
+    </span>`;
+  }
+
+  function noSaveIcon() {
+    return `<span class="consent-icon" title="No saving">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+        <polyline points="17 21 17 13 7 13 7 21"/>
+        <polyline points="7 3 7 8 15 8"/>
+        <line x1="2" y1="2" x2="22" y2="22"/>
+      </svg>
+      No save
+    </span>`;
+  }
+
+  /* ── Build feed cards ──────────────────────────────────────────── */
+  function buildCards(modeIndex, animate) {
+    feedPanel.innerHTML = '';
+    const mode = MODES[modeIndex];
+
+    const label = document.createElement('p');
+    label.className   = 'feed-section-label';
+    label.textContent = `${mode.label} · ${mode.cards.length} moments`;
+    feedPanel.appendChild(label);
+
+    mode.cards.forEach((card, i) => {
+      const el = document.createElement('article');
+      el.className = 'feed-card' + (animate ? ' entering' : '');
+      el.setAttribute('aria-label', `Post by ${card.name}`);
+      if (sessionOver) el.classList.add('dimmed');
+
+      // Stagger animation
+      if (animate) el.style.animationDelay = `${i * 55}ms`;
+
+      const relayLabel = card.relays === 0 ? 'No relays' : `${card.relays} relay${card.relays !== 1 ? 's' : ''} left`;
+      const consentIcons = [
+        card.noForward ? noForwardIcon() : '',
+        card.noSave    ? noSaveIcon()    : ''
+      ].join('');
+
+      el.innerHTML = `
+        <div class="card-header">
+          <div class="avatar" style="background: ${card.avatarColor}" aria-hidden="true">
+            ${card.avatar}
+          </div>
+          <div class="card-meta">
+            <div class="card-name">${card.name}</div>
+            ${provenanceBadge(card.provenance)}
+          </div>
+        </div>
+        <p class="card-body">${card.text}</p>
+        <div class="consent-bar">
+          <div class="consent-icons">${consentIcons || '<span class="consent-icon" style="opacity:0.3">Open</span>'}</div>
+          <span class="reach-pill" aria-label="${relayLabel}">${relayLabel}</span>
+        </div>
+      `;
+      feedPanel.appendChild(el);
+    });
+  }
+
+  /* ── Update budget display ─────────────────────────────────────── */
+  function updateBudget() {
+    const pct = Math.max(0, Math.min(100, (budgetUsed / BUDGET_MAX) * 100));
+    budgetFill.style.width = `${pct}%`;
+    budgetTrack.setAttribute('aria-valuenow', budgetUsed);
+
+    if (sessionOver) {
+      budgetLabel.textContent = 'Session over · 20 of 20';
+      budgetFill.classList.add('exhausted');
+      closeSessionBtn.style.display = 'none';
+    } else {
+      budgetLabel.textContent = `${budgetUsed} of ${BUDGET_MAX} · session`;
+      budgetFill.classList.remove('exhausted');
+      closeSessionBtn.style.display = '';
+    }
+  }
+
+  /* ── Update mode description ───────────────────────────────────── */
+  function updateDescription(modeIndex) {
+    const mode = MODES[modeIndex];
+    modeDesc.innerHTML = `<span>${mode.label}</span>${mode.description}`;
+  }
+
+  /* ── Show / hide session-over overlay ─────────────────────────── */
+  function setSessionOver(over) {
+    sessionOver = over;
+    overlay.classList.toggle('visible', over);
+    overlay.setAttribute('aria-hidden', String(!over));
+    if (over) {
+      switchModeBtn.focus();
+      // Dim all cards
+      feedPanel.querySelectorAll('.feed-card').forEach(c => c.classList.add('dimmed'));
+    } else {
+      feedPanel.querySelectorAll('.feed-card').forEach(c => c.classList.remove('dimmed'));
+    }
+    updateBudget();
+  }
+
+  /* ── Switch mode ───────────────────────────────────────────────── */
+  function switchMode(idx) {
+    if (idx === activeMode && !sessionOver) return;
+    activeMode = idx;
+
+    // If session was over, reset it when switching mode
+    if (sessionOver) {
+      budgetUsed  = 0;
+      sessionOver = false;
+      overlay.classList.remove('visible');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+
+    // Update chips
+    chipRow.querySelectorAll('.mode-chip').forEach((chip, i) => {
+      const selected = i === idx;
+      chip.setAttribute('aria-selected', String(selected));
+      chip.setAttribute('tabindex', selected ? '0' : '-1');
+    });
+
+    updateDescription(idx);
+    buildCards(idx, true);
+    updateBudget();
+
+    // Scroll chips into view
+    const activeChip = chipRow.children[idx];
+    if (activeChip) activeChip.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }
+
+  /* ── Budget decrement on scroll ────────────────────────────────── */
+  let lastScrollTop = 0;
+  let cardsSeen     = new Set();
+
+  feedPanel.addEventListener('scroll', () => {
+    if (sessionOver) return;
+    const st = feedPanel.scrollTop;
+    if (st <= lastScrollTop) { lastScrollTop = st; return; }
+    lastScrollTop = st;
+
+    const cards = feedPanel.querySelectorAll('.feed-card');
+    cards.forEach((card, i) => {
+      if (cardsSeen.has(i)) return;
+      const rect = card.getBoundingClientRect();
+      const panelRect = feedPanel.getBoundingClientRect();
+      if (rect.bottom < panelRect.bottom) {
+        cardsSeen.add(i);
+        budgetUsed = Math.min(BUDGET_MAX, budgetUsed + 1);
+        updateBudget();
+        if (budgetUsed >= BUDGET_MAX) {
+          setSessionOver(true);
+        }
+      }
+    });
+  }, { passive: true });
+
+  /* ── Close session button ──────────────────────────────────────── */
+  closeSessionBtn.addEventListener('click', () => {
+    budgetUsed = BUDGET_MAX;
+    setSessionOver(true);
+  });
+
+  /* ── Switch mode button (in overlay) ──────────────────────────── */
+  switchModeBtn.addEventListener('click', () => {
+    const next = (activeMode + 1) % MODES.length;
+    switchMode(next);
+  });
+
+  /* ── Keyboard navigation on chip row ──────────────────────────── */
+  chipRow.addEventListener('keydown', (e) => {
+    const chips = Array.from(chipRow.querySelectorAll('.mode-chip'));
+    const focused = chips.indexOf(document.activeElement);
+    if (focused === -1) return;
+
+    let next = -1;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      next = (focused + 1) % chips.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      next = (focused - 1 + chips.length) % chips.length;
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      next = 0;
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      next = chips.length - 1;
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      switchMode(focused);
+      return;
+    }
+
+    if (next >= 0) {
+      chips[next].focus();
+      switchMode(next);
+    }
+  });
+
+  /* ── Trap focus in overlay when visible ───────────────────────── */
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      // Allow escape to dismiss and switch to next mode
+      switchModeBtn.click();
+    }
+  });
+
+  /* ── Init ──────────────────────────────────────────────────────── */
+  buildChips();
+  updateDescription(activeMode);
+  buildCards(activeMode, false);
+  updateBudget();
+</script>
+</body>
+</html>

@@ -60,13 +60,13 @@ struct MutualsListView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "person.2")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.white.opacity(0.3))
             Text("No mutual connections yet")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
             Text("When you and this person both follow the same people, they'll appear here.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.white.opacity(0.4))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -100,10 +100,10 @@ private struct MutualsRowView: View {
             // Name + subtitle
             VStack(alignment: .leading, spacing: 2) {
                 Text(mutual.displayName)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                 Text("Follows you both")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.white.opacity(0.5))
             }
 
@@ -132,7 +132,7 @@ private struct MutualsRowView: View {
             }
         } label: {
             Text(isAlreadyFollowing ? "Following" : "Follow")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(isAlreadyFollowing ? .black : .white)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 7)

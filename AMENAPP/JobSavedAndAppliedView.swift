@@ -27,29 +27,32 @@ struct JobSavedAndAppliedView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Tab Picker
-                Picker("Tab", selection: $selectedTab) {
-                    ForEach(SavedAppliedTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
+            ZStack {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                VStack(spacing: 0) {
+                    // Tab Picker
+                    Picker("Tab", selection: $selectedTab) {
+                        ForEach(SavedAppliedTab.allCases, id: \.self) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
                     }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+                    .background(.regularMaterial)
+                    .overlay(Divider(), alignment: .bottom)
 
-                Divider()
-
-                // Tab Content
-                Group {
-                    switch selectedTab {
-                    case .saved:   savedTab
-                    case .applied: appliedTab
-                    case .alerts:  alertsTab
+                    // Tab Content
+                    Group {
+                        switch selectedTab {
+                        case .saved:   savedTab
+                        case .applied: appliedTab
+                        case .alerts:  alertsTab
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .navigationTitle("Jobs")
             .navigationBarTitleDisplayMode(.inline)
@@ -84,21 +87,43 @@ struct JobSavedAndAppliedView: View {
                     message: "Tap the bookmark on any job to save it for later."
                 )
             } else {
-                List {
-                    ForEach(service.mySavedJobs) { saved in
-                        NavigationLink(destination: JobDetailView(jobId: saved.jobId)) {
-                            SavedJobRow(saved: saved)
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                Task { try? await service.unsaveJob(saved.id ?? "") }
-                            } label: {
-                                Label("Remove", systemImage: "bookmark.slash.fill")
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        Text("SAVED JOBS")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(service.mySavedJobs.enumerated()), id: \.element.id) { idx, saved in
+                                NavigationLink(destination: JobDetailView(jobId: saved.jobId)) {
+                                    SavedJobRow(saved: saved)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 14)
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        Task { try? await service.unsaveJob(saved.id ?? "") }
+                                    } label: {
+                                        Label("Remove", systemImage: "bookmark.slash.fill")
+                                    }
+                                }
+                                if idx < service.mySavedJobs.count - 1 {
+                                    Divider().padding(.leading, 16)
+                                }
                             }
                         }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+
+                        Color.clear.frame(height: 32)
                     }
                 }
-                .listStyle(.plain)
             }
         }
     }
@@ -114,38 +139,73 @@ struct JobSavedAndAppliedView: View {
                     message: "When you apply to jobs through AMEN, your applications will appear here."
                 )
             } else {
-                List {
-                    // Active applications
-                    let active = service.myApplications.filter { $0.status != .withdrawn && $0.status != .expired }
-                    let inactive = service.myApplications.filter { $0.status == .withdrawn || $0.status == .expired }
+                let active = service.myApplications.filter { $0.status != .withdrawn && $0.status != .expired }
+                let inactive = service.myApplications.filter { $0.status == .withdrawn || $0.status == .expired }
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        if !active.isEmpty {
+                            Text("ACTIVE")
+                                .font(AMENFont.bold(11))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 20)
+                                .padding(.top, 24)
+                                .padding(.bottom, 8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if !active.isEmpty {
-                        Section("Active") {
-                            ForEach(active) { application in
-                                ApplicationTrackerCard(application: application)
-                                    .swipeActions(edge: .trailing) {
-                                        if application.status == .submitted || application.status == .viewed {
-                                            Button(role: .destructive) {
-                                                Task { try? await service.withdrawApplication(application.id ?? "") }
-                                            } label: {
-                                                Label("Withdraw", systemImage: "xmark.circle.fill")
+                            VStack(spacing: 0) {
+                                ForEach(Array(active.enumerated()), id: \.element.id) { idx, application in
+                                    ApplicationTrackerCard(application: application)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 14)
+                                        .swipeActions(edge: .trailing) {
+                                            if application.status == .submitted || application.status == .viewed {
+                                                Button(role: .destructive) {
+                                                    Task { try? await service.withdrawApplication(application.id ?? "") }
+                                                } label: {
+                                                    Label("Withdraw", systemImage: "xmark.circle.fill")
+                                                }
                                             }
                                         }
+                                    if idx < active.count - 1 {
+                                        Divider().padding(.leading, 16)
                                     }
+                                }
                             }
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                            .padding(.horizontal, 16)
                         }
-                    }
 
-                    if !inactive.isEmpty {
-                        Section("Past") {
-                            ForEach(inactive) { application in
-                                ApplicationTrackerCard(application: application)
-                                    .opacity(0.7)
+                        if !inactive.isEmpty {
+                            Text("PAST")
+                                .font(AMENFont.bold(11))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 20)
+                                .padding(.top, 24)
+                                .padding(.bottom, 8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            VStack(spacing: 0) {
+                                ForEach(Array(inactive.enumerated()), id: \.element.id) { idx, application in
+                                    ApplicationTrackerCard(application: application)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 14)
+                                        .opacity(0.7)
+                                    if idx < inactive.count - 1 {
+                                        Divider().padding(.leading, 16)
+                                    }
+                                }
                             }
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                            .padding(.horizontal, 16)
                         }
+
+                        Color.clear.frame(height: 32)
                     }
                 }
-                .listStyle(.grouped)
             }
         }
     }
@@ -161,19 +221,41 @@ struct JobSavedAndAppliedView: View {
                     message: "Create alerts to get notified when new matching jobs are posted."
                 )
             } else {
-                List {
-                    ForEach(service.myJobAlerts) { alert in
-                        JobAlertCard(alert: alert)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    Task { try? await service.deleteJobAlert(alert.id ?? "") }
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        Text("JOB ALERTS")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(service.myJobAlerts.enumerated()), id: \.element.id) { idx, alert in
+                                JobAlertCard(alert: alert)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 14)
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        Button(role: .destructive) {
+                                            Task { try? await service.deleteJobAlert(alert.id ?? "") }
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
+                                if idx < service.myJobAlerts.count - 1 {
+                                    Divider().padding(.leading, 16)
                                 }
                             }
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
+
+                        Color.clear.frame(height: 32)
                     }
                 }
-                .listStyle(.plain)
             }
         }
     }
@@ -184,7 +266,7 @@ struct JobSavedAndAppliedView: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: icon)
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             VStack(spacing: 8) {
                 Text(title)

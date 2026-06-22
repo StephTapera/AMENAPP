@@ -1,3 +1,5 @@
+// TODO(gate: HUMAN-MACHINE) — USE_DEFINE_SECRET: migrate raw process.env secret reads to defineSecret() for Functions v2 isolation
+// TODO(gate: HUMAN-MACHINE) — MIGRATE_TO_V2: still using Gen1 runWith() pattern; migration requires re-deploy + smoke-test
 // mentorshipFunctions.js
 // Mentorship subscription management via Stripe + Firestore
 

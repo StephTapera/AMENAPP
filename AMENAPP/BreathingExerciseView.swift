@@ -149,7 +149,7 @@ struct BreathingExerciseView: View {
             HStack {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.white.opacity(0.7))
                         .frame(width: 36, height: 36)
                         .background(Color.white.opacity(0.1), in: Circle())
@@ -169,7 +169,7 @@ struct BreathingExerciseView: View {
             // Pattern picker
             VStack(alignment: .leading, spacing: 12) {
                 Text("PATTERN")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .kerning(2)
                     .foregroundStyle(.white.opacity(0.45))
                     .padding(.horizontal, 24)
@@ -192,7 +192,7 @@ struct BreathingExerciseView: View {
                                 Spacer()
                                 if selectedPattern == pattern {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 20))
+                                        .font(.systemScaled(20))
                                         .foregroundStyle(accent)
                                 }
                             }
@@ -217,7 +217,7 @@ struct BreathingExerciseView: View {
             // Duration
             VStack(alignment: .leading, spacing: 12) {
                 Text("DURATION")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .kerning(2)
                     .foregroundStyle(.white.opacity(0.45))
                     .padding(.horizontal, 24)
@@ -253,7 +253,7 @@ struct BreathingExerciseView: View {
             // Voice toggle
             HStack {
                 Image(systemName: voiceEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(voiceEnabled ? accent : .white.opacity(0.4))
                 Text("Voice guidance")
                     .font(.custom("OpenSans-Regular", size: 14))
@@ -295,7 +295,7 @@ struct BreathingExerciseView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                         Text("End")
                             .font(.custom("OpenSans-Regular", size: 14))
                     }
@@ -304,7 +304,7 @@ struct BreathingExerciseView: View {
                 Spacer()
                 // Progress time
                 Text(timeString(totalSecondsElapsed))
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .font(.systemScaled(13, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.5))
             }
             .padding(.horizontal, 24)
@@ -348,11 +348,11 @@ struct BreathingExerciseView: View {
                         .foregroundStyle(.white)
                     if !sessionComplete {
                         Text("\(phaseSecondsRemaining)")
-                            .font(.system(size: 42, weight: .thin, design: .rounded))
+                            .font(.systemScaled(42, weight: .thin, design: .rounded))
                             .foregroundStyle(.white.opacity(0.9))
                     } else {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 36, weight: .thin))
+                            .font(.systemScaled(36, weight: .thin))
                             .foregroundStyle(.white.opacity(0.9))
                     }
                 }
@@ -410,7 +410,7 @@ struct BreathingExerciseView: View {
 
             VStack(spacing: 24) {
                 Image(systemName: "heart.text.square.fill")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(accent)
 
                 VStack(spacing: 8) {
@@ -436,7 +436,7 @@ struct BreathingExerciseView: View {
                         } label: {
                             VStack(spacing: 6) {
                                 Text(labels[rating - 1])
-                                    .font(.system(size: 32))
+                                    .font(.systemScaled(32))
                                 Circle()
                                     .fill(moodRating == rating ? accent : Color.white.opacity(0.15))
                                     .frame(width: 8, height: 8)

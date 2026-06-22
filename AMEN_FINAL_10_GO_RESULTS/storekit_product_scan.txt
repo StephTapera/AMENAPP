@@ -1,0 +1,6 @@
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/MentorModel.swift:58:            MentorshipPlan(id: "growth", name: "Growth", priceMonthly: 19, stripePriceId: "amen.mentorship.growth.monthly",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/MentorModel.swift:61:            MentorshipPlan(id: "deep", name: "Deep Discipleship", priceMonthly: 39, stripePriceId: "amen.mentorship.deep.monthly",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AmenStoreKit.storekit:41:          "internalID" : "amen.mentorship.growth.monthly",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AmenStoreKit.storekit:50:          "productID" : "amen.mentorship.growth.monthly",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AmenStoreKit.storekit:66:          "internalID" : "amen.mentorship.deep.monthly",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AmenStoreKit.storekit:75:          "productID" : "amen.mentorship.deep.monthly",

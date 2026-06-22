@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spiritual OS Command Center</title>
+  <style>
+    :root {
+      --cream: #fff8f0;
+      --paper: #fffdf8;
+      --warm: #f5e6c8;
+      --ink: #1a1a2e;
+      --muted: #756f66;
+      --soft: #eee2d0;
+      --gold: #d4af37;
+      --blue: #4a90d9;
+      --purple: #6b5bff;
+      --green: #5f8d68;
+      --glass: rgba(255, 255, 255, 0.58);
+      --glass-strong: rgba(255, 255, 255, 0.76);
+      --hairline: rgba(72, 55, 30, 0.12);
+      --shadow: 0 28px 70px rgba(85, 58, 22, 0.22);
+      --card-shadow: 0 10px 28px rgba(88, 64, 31, 0.10);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 28px 16px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255, 244, 219, 0.95), transparent 42%),
+        linear-gradient(145deg, #f3dfbd 0%, #fff8f0 44%, #ead4ad 100%);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Helvetica, Arial, sans-serif;
+    }
+
+    .phone {
+      width: 390px;
+      height: 844px;
+      overflow: hidden;
+      position: relative;
+      border-radius: 44px;
+      background:
+        linear-gradient(180deg, rgba(255, 253, 248, 0.92), rgba(255, 248, 240, 0.98)),
+        var(--cream);
+      border: 1px solid rgba(255, 255, 255, 0.78);
+      box-shadow: var(--shadow);
+    }
+
+    .phone::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.56), transparent 18% 82%, rgba(82, 52, 18, 0.06)),
+        radial-gradient(circle at 15% 8%, rgba(255, 255, 255, 0.72), transparent 22%);
+      z-index: 3;
+    }
+
+    .screen {
+      height: 100%;
+      overflow-y: auto;
+      position: relative;
+      z-index: 2;
+      padding: 0 18px 108px;
+      scrollbar-width: none;
+    }
+
+    .screen::-webkit-scrollbar {
+      display: none;
+    }
+
+    .status {
+      height: 48px;
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      padding: 0 14px 8px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+      color: rgba(26, 26, 46, 0.76);
+    }
+
+    .system-icons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .signal,
+    .wifi,
+    .battery {
+      display: block;
+      border: 1.5px solid currentColor;
+      opacity: 0.72;
+    }
+
+    .signal {
+      width: 16px;
+      height: 10px;
+      border-top: 0;
+      border-left: 0;
+      transform: skewX(-16deg);
+    }
+
+    .wifi {
+      width: 14px;
+      height: 10px;
+      border-bottom: 0;
+      border-left-color: transparent;
+      border-right-color: transparent;
+      border-radius: 12px 12px 0 0;
+    }
+
+    .battery {
+      width: 23px;
+      height: 11px;
+      border-radius: 3px;
+      position: relative;
+    }
+
+    .battery::before {
+      content: "";
+      position: absolute;
+      inset: 2px 5px 2px 2px;
+      border-radius: 1px;
+      background: currentColor;
+    }
+
+    .battery::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 3px;
+      width: 2px;
+      height: 5px;
+      border-radius: 0 2px 2px 0;
+      background: currentColor;
+    }
+
+    .glass-nav {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      margin: 0 -18px;
+      padding: 8px 18px 12px;
+      background: var(--glass);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.68);
+      box-shadow: 0 1px 0 rgba(72, 55, 30, 0.08), 0 18px 40px rgba(87, 58, 23, 0.08);
+      backdrop-filter: blur(26px) saturate(1.28);
+      -webkit-backdrop-filter: blur(26px) saturate(1.28);
+    }
+
+    .nav-row {
+      display: grid;
+      grid-template-columns: 54px 1fr 54px;
+      align-items: center;
+      min-height: 38px;
+    }
+
+    .back {
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      opacity: 0.78;
+    }
+
+    .title {
+      margin: 0;
+      text-align: center;
+      font-size: 17px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .avatar-small {
+      justify-self: end;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #fff5df, #d4af37);
+      color: #3e2a0f;
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    }
+
+    .profile-header {
+      margin-top: 18px;
+      padding: 20px;
+      border-radius: 24px;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      box-shadow: var(--card-shadow);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.08;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+
+    .subcopy {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .private-pill {
+      margin-top: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.64);
+      border: 1px solid rgba(255, 255, 255, 0.78);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      color: rgba(26, 26, 46, 0.72);
+      font-size: 12px;
+      font-weight: 700;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .lock {
+      width: 12px;
+      height: 12px;
+      display: inline-block;
+      position: relative;
+      border: 1.7px solid currentColor;
+      border-radius: 3px;
+    }
+
+    .lock::before {
+      content: "";
+      position: absolute;
+      left: 2px;
+      top: -7px;
+      width: 6px;
+      height: 7px;
+      border: 1.7px solid currentColor;
+      border-bottom: 0;
+      border-radius: 7px 7px 0 0;
+    }
+
+    .section-title {
+      margin: 24px 4px 10px;
+      color: rgba(26, 26, 46, 0.88);
+      font-size: 17px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .card-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .formation-card {
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      min-height: 88px;
+      padding: 14px;
+      border-radius: 20px;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      box-shadow: var(--card-shadow);
+    }
+
+    .icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 15px;
+      background: var(--warm);
+      color: var(--ink);
+    }
+
+    .icon svg {
+      width: 21px;
+      height: 21px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .icon.blue {
+      background: rgba(74, 144, 217, 0.13);
+      color: #2b6ea9;
+    }
+
+    .icon.purple {
+      background: rgba(107, 91, 255, 0.12);
+      color: #5a4de3;
+    }
+
+    .icon.gold {
+      background: rgba(212, 175, 55, 0.17);
+      color: #906f13;
+    }
+
+    .icon.green {
+      background: rgba(95, 141, 104, 0.14);
+      color: #4f7a58;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.25;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .card-body {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .soft-chip {
+      min-width: 54px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: var(--glass-strong);
+      border: 1px solid rgba(255, 255, 255, 0.82);
+      color: rgba(26, 26, 46, 0.72);
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .reading-card {
+      padding: 16px;
+      border-radius: 20px;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      box-shadow: var(--card-shadow);
+    }
+
+    .reading-top {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .progress-track {
+      height: 8px;
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #eadcc8;
+    }
+
+    .progress-fill {
+      width: 58%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #b9952c, #e0c46a);
+    }
+
+    .note-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .mini-card {
+      min-height: 112px;
+      padding: 14px;
+      border-radius: 18px;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      box-shadow: var(--card-shadow);
+    }
+
+    .mini-card .card-body {
+      font-size: 12px;
+    }
+
+    .event-card {
+      padding: 14px;
+      border-radius: 20px;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      box-shadow: var(--card-shadow);
+    }
+
+    .event-row {
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 0;
+    }
+
+    .event-row + .event-row {
+      border-top: 1px solid rgba(72, 55, 30, 0.09);
+      margin-top: 8px;
+      padding-top: 14px;
+    }
+
+    .profile-continues {
+      margin: 24px 4px 0;
+      padding: 14px 16px;
+      border-radius: 18px;
+      color: rgba(26, 26, 46, 0.62);
+      font-size: 13px;
+      line-height: 1.45;
+      background: rgba(255, 255, 255, 0.42);
+      border: 1px dashed rgba(72, 55, 30, 0.16);
+    }
+
+    .tabbar {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 14px;
+      z-index: 8;
+      height: 74px;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.66);
+      border: 1px solid rgba(255, 255, 255, 0.78);
+      box-shadow: 0 18px 48px rgba(72, 55, 30, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(28px) saturate(1.32);
+      -webkit-backdrop-filter: blur(28px) saturate(1.32);
+    }
+
+    .tab {
+      display: grid;
+      place-items: center;
+      gap: 4px;
+      min-width: 0;
+      color: rgba(26, 26, 46, 0.46);
+      font-size: 9px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    .tab svg {
+      width: 19px;
+      height: 19px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .tab.active {
+      color: #8b6a14;
+    }
+
+    @media (max-width: 430px) {
+      body {
+        padding: 0;
+      }
+
+      .phone {
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="phone" aria-label="iPhone preview of Profile with Command Center header">
+    <div class="screen">
+      <div class="status" aria-hidden="true">
+        <span>9:41</span>
+        <span class="system-icons">
+          <span class="signal"></span>
+          <span class="wifi"></span>
+          <span class="battery"></span>
+        </span>
+      </div>
+
+      <nav class="glass-nav" aria-label="Profile navigation">
+        <div class="nav-row">
+          <a class="back" href="#">Profile</a>
+          <h1 class="title">Command Center</h1>
+          <div class="avatar-small" aria-label="Steph profile avatar">ST</div>
+        </div>
+      </nav>
+
+      <header class="profile-header" aria-label="Command Center profile header">
+        <p class="eyebrow">Profile header</p>
+        <h2>Steph's formation overview</h2>
+        <p class="subcopy">A private, gentle view of what is already active across your communities, notes, study, events, and reading.</p>
+        <span class="private-pill"><span class="lock" aria-hidden="true"></span>Only visible to you</span>
+      </header>
+
+      <section aria-labelledby="formation-heading">
+        <h3 class="section-title" id="formation-heading">Private Formation</h3>
+        <div class="card-stack">
+          <article class="formation-card">
+            <div class="icon blue" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M8 19c0-2.2 1.8-4 4-4s4 1.8 4 4"/><path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M3 19c.2-1.8 1.4-3.2 3-3.8"/><path d="M21 19c-.2-1.8-1.4-3.2-3-3.8"/></svg>
+            </div>
+            <div>
+              <h4 class="card-title">Active communities</h4>
+              <p class="card-body">Covenant Study, Prayer Circle, and Sunday Bible are available from Profile.</p>
+            </div>
+            <span class="soft-chip">3</span>
+          </article>
+
+          <article class="formation-card">
+            <div class="icon gold" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M7 4h8l2 2v14H7z"/><path d="M15 4v4h4"/><path d="M9.5 12h5"/><path d="M9.5 16h4"/></svg>
+            </div>
+            <div>
+              <h4 class="card-title">Saved notes</h4>
+              <p class="card-body">Recent notes from Romans, prayer, and pastoral care are gathered privately.</p>
+            </div>
+            <span class="soft-chip">12</span>
+          </article>
+
+          <article class="formation-card">
+            <div class="icon purple" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3l1.5 4.4L18 9l-4.5 1.6L12 15l-1.5-4.4L6 9l4.5-1.6z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/><path d="M5 14l.6 1.6L7 16l-1.4.4L5 18l-.6-1.6L3 16l1.4-.4z"/></svg>
+            </div>
+            <div>
+              <h4 class="card-title">Berean sessions</h4>
+              <p class="card-body">Romans 8, anxiety prayer, and walking in the Spirit are ready to reopen.</p>
+            </div>
+            <span class="soft-chip">Recent</span>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="reading-heading">
+        <h3 class="section-title" id="reading-heading">Reading Progress</h3>
+        <article class="reading-card">
+          <div class="reading-top">
+            <div>
+              <h4 class="card-title">Romans reading plan</h4>
+              <p class="card-body">Chapter 8 of 16. Continue when you have space to read slowly.</p>
+            </div>
+            <span class="soft-chip">Private</span>
+          </div>
+          <div class="progress-track" role="progressbar" aria-label="Romans reading progress, chapter 8 of 16" aria-valuemin="0" aria-valuemax="16" aria-valuenow="8">
+            <div class="progress-fill"></div>
+          </div>
+        </article>
+      </section>
+
+      <section aria-labelledby="notes-heading">
+        <h3 class="section-title" id="notes-heading">Saved Notes</h3>
+        <div class="note-grid">
+          <article class="mini-card">
+            <h4 class="card-title">Romans 8:26</h4>
+            <p class="card-body">Prayer when words feel thin.</p>
+          </article>
+          <article class="mini-card">
+            <h4 class="card-title">Small Group</h4>
+            <p class="card-body">Questions for Thursday discussion.</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="events-heading">
+        <h3 class="section-title" id="events-heading">Upcoming Events</h3>
+        <article class="event-card">
+          <div class="event-row">
+            <div class="icon green" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M7 3v4"/><path d="M17 3v4"/><path d="M4 8h16"/><path d="M5 5h14v16H5z"/></svg>
+            </div>
+            <div>
+              <h4 class="card-title">Covenant Study</h4>
+              <p class="card-body">Tonight at 7:00 PM</p>
+            </div>
+            <span class="soft-chip">Today</span>
+          </div>
+          <div class="event-row">
+            <div class="icon blue" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M7 3v4"/><path d="M17 3v4"/><path d="M4 8h16"/><path d="M5 5h14v16H5z"/></svg>
+            </div>
+            <div>
+              <h4 class="card-title">Prayer Circle</h4>
+              <p class="card-body">Thursday at 6:30 PM</p>
+            </div>
+            <span class="soft-chip">Thu</span>
+          </div>
+        </article>
+      </section>
+
+      <p class="profile-continues">Existing Profile content continues below this additive header.</p>
+    </div>
+
+    <footer class="tabbar" aria-label="Existing tab bar">
+      <div class="tab">
+        <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+        Home
+      </div>
+      <div class="tab">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        Discover
+      </div>
+      <div class="tab">
+        <svg viewBox="0 0 24 24"><path d="M4 5h16v11H7l-3 3z"/></svg>
+        Messages
+      </div>
+      <div class="tab">
+        <svg viewBox="0 0 24 24"><path d="M5 4h10a4 4 0 0 1 4 4v12H9a4 4 0 0 0-4-4z"/></svg>
+        Resources
+      </div>
+      <div class="tab">
+        <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+        Alerts
+      </div>
+      <div class="tab active">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.1-6 8-6s6.5 2 8 6"/></svg>
+        Profile
+      </div>
+    </footer>
+  </main>
+</body>
+</html>

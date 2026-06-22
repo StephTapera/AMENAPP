@@ -251,7 +251,7 @@ private struct SafetyGateBlockedSheet: View {
                 .padding(.top, 12)
 
             Image(systemName: isReview ? "clock.badge.checkmark" : "exclamationmark.triangle")
-                .font(.system(size: 44, weight: .medium))
+                .font(.systemScaled(44, weight: .medium))
                 .foregroundStyle(isReview ? Color(red: 0.36, green: 0.58, blue: 0.82) : Color(red: 0.85, green: 0.50, blue: 0.28))
                 .padding(.top, 8)
 

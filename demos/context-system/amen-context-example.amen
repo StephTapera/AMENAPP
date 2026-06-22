@@ -1,0 +1,87 @@
+{
+  "$schema": "https://amen.app/schemas/amen-context-v0.1.schema.json",
+  "version": "0.1",
+  "exportedAt": "2026-06-10T18:42:00Z",
+  "issuer": "amen.app",
+  "subject": {
+    "displayName": "Jordan Rivera",
+    "handle": "@jordanr"
+  },
+  "facets": [
+    {
+      "category": "interests",
+      "key": "interest.ai",
+      "label": "Artificial intelligence",
+      "value": "Building thoughtful, human-first AI tools.",
+      "visibility": "public"
+    },
+    {
+      "category": "values",
+      "key": "value.honesty",
+      "label": "Core value",
+      "value": "Honesty over performance.",
+      "visibility": "public"
+    },
+    {
+      "category": "goals",
+      "key": "goal.launch_app",
+      "label": "This year's goal",
+      "value": "Ship a calm, ad-free reading app.",
+      "visibility": "public"
+    },
+    {
+      "category": "skills",
+      "key": "skill.languages",
+      "label": "Skills",
+      "value": ["Swift", "TypeScript", "Product design", "Mentoring"],
+      "visibility": "public"
+    },
+    {
+      "category": "communities",
+      "key": "community.makers",
+      "label": "Communities I'm part of",
+      "value": ["Indie iOS makers", "Local running club"],
+      "visibility": "public"
+    },
+    {
+      "category": "communication",
+      "key": "communication.style",
+      "label": "How I prefer to communicate",
+      "value": "Direct and warm; long-form over quick back-and-forth.",
+      "visibility": "public"
+    },
+    {
+      "category": "learning",
+      "key": "learning.reading",
+      "label": "Currently learning",
+      "value": ["Distributed systems", "Koine Greek basics"],
+      "visibility": "public"
+    },
+    {
+      "category": "faith_journey",
+      "key": "faith.favorite_books",
+      "label": "Books of the Bible I return to",
+      "value": ["Psalms", "Philippians", "James"],
+      "visibility": "public"
+    },
+    {
+      "category": "current_focus",
+      "key": "current_focus.season",
+      "label": "What this season is about",
+      "value": "Slowing down and building one thing well.",
+      "visibility": "public"
+    },
+    {
+      "category": "work",
+      "key": "work.role",
+      "label": "What I do",
+      "value": "Independent software designer.",
+      "visibility": "public"
+    }
+  ],
+  "signature": {
+    "alg": "Ed25519",
+    "keyId": "amen-export-2026-06",
+    "value": "k3sJ8pQ2mRtVnW0xYzAbCdEfGhIjKlMnOpQrStUvWxYz1234567890abcdEfGhIjKlMnOpQrStUvWxYz1234567890ab=="
+  }
+}

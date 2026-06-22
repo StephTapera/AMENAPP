@@ -14,7 +14,7 @@ import Combine
 
 @MainActor
 class VisitPlanService: ObservableObject {
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Create Visit Plan (Idempotent)
     

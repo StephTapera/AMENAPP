@@ -8,7 +8,7 @@
 
 const admin = require("firebase-admin");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { onCall } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const {
   hfInference, pineconeUpsert, pineconeQuery,
   logFunction, checkRateLimit, sleep,
@@ -42,16 +42,10 @@ const buildPassiveInterestGraph = onSchedule(
         // Collect ghost signals
         const signals = [];
 
-        // 1. Drafts never posted
-        const drafts = await db.collection("users").doc(uid)
-          .collection("drafts")
-          .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(thirtyDaysAgo))
-          .limit(20)
-          .get();
-        for (const d of drafts.docs) {
-          const text = d.data().content || "";
-          if (text.length > 20) signals.push({ text, weight: 0.9, type: "draft" });
-        }
+        // 1. Unsent drafts excluded from embedding pipeline per privacy audit H-30.
+        // Draft content represents thoughts the user chose NOT to share — vectorising
+        // unsent text and storing it in Pinecone violates user intent and privacy.
+        // (Previously this block queried the drafts subcollection and added to signals.)
 
         // 2. Profile visits without follow
         const visits = await db.collection("users").doc(uid)
@@ -356,11 +350,11 @@ const predictCreationPropensity = onSchedule(
 const computeSessionIntent = onCall(
   { region: "us-central1" },
   async (request) => {
-    const { userId, timeOfDay, dayOfWeek, lastSessionBehavior } = request.data;
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Sign in required.");
+    const uid = request.auth.uid;
+    const { timeOfDay, dayOfWeek, lastSessionBehavior } = request.data;
 
-    if (!userId) throw new Error("userId required");
-
-    const allowed = await checkRateLimit(userId, "sessionIntent", 5);
+    const allowed = await checkRateLimit(uid, "sessionIntent", 5);
     if (!allowed) throw new Error("Rate limited");
 
     const startMs = Date.now();

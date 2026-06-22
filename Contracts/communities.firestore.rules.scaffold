@@ -1,0 +1,75 @@
+// communities.firestore.rules.scaffold
+// AMEN — Amen Communities · Wave 0 · Firestore security-rule SCAFFOLDING (NOT YET DEPLOYED).
+//
+// WHY THIS IS A SCAFFOLD AND NOT AN EDIT TO root firestore.rules:
+//   • root firestore.rules has ONE OWNER (Trust & Safety Lead) — no other party may unilaterally edit.
+//   • At Wave 0 authoring time root firestore.rules was DIRTY with another agent's uncommitted work;
+//     editing it would entangle their changes in this commit (temp-index isolation is whole-file).
+//   • The new Communities collections are ALREADY fail-closed: root firestore.rules ends with the
+//     catch-all `match /{document=**} { allow read, write: if false; }` (verified at Wave 0).
+//
+// ACTION FOR WAVE 1 (T&S owner, on a quiescent tree): merge the blocks below into root firestore.rules
+// ABOVE the catch-all, and tighten the member-read predicates once the Wave 1 callables + membership
+// index exist. Until then, ALL access is denied by default (fail-closed) and every write path is a
+// Cloud Function (admin SDK bypasses rules). This mirrors the established volunteer-board pattern
+// (callable/admin-SDK only; `allow read, write: if false`).
+//
+// PRIVACY/SAFETY (CommunityKit contract): health & moderation are admin-only (Z5); reports are
+// callable-only and route into GUARDIAN; minor↔adult surfaces stay disabled until COPPA sign-off.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Communities (the joinable topic group) ──────────────────────────────
+    // Wave 0: deny-all (fail-closed). Wave 1 opens read for public/visible communities via callable
+    // assembly + a membership check; all writes stay CF-only (create/patch/delete callables).
+    match /communities/{communityId} {
+      allow read, write: if false;          // Wave 1: relax read for public; writes CF-only
+
+      // Membership — userId-scoped. Wave 1: a member may read their own row; writes CF-only
+      // (join/requestJoin/leave/setFlair/addToProfile transactional callables).
+      match /members/{userId} {
+        allow read, write: if false;
+      }
+
+      // CommunityPost join records (FK → existing Post). Wave 1: member-read; writes CF-only.
+      match /posts/{communityPostId} {
+        allow read, write: if false;
+      }
+
+      // Rules, flair options, resources, events — Wave 1: public/member read; writes CF-only (mods).
+      match /rules/{ruleId}      { allow read, write: if false; }
+      match /flair/{flairId}     { allow read, write: if false; }
+      match /resources/{resId}   { allow read, write: if false; }
+      match /events/{eventId}    { allow read, write: if false; }
+
+      // Invites — inviter/invitee only at the callable layer. CF-only writes.
+      match /invites/{inviteId}  { allow read, write: if false; }
+
+      // Reports — NEVER client-readable; route into GUARDIAN review queue. CF-only (CI4).
+      match /reports/{reportId}  { allow read, write: if false; }
+
+      // Moderation actions (audit log) — admin/CF only; never client-readable (Z5).
+      match /moderationActions/{actionId} { allow read, write: if false; }
+
+      // Health snapshot — admin/mod-private; NEVER serialized to a member client (Z5/CI1).
+      match /health/{snapshotId} { allow read, write: if false; }
+
+      // Reputation ledger (append-only, contribution-derived; no popularity inputs — CI2). CF-only.
+      match /reputation/{entryId} { allow read, write: if false; }
+    }
+
+    // ── Per-user community index (drives profile "Communities" + getUserCommunities) ──
+    // Wave 1: owner-read of their own memberships, honoring profileVisibility for others; CF writes.
+    match /users/{userId}/communityMemberships/{communityId} {
+      allow read, write: if false;
+    }
+
+    // NOTE: do NOT paste this catch-all into root (root already has one). It exists here only so the
+    // scaffold is a self-contained, lint-valid fragment.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

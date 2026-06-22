@@ -36,7 +36,7 @@ final class VoiceDevotionalManager: NSObject, ObservableObject {
 
     private let db        = Firestore.firestore()
     private let storage   = Storage.storage()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     private var audioEngine   = AVAudioEngine()
     private var audioFile:     AVAudioFile?
@@ -94,7 +94,7 @@ final class VoiceDevotionalManager: NSObject, ObservableObject {
 
         Task {
             do {
-                let transcript = try await transcribe(url: url)
+                let transcript = try await transcribe(url)
                 guard !transcript.isEmpty else {
                     await MainActor.run {
                         self.isProcessing = false
@@ -104,7 +104,7 @@ final class VoiceDevotionalManager: NSObject, ObservableObject {
                 }
 
                 let devotional = try await generateDevotional(from: transcript)
-                let audioStorageURL = try await uploadAudio(url: url)
+                let audioStorageURL = try await uploadAudio(url)
 
                 try await saveToMessage(
                     conversationId: conversationId,

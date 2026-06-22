@@ -2,8 +2,7 @@
 //  CoachMarkOverlay.swift
 //  AMENAPP
 //
-//  Simple Instagram-style FTUE pager.
-//  Full-screen slides, big icon, short text, dot indicators, tap Next or Skip.
+//  Single-screen FTUE showing community rules with animated list
 //
 
 import SwiftUI
@@ -16,155 +15,191 @@ struct CoachMarkOverlay: View {
     let bereanButtonFrame: CGRect?
 
     @State private var slideIn = false
+    @State private var animatedRules: [Bool] = Array(repeating: false, count: 6)
 
     var body: some View {
         ZStack {
             // Solid dimmed backdrop
-            Color.black.opacity(0.88)
+            Color.black.opacity(0.92)
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Skip button — top right
-                HStack {
-                    Spacer()
-                    if !ftueManager.currentStep.isLastStep {
-                        Button {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.easeOut(duration: 0.2)) { ftueManager.skipFTUE() }
-                        } label: {
-                            Text("Skip")
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.55))
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                        }
-                        .padding(.top, 8)
-                        .padding(.trailing, 4)
-                    }
-                }
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    Spacer().frame(height: 60)
 
-                Spacer()
-
-                // Icon
-                ZStack {
-                    Circle()
-                        .fill(iconBackground)
-                        .frame(width: 96, height: 96)
-
-                    Image(systemName: ftueManager.currentStep.icon)
-                        .font(.system(size: 42, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                .scaleEffect(slideIn ? 1 : 0.6)
-                .opacity(slideIn ? 1 : 0)
-
-                Spacer().frame(height: 32)
-
-                // Title
-                Text(ftueManager.currentStep.title)
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .opacity(slideIn ? 1 : 0)
-                    .offset(y: slideIn ? 0 : 16)
-
-                Spacer().frame(height: 14)
-
-                // Description
-                Text(ftueManager.currentStep.description)
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(.white.opacity(0.75))
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(5)
-                    .padding(.horizontal, 40)
-                    .opacity(slideIn ? 1 : 0)
-                    .offset(y: slideIn ? 0 : 16)
-
-                Spacer()
-
-                // Dot progress indicator
-                HStack(spacing: 8) {
-                    ForEach(CoachMarkStep.allCases, id: \.self) { step in
-                        Capsule()
-                            .fill(step == ftueManager.currentStep
-                                  ? Color.white
-                                  : Color.white.opacity(0.3))
-                            .frame(
-                                width: step == ftueManager.currentStep ? 22 : 7,
-                                height: 7
+                    // Icon
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.pink, Color.pink.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7),
-                                       value: ftueManager.currentStep)
+                            .frame(width: 80, height: 80)
+
+                        Image(systemName: ftueManager.currentStep.icon)
+                            .font(.systemScaled(36, weight: .medium))
+                            .foregroundStyle(.white)
+                    }
+                    .scaleEffect(slideIn ? 1 : 0.6)
+                    .opacity(slideIn ? 1 : 0)
+
+                    Spacer().frame(height: 24)
+
+                    // Title
+                    Text(ftueManager.currentStep.title)
+                        .font(.systemScaled(28, weight: .bold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .opacity(slideIn ? 1 : 0)
+                        .offset(y: slideIn ? 0 : 16)
+
+                    Spacer().frame(height: 12)
+
+                    // Description
+                    Text(ftueManager.currentStep.description)
+                        .font(.systemScaled(15, weight: .regular))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                        .padding(.horizontal, 32)
+                        .opacity(slideIn ? 1 : 0)
+                        .offset(y: slideIn ? 0 : 16)
+
+                    Spacer().frame(height: 32)
+
+                    // Community Rules
+                    VStack(alignment: .leading, spacing: 18) {
+                        ruleItem(
+                            index: 0,
+                            icon: "heart.fill",
+                            color: .pink,
+                            title: "Love & Respect",
+                            description: "Treat others with Christ-like love and respect, even when we disagree."
+                        )
+
+                        ruleItem(
+                            index: 1,
+                            icon: "checkmark.shield.fill",
+                            color: .blue,
+                            title: "Truth & Grace",
+                            description: "Speak truth in love, avoiding gossip, slander, and false information."
+                        )
+
+                        ruleItem(
+                            index: 2,
+                            icon: "hands.sparkles.fill",
+                            color: .purple,
+                            title: "Encouragement",
+                            description: "Build others up, not tear them down. Celebrate victories and support struggles."
+                        )
+
+                        ruleItem(
+                            index: 3,
+                            icon: "shield.lefthalf.filled",
+                            color: .green,
+                            title: "Safe Space",
+                            description: "Help maintain a safe environment free from harassment, bullying, and hate speech."
+                        )
+
+                        ruleItem(
+                            index: 4,
+                            icon: "book.fill",
+                            color: .orange,
+                            title: "Biblical Integrity",
+                            description: "Honor God's Word and not misrepresent Scripture or promote false teachings."
+                        )
+
+                        ruleItem(
+                            index: 5,
+                            icon: "person.3.fill",
+                            color: .red,
+                            title: "Community First",
+                            description: "Report harmful content and trust the moderation team to keep our community safe."
+                        )
+                    }
+                    .padding(.horizontal, 24)
+
+                    Spacer().frame(height: 40)
+
+                    // Primary button
+                    Button {
+                        print("🎯 FTUE Button tapped!")
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        ftueManager.nextStep()
+                    } label: {
+                        Text(ftueManager.currentStep.primaryButtonText)
+                            .font(.systemScaled(17, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(.white)
+                            )
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 32)
+                    .opacity(slideIn ? 1 : 0)
+                    .offset(y: slideIn ? 0 : 24)
+
+                    Spacer().frame(height: 40)
+                }
+                .padding(.bottom, 20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .allowsHitTesting(true)
+        .onAppear {
+            // Animate in header elements
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.8))) {
+                slideIn = true
+            }
+            
+            // Stagger animate rules
+            for i in 0..<animatedRules.count {
+                let delay = 0.3 + Double(i) * 0.08
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
+                        animatedRules[i] = true
                     }
                 }
-                .opacity(slideIn ? 1 : 0)
-
-                Spacer().frame(height: 28)
-
-                // Primary button
-                Button {
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    advance()
-                } label: {
-                    Text(ftueManager.currentStep.primaryButtonText)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(.white)
-                        )
-                        .padding(.horizontal, 32)
-                }
-                .buttonStyle(PressableButtonStyle())
-                .opacity(slideIn ? 1 : 0)
-                .offset(y: slideIn ? 0 : 24)
-
-                Spacer().frame(height: 48)
-            }
-        }
-        .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-                slideIn = true
             }
         }
     }
 
     // MARK: - Helpers
 
-    private var iconBackground: LinearGradient {
-        let colors: [Color]
-        switch ftueManager.currentStep {
-        case .openTable:
-            colors = [Color(red: 0.25, green: 0.47, blue: 1.0),
-                      Color(red: 0.15, green: 0.3, blue: 0.85)]
-        case .prayer:
-            colors = [Color(red: 0.6, green: 0.4, blue: 1.0),
-                      Color(red: 0.45, green: 0.25, blue: 0.85)]
-        case .bereanIntro:
-            colors = [Color(red: 0.98, green: 0.72, blue: 0.18),
-                      Color(red: 0.9, green: 0.55, blue: 0.1)]
-        case .messages:
-            colors = [Color(red: 0.25, green: 0.8, blue: 0.6),
-                      Color(red: 0.15, green: 0.65, blue: 0.5)]
-        }
-        return LinearGradient(colors: colors,
-                              startPoint: .topLeading,
-                              endPoint: .bottomTrailing)
-    }
+    private func ruleItem(index: Int, icon: String, color: Color, title: String, description: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: icon)
+                .font(.systemScaled(22))
+                .foregroundColor(color)
+                .frame(width: 28)
 
-    private func advance() {
-        // Animate out, advance step, animate back in
-        withAnimation(.easeIn(duration: 0.15)) { slideIn = false }
-        let isLast = ftueManager.currentStep.isLastStep
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            ftueManager.nextStep()
-            if !isLast {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    slideIn = true
-                }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundColor(.white)
+
+                Text(description)
+                    .font(.systemScaled(14, weight: .regular))
+                    .foregroundColor(.white.opacity(0.7))
+                    .lineSpacing(3)
             }
         }
+        .opacity(animatedRules[index] ? 1 : 0)
+        .offset(x: animatedRules[index] ? 0 : -20)
     }
+}
+
+#Preview("FTUE Rules Screen") {
+    CoachMarkOverlay(
+        ftueManager: FTUEManager.shared,
+        postCardFrame: nil,
+        bereanButtonFrame: nil
+    )
 }

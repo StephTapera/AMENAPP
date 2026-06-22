@@ -229,7 +229,7 @@ final class FeedSessionQualityTracker {
     private func logSessionQuality() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let quality = computeQuality()
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         Task.detached(priority: .background) {
             try? await db
                 .collection("users").document(uid)
@@ -320,7 +320,7 @@ struct FeedReflectionCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(.purple)
                 Text("Moment of reflection")
                     .font(.custom("OpenSans-SemiBold", size: 13))
@@ -328,7 +328,7 @@ struct FeedReflectionCard: View {
                 Spacer()
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundColor(.secondary)
                 }
             }
@@ -419,7 +419,7 @@ final class FeedIntelligenceService: ObservableObject {
         // Doomscroll detection
         if flags.antiDoomscrollEnabled {
             if let prompt = sessionTracker.pacePrompt() {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                     currentPacingPrompt = prompt
                 }
             }
@@ -466,19 +466,19 @@ final class FeedIntelligenceService: ObservableObject {
     private func injectReflectionPrompt() {
         postsScrolledSinceReflection = 0
         reflectionPromptScrollPosition = Int.random(in: 25...40)  // Vary to feel organic
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             currentReflectionPrompt = FeedReflectionPrompt.random()
         }
     }
 
     func dismissReflectionPrompt() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
             currentReflectionPrompt = nil
         }
     }
 
     func dismissPacingPrompt() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
             currentPacingPrompt = nil
         }
     }
@@ -494,7 +494,7 @@ struct FeedPacingPromptView: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: "pause.circle.fill")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundColor(.teal)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -514,7 +514,7 @@ struct FeedPacingPromptView: View {
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundColor(.secondary)
                     .padding(6)
                     .background(Color.gray.opacity(0.12), in: Circle())

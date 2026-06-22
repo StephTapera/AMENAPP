@@ -3,9 +3,9 @@
 //  AMENAPP
 //
 //  Shared design tokens, reusable components, and transition engine
-//  for the redesigned AMEN onboarding experience.
+//  for the AMEN onboarding experience.
 //
-//  Visual language: bold editorial typography · liquid-glass surfaces ·
+//  Visual language: white / pearl Liquid Glass surfaces · black typography ·
 //  premium whitespace · strong hierarchy · spiritual calm
 //
 
@@ -18,7 +18,7 @@ enum ONB {
     static let canvas        = Color(red: 0.974, green: 0.971, blue: 0.966)
     static let canvasDark    = Color(red: 0.068, green: 0.068, blue: 0.072)
 
-    // Ink
+    // Ink — black/charcoal on white
     static let inkPrimary    = Color(red: 0.085, green: 0.085, blue: 0.090)
     static let inkSecondary  = Color(red: 0.44,  green: 0.44,  blue: 0.46)
     static let inkTertiary   = Color(red: 0.62,  green: 0.62,  blue: 0.64)
@@ -29,26 +29,27 @@ enum ONB {
     static let accentSoft    = Color(red: 0.30,  green: 0.20,  blue: 0.76).opacity(0.10)
     static let accentGold    = Color(red: 0.82,  green: 0.64,  blue: 0.22)
 
-    // Glass surface
-    static let glassFill     = Color.white.opacity(0.72)
-    static let glassBorder   = Color.white.opacity(0.55)
-    static let glassShadow   = Color.black.opacity(0.06)
+    // White Liquid Glass surface tokens
+    static let glassFill      = Color.white.opacity(0.80)
+    static let glassBorder    = Color.black.opacity(0.07)
+    static let glassShadow    = Color.black.opacity(0.05)
+    static let glassHighlight = Color.white.opacity(0.90)
 
     // Typography scale
     static func heroFont(size: CGFloat = 48) -> Font {
-        .system(size: size, weight: .black, design: .default)
+        .systemScaled(size, weight: .black, design: .default)
     }
     static func titleFont(size: CGFloat = 32) -> Font {
-        .system(size: size, weight: .bold, design: .default)
+        .systemScaled(size, weight: .bold, design: .default)
     }
     static func bodyFont(size: CGFloat = 16) -> Font {
-        .system(size: size, weight: .regular, design: .default)
+        .systemScaled(size, weight: .regular, design: .default)
     }
     static func labelFont(size: CGFloat = 13) -> Font {
-        .system(size: size, weight: .medium, design: .default)
+        .systemScaled(size, weight: .medium, design: .default)
     }
     static func ctaFont() -> Font {
-        .system(size: 16, weight: .semibold, design: .default)
+        .systemScaled(16, weight: .semibold, design: .default)
     }
 
     // Spacing
@@ -76,28 +77,118 @@ struct ONBPageDots: View {
     }
 }
 
-// MARK: - Liquid Glass Card
+// MARK: - White Liquid Glass Card
 
+/// Single-material white pearl card. Single `.thinMaterial` pass + white overlay + hairline border.
 struct ONBGlassCard<Content: View>: View {
     var padding: EdgeInsets = .init(top: 20, leading: 22, bottom: 20, trailing: 22)
+    var cornerRadius: CGFloat = ONB.cardRadius
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         content()
             .padding(padding)
             .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: ONB.cardRadius, style: .continuous)
-                        .fill(ONB.glassFill)
-                        .background(
-                            RoundedRectangle(cornerRadius: ONB.cardRadius, style: .continuous)
-                                .fill(.ultraThinMaterial)
-                        )
-                    RoundedRectangle(cornerRadius: ONB.cardRadius, style: .continuous)
-                        .strokeBorder(ONB.glassBorder, lineWidth: 1)
-                }
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.thinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(ONB.glassFill)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(ONB.glassBorder, lineWidth: 1)
+                    )
             )
-            .shadow(color: ONB.glassShadow, radius: 16, y: 4)
+            .shadow(color: ONB.glassShadow, radius: 12, y: 3)
+            .shadow(color: ONB.glassShadow.opacity(0.5), radius: 3, y: 1)
+    }
+}
+
+// MARK: - Hero Icon Container
+
+/// Premium glass orb for modal hero icons.
+struct AmenOnboardingHeroIcon: View {
+    let systemName: String
+    var size: CGFloat = 72
+    var iconScale: CGFloat = 0.52
+    var accent: Color = ONB.accent
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.thinMaterial)
+                .overlay(Circle().fill(Color.white.opacity(0.85)))
+                .overlay(
+                    // Top-edge highlight
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.60), Color.clear],
+                                startPoint: .top,
+                                endPoint: .center
+                            )
+                        )
+                )
+                .overlay(Circle().strokeBorder(ONB.glassBorder, lineWidth: 1))
+                .shadow(color: ONB.glassShadow, radius: 16, y: 4)
+                .shadow(color: ONB.glassShadow.opacity(0.4), radius: 4, y: 2)
+            Image(systemName: systemName)
+                .font(.systemScaled(size * iconScale, weight: .semibold))
+                .foregroundStyle(accent)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+// MARK: - Info Row Card
+
+/// Glass secondary card row — icon well + title + optional subtext.
+struct AmenOnboardingInfoRow: View {
+    let icon: String
+    let title: String
+    var subtitle: String = ""
+    var accent: Color = ONB.accent
+
+    var body: some View {
+        HStack(alignment: subtitle.isEmpty ? .center : .top, spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(.thinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.75)))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(ONB.glassBorder, lineWidth: 0.75))
+                    .shadow(color: ONB.glassShadow, radius: 4, y: 1)
+                Image(systemName: icon)
+                    .font(.systemScaled(16, weight: .semibold))
+                    .foregroundStyle(accent)
+            }
+            .frame(width: 40, height: 40)
+
+            VStack(alignment: .leading, spacing: subtitle.isEmpty ? 0 : 3) {
+                Text(title)
+                    .font(.systemScaled(15, weight: .semibold))
+                    .foregroundStyle(ONB.inkPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.systemScaled(13, weight: .regular))
+                        .foregroundStyle(ONB.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineSpacing(2)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.thinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.72)))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(ONB.glassBorder, lineWidth: 0.75))
+        )
+        .shadow(color: ONB.glassShadow, radius: 6, y: 2)
     }
 }
 
@@ -107,6 +198,7 @@ struct ONBPrimaryButton: View {
     let title: String
     var isLoading: Bool = false
     var isEnabled: Bool = true
+    var trailingIcon: String = "arrow.right"
     let action: () -> Void
 
     @State private var isPressed = false
@@ -119,24 +211,27 @@ struct ONBPrimaryButton: View {
         }) {
             ZStack {
                 if isLoading {
-                    AMENLoadingIndicator(color: .white, dotSize: 8, bounceHeight: 6)
+                    ProgressView().tint(.primary)
                 } else {
                     HStack(spacing: 8) {
                         Text(title)
                             .font(ONB.ctaFont())
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 14, weight: .semibold))
+                        if !trailingIcon.isEmpty {
+                            Image(systemName: trailingIcon)
+                                .font(.systemScaled(13, weight: .semibold))
+                        }
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 56)
-            .background(
-                RoundedRectangle(cornerRadius: ONB.ctaRadius, style: .continuous)
-                    .fill(isEnabled ? ONB.inkPrimary : ONB.inkTertiary)
-                    .animation(.easeInOut(duration: 0.2), value: isEnabled)
+            // HIGH FIX: minHeight so button grows with Dynamic Type at AX sizes
+            .frame(minHeight: 56)
+            .amenInteractiveGlassEffect(
+                in: RoundedRectangle(cornerRadius: ONB.ctaRadius, style: .continuous)
             )
+            .opacity(isEnabled ? 1.0 : 0.45)
+            .animation(.easeInOut(duration: 0.2), value: isEnabled)
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled || isLoading)
@@ -162,10 +257,11 @@ struct ONBSecondaryButton: View {
             action()
         }) {
             Text(title)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(ONB.inkSecondary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 48)
+                // HIGH FIX: minHeight so secondary button grows with Dynamic Type
+                .frame(minHeight: 48)
                 .background(
                     RoundedRectangle(cornerRadius: ONB.ctaRadius, style: .continuous)
                         .strokeBorder(ONB.inkRule, lineWidth: 1.5)
@@ -187,15 +283,15 @@ struct ONBHeroText: View {
     var body: some View {
         VStack(alignment: alignment, spacing: 10) {
             Text(headline)
-                .font(.system(size: 40, weight: .black))
+                .font(.systemScaled(34, weight: .bold))
                 .foregroundStyle(ONB.inkPrimary)
-                .lineSpacing(-1)
+                .tracking(-0.5)
                 .fixedSize(horizontal: false, vertical: true)
                 .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 16)
+                .offset(y: appeared ? 0 : 14)
 
             Text(subheadline)
-                .font(.system(size: 17, weight: .regular))
+                .font(.systemScaled(17, weight: .regular))
                 .foregroundStyle(ONB.inkSecondary)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -204,7 +300,7 @@ struct ONBHeroText: View {
         }
         .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .center)
         .onAppear {
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.78).delay(0.05)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.55, dampingFraction: 0.78)).delay(0.05)) {
                 appeared = true
             }
         }
@@ -220,11 +316,14 @@ struct ONBIconBadge: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.30, style: .continuous)
-                .fill(color.opacity(0.12))
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                .fill(.thinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: size * 0.28).fill(Color.white.opacity(0.80)))
+                .overlay(RoundedRectangle(cornerRadius: size * 0.28).strokeBorder(ONB.glassBorder, lineWidth: 0.75))
                 .frame(width: size, height: size)
+                .shadow(color: ONB.glassShadow, radius: 4, y: 1)
             Image(systemName: systemName)
-                .font(.system(size: size * 0.42, weight: .semibold))
+                .font(.systemScaled(size * 0.42, weight: .semibold))
                 .foregroundStyle(color)
         }
     }
@@ -244,10 +343,10 @@ struct ONBFeatureRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(ONB.inkPrimary)
                 Text(description)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(ONB.inkSecondary)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -269,29 +368,29 @@ struct ONBPrivacyRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.75))) {
                     expanded.toggle()
                 }
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(ONB.accent)
                         .frame(width: 24)
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(category)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(ONB.inkPrimary)
                         Text(detail)
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(ONB.inkSecondary)
                     }
 
                     Spacer()
 
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(ONB.inkTertiary)
                 }
                 .contentShape(Rectangle())
@@ -300,7 +399,7 @@ struct ONBPrivacyRow: View {
 
             if expanded {
                 Text(why)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(ONB.inkSecondary)
                     .lineSpacing(2)
                     .padding(.top, 8)
@@ -312,7 +411,7 @@ struct ONBPrivacyRow: View {
     }
 }
 
-// MARK: - AMEN Logo Mark (cross in circle)
+// MARK: - AMEN Logo Mark
 
 struct ONBAMENLogo: View {
     var size: CGFloat = 52
@@ -323,7 +422,7 @@ struct ONBAMENLogo: View {
                 .fill(ONB.inkPrimary)
                 .frame(width: size, height: size)
             Image(systemName: "cross.fill")
-                .font(.system(size: size * 0.42, weight: .regular))
+                .font(.systemScaled(size * 0.42, weight: .regular))
                 .foregroundStyle(.white)
         }
     }
@@ -331,8 +430,6 @@ struct ONBAMENLogo: View {
 
 // MARK: - Onboarding Step Transition
 
-/// Wraps content in a coordinated enter/exit animation keyed on `step`.
-/// Used only for onboarding progression — no other views use this.
 struct ONBStepTransition<Content: View>: View {
     let step: Int
     @ViewBuilder var content: () -> Content
@@ -343,10 +440,10 @@ struct ONBStepTransition<Content: View>: View {
         content()
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 22)
-            .id(step) // force re-render on step change
+            .id(step)
             .onAppear {
                 appeared = false
-                withAnimation(.spring(response: 0.50, dampingFraction: 0.82)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.50, dampingFraction: 0.82))) {
                     appeared = true
                 }
             }
@@ -388,7 +485,7 @@ struct ONBInputField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label.uppercased())
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .tracking(1.2)
                 .foregroundStyle(ONB.inkTertiary)
 
@@ -403,7 +500,7 @@ struct ONBInputField: View {
                             .autocorrectionDisabled(keyboardType == .emailAddress)
                     }
                 }
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundStyle(ONB.inkPrimary)
                 .focused($focused)
 
@@ -412,7 +509,7 @@ struct ONBInputField: View {
                         showPassword.toggle()
                     } label: {
                         Image(systemName: showPassword ? "eye.slash" : "eye")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(ONB.inkTertiary)
                     }
                     .buttonStyle(.plain)
@@ -422,21 +519,23 @@ struct ONBInputField: View {
             .frame(height: 52)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemBackground))
+                    .fill(.thinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.72)))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(
-                                focused ? ONB.accent.opacity(0.5) : ONB.inkRule,
+                                focused ? ONB.accent.opacity(0.4) : ONB.glassBorder,
                                 lineWidth: focused ? 1.5 : 1
                             )
                     )
             )
+            .shadow(color: ONB.glassShadow, radius: 4, y: 1)
             .animation(.easeInOut(duration: 0.18), value: focused)
         }
     }
 }
 
-// MARK: - Toggle Row (preference / permission)
+// MARK: - Toggle Row
 
 struct ONBToggleRow: View {
     let icon: String
@@ -450,10 +549,10 @@ struct ONBToggleRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(ONB.inkPrimary)
                 Text(description)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(ONB.inkSecondary)
             }
 

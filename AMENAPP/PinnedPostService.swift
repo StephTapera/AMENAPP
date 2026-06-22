@@ -16,14 +16,66 @@ class PinnedPostService: ObservableObject {
     static let shared = PinnedPostService()
     
     @Published private(set) var pinnedPostIds: Set<String> = []
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     
     // MARK: - Pin/Unpin Post
     
+    // MARK: - Expiry Management
+
+    /// Checks whether the current user's pinned post has expired and silently unpins it if so.
+    func resolveExpiry(for uid: String) async {
+        do {
+            let userDoc = try await db.collection("users").document(uid).getDocument()
+            guard let data = userDoc.data(),
+                  let pinnedPostId = data["pinnedPostId"] as? String,
+                  !pinnedPostId.isEmpty else { return }
+
+            // Fetch the post to check pinnedUntil
+            let postDoc = try await db.collection("posts").document(pinnedPostId).getDocument()
+            guard let postData = postDoc.data() else { return }
+
+            if let pinnedUntilTimestamp = postData["pinnedUntil"] as? Timestamp {
+                let expiryDate = pinnedUntilTimestamp.dateValue()
+                if expiryDate <= Date.now {
+                    await silentUnpin(uid: uid, postId: pinnedPostId)
+                }
+            }
+        } catch {
+            dlog("⚠️ resolveExpiry error: \(error)")
+        }
+    }
+
+    /// Fire-and-forget batch unpin — used for silent background expiry cleanup.
+    func silentUnpin(uid: String, postId: String) async {
+        do {
+            let batch = db.batch()
+            batch.updateData(
+                ["pinnedPostId": FieldValue.delete(), "pinnedAt": FieldValue.delete()],
+                forDocument: db.collection("users").document(uid)
+            )
+            batch.updateData(
+                ["isPinned": FieldValue.delete(), "pinnedAt": FieldValue.delete(), "pinnedUntil": FieldValue.delete()],
+                forDocument: db.collection("posts").document(postId)
+            )
+            try await batch.commit()
+            pinnedPostIds.remove(postId)
+            dlog("🔕 silentUnpin completed for \(postId)")
+        } catch {
+            dlog("⚠️ silentUnpin error: \(error)")
+        }
+    }
+
+    // MARK: - Pin/Unpin Post
+
     /// Pin a post to user's profile (limit: 1 pinned post per user)
     func pinPost(postId: String) async throws {
+        try await pinPost(postId: postId, duration: .indefinite)
+    }
+
+    /// Pin a post with an explicit expiry duration.
+    func pinPost(postId: String, duration: PinDuration) async throws {
         guard let userId = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "PinnedPost", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
@@ -48,7 +100,7 @@ class PinnedPostService: ObservableObject {
             throw NSError(domain: "PinnedPost", code: 404, userInfo: [NSLocalizedDescriptionKey: "Post not found"])
         }
         
-        guard let postUserId = postDoc.data()?["userId"] as? String, postUserId == userId else {
+        guard let postUserId = postDoc.data()?["authorId"] as? String, postUserId == userId else {
             throw NSError(domain: "PinnedPost", code: 403, userInfo: [NSLocalizedDescriptionKey: "Can only pin your own posts"])
         }
         
@@ -61,12 +113,16 @@ class PinnedPostService: ObservableObject {
             "pinnedAt": FieldValue.serverTimestamp()
         ], forDocument: userRef)
         
-        // Add pinned flag to post document
-        batch.updateData([
+        // Add pinned flag + expiry to post document
+        var postUpdate: [String: Any] = [
             "isPinned": true,
             "pinnedAt": FieldValue.serverTimestamp()
-        ], forDocument: postRef)
-        
+        ]
+        if let expiryTimestamp = duration.timestamp {
+            postUpdate["pinnedUntil"] = expiryTimestamp
+        }
+        batch.updateData(postUpdate, forDocument: postRef)
+
         try await batch.commit()
         
         // Update local cache

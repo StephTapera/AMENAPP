@@ -89,7 +89,7 @@ struct ResourceFolderCard: View {
                                     .fill(.white.opacity(0.18))
                                     .frame(width: 44, height: 44)
                                 Image(systemName: icon)
-                                    .font(.system(size: 20, weight: .semibold))
+                                    .font(.systemScaled(20, weight: .semibold))
                                     .foregroundStyle(.white)
                             }
                             VStack(alignment: .leading, spacing: 3) {
@@ -106,7 +106,7 @@ struct ResourceFolderCard: View {
                         .padding(.leading, 18)
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.55))
                             .padding(.trailing, 18)
                     }
@@ -188,7 +188,7 @@ struct ResourceFolderCard: View {
             // Label chip at bottom of sheet
             if !label.isEmpty {
                 Text(label)
-                    .font(.system(size: 7, weight: .semibold))
+                    .font(.systemScaled(7, weight: .semibold))
                     .foregroundStyle(accentColor.mix(with: .black, by: 0.1))
                     .lineLimit(1)
                     .padding(.horizontal, 4)
@@ -216,97 +216,34 @@ struct FolderSquareCard: View {
     let paperColor: Color
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-
-            // ── Folder back ──────────────────────────────────────────────────
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(folderColor)
-                .frame(width: nil, height: nil) // fills parent
-                .overlay(alignment: .topLeading) {
-                    // Tab nub
-                    Capsule()
-                        .fill(folderColor.mix(with: .black, by: 0.10))
-                        .frame(width: 20, height: 6)
-                        .offset(x: 8, y: -3)
-                }
-
-            // ── 2 peeking paper sheets (top-right area) ──────────────────────
-            VStack(spacing: 0) {
-                HStack(alignment: .bottom, spacing: -4) {
-                    Spacer()
-                    squarePaperSheet(rotation: -5)
-                    squarePaperSheet(rotation: 4)
-                        .padding(.trailing, 10)
-                }
-                .frame(height: 16)
-                Spacer()
-            }
-            .padding(.top, 6)
-
-            // ── Folder front face ─────────────────────────────────────────────
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        stops: [
-                            .init(color: accentColor.mix(with: .white, by: 0.20), location: 0),
-                            .init(color: accentColor.mix(with: .black, by: 0.06), location: 1)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                // Glass sheen
-                .overlay(alignment: .top) {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [.white.opacity(0.25), .clear],
-                                startPoint: .top,
-                                endPoint: .init(x: 0.5, y: 0.5)
-                            )
-                        )
-                }
-                // Edge highlight
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [.white.opacity(0.40), accentColor.opacity(0.12)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                // Icon — centered, prominent
-                .overlay(alignment: .center) {
-                    VStack(spacing: 4) {
-                        // Icon badge
-                        ZStack {
-                            Circle()
-                                .fill(.white.opacity(0.18))
-                                .frame(width: 26, height: 26)
-                            Image(systemName: icon)
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.white)
-                        }
-                        // Title below icon
-                        Text(title)
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(.white)
-                            .shadow(color: .black.opacity(0.18), radius: 1, y: 1)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
+        VStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(accentColor.opacity(0.12))
+                    .frame(width: 48, height: 48)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(accentColor.opacity(0.18), lineWidth: 0.75)
                     }
-                    .padding(.horizontal, 6)
-                }
-                // shrinks slightly from bottom so the back folder peeks at top
-                .padding(.top, 14)
+
+                Image(systemName: icon)
+                    .font(.systemScaled(19, weight: .semibold))
+                    .foregroundStyle(accentColor)
+            }
+
+            Text(title)
+                .font(.systemScaled(11, weight: .semibold))
+                .foregroundStyle(Color(.label))
+                .lineLimit(2)
+                .minimumScaleFactor(0.78)
+                .multilineTextAlignment(.center)
+                .frame(minHeight: 30, alignment: .top)
         }
-        .aspectRatio(1.0, contentMode: .fit)   // square
-        .shadow(color: accentColor.opacity(0.22), radius: 14, x: 0, y: 6)
-        .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 2)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
+        .aspectRatio(1.0, contentMode: .fit)
+        .amenGlassCard(cornerRadius: 18, shadow: true)
     }
 
     private func squarePaperSheet(rotation: Double) -> some View {

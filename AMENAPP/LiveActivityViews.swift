@@ -95,19 +95,19 @@ struct ReplyAssistWidget: Widget {
             } compactLeading: {
                 // Small SF symbol on the left of the pill
                 Image(systemName: context.attributes.symbolName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 20)
             } compactTrailing: {
                 // Short text label on the right of the pill
                 Text(context.attributes.compactTitle)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.white)
                     .lineLimit(1)
             } minimal: {
                 // Single dot icon when island is shared with another activity
                 Image(systemName: context.attributes.symbolName)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.white)
             }
             .keylineTint(.white.opacity(0.3))
@@ -127,10 +127,10 @@ private struct ReplyExpandedLeading: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
                 Image(systemName: context.attributes.symbolName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                 Text(context.attributes.compactTitle)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
             }
 
@@ -138,7 +138,7 @@ private struct ReplyExpandedLeading: View {
             if let name = context.attributes.displayName,
                context.state.privacyLevel == .previewAllowed {
                 Text(name)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(1)
             }
@@ -146,7 +146,7 @@ private struct ReplyExpandedLeading: View {
             if let snippet = context.state.contextSnippet,
                context.state.privacyLevel == .previewAllowed {
                 Text(snippet)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.white.opacity(0.55))
                     .lineLimit(2)
             }
@@ -191,7 +191,7 @@ private struct ReplyExpandedBottom: View {
                     .tint(.white)
                     .scaleEffect(0.7)
                 Text("Generating replies…")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.white.opacity(0.6))
                 Spacer()
             }
@@ -205,7 +205,7 @@ private struct ReplyExpandedBottom: View {
         if let url {
             Link(destination: url) {
                 Text(label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -220,7 +220,7 @@ private struct ReplyExpandedBottom: View {
         if let url = openDeepLink(context: context) {
             Link(destination: url) {
                 Text("Open")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -273,19 +273,19 @@ struct ReplyActivityLockScreenView: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: context.attributes.symbolName)
-                .font(.system(size: 22, weight: .medium))
+                .font(.systemScaled(22, weight: .medium))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(context.attributes.compactTitle)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
 
                 // Privacy-safe: only show name/snippet when user opted in
                 if let name = context.attributes.displayName,
                    context.state.privacyLevel == .previewAllowed {
                     Text(name)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -294,7 +294,7 @@ struct ReplyActivityLockScreenView: View {
 
             if context.state.suggestionsReady && !context.state.suggestion1.isEmpty {
                 Text("Tap to reply")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
         }

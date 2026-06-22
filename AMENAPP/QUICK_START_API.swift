@@ -49,7 +49,7 @@ struct QuickStartBibleAPIResponse: Codable {
 
  private func refreshDailyVerse() {
      Task {
-         withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+         withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
              isRefreshingVerse = true
          }
          
@@ -57,7 +57,7 @@ struct QuickStartBibleAPIResponse: Codable {
              let verse = try await SimpleBibleAPI.shared.getDailyVerse()
              
              await MainActor.run {
-                 withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                 withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                      dailyVerse = DailyVerse(
                          text: verse.text,
                          reference: verse.reference
@@ -68,7 +68,7 @@ struct QuickStartBibleAPIResponse: Codable {
          } catch {
              // Fallback to random sample if API fails
              await MainActor.run {
-                 withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                 withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                      dailyVerse = DailyVerse.random()
                      isRefreshingVerse = false
                  }
@@ -113,7 +113,7 @@ struct QuickStartBibleAPIResponse: Codable {
  } else {
      Button(action: onRefresh) {
          Image(systemName: "arrow.clockwise")
-             .font(.system(size: 16, weight: .semibold))
+             .font(.systemScaled(16, weight: .semibold))
              .foregroundStyle(.blue)
      }
  }

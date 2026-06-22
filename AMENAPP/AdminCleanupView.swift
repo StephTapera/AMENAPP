@@ -328,7 +328,7 @@ struct AdminCleanupView: View {
         
         Task {
             do {
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 let currentUserId = FirebaseMessagingService.shared.currentUserId
                 
                 guard FirebaseMessagingService.shared.isAuthenticated else {

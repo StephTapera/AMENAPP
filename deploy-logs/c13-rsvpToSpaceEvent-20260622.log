@@ -1,0 +1,23 @@
+
+=== Deploying to 'amen-5e359'...
+
+i  deploying functions
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+✔  functions: Finished running predeploy script.
+i  functions: preparing codebase creator for deployment
+i  functions: ensuring required API cloudfunctions.googleapis.com is enabled...
+i  functions: ensuring required API cloudbuild.googleapis.com is enabled...
+i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled...
+⚠  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory.
+⚠  functions: Please note that there will be breaking changes when you upgrade.
+i  functions: Loading and analyzing source code for codebase creator to determine what to deploy
+i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly
+Serving at port 8733
+
+i  functions: Loaded environment variables from .env.
+
+Error: In non-interactive mode but have no value for the secret: PRAYER_IDENTITY_ENCRYPTION_KEY
+
+Set this secret before deploying:
+	firebase functions:secrets:set PRAYER_IDENTITY_ENCRYPTION_KEY

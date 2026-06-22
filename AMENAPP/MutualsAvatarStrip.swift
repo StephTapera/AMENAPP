@@ -10,6 +10,8 @@
 
 import SwiftUI
 
+// subscript(safe:) — canonical definition in SafeSubscriptExtension.swift
+
 // MARK: - Main Strip
 
 struct MutualsAvatarStrip: View {
@@ -31,7 +33,7 @@ struct MutualsAvatarStrip: View {
                 labelText
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.4))
             }
             .padding(.horizontal, 16)
@@ -72,7 +74,7 @@ struct MutualsAvatarStrip: View {
                 .fill(Color.white.opacity(0.15))
                 .overlay(Circle().stroke(Color.black, lineWidth: 2))
             Text("+\(overflow)")
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
                 .foregroundStyle(.white)
         }
         .frame(width: avatarSize, height: avatarSize)
@@ -88,7 +90,7 @@ struct MutualsAvatarStrip: View {
                     .frame(width: 160, height: 13)
             } else {
                 Text(buildLabelString())
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.white.opacity(0.75))
                     .lineLimit(1)
             }
@@ -100,14 +102,15 @@ struct MutualsAvatarStrip: View {
         case 0:
             return ""
         case 1:
-            return "Followed by \(mutuals[0].displayName.components(separatedBy: " ").first ?? mutuals[0].displayName)"
+            let name = mutuals[safe: 0]?.displayName ?? ""
+            return "Followed by \(name.components(separatedBy: " ").first ?? name)"
         case 2:
-            let n1 = firstName(mutuals[0])
-            let n2 = firstName(mutuals[1])
+            let n1 = mutuals[safe: 0].map(firstName) ?? ""
+            let n2 = mutuals[safe: 1].map(firstName) ?? ""
             return "Followed by \(n1) and \(n2)"
         default:
-            let n1 = firstName(mutuals[0])
-            let n2 = firstName(mutuals[1])
+            let n1 = mutuals[safe: 0].map(firstName) ?? ""
+            let n2 = mutuals[safe: 1].map(firstName) ?? ""
             let rest = mutuals.count - 2
             return "Followed by \(n1), \(n2) and \(rest) others you follow"
         }
@@ -155,7 +158,7 @@ struct MutualsCircleAvatar: View {
                 image.resizable().scaledToFill()
             case .failure, .empty:
                 Image(systemName: "person.fill")
-                    .font(.system(size: size * 0.45))
+                    .font(.systemScaled(size * 0.45))
                     .foregroundStyle(.white.opacity(0.6))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.white.opacity(0.12))

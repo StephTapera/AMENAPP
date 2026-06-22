@@ -42,6 +42,10 @@ struct AMENUserPreferences: Codable, Equatable {
     var prayerChainLiveActivityEnabled: Bool = true
     var liveEventActivityEnabled: Bool = true
 
+    // MARK: Messaging Features
+    var scheduleReplyEnabled: Bool = true   // "Send Later" in chat composer
+    var editMessageEnabled: Bool = true     // ability to edit sent messages
+
     // MARK: Siri & Shortcuts
     var siriIntegrationEnabled: Bool = true
     var siriSuggestionsEnabled: Bool = true
@@ -64,7 +68,7 @@ final class AMENUserPreferencesService: ObservableObject {
     @Published private(set) var preferences: AMENUserPreferences = .default
     @Published private(set) var isLoaded = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
     private var saveDebounceTask: Task<Void, Never>?
 

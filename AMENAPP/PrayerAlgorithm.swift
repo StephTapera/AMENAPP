@@ -28,6 +28,7 @@ class PrayerAlgorithm: ObservableObject {
         var prayerTopics: [String: Double] = [:]       // Topic → Interest (0-100)
         var prayerInteractions: [String: Int] = [:]    // PostID → Prayer count
         var recentPrayers: [String] = []               // Recent prayer IDs (last 50)
+        var followedAuthors: Set<String> = []          // Author IDs this user follows
         var lastUpdate: Date = Date()
 
         var isStale: Bool {
@@ -145,11 +146,10 @@ class PrayerAlgorithm: ObservableObject {
             communityScore += 20 // Welcome new members
         }
 
-        // 3. Mutual Connection (if following system exists)
-        // TODO: Check if user follows this author
-        // if UserService.shared.isFollowing(post.authorId) {
-        //     communityScore += 15
-        // }
+        // 3. Mutual Connection — boost prayers from people this user follows
+        if history.followedAuthors.contains(post.authorId) {
+            communityScore += 15
+        }
 
         return min(100, communityScore)
     }
@@ -308,6 +308,12 @@ class PrayerAlgorithm: ObservableObject {
     /// Get prayer count for author
     func getPrayerCountForAuthor(_ authorId: String) -> Int {
         return userPrayerHistory.prayedForAuthors[authorId] ?? 0
+    }
+
+    /// Refreshes the followed-authors set so the community score reflects current social graph.
+    func updateFollowedAuthors(_ authorIds: [String]) {
+        userPrayerHistory.followedAuthors = Set(authorIds)
+        saveHistory()
     }
 }
 

@@ -17,13 +17,18 @@ struct MessageRequestsView: View {
     
     var body: some View {
         NavigationStack {
-            Group {
-                if isLoading {
-                    ProgressView()
-                } else if trustService.messageRequests.isEmpty {
-                    emptyStateView
-                } else {
-                    requestsList
+            ZStack {
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
+
+                Group {
+                    if isLoading {
+                        ProgressView()
+                    } else if trustService.messageRequests.isEmpty {
+                        emptyStateView
+                    } else {
+                        requestsList
+                    }
                 }
             }
             .navigationTitle("Message Requests")
@@ -33,7 +38,7 @@ struct MessageRequestsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .task {
@@ -43,27 +48,43 @@ struct MessageRequestsView: View {
     }
     
     private var requestsList: some View {
-        List {
-            ForEach(trustService.messageRequests) { request in
-                ConversationRequestRow(conversation: request) { action in
-                    handleRequestAction(request, action: action)
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(trustService.messageRequests) { request in
+                    ConversationRequestRow(conversation: request) { action in
+                        handleRequestAction(request, action: action)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+
+                    if request.id != trustService.messageRequests.last?.id {
+                        Divider()
+                            .padding(.leading, 60)
+                    }
                 }
             }
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .listStyle(.plain)
     }
     
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: "envelope.badge.shield.half.filled")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             Text("No Message Requests")
-                .font(.custom("OpenSans-Bold", size: 20))
+                .font(AMENFont.bold(20))
             
             Text("Messages from people you don't follow will appear here")
-                .font(.custom("OpenSans-Regular", size: 15))
+                .font(AMENFont.regular(15))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -170,10 +191,10 @@ struct ConversationRequestRow: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(conversation.otherParticipantName(currentUserId: currentUserId))
-                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .font(AMENFont.semiBold(16))
                     
                     Text(conversation.createdAt, style: .relative)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.tertiary)
                 }
                 
@@ -183,7 +204,7 @@ struct ConversationRequestRow: View {
             // Message preview (with safety filters)
             VStack(alignment: .leading, spacing: 8) {
                 Text(filteredMessagePreview)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .lineLimit(3)
                 
                 // Safety warnings
@@ -204,7 +225,7 @@ struct ConversationRequestRow: View {
                     onAction(.accept)
                 } label: {
                     Text("Accept")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -216,7 +237,7 @@ struct ConversationRequestRow: View {
                     showActions = true
                 } label: {
                     Text("Decline")
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -274,9 +295,9 @@ struct SafetyBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             Text(text)
-                .font(.custom("OpenSans-Regular", size: 11))
+                .font(AMENFont.regular(11))
         }
         .foregroundStyle(.orange)
         .padding(.horizontal, 8)

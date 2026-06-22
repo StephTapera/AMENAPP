@@ -94,7 +94,13 @@ struct BereanAIRequest {
     let category: AITaskCategory
     let userInput: String               // primary text to process
     let context: [String: String]       // surface-specific metadata
-    let retrievedContext: [String]      // pre-fetched RAG chunks
+    // INVARIANT (C-IN-2): Every chunk in this array MUST have passed the ragSearch ACL
+    // filter on the server (amenAIFeatures.js) OR have been fetched from a collection
+    // the caller owns (e.g. users/{uid}/*). The bereanChatProxy callable operates on a
+    // separate code path from ragSearch; if a future callable path forwards this array
+    // server-side, the same ACL filter MUST be re-applied before the chunks are passed
+    // to the model. Never forward unfiltered caller-supplied context to any model.
+    let retrievedContext: [String]      // pre-fetched RAG chunks (ACL-verified, see above)
     let userId: String?
     let requiresStreaming: Bool
     let latencyBudgetMs: Int            // 0 = best-effort
@@ -140,7 +146,7 @@ struct BereanAIResponse {
     let fromCache: Bool
     let citations: [ScriptureCitation]
     let suggestedActions: [AIAction]
-    let safetyFlags: [SafetyFlag]
+    let safetyFlags: [BereanSafetyFlag]
     let topicTags: [String]
     let category: AITaskCategory
     let surface: AMENSurface
@@ -172,7 +178,7 @@ enum AIAction: Codable {
     case viewCrisisResources
 }
 
-struct SafetyFlag: Codable {
+struct BereanSafetyFlag: Codable {
     let category: String
     let severity: SafetyFlagSeverity
     let detail: String
@@ -569,7 +575,7 @@ final class BereanCoreService: ObservableObject {
         return actions
     }
 
-    private func buildDMGentlePrompt(flags: [SafetyFlag]) -> String? {
+    private func buildDMGentlePrompt(flags: [BereanSafetyFlag]) -> String? {
         guard !flags.isEmpty else { return nil }
         let highest = flags.sorted { $0.severity.rawValue > $1.severity.rawValue }.first
         switch highest?.severity {
@@ -622,7 +628,7 @@ final class BereanCoreService: ObservableObject {
     private func makeBlockedResponse(for request: BereanAIRequest, reason: String?) -> BereanAIResponse {
         BereanAIResponse(requestId: request.id, content: "", confidence: 0, provider: "policy",
             modelVersion: "policy", latencyMs: 0, fromCache: false, citations: [], suggestedActions: [],
-            safetyFlags: [SafetyFlag(category: "policy", severity: .high,
+            safetyFlags: [BereanSafetyFlag(category: "policy", severity: .high,
                 detail: reason ?? "Request blocked by policy", actionRequired: .block)],
             topicTags: [], category: request.category, surface: request.surface, createdAt: Date())
     }
@@ -635,13 +641,13 @@ struct PostCreationAssistance {
     var captionHelp: String?
     var suggestedVerses: [ScriptureCitation] = []
     var topicTags: [String] = []
-    var safetyFlags: [SafetyFlag] = []
+    var safetyFlags: [BereanSafetyFlag] = []
     var isClean: Bool { safetyFlags.filter { $0.actionRequired != .allow }.isEmpty }
 }
 
 struct DMScreeningResult {
     let canSend: Bool
-    let flags: [SafetyFlag]
+    let flags: [BereanSafetyFlag]
     let gentlePrompt: String?
     let suggestedRevision: String?
     var requiresUserReview: Bool { !flags.isEmpty }
@@ -739,19 +745,20 @@ struct ObservabilitySnapshot {
 // MARK: - AI Feature Flags
 struct AIFeatureFlags {
     // Per-surface toggles (mirrors Firebase RemoteConfig in production)
-    var bereanChatEnabled: Bool = true
-    var postCreationAIEnabled: Bool = true
-    var commentAIEnabled: Bool = true
-    var dmSafetyEnabled: Bool = true
-    var churchNotesAIEnabled: Bool = true
-    var prayerRequestAIEnabled: Bool = true
-    var feedIntelligenceEnabled: Bool = true
-    var discoveryAIEnabled: Bool = true
-    var translationEnabled: Bool = true
-    var wellnessAIEnabled: Bool = true
-    var wisdomLibraryAIEnabled: Bool = true
-    var opportunitiesAIEnabled: Bool = true
-    var onboardingAIEnabled: Bool = true
+    // All default OFF — flipped ON only via Remote Config after consent verification
+    var bereanChatEnabled: Bool = false
+    var postCreationAIEnabled: Bool = false
+    var commentAIEnabled: Bool = false
+    var dmSafetyEnabled: Bool = false
+    var churchNotesAIEnabled: Bool = false
+    var prayerRequestAIEnabled: Bool = false
+    var feedIntelligenceEnabled: Bool = false
+    var discoveryAIEnabled: Bool = false
+    var translationEnabled: Bool = false
+    var wellnessAIEnabled: Bool = false
+    var wisdomLibraryAIEnabled: Bool = false
+    var opportunitiesAIEnabled: Bool = false
+    var onboardingAIEnabled: Bool = false
     var crisisDetectionEnabled: Bool = true
 
     func isEnabled(for surface: AMENSurface, category: AITaskCategory) -> Bool {

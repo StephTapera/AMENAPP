@@ -40,7 +40,7 @@ struct PrayerFollowThroughBar: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: hasPrayed ? "hands.and.sparkles.fill" : "hands.and.sparkles")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(hasPrayed ? Color.indigo : .secondary)
                             .contentTransition(.symbolEffect(.replace))
                         
@@ -77,7 +77,7 @@ struct PrayerFollowThroughBar: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: "heart.text.square")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.pink)
                             Text("Encourage")
                                 .font(.custom("OpenSans-Regular", size: 13))
@@ -125,7 +125,7 @@ struct PrayerFollowThroughBar: View {
         isInFlight = true
         let postId = post.id.uuidString
         
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             hasPrayed.toggle()
             prayCount += hasPrayed ? 1 : -1
         }
@@ -169,7 +169,7 @@ struct PrayerFollowThroughBar: View {
 
 // MARK: - EncouragementSheet
 
-private struct EncouragementSheet: View {
+struct EncouragementSheet: View {
     let post: Post
     let onSent: () -> Void
     
@@ -245,7 +245,7 @@ private struct EncouragementSheet: View {
                             ProgressView().scaleEffect(0.8).tint(.white)
                         } else {
                             Image(systemName: "heart.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                         }
                         Text(isSending ? "Sending..." : "Send Encouragement")
                             .font(.custom("OpenSans-SemiBold", size: 16))
@@ -342,7 +342,7 @@ struct TestimonyReflectPrompt: View {
     private var authorUpdateNudge: some View {
         HStack(spacing: 10) {
             Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             
             Text("Any update you'd like to share?")
@@ -422,13 +422,13 @@ struct ReflectSheet: View {
                 HStack(spacing: 8) {
                     ForEach(ResponseType.allCases, id: \.self) { type in
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                                 selectedType = type
                             }
                         } label: {
                             HStack(spacing: 5) {
                                 Image(systemName: type.icon)
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                 Text(type.rawValue)
                                     .font(.custom("OpenSans-SemiBold", size: 13))
                             }
@@ -555,6 +555,7 @@ struct AISparkleSearchButton: View {
         } label: {
             Image("amen-logo")
                 .resizable()
+                .renderingMode(.original)
                 .scaledToFit()
                 .frame(width: 28, height: 28)
                 .blendMode(.multiply)
@@ -562,6 +563,7 @@ struct AISparkleSearchButton: View {
                 .animation(.spring(response: 0.22, dampingFraction: 0.52), value: isPressed)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Ask Berean AI")  // A11Y-LABELS: icon-only button needs a label
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in

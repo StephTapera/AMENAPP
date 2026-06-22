@@ -1,64 +1,64 @@
-# CLAUDE.md — AMEN App Project Context
+# AMEN — Claude Code Session Rules
 
-## Project
-AMEN is a faith-centered social app designed for reflection, growth, and meaningful interaction rather than attention-driven engagement.
+These rules override default Claude Code behavior for this repository. Read them before acting.
 
-## Core Features
-- OpenTable (main feed)
-- Testimonies
-- Prayer
-- Church Notes
-- Berean AI (scripture-grounded assistant)
-- Messages / UnifiedChatView
-- Notifications
-- People Discovery
-- Profile / UserProfileView
-- Find Church
+## Firebase Deploy Rules
 
-## Tech Stack
-- iOS app built in SwiftUI
-- Firebase Auth
-- Firestore
-- Firebase Storage
-- FCM (push notifications)
-- Cloud Functions / Cloud Run (server logic, moderation, translation, notification fan-out)
-- Optional GCP services (Vertex AI / Vision) for AI and moderation features
+**FORBIDDEN for agents:**
+- `firebase deploy` (bare — deploys everything)
+- `firebase deploy --only functions` (untargeted — triggers orphan deletion prompts)
+- Running any `firebase` command from a subdirectory (`cd functions && firebase deploy`)
+- `firebase deploy --only functions:creator --force` without human approval (deletes ~120 orphaned Cloud Run services)
 
-## Product/UX Standards
-- Threads / Instagram-like UX behavior for notifications, messaging, and profile/follow flows
-- Real-time updates should be consistent across the app
-- No duplicate actions (posts, messages, follows, notifications)
-- Private account / follow requests / blocking rules must be enforced everywhere
-- Messages should drive Messages badge, not spam Notifications feed
-- Fast, premium UX: smooth scrolling, responsive buttons, no lag
+**REQUIRED for agents:**
+- Always deploy from repo root
+- Always use targeted codebase: `firebase deploy --only functions:default` or `firebase deploy --only functions:creator`
+- For single functions: `firebase deploy --only functions:creator:functionName`
+- **Region rule:** Deploy new functions to `us-central1` if `gcloud run services list --region us-central1 | wc -l` < 950. Otherwise deploy to `us-east1`. NEVER deploy to a region without adding an entry to the **Interim Region Table** in `docs/FUNCTION_INVENTORY.md`. Silent region choices are forbidden.
+- Log all deploy output to `deploy-logs/`
 
-## UI / Motion Design Standards
-- Liquid Glass design language
-- iOS-style animations: fast, subtle, premium
-- Avoid heavy blur/material on every feed cell if it causes lag
-- Buttons must have immediate pressed feedback and clear loading/disabled states
-- Collapse/expand effects should be smooth and not jittery
+See `docs/deploy-topology.md` for full topology, codebase map, and KnownDrift list.
+See `docs/FUNCTION_INVENTORY.md` for Interim Region Table and deletion candidate list.
 
-## Engineering Standards
-- Prefer targeted fixes over full rewrites
-- Preserve existing product behavior unless explicitly asked to change it
-- Single source of truth for shared UI state (e.g., follow state per author across all posts)
-- Idempotent writes and safe retry behavior
-- Avoid duplicate listeners and repeated fetch loops
-- Keep heavy work off the main thread
-- Use lazy rendering and pagination for large lists/chats/comments
+## us-central1 Quota Warning
 
-## Reliability Requirements
-- No crashes from rapid taps, poor network, background/foreground transitions
-- No duplicate notifications (push/in-app/badge)
-- Real-time listeners must not duplicate rows/items
-- Loading/error/success states must be clear and recoverable
+As of 2026-06-13, us-central1 is at **999/1000** Cloud Run services. Creating new us-central1 functions will fail with HTTP 429. Deploy to us-east1 instead and add to Interim Region Table. Quota reclamation plan: 522 DEAD services identified in `docs/FUNCTION_INVENTORY.md` — requires human approval before deletion. See `docs/deploy-topology.md §us-central1 Quota Warning` for resolution steps.
 
-## Preferred Output Format for Audits
-When auditing a feature, return:
-1. P0 issues (crash, duplication, privacy leak, data loss)
-2. P1 issues (lag, stale UI, broken flows)
-3. P2 issues (polish/inconsistencies)
-4. Root cause + targeted fix approach
-5. Stress test script (step-by-step)
-6. Acceptance criteria checklist
+## cloud-functions/ is QUARANTINED
+
+`cloud-functions/` has its own `firebase.json` (codebase `quarantine-legacy`). It is NOT wired into root `firebase.json`. Never deploy from or to this directory. See `cloud-functions/README.md`.
+
+## Repo Build Protocol
+
+**Canonical build command:**
+
+```sh
+xcodebuild -scheme AMENAPP -destination 'generic/platform=iOS' build \
+  -clonedSourcePackagesDirPath ./SourcePackages.nosync \
+  -derivedDataPath ./DerivedData.nosync
+```
+
+**One build at a time, repo-wide:** before any agent starts a build, it must acquire `./.build-lock` with its session identifier and timestamp. A stale lock older than 30 minutes may be cleared only with a log note. Concurrent builds corrupt the shared SwiftPM caches.
+
+**Human build broker:** when an agent shell cannot produce the build because of sandboxing, package services, or other local tool limits, the gate state is `HUMAN-PENDING at SHA <hash>`. The human runs the canonical command on the quiet tree and reports `SUCCEEDED` or `FAILED` with the SHA. A wave is not complete at `HUMAN-PENDING`, but agents may continue non-build work while that gate is pending.
+
+**Per-worktree builds:** use per-worktree cache paths. Do not use the repo-root `.nosync` directories from secondary worktrees.
+
+## Code Style
+
+- PascalCase types, camelCase properties/methods
+- `@State private var` for SwiftUI state, `let` for constants
+- 4-space indentation
+- Import: SwiftUI, Foundation at top
+- No force unwrapping
+- Prefer Swift async/await over Combine
+- Comments only for non-obvious WHY, not WHAT
+
+## Backend Architecture
+
+Three Firebase codebases:
+1. `default` → `functions/` — main platform functions
+2. `v2triggers` → `functions/v2triggers/` — isolated Gen-2 triggers
+3. `creator` → `Backend/functions/` — social graph + globalResilience
+
+See `docs/deploy-topology.md` for full details.

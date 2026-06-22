@@ -16,6 +16,11 @@ struct AmenConnectProfileSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = ProfileSetupViewModel()
     
+    // ✅ FIX CR-15: Email verification gate
+    @State private var isEmailVerified = false
+    @State private var showEmailVerificationAlert = false
+    @State private var isCheckingVerification = true
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -46,9 +51,9 @@ struct AmenConnectProfileSetupView: View {
                                         .clipShape(Circle())
                                         .overlay(
                                             Circle()
-                                                .stroke(
+                                                .strokeBorder(
                                                     LinearGradient(
-                                                        colors: [.pink, .purple],
+                                                        colors: [Color.white.opacity(0.85), Color.white.opacity(0.30)],
                                                         startPoint: .topLeading,
                                                         endPoint: .bottomTrailing
                                                     ),
@@ -57,14 +62,15 @@ struct AmenConnectProfileSetupView: View {
                                         )
                                 } else {
                                     Circle()
-                                        .fill(Color(.systemGray5))
+                                        .fill(.ultraThinMaterial)
                                         .frame(width: 140, height: 140)
+                                        .overlay(Circle().stroke(.primary.opacity(0.10), lineWidth: 1))
                                         .overlay(
                                             VStack(spacing: 8) {
                                                 Image(systemName: "camera.fill")
-                                                    .font(.system(size: 32))
+                                                    .font(.systemScaled(32))
                                                     .foregroundStyle(.secondary)
-                                                
+
                                                 Text("Add Photo")
                                                     .font(.custom("OpenSans-SemiBold", size: 14))
                                                     .foregroundStyle(.secondary)
@@ -79,13 +85,14 @@ struct AmenConnectProfileSetupView: View {
                                         HStack {
                                             Spacer()
                                             Circle()
-                                                .fill(Color.pink)
+                                                .fill(.ultraThinMaterial)
                                                 .frame(width: 36, height: 36)
                                                 .overlay(
                                                     Image(systemName: "pencil")
-                                                        .font(.system(size: 14))
-                                                        .foregroundStyle(.white)
+                                                        .font(.systemScaled(14))
+                                                        .foregroundStyle(.primary)
                                                 )
+                                                .overlay(Circle().stroke(.primary.opacity(0.12), lineWidth: 1))
                                         }
                                     }
                                     .frame(width: 140, height: 140)
@@ -186,7 +193,7 @@ struct AmenConnectProfileSetupView: View {
                                 
                                 Toggle("", isOn: $viewModel.isBaptized)
                                     .labelsHidden()
-                                    .tint(.pink)
+                                    .tint(.accentColor)
                             }
                         }
                         
@@ -235,24 +242,18 @@ struct AmenConnectProfileSetupView: View {
                                     } label: {
                                         Text(option)
                                             .font(.custom("OpenSans-SemiBold", size: 14))
-                                            .foregroundStyle(viewModel.lookingFor == option ? .white : .primary)
+                                            .foregroundStyle(viewModel.lookingFor == option ? Color(.systemBackground) : .primary)
                                             .padding(.horizontal, 20)
                                             .padding(.vertical, 12)
                                             .background(
+                                                viewModel.lookingFor == option
+                                                ? AnyShapeStyle(Color(.label))
+                                                : AnyShapeStyle(.regularMaterial),
+                                                in: RoundedRectangle(cornerRadius: 20)
+                                            )
+                                            .overlay(
                                                 RoundedRectangle(cornerRadius: 20)
-                                                    .fill(
-                                                        viewModel.lookingFor == option ?
-                                                        LinearGradient(
-                                                            colors: [.pink, .purple],
-                                                            startPoint: .leading,
-                                                            endPoint: .trailing
-                                                        ) :
-                                                        LinearGradient(
-                                                            colors: [Color(.systemGray6), Color(.systemGray6)],
-                                                            startPoint: .leading,
-                                                            endPoint: .trailing
-                                                        )
-                                                    )
+                                                    .stroke(.primary.opacity(0.10), lineWidth: 1)
                                             )
                                     }
                                 }
@@ -284,16 +285,19 @@ struct AmenConnectProfileSetupView: View {
                                         Text(interest)
                                             .font(.custom("OpenSans-SemiBold", size: 13))
                                             .foregroundStyle(
-                                                viewModel.interests.contains(interest) ? .white : .primary
+                                                viewModel.interests.contains(interest) ? Color(.systemBackground) : .primary
                                             )
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 10)
                                             .background(
+                                                viewModel.interests.contains(interest)
+                                                ? AnyShapeStyle(Color(.label))
+                                                : AnyShapeStyle(.regularMaterial),
+                                                in: RoundedRectangle(cornerRadius: 16)
+                                            )
+                                            .overlay(
                                                 RoundedRectangle(cornerRadius: 16)
-                                                    .fill(
-                                                        viewModel.interests.contains(interest) ?
-                                                        Color.pink : Color(.systemGray6)
-                                                    )
+                                                    .stroke(.primary.opacity(0.10), lineWidth: 1)
                                             )
                                     }
                                 }
@@ -303,43 +307,41 @@ struct AmenConnectProfileSetupView: View {
                     
                     // Save Button
                     Button {
-                        viewModel.saveProfile()
-                        dismiss()
+                        if !viewModel.isSaving {
+                            viewModel.saveProfile()
+                            // Only dismiss if save succeeds (handle in saveProfile)
+                        }
                     } label: {
                         HStack(spacing: 8) {
-                            Text("Save Profile")
+                            if viewModel.isSaving {
+                                ProgressView()
+                                    .tint(.white)
+                            }
+                            Text(viewModel.isSaving ? "Saving..." : "Save Profile")
                                 .font(.custom("OpenSans-Bold", size: 17))
                             
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(
+                            viewModel.isProfileValid ? Color(.systemBackground) : Color(.secondaryLabel)
+                        )
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
                         .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(
-                                    viewModel.isProfileValid ?
-                                    LinearGradient(
-                                        colors: [.pink, .purple],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    ) :
-                                    LinearGradient(
-                                        colors: [Color(.systemGray4), Color(.systemGray4)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .shadow(
-                                    color: viewModel.isProfileValid ? .pink.opacity(0.4) : .clear,
-                                    radius: 12,
-                                    y: 6
-                                )
+                            viewModel.isProfileValid
+                            ? AnyShapeStyle(Color(.label))
+                            : AnyShapeStyle(Color(.systemGray4)),
+                            in: Capsule()
                         )
                     }
-                    .disabled(!viewModel.isProfileValid)
+                    .disabled(!viewModel.isProfileValid || viewModel.isSaving)
                     .padding(.top, 12)
+                    .alert("Error", isPresented: $viewModel.showError) {
+                        Button("OK", role: .cancel) {}
+                    } message: {
+                        Text(viewModel.errorMessage ?? "An error occurred")
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
@@ -351,10 +353,106 @@ struct AmenConnectProfileSetupView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
+            }
+            // ✅ FIX CR-15: Check email verification on appear
+            .task {
+                await checkEmailVerification()
+            }
+            // ✅ FIX CR-15: Block profile setup if email not verified
+            .blur(radius: isEmailVerified || isCheckingVerification ? 0 : 20)
+            .overlay {
+                if !isEmailVerified && !isCheckingVerification {
+                    VStack(spacing: 24) {
+                        Image(systemName: "envelope.badge.shield.half.filled")
+                            .font(.systemScaled(60))
+                            .foregroundStyle(.secondary)
+                        
+                        VStack(spacing: 12) {
+                            Text("Verify Your Email")
+                                .font(.custom("OpenSans-Bold", size: 24))
+                                .foregroundStyle(.primary)
+                            
+                            Text("Please verify your email address before setting up your profile. Check your inbox for a verification link.")
+                                .font(.custom("OpenSans-Regular", size: 15))
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 32)
+                        }
+                        
+                        VStack(spacing: 12) {
+                            Button {
+                                Task {
+                                    await sendVerificationEmail()
+                                }
+                            } label: {
+                                Text("Resend Verification Email")
+                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .foregroundStyle(Color(.systemBackground))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                    .background(Color(.label), in: Capsule())
+                            }
+                            .padding(.horizontal, 32)
+
+                            Button {
+                                Task {
+                                    await checkEmailVerification()
+                                }
+                            } label: {
+                                Text("I've Verified My Email")
+                                    .font(.custom("OpenSans-SemiBold", size: 16))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.ultraThinMaterial)
+                }
+            }
+            .alert("Email Sent", isPresented: $showEmailVerificationAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("A verification email has been sent. Please check your inbox and spam folder.")
+            }
+        }
+    }
+    
+    // ✅ FIX CR-15: Check email verification status
+    private func checkEmailVerification() async {
+        isCheckingVerification = true
+        
+        // Reload user to get fresh verification status
+        try? await Auth.auth().currentUser?.reload()
+        
+        await MainActor.run {
+            isEmailVerified = Auth.auth().currentUser?.isEmailVerified ?? false
+            isCheckingVerification = false
+            
+            if !isEmailVerified {
+                dlog("⚠️ Email not verified - blocking profile setup")
+            }
+        }
+    }
+    
+    // ✅ FIX CR-15: Send verification email
+    private func sendVerificationEmail() async {
+        guard let user = Auth.auth().currentUser else { return }
+        
+        do {
+            try await user.sendEmailVerification()
+            await MainActor.run {
+                showEmailVerificationAlert = true
+            }
+            dlog("✅ Verification email sent")
+        } catch {
+            dlog("❌ Failed to send verification email: \(error)")
+            await MainActor.run {
+                viewModel.errorMessage = "Failed to send verification email. Please try again."
+                viewModel.showError = true
             }
         }
     }
@@ -427,6 +525,11 @@ class ProfileSetupViewModel: ObservableObject {
     @Published var lookingFor: String = "Fellowship"
     @Published var interests: [String] = []
     
+    // ✅ FIX CR-11: Error handling state
+    @Published var errorMessage: String?
+    @Published var showError = false
+    @Published var isSaving = false
+    
     var isProfileValid: Bool {
         !name.isEmpty &&
         age > 0 &&
@@ -462,17 +565,24 @@ class ProfileSetupViewModel: ObservableObject {
     
     func saveProfile() {
         Task { @MainActor in
-            await self.performSave()
+            isSaving = true
+            do {
+                try await self.performSave()
+                isSaving = false
+            } catch {
+                isSaving = false
+                errorMessage = error.localizedDescription
+                showError = true
+            }
         }
     }
 
-    private func performSave() async {
+    private func performSave() async throws {
         guard let userId = Auth.auth().currentUser?.uid else {
-            dlog("⚠️ AmenConnect: No authenticated user — cannot save profile")
-            return
+            throw NSError(domain: "ProfileSetup", code: -2, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         var photoURL: String? = nil
 
         // Upload profile photo to Firebase Storage if one was selected
@@ -486,8 +596,13 @@ class ProfileSetupViewModel: ObservableObject {
                 _ = try await storageRef.putDataAsync(imageData, metadata: metadata)
                 photoURL = try await storageRef.downloadURL().absoluteString
             } catch {
-                dlog("⚠️ AmenConnect: Photo upload failed — \(error.localizedDescription)")
-                // Continue saving profile without photo
+                // ✅ FIX CR-11: Throw error instead of silent failure
+                dlog("❌ AmenConnect: Photo upload failed — \(error.localizedDescription)")
+                throw NSError(
+                    domain: "ProfileSetup",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Failed to upload profile photo. Please check your connection and try again."]
+                )
             }
         }
 
@@ -513,6 +628,11 @@ class ProfileSetupViewModel: ObservableObject {
             dlog("✅ AmenConnect: Profile saved for user \(userId)")
         } catch {
             dlog("❌ AmenConnect: Failed to save profile — \(error.localizedDescription)")
+            throw NSError(
+                domain: "ProfileSetup",
+                code: -3,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to save profile data. Please try again."]
+            )
         }
     }
 }

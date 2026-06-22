@@ -164,7 +164,7 @@ final class AMENConnectMembershipStore: ObservableObject {
     @Published var myListings: [UserMarketplaceListing] = []
     @Published var aiMatches: [AIConnectMatch] = []
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
     private init() {}
@@ -198,7 +198,11 @@ final class AMENConnectMembershipStore: ObservableObject {
         guard !profile.uid.isEmpty else { return }
         let encoded = try? Firestore.Encoder().encode(profile)
         guard let data = encoded else { return }
-        try? await db.collection("amenConnectProfiles").document(profile.uid).setData(data, merge: true)
+        do {
+            try await db.collection("amenConnectProfiles").document(profile.uid).setData(data, merge: true)
+        } catch {
+            print("AMENConnectMembership: failed to save connect profile — \(error.localizedDescription)")
+        }
     }
 
     // MARK: Upgrade to Pro — returns true on successful purchase

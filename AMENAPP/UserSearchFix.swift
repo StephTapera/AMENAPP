@@ -13,7 +13,7 @@ import FirebaseFirestore
 /// Utility class to add searchable lowercase fields to existing users
 class UserSearchFix {
     static let shared = UserSearchFix()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     

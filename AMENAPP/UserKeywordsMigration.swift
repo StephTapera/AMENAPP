@@ -15,7 +15,7 @@ struct UserKeywordsMigration {
     /// Run the migration to update all existing users
     /// Call this from a debug button or on app launch (once)
     static func migrateAllUsers() async throws {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         dlog("🔄 Starting user migration to add nameKeywords...")
         
@@ -96,7 +96,7 @@ struct UserKeywordsMigration {
     
     /// Check how many users need migration (read-only)
     static func checkMigrationStatus() async throws -> (needsMigration: Int, hasKeywords: Int) {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         let usersSnapshot = try await db.collection("users").getDocuments()
         

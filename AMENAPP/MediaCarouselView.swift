@@ -13,26 +13,33 @@ import SwiftUI
 struct MediaCarouselView: View {
     let media: PostMediaContainer
     var onMediaTap: ((PostMediaItem) -> Void)? = nil
+
+    /// Optional post ID for media resume tracking (System 12).
+    var postId: String? = nil
     
     @State private var currentIndex = 0
     @State private var carouselAppeared = false
     @GestureState private var dragOffset: CGFloat = 0
     
-    private let itemWidth: CGFloat = UIScreen.main.bounds.width - 64 // Padding + peek
+    private let itemWidth: CGFloat = ScreenMetrics.bounds.width - 64 // Padding + peek
     private let itemSpacing: CGFloat = 12
     private let peekAmount: CGFloat = 32
     
     var body: some View {
         VStack(spacing: 12) {
-            // Carousel scroll
+            // Carousel scroll — LazyHStack so only the visible item ±1 is loaded.
+            // ForEach inside a plain HStack was creating GlassImageView / GlassVideoPlayerView
+            // for every item in the post at the moment the card scrolled into view, firing
+            // one network image request per media item regardless of whether the user ever
+            // swipes to that slide.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: itemSpacing) {
+                LazyHStack(spacing: itemSpacing) {
                     ForEach(Array(media.sortedItems.enumerated()), id: \.element.id) { index, item in
                         mediaItemView(item, index: index)
                             .frame(width: itemWidth)
                     }
                 }
-                .padding(.horizontal, (UIScreen.main.bounds.width - itemWidth) / 2) // Center first item
+                .padding(.horizontal, (ScreenMetrics.bounds.width - itemWidth) / 2) // Center first item
             }
             .scrollTargetBehavior(.paging) // iOS 17+ snap paging
             .scrollIndicators(.hidden)
@@ -46,7 +53,7 @@ struct MediaCarouselView: View {
         .opacity(carouselAppeared ? 1 : 0)
         .offset(y: carouselAppeared ? 0 : 20)
         .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8)).delay(0.1)) {
                 carouselAppeared = true
             }
         }
@@ -75,7 +82,9 @@ struct MediaCarouselView: View {
                     autoplay: false,
                     onTap: {
                         onMediaTap?(item)
-                    }
+                    },
+                    postId: postId,
+                    mediaItemId: item.id
                 )
             }
         }
@@ -110,6 +119,9 @@ struct MediaCarouselView: View {
 struct PostMediaContainerView: View {
     let media: PostMediaContainer
     var onMediaTap: ((PostMediaItem, Int) -> Void)? = nil
+
+    /// Optional post ID for media resume tracking (System 12).
+    var postId: String? = nil
     
     @State private var showFullscreen = false
     @State private var fullscreenStartIndex = 0
@@ -119,18 +131,23 @@ struct PostMediaContainerView: View {
             if media.isSingleItem, let firstItem = media.sortedItems.first {
                 singleMediaView(firstItem)
             } else if media.hasMultipleItems {
-                MediaCarouselView(media: media) { tappedItem in
-                    if let index = media.sortedItems.firstIndex(where: { $0.id == tappedItem.id }) {
-                        fullscreenStartIndex = index
-                        showFullscreen = true
-                    }
-                }
+                MediaCarouselView(
+                    media: media,
+                    onMediaTap: { tappedItem in
+                        if let index = media.sortedItems.firstIndex(where: { $0.id == tappedItem.id }) {
+                            fullscreenStartIndex = index
+                            showFullscreen = true
+                        }
+                    },
+                    postId: postId
+                )
             }
         }
         .fullScreenCover(isPresented: $showFullscreen) {
             FullscreenMediaViewer(
                 media: media,
-                startIndex: fullscreenStartIndex
+                startIndex: fullscreenStartIndex,
+                postId: postId
             )
         }
     }
@@ -155,11 +172,14 @@ struct PostMediaContainerView: View {
                     thumbnailURL: item.thumbnailURL,
                     duration: item.duration,
                     cornerRadius: 20,
-                    autoplay: false
-                ) {
-                    fullscreenStartIndex = 0
-                    showFullscreen = true
-                }
+                    autoplay: false,
+                    onTap: {
+                        fullscreenStartIndex = 0
+                        showFullscreen = true
+                    },
+                    postId: postId,
+                    mediaItemId: item.id
+                )
             }
         }
         .padding(.horizontal, 16)

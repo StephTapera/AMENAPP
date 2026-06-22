@@ -71,21 +71,12 @@ struct ShadowBanRecord: Codable {
 /// Enterprise-grade content moderation with multiple AI providers
 class AdvancedModerationService {
     static let shared = AdvancedModerationService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
-    // API Configuration — Remote Config is preferred (can be rotated without app update);
-    // falls back to Info.plist values sourced from Config.xcconfig / CI secrets.
-    private var googleNLAPIKey: String {
-        let rcValue = RemoteConfig.remoteConfig().configValue(forKey: "google_nl_api_key").stringValue
-        if !rcValue.isEmpty { return rcValue }
-        return BundleConfig.string(forKey: "GOOGLE_VISION_API_KEY") ?? ""
-    }
-    
-    private var openAIAPIKey: String {
-        let rcValue = RemoteConfig.remoteConfig().configValue(forKey: "openai_api_key").stringValue
-        if !rcValue.isEmpty { return rcValue }
-        return BundleConfig.string(forKey: "OPENAI_API_KEY") ?? ""
-    }
+    // SECURITY: API keys are NOT stored on the client.
+    // analyzeWithGoogleNL and analyzeWithOpenAI are disabled; calls are proxied
+    // through Firebase Cloud Functions (bereanChatProxy / moderationProxy).
+    // Remote Config can enable/disable the cloud-function path without an app update.
     
     // Shadow ban cache
     private var shadowBannedUsers: Set<String> = []
@@ -198,43 +189,9 @@ class AdvancedModerationService {
     
     // MARK: - Language Detection
     
-    /// Detect content language using Google Natural Language API
+    /// Detect content language using local heuristics.
+    /// Direct Google NL API calls are not made from the client — API keys must not be embedded.
     private func detectLanguage(_ content: String) async -> String {
-        // Use Google NL API for language detection
-        // Fallback to simple heuristics if API unavailable
-        
-        guard !googleNLAPIKey.isEmpty else {
-            return detectLanguageLocal(content)
-        }
-        
-        do {
-            let url = URL(string: "https://language.googleapis.com/v1/documents:analyzeEntities")!
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue(googleNLAPIKey, forHTTPHeaderField: "X-Goog-Api-Key")
-            
-            let body: [String: Any] = [
-                "document": [
-                    "type": "PLAIN_TEXT",
-                    "content": content
-                ],
-                "encodingType": "UTF8"
-            ]
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-            
-            let (data, _) = try await URLSession.shared.data(for: request)
-            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-            
-            if let language = json?["language"] as? String {
-                return language
-            }
-        } catch {
-            #if DEBUG
-            dlog("⚠️ [LANGUAGE] Google NL API error: \(error)")
-            #endif
-        }
-        
         return detectLanguageLocal(content)
     }
     
@@ -330,120 +287,22 @@ class AdvancedModerationService {
         )
     }
     
-    // MARK: - Google Natural Language API
-    
-    /// Analyze content with Google Cloud Natural Language API
+    // MARK: - Google Natural Language API (DISABLED — server-side only)
+
+    /// Direct Google NL API calls are prohibited from the client.
+    /// Route moderation through the moderationProxy Cloud Function instead.
     private func analyzeWithGoogleNL(_ content: String, language: String) async throws -> AdvancedModerationResult {
-        guard !googleNLAPIKey.isEmpty else {
-            throw NSError(domain: "GoogleNL", code: 401, userInfo: [NSLocalizedDescriptionKey: "API key not configured"])
-        }
-        
-        let url = URL(string: "https://language.googleapis.com/v1/documents:analyzeSentiment")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(googleNLAPIKey, forHTTPHeaderField: "X-Goog-Api-Key")
-        
-        let body: [String: Any] = [
-            "document": [
-                "type": "PLAIN_TEXT",
-                "language": language,
-                "content": content
-            ],
-            "encodingType": "UTF8"
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        
-        guard let documentSentiment = json?["documentSentiment"] as? [String: Any],
-              let score = documentSentiment["score"] as? Double,
-              let magnitude = documentSentiment["magnitude"] as? Double else {
-            throw NSError(domain: "GoogleNL", code: 500, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
-        }
-        
-        // Sentiment analysis: score [-1, 1], magnitude [0, inf]
-        // Highly negative + high magnitude = toxic content
-        let isToxic = score < -0.6 && magnitude > 2.0
-        
-        var reasons: [String] = []
-        if isToxic {
-            reasons.append("Highly negative sentiment detected")
-        }
-        
-        return AdvancedModerationResult(
-            isApproved: !isToxic,
-            flaggedReasons: reasons,
-            severityLevel: isToxic ? .warning : .safe,
-            suggestedAction: isToxic ? .flag : .approve,
-            confidence: min(abs(score) + (magnitude / 10), 1.0),
-            detectionSources: [.googleNL],
-            languageDetected: language,
-            contextType: nil
-        )
+        throw NSError(domain: "GoogleNL", code: 501,
+                      userInfo: [NSLocalizedDescriptionKey: "Google NL moderation must be invoked via Cloud Function proxy"])
     }
-    
-    // MARK: - OpenAI Moderation API
-    
-    /// Analyze content with OpenAI Moderation API
+
+    // MARK: - OpenAI Moderation API (DISABLED — server-side only)
+
+    /// Direct OpenAI API calls are prohibited from the client.
+    /// Route moderation through the moderationProxy Cloud Function instead.
     private func analyzeWithOpenAI(_ content: String) async throws -> AdvancedModerationResult {
-        guard !openAIAPIKey.isEmpty else {
-            throw NSError(domain: "OpenAI", code: 401, userInfo: [NSLocalizedDescriptionKey: "API key not configured"])
-        }
-        
-        let url = URL(string: "https://api.openai.com/v1/moderations")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(openAIAPIKey)", forHTTPHeaderField: "Authorization")
-        
-        let body: [String: Any] = ["input": content]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        
-        guard let results = json?["results"] as? [[String: Any]],
-              let result = results.first,
-              let flagged = result["flagged"] as? Bool,
-              let categories = result["categories"] as? [String: Bool],
-              let scores = result["category_scores"] as? [String: Double] else {
-            throw NSError(domain: "OpenAI", code: 500, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
-        }
-        
-        // Extract flagged categories
-        var reasons: [String] = []
-        let categoryMap = [
-            "hate": "Hate speech",
-            "hate/threatening": "Threatening hate speech",
-            "harassment": "Harassment",
-            "self-harm": "Self-harm content",
-            "sexual": "Sexual content",
-            "sexual/minors": "Sexual content involving minors",
-            "violence": "Violence",
-            "violence/graphic": "Graphic violence"
-        ]
-        
-        for (key, isFlagged) in categories where isFlagged {
-            if let displayName = categoryMap[key] {
-                reasons.append(displayName)
-            }
-        }
-        
-        // Calculate max confidence score
-        let maxScore = scores.values.max() ?? 0.0
-        
-        return AdvancedModerationResult(
-            isApproved: !flagged,
-            flaggedReasons: reasons,
-            severityLevel: flagged ? .blocked : .safe,
-            suggestedAction: flagged ? .block : .approve,
-            confidence: maxScore,
-            detectionSources: [.openAI],
-            languageDetected: nil,
-            contextType: nil
-        )
+        throw NSError(domain: "OpenAI", code: 501,
+                      userInfo: [NSLocalizedDescriptionKey: "OpenAI moderation must be invoked via Cloud Function proxy"])
     }
     
     // MARK: - Faith-Specific ML

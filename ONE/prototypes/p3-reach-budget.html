@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ONE — Reach Budget Prototype (p3)</title>
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:            #0A0A0F;
+      --gold:          #D4A843;
+      --gold-dim:      rgba(212, 168, 67, 0.35);
+      --gold-faint:    rgba(212, 168, 67, 0.12);
+      --red-used:      rgba(220, 80, 80, 0.45);
+      --red-used-border: rgba(220, 80, 80, 0.6);
+      --glass-bg:      rgba(255, 255, 255, 0.08);
+      --glass-border:  rgba(255, 255, 255, 0.12);
+      --matte-bg:      rgba(255, 255, 255, 0.04);
+      --matte-border:  rgba(255, 255, 255, 0.07);
+      --text-primary:  rgba(255, 255, 255, 0.92);
+      --text-secondary:rgba(255, 255, 255, 0.55);
+      --text-tertiary: rgba(255, 255, 255, 0.32);
+      --radius-card:   18px;
+      --radius-inner:  12px;
+      --radius-pill:   999px;
+      --font:          -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    }
+
+    html { background: var(--bg); color: var(--text-primary); font-family: var(--font); min-height: 100dvh; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 80px;
+      gap: 0;
+      min-height: 100dvh;
+    }
+
+    /* ─── Page header ───────────────────────────────────────────── */
+    .page-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 28px;
+      align-self: flex-start;
+      max-width: 420px;
+      width: 100%;
+    }
+
+    /* ─── Shared card shell ─────────────────────────────────────── */
+    .card {
+      width: 100%;
+      max-width: 420px;
+      border-radius: var(--radius-card);
+      overflow: hidden;
+    }
+
+    /* Matte surface */
+    .matte {
+      background: var(--matte-bg);
+      border: 1px solid var(--matte-border);
+    }
+
+    /* Glass surface */
+    .glass {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+    }
+
+    /* ─── Moment card ───────────────────────────────────────────── */
+    .moment-card {
+      padding: 16px 18px 18px;
+      margin-bottom: 10px;
+    }
+
+    .moment-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3a2e6e 0%, #6b4fa0 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+      border: 1.5px solid rgba(255,255,255,0.15);
+    }
+
+    .author-block { flex: 1 1 auto; min-width: 0; }
+    .author-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .author-handle { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+
+    .provenance-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      background: var(--gold-faint);
+      border: 1px solid var(--gold-dim);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gold);
+      white-space: nowrap;
+    }
+    .provenance-badge .chain-icon { font-size: 10px; }
+
+    .moment-text {
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--text-primary);
+      margin-bottom: 14px;
+    }
+
+    .moment-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .moment-meta .dot { opacity: 0.4; }
+
+    /* ─── Relay panel ───────────────────────────────────────────── */
+    .relay-panel {
+      padding: 20px 18px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .relay-heading {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    /* ─── Section label ─────────────────────────────────────────── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 10px;
+    }
+
+    /* ─── Relay pips ────────────────────────────────────────────── */
+    .pips-section {}
+
+    .pips-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pip {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      transition: background 0.28s ease, border-color 0.28s ease, transform 0.2s ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pip { transition: none; }
+    }
+
+    .pip.used {
+      background: var(--red-used);
+      border: 1.5px solid var(--red-used-border);
+    }
+
+    .pip.available {
+      background: transparent;
+      border: 1.5px solid var(--gold);
+    }
+
+    .pip.filling {
+      animation: pip-fill 0.35s ease forwards;
+    }
+
+    @keyframes pip-fill {
+      0%   { transform: scale(1);    background: transparent; border-color: var(--gold); }
+      40%  { transform: scale(1.35); background: rgba(212,168,67,0.5); border-color: var(--gold); }
+      100% { transform: scale(1);    background: var(--red-used); border-color: var(--red-used-border); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pip.filling { animation: none; background: var(--red-used); border-color: var(--red-used-border); }
+    }
+
+    .pips-count {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+    }
+
+    /* ─── Chain depth diagram ───────────────────────────────────── */
+    .chain-section {}
+
+    .chain-diagram {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-top: 4px;
+    }
+
+    .chain-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .chain-circle {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      border: 1.5px solid;
+    }
+
+    .chain-circle.origin {
+      background: var(--gold-faint);
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    .chain-circle.relay {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.2);
+      color: var(--text-secondary);
+    }
+
+    .chain-circle.you {
+      background: rgba(212,168,67,0.18);
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    .chain-node-label {
+      font-size: 9px;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    }
+
+    .chain-line {
+      flex: 1;
+      height: 1.5px;
+      background: rgba(255,255,255,0.15);
+      margin: 0 4px;
+      margin-bottom: 18px; /* aligns with circle centers */
+    }
+
+    .chain-info {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 10px;
+    }
+
+    .chain-info strong { color: var(--gold); }
+
+    /* ─── Weekly budget arc ─────────────────────────────────────── */
+    .budget-section {}
+
+    .budget-arc-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .arc-container {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      flex-shrink: 0;
+    }
+
+    .arc-container svg {
+      width: 72px;
+      height: 72px;
+      transform: rotate(-90deg);
+    }
+
+    .arc-track {
+      fill: none;
+      stroke: rgba(255,255,255,0.08);
+      stroke-width: 6;
+    }
+
+    .arc-fill {
+      fill: none;
+      stroke: var(--gold);
+      stroke-width: 6;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.5s cubic-bezier(0.4,0,0.2,1), stroke 0.3s ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .arc-fill { transition: none; }
+    }
+
+    .arc-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+
+    .arc-number {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .arc-denom {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      line-height: 1;
+      margin-top: 2px;
+    }
+
+    .budget-text-block { flex: 1; }
+
+    .budget-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .budget-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    /* ─── Relay button ──────────────────────────────────────────── */
+    .relay-button-wrap {
+      position: relative;
+    }
+
+    .relay-btn {
+      width: 100%;
+      padding: 15px 20px;
+      border-radius: var(--radius-inner);
+      border: none;
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--gold);
+      color: #0A0A0F;
+      transition: opacity 0.2s ease, transform 0.15s ease, background 0.25s ease;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .relay-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+    .relay-btn:active:not(:disabled) { transform: scale(0.98); }
+
+    .relay-btn:disabled {
+      background: rgba(255,255,255,0.08);
+      color: var(--text-tertiary);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .relay-btn { transition: none; }
+      .relay-btn:hover:not(:disabled) { transform: none; }
+    }
+
+    /* ─── Tooltip ───────────────────────────────────────────────── */
+    .tooltip {
+      position: absolute;
+      bottom: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30,20,5,0.95);
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 10px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      z-index: 10;
+    }
+
+    .tooltip.visible { opacity: 1; }
+
+    .tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--gold-dim);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .tooltip { transition: none; }
+    }
+
+    /* ─── Exhausted banners ─────────────────────────────────────── */
+    .exhausted-banner {
+      display: none;
+      padding: 14px 16px;
+      border-radius: var(--radius-inner);
+      background: rgba(220, 80, 80, 0.08);
+      border: 1px solid rgba(220, 80, 80, 0.25);
+      font-size: 13px;
+      color: rgba(255,140,140,0.9);
+      line-height: 1.5;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .exhausted-banner.visible { display: flex; }
+
+    .exhausted-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+    .countdown {
+      font-weight: 700;
+      color: rgba(255,160,160,1);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ─── Why reach budget panel ────────────────────────────────── */
+    .why-panel {
+      margin-top: 8px;
+    }
+
+    .why-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 16px;
+      background: var(--matte-bg);
+      border: 1px solid var(--matte-border);
+      border-radius: var(--radius-inner);
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      transition: color 0.2s ease, background 0.2s ease;
+      text-align: left;
+    }
+
+    .why-toggle:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
+
+    .why-chevron {
+      font-size: 12px;
+      transition: transform 0.25s ease;
+      color: var(--text-tertiary);
+    }
+
+    .why-chevron.open { transform: rotate(180deg); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .why-chevron { transition: none; }
+    }
+
+    .why-body {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.3s ease;
+    }
+
+    .why-body.open { max-height: 200px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .why-body { transition: none; }
+      .why-body.open { max-height: 200px; }
+    }
+
+    .why-content {
+      padding: 14px 16px 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      background: var(--matte-bg);
+      border: 1px solid var(--matte-border);
+      border-top: none;
+      border-radius: 0 0 var(--radius-inner) var(--radius-inner);
+    }
+
+    .why-content p + p { margin-top: 10px; }
+
+    /* ─── Divider ───────────────────────────────────────────────── */
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: var(--matte-border);
+    }
+
+    /* ─── State scenario switcher (dev helper) ──────────────────── */
+    .scenario-bar {
+      max-width: 420px;
+      width: 100%;
+      margin-bottom: 18px;
+    }
+
+    .scenario-bar-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+    }
+
+    .scenario-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .scenario-btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+
+    .scenario-btn:hover { color: var(--text-primary); }
+    .scenario-btn.active { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-faint); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .scenario-btn { transition: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <p class="page-label">ONE / Reach Budget · p3</p>
+
+  <!-- Dev scenario switcher -->
+  <div class="scenario-bar" role="group" aria-label="Prototype scenario switcher">
+    <p class="scenario-bar-label">Scenario</p>
+    <div class="scenario-buttons">
+      <button class="scenario-btn active" data-scenario="normal"    aria-pressed="true">Normal</button>
+      <button class="scenario-btn"        data-scenario="moment-exhausted" aria-pressed="false">Moment exhausted</button>
+      <button class="scenario-btn"        data-scenario="user-exhausted"   aria-pressed="false">Budget exhausted</button>
+      <button class="scenario-btn"        data-scenario="depth-cap"        aria-pressed="false">Depth cap (5)</button>
+    </div>
+  </div>
+
+  <!-- ── Moment card (matte) ── -->
+  <article class="card matte moment-card" aria-label="Moment by Grace Adeyemi">
+    <div class="moment-header">
+      <div class="avatar" aria-hidden="true">G</div>
+      <div class="author-block">
+        <div class="author-name">Grace Adeyemi</div>
+        <div class="author-handle">@graceadeyemi</div>
+      </div>
+      <div class="provenance-badge" aria-label="Relayed by Marcus Webb, 2 hops from origin">
+        <span class="chain-icon" aria-hidden="true">⛓</span>
+        Relayed · 2 hops
+      </div>
+    </div>
+
+    <p class="moment-text">
+      "The steadfast love of the Lord never ceases; his mercies never come to an end. They are new every morning — great is your faithfulness." Something about reading this at 5 AM changed everything for me today.
+    </p>
+
+    <div class="moment-meta" aria-label="Posted 3 hours ago · Lamentations 3:22–23">
+      <span>3h ago</span>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>Lamentations 3:22–23</span>
+    </div>
+  </article>
+
+  <!-- ── Relay panel (glass) ── -->
+  <section class="card glass relay-panel" aria-label="Relay this moment">
+
+    <h2 class="relay-heading">Relay this moment</h2>
+
+    <!-- Moment relay pips -->
+    <div class="pips-section">
+      <p class="section-label" id="pips-label">Moment's remaining relays</p>
+      <div class="pips-row" role="group" aria-labelledby="pips-label" aria-describedby="pips-count-text" id="pips-row">
+        <!-- Populated by JS -->
+      </div>
+      <p class="pips-count" id="pips-count-text" aria-live="polite" aria-atomic="true"></p>
+    </div>
+
+    <div class="divider" role="separator"></div>
+
+    <!-- Chain depth diagram -->
+    <div class="chain-section">
+      <p class="section-label">Chain depth</p>
+      <div class="chain-diagram" aria-label="Relay chain: Origin author, then Relay 1, then You" role="img">
+        <div class="chain-node">
+          <div class="chain-circle origin" aria-hidden="true">O</div>
+          <span class="chain-node-label">@graceadeyemi</span>
+        </div>
+        <div class="chain-line" aria-hidden="true"></div>
+        <div class="chain-node">
+          <div class="chain-circle relay" aria-hidden="true">R1</div>
+          <span class="chain-node-label">@marcuswebb</span>
+        </div>
+        <div class="chain-line" aria-hidden="true"></div>
+        <div class="chain-node" id="you-node">
+          <div class="chain-circle you" aria-hidden="true" id="you-circle">You</div>
+          <span class="chain-node-label" id="you-label">hop 3</span>
+        </div>
+      </div>
+      <p class="chain-info" id="chain-info-text">
+        <strong id="chain-depth-display">2 hops</strong> from <strong>@graceadeyemi</strong> · 3 of 5 max depth remaining
+      </p>
+    </div>
+
+    <div class="divider" role="separator"></div>
+
+    <!-- Weekly budget arc -->
+    <div class="budget-section">
+      <p class="section-label">Your weekly relay budget</p>
+      <div class="budget-arc-row">
+        <div class="arc-container" role="img" aria-label="Weekly relay budget: 14 of 20 remaining">
+          <svg viewBox="0 0 72 72" aria-hidden="true">
+            <circle class="arc-track" cx="36" cy="36" r="29" />
+            <circle class="arc-fill"  cx="36" cy="36" r="29"
+              id="arc-fill-circle"
+              stroke-dasharray="182.2"
+              stroke-dashoffset="0"
+            />
+          </svg>
+          <div class="arc-label" aria-hidden="true">
+            <span class="arc-number" id="arc-number">14</span>
+            <span class="arc-denom">/ 20</span>
+          </div>
+        </div>
+        <div class="budget-text-block">
+          <p class="budget-title" id="budget-title">14 relays remaining</p>
+          <p class="budget-subtitle" id="budget-subtitle">Your weekly budget resets every Sunday. Use them intentionally.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- User-budget-exhausted banner -->
+    <div class="exhausted-banner" id="user-exhausted-banner" role="alert" aria-live="assertive">
+      <span class="exhausted-icon" aria-hidden="true">⏳</span>
+      <div>
+        You've used your relay budget for the week. Resets Sunday in
+        <span class="countdown" id="countdown-display" aria-label="time until reset"></span>.
+      </div>
+    </div>
+
+    <!-- Moment-exhausted banner -->
+    <div class="exhausted-banner" id="moment-exhausted-banner" role="alert" aria-live="assertive">
+      <span class="exhausted-icon" aria-hidden="true">🔒</span>
+      <div>This moment has been fully shared — all relay slots are taken. It cannot travel further.</div>
+    </div>
+
+    <!-- Relay button + depth-cap tooltip -->
+    <div class="relay-button-wrap">
+      <div class="tooltip" id="depth-tooltip" role="tooltip" id="depth-tip">
+        This moment is at max reach depth (5 hops)
+      </div>
+      <button
+        class="relay-btn"
+        id="relay-btn"
+        aria-label="Relay this moment to Close Friends"
+        aria-describedby="pips-count-text"
+      >
+        <span aria-hidden="true">↗</span> Relay to Close Friends
+      </button>
+    </div>
+
+  </section>
+
+  <!-- ── Why reach budget? (expandable matte) ── -->
+  <div class="card why-panel" role="region" aria-labelledby="why-heading">
+    <button
+      class="why-toggle"
+      id="why-toggle"
+      aria-expanded="false"
+      aria-controls="why-body"
+    >
+      <span id="why-heading">Why reach budget?</span>
+      <span class="why-chevron" id="why-chevron" aria-hidden="true">▾</span>
+    </button>
+    <div class="why-body" id="why-body" role="region" aria-labelledby="why-heading" hidden>
+      <div class="why-content">
+        <p>ONE's reach budget is an intentional anti-virality mechanism: rather than letting moments cascade exponentially, each user and each moment carries a fixed weekly allowance of relays, so good content travels meaningfully — not algorithmically.</p>
+        <p>When your weekly budget or a moment's relay slots are exhausted, the moment rests. This keeps your feed anchored in human intention rather than viral momentum.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── State ──────────────────────────────────────────────────────────────
+    const TOTAL_MOMENT_RELAYS = 7;
+    const TOTAL_USER_BUDGET   = 20;
+    const CHAIN_DEPTH_MAX     = 5;
+
+    let state = {
+      momentUsed:      4,   // pips already consumed on this moment
+      userBudget:      14,  // relays remaining this week
+      chainDepth:      2,   // current hops from origin (we'd be hop 3)
+      scenario:        'normal',
+    };
+
+    // Reset-to-scenario helper
+    function applyScenario(s) {
+      state.scenario = s;
+      if (s === 'normal') {
+        state.momentUsed  = 4;
+        state.userBudget  = 14;
+        state.chainDepth  = 2;
+      } else if (s === 'moment-exhausted') {
+        state.momentUsed  = TOTAL_MOMENT_RELAYS; // all slots taken
+        state.userBudget  = 14;
+        state.chainDepth  = 2;
+      } else if (s === 'user-exhausted') {
+        state.momentUsed  = 4;
+        state.userBudget  = 0;
+        state.chainDepth  = 2;
+      } else if (s === 'depth-cap') {
+        state.momentUsed  = 4;
+        state.userBudget  = 14;
+        state.chainDepth  = 4; // one more would exceed cap
+      }
+      render();
+    }
+
+    // ─── DOM refs ────────────────────────────────────────────────────────────
+    const pipsRow              = document.getElementById('pips-row');
+    const pipsCountText        = document.getElementById('pips-count-text');
+    const arcFill              = document.getElementById('arc-fill-circle');
+    const arcNumber            = document.getElementById('arc-number');
+    const budgetTitle          = document.getElementById('budget-title');
+    const budgetSubtitle       = document.getElementById('budget-subtitle');
+    const relayBtn             = document.getElementById('relay-btn');
+    const depthTooltip         = document.getElementById('depth-tooltip');
+    const userExhaustedBanner  = document.getElementById('user-exhausted-banner');
+    const momentExhaustedBanner= document.getElementById('moment-exhausted-banner');
+    const countdownDisplay     = document.getElementById('countdown-display');
+    const chainDepthDisplay    = document.getElementById('chain-depth-display');
+    const chainInfoText        = document.getElementById('chain-info-text');
+    const youLabel             = document.getElementById('you-label');
+    const youCircle            = document.getElementById('you-circle');
+
+    // ─── Render pips ────────────────────────────────────────────────────────
+    function renderPips(animateIndex) {
+      pipsRow.innerHTML = '';
+      for (let i = 0; i < TOTAL_MOMENT_RELAYS; i++) {
+        const pip = document.createElement('div');
+        pip.classList.add('pip');
+        if (i < state.momentUsed) {
+          pip.classList.add('used');
+          pip.setAttribute('aria-label', `Relay slot ${i + 1}: used`);
+        } else {
+          pip.classList.add('available');
+          pip.setAttribute('aria-label', `Relay slot ${i + 1}: available`);
+        }
+        // Animate the pip that was just consumed
+        if (i === animateIndex) {
+          pip.classList.add('filling');
+          pip.addEventListener('animationend', () => pip.classList.remove('filling'), { once: true });
+        }
+        pipsRow.appendChild(pip);
+      }
+
+      const remaining = TOTAL_MOMENT_RELAYS - state.momentUsed;
+      pipsCountText.textContent =
+        remaining > 0
+          ? `${remaining} of ${TOTAL_MOMENT_RELAYS} relay slots remaining`
+          : 'All relay slots exhausted';
+    }
+
+    // ─── Render arc ──────────────────────────────────────────────────────────
+    function renderArc() {
+      const R           = 29;
+      const circumference = 2 * Math.PI * R; // ≈ 182.2
+      const fraction    = state.userBudget / TOTAL_USER_BUDGET;
+      const offset      = circumference * (1 - fraction);
+
+      arcFill.style.strokeDasharray  = circumference;
+      arcFill.style.strokeDashoffset = offset;
+
+      // Color shift when low
+      if (state.userBudget <= 4) {
+        arcFill.style.stroke = 'rgba(220,80,80,0.75)';
+      } else {
+        arcFill.style.stroke = 'var(--gold)';
+      }
+
+      arcNumber.textContent = state.userBudget;
+      arcNumber.style.color = state.userBudget <= 4 ? 'rgba(220,130,130,1)' : 'var(--gold)';
+
+      budgetTitle.textContent =
+        state.userBudget === 0
+          ? 'Weekly budget exhausted'
+          : `${state.userBudget} relay${state.userBudget !== 1 ? 's' : ''} remaining`;
+
+      budgetSubtitle.textContent =
+        state.userBudget <= 4 && state.userBudget > 0
+          ? 'Running low — use your remaining relays intentionally.'
+          : state.userBudget === 0
+          ? 'All relay slots used. Resets Sunday.'
+          : 'Your weekly budget resets every Sunday. Use them intentionally.';
+    }
+
+    // ─── Render chain depth info ──────────────────────────────────────────────
+    function renderChain() {
+      const hopsFromOrigin = state.chainDepth;           // existing hops
+      const wouldBe        = hopsFromOrigin + 1;         // if we relay
+      const remaining      = CHAIN_DEPTH_MAX - wouldBe;
+
+      chainDepthDisplay.textContent = `${hopsFromOrigin} hop${hopsFromOrigin !== 1 ? 's' : ''}`;
+      youLabel.textContent          = `hop ${wouldBe}`;
+
+      if (wouldBe >= CHAIN_DEPTH_MAX) {
+        youCircle.style.borderColor = 'rgba(220,80,80,0.7)';
+        youCircle.style.color       = 'rgba(255,140,140,0.9)';
+        youCircle.style.background  = 'rgba(220,80,80,0.1)';
+      } else {
+        youCircle.style.borderColor = '';
+        youCircle.style.color       = '';
+        youCircle.style.background  = '';
+      }
+
+      chainInfoText.innerHTML =
+        `<strong id="chain-depth-display">${hopsFromOrigin} hop${hopsFromOrigin !== 1 ? 's' : ''}</strong> from <strong>@graceadeyemi</strong> · ` +
+        (remaining > 0
+          ? `${remaining} depth level${remaining !== 1 ? 's' : ''} remaining before hard cap`
+          : 'At maximum relay depth (5 hops)');
+    }
+
+    // ─── Render button + banners ─────────────────────────────────────────────
+    function renderButton() {
+      const momentExhausted = state.momentUsed >= TOTAL_MOMENT_RELAYS;
+      const userExhausted   = state.userBudget <= 0;
+      const depthCapped     = (state.chainDepth + 1) >= CHAIN_DEPTH_MAX;
+
+      // Banners
+      momentExhaustedBanner.classList.toggle('visible', momentExhausted);
+      userExhaustedBanner.classList.toggle('visible', userExhausted && !momentExhausted);
+
+      // Button state
+      if (momentExhausted) {
+        relayBtn.disabled = true;
+        relayBtn.innerHTML = '<span aria-hidden="true">🔒</span> Can\'t relay — moment fully shared';
+        relayBtn.setAttribute('aria-label', 'Cannot relay: this moment\'s relay slots are exhausted');
+        depthTooltip.classList.remove('visible');
+      } else if (userExhausted) {
+        relayBtn.disabled = true;
+        relayBtn.innerHTML = '<span aria-hidden="true">⏳</span> Budget exhausted for this week';
+        relayBtn.setAttribute('aria-label', 'Cannot relay: your weekly relay budget is exhausted');
+        depthTooltip.classList.remove('visible');
+      } else if (depthCapped) {
+        relayBtn.disabled = true;
+        relayBtn.innerHTML = '<span aria-hidden="true">⛔</span> Max depth reached';
+        relayBtn.setAttribute('aria-label', 'Cannot relay: this moment has reached maximum chain depth of 5 hops');
+        // Show tooltip on focus/hover (also shown inline by render)
+        depthTooltip.classList.add('visible');
+      } else {
+        relayBtn.disabled = false;
+        relayBtn.innerHTML = '<span aria-hidden="true">↗</span> Relay to Close Friends';
+        relayBtn.setAttribute('aria-label', 'Relay this moment to Close Friends');
+        depthTooltip.classList.remove('visible');
+      }
+    }
+
+    // ─── Master render ───────────────────────────────────────────────────────
+    function render(animatePipIndex) {
+      renderPips(animatePipIndex);
+      renderArc();
+      renderChain();
+      renderButton();
+    }
+
+    // ─── Relay action ────────────────────────────────────────────────────────
+    relayBtn.addEventListener('click', () => {
+      if (relayBtn.disabled) return;
+
+      const pipIndex = state.momentUsed; // index of pip about to be filled
+
+      state.momentUsed += 1;
+      state.userBudget -= 1;
+
+      render(pipIndex);
+    });
+
+    // ─── Depth-cap tooltip on hover (for when button is disabled at cap) ──────
+    relayBtn.addEventListener('mouseenter', () => {
+      if ((state.chainDepth + 1) >= CHAIN_DEPTH_MAX && !relayBtn.disabled === false) {
+        depthTooltip.classList.add('visible');
+      }
+    });
+    relayBtn.addEventListener('mouseleave', () => {
+      // Only keep visible if actively at depth cap state
+      if (!((state.chainDepth + 1) >= CHAIN_DEPTH_MAX && state.momentUsed < TOTAL_MOMENT_RELAYS && state.userBudget > 0)) {
+        depthTooltip.classList.remove('visible');
+      }
+    });
+    relayBtn.addEventListener('focus', () => {
+      if ((state.chainDepth + 1) >= CHAIN_DEPTH_MAX) {
+        depthTooltip.classList.add('visible');
+      }
+    });
+    relayBtn.addEventListener('blur', () => {
+      depthTooltip.classList.remove('visible');
+    });
+
+    // ─── Countdown timer ────────────────────────────────────────────────────
+    function updateCountdown() {
+      const now    = new Date();
+      const sunday = new Date(now);
+      sunday.setDate(now.getDate() + (7 - now.getDay()) % 7 || 7);
+      sunday.setHours(0, 0, 0, 0);
+
+      const diff  = sunday - now;
+      const h     = Math.floor(diff / 3_600_000);
+      const m     = Math.floor((diff % 3_600_000) / 60_000);
+      const s     = Math.floor((diff % 60_000) / 1_000);
+
+      const pad   = n => String(n).padStart(2, '0');
+      countdownDisplay.textContent  = `${h}h ${pad(m)}m ${pad(s)}s`;
+      countdownDisplay.setAttribute(
+        'aria-label',
+        `${h} hours ${m} minutes ${s} seconds until Sunday reset`
+      );
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+
+    // ─── Scenario switcher ───────────────────────────────────────────────────
+    document.querySelectorAll('.scenario-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.scenario-btn').forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-pressed', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-pressed', 'true');
+        applyScenario(btn.dataset.scenario);
+      });
+    });
+
+    // ─── Why panel toggle ────────────────────────────────────────────────────
+    const whyToggle  = document.getElementById('why-toggle');
+    const whyBody    = document.getElementById('why-body');
+    const whyChevron = document.getElementById('why-chevron');
+
+    whyToggle.addEventListener('click', () => {
+      const expanded = whyToggle.getAttribute('aria-expanded') === 'true';
+      whyToggle.setAttribute('aria-expanded', String(!expanded));
+      whyBody.classList.toggle('open', !expanded);
+      whyChevron.classList.toggle('open', !expanded);
+      if (!expanded) {
+        whyBody.removeAttribute('hidden');
+      } else {
+        // Delay hiding until transition completes
+        whyBody.addEventListener('transitionend', () => {
+          if (whyToggle.getAttribute('aria-expanded') === 'false') {
+            whyBody.setAttribute('hidden', '');
+          }
+        }, { once: true });
+        // Fallback for reduced-motion (no transition fires)
+        const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReduced) whyBody.setAttribute('hidden', '');
+      }
+    });
+
+    // ─── Initial render ──────────────────────────────────────────────────────
+    render();
+  </script>
+</body>
+</html>

@@ -12,14 +12,14 @@ import FirebaseFunctions
 
 class ContentModerationService {
     static let shared = ContentModerationService()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     
     // MARK: - Main Moderation Method
     
     /// Moderate content before posting
     static func moderateContent(
         text: String,
-        category: ContentCategory,
+        category: ContentModerationClass,
         signals: AuthenticitySignals,
         parentContentId: String? = nil
     ) async throws -> ModerationDecision {

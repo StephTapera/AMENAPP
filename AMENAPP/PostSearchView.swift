@@ -7,6 +7,8 @@
 
 import SwiftUI
 import Combine
+import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - Post Search View
 
@@ -105,7 +107,9 @@ struct PostSearchView: View {
                             try await Task.sleep(nanoseconds: 400_000_000)
                             guard !Task.isCancelled else { return }
                             await viewModel.searchPosts(query: searchText)
-                        } catch {}
+                        } catch {
+                            // Task.sleep throws CancellationError on cancel — expected, not an error
+                        }
                     }
                 }
             
@@ -134,14 +138,14 @@ struct PostSearchView: View {
         HStack(spacing: 0) {
             ForEach(SearchTab.allCases, id: \.self) { tab in
                 Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         selectedTab = tab
                     }
                 }) {
                     VStack(spacing: 8) {
                         HStack(spacing: 6) {
                             Image(systemName: tab.icon)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                             Text(tab.rawValue)
                                 .font(.custom("OpenSans-Bold", size: 14))
                         }
@@ -208,7 +212,7 @@ struct PostSearchView: View {
                     .frame(width: 100, height: 100)
                 
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(.secondary)
             }
             
@@ -224,21 +228,55 @@ struct PostSearchView: View {
     }
     
     // MARK: - Recent Searches
-    
+
     private var recentSearchesView: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Recent Searches")
                 .font(.custom("OpenSans-Bold", size: 18))
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
-            
-            // TODO: Implement recent searches persistence
-            Text("Start typing to search posts")
-                .font(.custom("OpenSans-Regular", size: 14))
+
+            if viewModel.recentSearches.isEmpty {
+                Text("Start typing to search posts")
+                    .font(.custom("OpenSans-Regular", size: 14))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 40)
+            } else {
+                ForEach(viewModel.recentSearches, id: \.self) { term in
+                    Button {
+                        searchText = term
+                        searchTask?.cancel()
+                        searchTask = Task {
+                            try? await Task.sleep(nanoseconds: 100_000_000)
+                            guard !Task.isCancelled else { return }
+                            await viewModel.searchPosts(query: term)
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 20)
+                            Text(term)
+                                .font(.custom("OpenSans-Regular", size: 15))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                    }
+                    Divider().padding(.leading, 52)
+                }
+                Button("Clear recent searches") {
+                    Task { await viewModel.clearRecentSearches() }
+                }
+                .font(.custom("OpenSans-Regular", size: 13))
                 .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 40)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+            }
         }
+        .task { await viewModel.loadRecentSearches() }
     }
 }
 
@@ -287,7 +325,7 @@ struct PostThumbnailView: View {
                 // Engagement indicator
                 HStack(spacing: 4) {
                     Image(systemName: "heart.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     Text("\(post.likesCount)")
                         .font(.custom("OpenSans-Bold", size: 11))
                 }
@@ -314,23 +352,85 @@ class PostSearchViewModel: ObservableObject {
     @Published var posts: [AlgoliaPost] = []
     @Published var isLoading = false
     @Published var error: String?
-    
+    @Published var recentSearches: [String] = []
+
     private let searchService = AlgoliaSearchService.shared
-    
+    private lazy var db = Firestore.firestore()
+    private static let maxRecentSearches = 10
+
+    // MARK: Recent Searches — Firestore-backed, anonymous-safe
+
+    func loadRecentSearches() async {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            // Fall back to UserDefaults for unauthenticated users
+            recentSearches = UserDefaults.standard.stringArray(forKey: "amen.recentSearches") ?? []
+            return
+        }
+        do {
+            let snap = try await db
+                .collection("users").document(uid)
+                .collection("recentSearches")
+                .order(by: "searchedAt", descending: true)
+                .limit(to: Self.maxRecentSearches)
+                .getDocuments()
+            recentSearches = snap.documents.compactMap { $0.data()["query"] as? String }
+        } catch {
+            recentSearches = UserDefaults.standard.stringArray(forKey: "amen.recentSearches") ?? []
+        }
+    }
+
+    private func persistSearch(_ query: String) async {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+
+        // Update in-memory list — deduplicate and cap
+        var updated = recentSearches.filter { $0.lowercased() != trimmed.lowercased() }
+        updated.insert(trimmed, at: 0)
+        if updated.count > Self.maxRecentSearches { updated = Array(updated.prefix(Self.maxRecentSearches)) }
+        recentSearches = updated
+
+        guard let uid = Auth.auth().currentUser?.uid else {
+            UserDefaults.standard.set(recentSearches, forKey: "amen.recentSearches")
+            return
+        }
+        let docId = trimmed.lowercased().replacingOccurrences(of: "/", with: "_")
+        try? await db
+            .collection("users").document(uid)
+            .collection("recentSearches")
+            .document(docId)
+            .setData(["query": trimmed, "searchedAt": FieldValue.serverTimestamp()], merge: false)
+    }
+
+    func clearRecentSearches() async {
+        recentSearches = []
+        UserDefaults.standard.removeObject(forKey: "amen.recentSearches")
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let snap = try? await db
+            .collection("users").document(uid)
+            .collection("recentSearches")
+            .getDocuments()
+        let batch = db.batch()
+        snap?.documents.forEach { batch.deleteDocument($0.reference) }
+        try? await batch.commit()
+    }
+
+    // MARK: Search
+
     func searchPosts(query: String) async {
         guard !query.isEmpty else {
             posts = []
             return
         }
-        
+
         guard !isLoading else { return }
-        
+
         isLoading = true
         error = nil
-        
+
         do {
             posts = try await searchService.searchPosts(query: query, limit: 30)
-            
+            await persistSearch(query)
+
             #if DEBUG
             dlog("✅ Found \(posts.count) posts for query: \(query)")
             #endif

@@ -33,8 +33,8 @@ struct SmartSuggestion: Codable {
 class SmartSuggestionsService {
     static let shared = SmartSuggestionsService()
     
-    private let db = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
     private let cacheExpiryDays = 7 // Refresh suggestions weekly
 
     private init() {}

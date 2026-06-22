@@ -24,18 +24,18 @@ struct ConnectNetworkView: View {
                 NavigationLink(destination: MentorshipView()) {
                     HStack(spacing: 12) {
                         Image(systemName: "person.3.sequence.fill")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(accentColor)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("My Circles")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                             Text("Your close faith community")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.tertiary)
                     }
                     .padding(14)
@@ -48,10 +48,10 @@ struct ConnectNetworkView: View {
                 // Search bar
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.secondary)
                     TextField("Search people...", text: $searchText)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .textFieldStyle(.plain)
                         .autocorrectionDisabled()
                 }
@@ -115,13 +115,13 @@ struct ConnectNetworkView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("NETWORK")
-                    .font(.system(size: 10, weight: .semibold)).kerning(3)
+                    .font(.systemScaled(10, weight: .semibold)).kerning(3)
                     .foregroundStyle(Color.white.opacity(0.55))
                 Text("Faith Community")
-                    .font(.system(size: 26, weight: .black))
+                    .font(.systemScaled(26, weight: .black))
                     .foregroundStyle(.white)
                 Text("Connect with believers near you and around the world.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.7))
             }
             .padding(.horizontal, 20)
@@ -147,7 +147,7 @@ struct ConnectNetworkView: View {
                     Circle().fill(accentColor.opacity(0.15))
                         .overlay(
                             Text(String(person.displayName.prefix(1)).uppercased())
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.systemScaled(16, weight: .bold))
                                 .foregroundStyle(accentColor)
                         )
                 }
@@ -157,17 +157,17 @@ struct ConnectNetworkView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(person.displayName)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                 if !person.church.isEmpty {
                     Text(person.church)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 if !person.bio.isEmpty {
                     Text(person.bio)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
@@ -176,7 +176,7 @@ struct ConnectNetworkView: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -188,14 +188,14 @@ struct ConnectNetworkView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "person.3.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary.opacity(0.4))
                 .padding(.top, 40)
             Text("No people found")
-                .font(.system(size: 17, weight: .bold))
+                .font(.systemScaled(17, weight: .bold))
                 .foregroundStyle(.primary)
             Text("Try a different search or check back later.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
     }
@@ -207,7 +207,7 @@ struct ConnectNetworkView: View {
             isLoading = false
             return
         }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("users")
                 .limit(to: 50)

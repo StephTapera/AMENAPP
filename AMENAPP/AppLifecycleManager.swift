@@ -17,10 +17,25 @@ final class AppLifecycleManager {
     static let shared = AppLifecycleManager()
     private init() {}
 
-    // BUG-12 FIX: Track whether a Firestore cache clear is still in flight.
-    // AuthenticationViewModel.signIn() guards on this flag so a second user
-    // cannot be authenticated until the previous user's on-disk cache is gone.
+    // Issue 5 FIX: Replace the polling spin-wait with a proper async signal.
+    // A plain Bool + busy-wait loop has two problems:
+    //   (a) 10 × 100 ms = 1 s hard cap — clearPersistence() can take longer on slow
+    //       devices, so signIn() could proceed while the clear is still in flight.
+    //   (b) The poll wastes CPU and blocks the async task budget for 0–1 s.
+    // Solution: store a list of continuations. Any caller that arrives while
+    // isClearingCache = true suspends itself; the Task that owns the clear resumes
+    // all waiters atomically when it finishes.
     private(set) var isClearingCache = false
+    private var cacheClearContinuations: [CheckedContinuation<Void, Never>] = []
+
+    /// Suspend the caller until the in-flight Firestore cache clear (if any) finishes.
+    /// Returns immediately if no clear is in progress.
+    func waitForCacheClear() async {
+        guard isClearingCache else { return }
+        await withCheckedContinuation { continuation in
+            cacheClearContinuations.append(continuation)
+        }
+    }
 
     // MARK: - Sign-Out Cleanup
 
@@ -31,17 +46,44 @@ final class AppLifecycleManager {
     func performFullSignOutCleanup() {
         // ── Realtime Database listeners ──────────────────────────────────────
         RealtimePostService.shared.stopAllObserving()
-        PostInteractionsService.shared.stopAllObservers()
+        // resetUserState() calls stopAllObservers() AND clears per-user like/amen/repost
+        // sets so the previous user's interaction state is never visible to the next account.
+        PostInteractionsService.shared.resetUserState()
         RealtimeRepostsService.shared.stopAllObservers()
         RealtimeSavedPostsService.shared.removeSavedPostsListener()
         RealtimeDatabaseService.shared.cleanup()
         RealtimeCommentsService.shared.removeAllListeners()
         ActivityFeedService.shared.stopAllObservers()
 
-        // ── Firestore listeners ──────────────────────────────────────────────
-        FollowService.shared.stopListening()
+        // ── Firestore listeners + per-user published state ───────────────────
+        // resetUserState() calls stopListening() AND zeroes all published Sets/arrays
+        // so the previous user's follow graph / block list are never accessible to
+        // the next signed-in account — even during the sign-out → sign-in window.
+        FollowService.shared.resetUserState()
         NotificationService.shared.stopListening()
-        BlockService.shared.stopListening()
+        BlockService.shared.resetUserState()
+        MuteService.shared.resetUserState()
+        PostsManager.shared.stopListeningForProfileUpdates()
+        // Clear post arrays so stale block-filtered posts from the previous user
+        // cannot briefly appear in the feed before the new user's posts load.
+        PostsManager.shared.clearPosts()
+
+        // ── Messaging ────────────────────────────────────────────────────────
+        MessageSettingsService.shared.stopListening()
+        MessageSettingsService.shared.clearCache()
+
+        // ── FCM device token ─────────────────────────────────────────────────
+        // Section-14 item-13 FIX: Mark this device's FCM token as inactive in
+        // Firestore on sign-out so the server stops sending push notifications
+        // to a device that no longer has an authenticated session.
+        // unregisterDeviceToken() sets isActive: false, clears currentToken,
+        // and resets isTokenRegistered — it does NOT delete the Firestore doc,
+        // so cleanupInvalidTokens() can still expire it after 30 days.
+        Task { await DeviceTokenManager.shared.unregisterDeviceToken() }
+
+        // ── Church journey tracking ───────────────────────────────────────────
+        ChurchInteractionService.shared.stopListening()
+        ChurchVisitReminderService.shared.cancelAllReminders()
 
         // ── Jobs & Opportunities platform ────────────────────────────────────
         JobService.shared.stopListening()
@@ -55,6 +97,10 @@ final class AppLifecycleManager {
         // ── AI service caches ────────────────────────────────────────────────
         OpenAIService.shared.reset()
         ClaudeService.shared.reset()
+        EnforcementService.shared.dismissBanner()  // Clear any in-memory enforcement state
+
+        // ── Trust score cache ─────────────────────────────────────────────────
+        ContentTrustScoreService.shared.clearAll()
 
         // ── Safety service caches (privacy: prevent data leaking to next session) ──
         if let uid = Auth.auth().currentUser?.uid {
@@ -69,6 +115,14 @@ final class AppLifecycleManager {
         SafetyOrchestrator.shared.clearSupportState()
         BehavioralAwarenessEngine.shared.beginSession()
 
+        // ── E2EE key material (audit C-02) ───────────────────────────────────
+        // Wipe all Curve25519 identity/prekey/ratchet keys so the next account on
+        // a shared device cannot inherit them and so nothing is orphaned after a
+        // reinstall. Re-sign-in routes through the E2EE recovery handoff
+        // (contracts/onboarding/IdentityHint.md §recovery). The recognition hint
+        // lives under a separate, NOT-wiped namespace.
+        AMENEncryptionService.shared.wipeAllKeys()
+
         // ── Session timeout timers ───────────────────────────────────────────
         // Stop monitoring AFTER service teardown so the warning UI is dismissed cleanly.
         SessionTimeoutManager.shared.stopMonitoring()
@@ -81,9 +135,22 @@ final class AppLifecycleManager {
         // user from loading stale data before the clear completes.
         isClearingCache = true
         Task {
-            defer { Task { @MainActor in self.isClearingCache = false } }
-            try? await Firestore.firestore().clearPersistence()
-            dlog("✅ Firestore persistence cache cleared for new session")
+            defer {
+                Task { @MainActor in
+                    self.isClearingCache = false
+                    // Issue 5 FIX: Resume all callers that suspended in waitForCacheClear().
+                    let waiters = self.cacheClearContinuations
+                    self.cacheClearContinuations.removeAll()
+                    for c in waiters { c.resume() }
+                    dlog("✅ Firestore cache clear done — resumed \(waiters.count) waiting sign-in(s)")
+                }
+            }
+            do {
+                try await Firestore.firestore().clearPersistence()
+                dlog("✅ Firestore persistence cache cleared for new session")
+            } catch {
+                dlog("⚠️ Firestore clearPersistence failed (non-fatal): \(error.localizedDescription)")
+            }
         }
     }
 }

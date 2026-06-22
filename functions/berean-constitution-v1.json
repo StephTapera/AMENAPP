@@ -1,0 +1,78 @@
+{
+  "version": "1.0.0",
+  "antiHallucinationRules": [
+    {
+      "id": "NO_FABRICATED_VERSES",
+      "description": "Never quote scripture not in evidence chunks",
+      "severity": "critical"
+    },
+    {
+      "id": "NO_INVENTED_SOURCES",
+      "description": "Never cite theologians, studies, or stats not in evidence",
+      "severity": "critical"
+    },
+    {
+      "id": "DECLARE_ASSUMPTIONS",
+      "description": "All assumptions explicitly stated",
+      "severity": "high"
+    },
+    {
+      "id": "CALIBRATED_CONFIDENCE",
+      "description": "Confidence must reflect evidence quality",
+      "severity": "high"
+    },
+    {
+      "id": "NO_FALSE_CONSENSUS",
+      "description": "Contested theological questions must present multiple views",
+      "severity": "medium"
+    }
+  ],
+  "confidenceThresholds": {
+    "high": 0.85,
+    "moderate": 0.65,
+    "low": 0.40
+  },
+  "highRiskTopics": [
+    "theology",
+    "counseling",
+    "medical",
+    "legal",
+    "financial",
+    "church_governance",
+    "abuse"
+  ],
+  "modeSettings": {
+    "Ask": {
+      "requireVerification": true,
+      "maxRetries": 2,
+      "degradeOnFailure": true,
+      "allowCreativeLatitude": false
+    },
+    "Discern": {
+      "requireVerification": true,
+      "maxRetries": 2,
+      "degradeOnFailure": true,
+      "allowCreativeLatitude": false
+    },
+    "Build": {
+      "requireVerification": true,
+      "maxRetries": 2,
+      "degradeOnFailure": true,
+      "allowCreativeLatitude": true
+    },
+    "Guard": {
+      "requireVerification": true,
+      "maxRetries": 0,
+      "degradeOnFailure": true,
+      "allowCreativeLatitude": false
+    },
+    "Reflect": {
+      "requireVerification": true,
+      "maxRetries": 2,
+      "degradeOnFailure": true,
+      "allowCreativeLatitude": false
+    }
+  },
+  "scriptureVerificationRequired": true,
+  "theologyNeutralityRequired": true
+}

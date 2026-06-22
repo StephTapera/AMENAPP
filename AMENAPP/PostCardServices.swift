@@ -77,7 +77,10 @@ class PostCardServices: ObservableObject {
     /// Check if user has permission to edit a post
     func canEditPost(_ post: Post, currentUserId: String?) -> Bool {
         guard let userId = currentUserId else { return false }
-        return post.authorId == userId
+        guard post.authorId == userId else { return false }
+        let policy = EditWindowPolicyState.forCategory(post.category)
+        let expiry = post.editWindowExpiresAt ?? policy.expiryDate(createdAt: post.createdAt)
+        return Date() <= expiry
     }
     
     /// Check if post is pinned (existing service uses sync method)
@@ -89,7 +92,9 @@ class PostCardServices: ObservableObject {
 // MARK: - Environment Key
 
 struct PostCardServicesKey: EnvironmentKey {
-    static let defaultValue = PostCardServices.shared
+    static var defaultValue: PostCardServices {
+        MainActor.assumeIsolated { PostCardServices.shared }
+    }
 }
 
 extension EnvironmentValues {

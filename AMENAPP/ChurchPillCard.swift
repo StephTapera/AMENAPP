@@ -57,14 +57,7 @@ struct ChurchPill: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                    )
-            )
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -75,7 +68,7 @@ struct ChurchPill: View {
                 .fill(Color.blue.opacity(0.1))
             
             Image(systemName: "building.columns.fill")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.blue)
         }
     }
@@ -130,7 +123,7 @@ struct ChurchEntityCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Image(systemName: "location.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.blue)
                         
                         if let location = userLocation {
@@ -159,11 +152,7 @@ struct ChurchEntityCard: View {
                 }
             }
             .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
-                    .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-            )
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -180,7 +169,7 @@ struct ChurchEntityCard: View {
                 )
             
             Image(systemName: "building.columns.fill")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(.blue)
         }
     }
@@ -188,7 +177,7 @@ struct ChurchEntityCard: View {
     private func quickActionButton(icon: String, label: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
             
             Text(label)
                 .font(.custom("OpenSans-SemiBold", size: 12))
@@ -214,7 +203,7 @@ struct ChurchSearchResultRow: View {
                         .frame(width: 40, height: 40)
                     
                     Image(systemName: "building.columns.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.blue)
                 }
                 
@@ -246,7 +235,7 @@ struct ChurchSearchResultRow: View {
                 
                 if result.isExisting {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.green)
                 }
             }

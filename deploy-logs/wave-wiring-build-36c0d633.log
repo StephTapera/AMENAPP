@@ -1,0 +1,5 @@
+Build started at Mon Jun 22 09:43:40 CDT 2026. HEAD=920fa652
+Command line invocation:
+    /Applications/Xcode-beta.app/Contents/Developer/usr/bin/xcodebuild -scheme AMENAPP -destination generic/platform=iOS build -clonedSourcePackagesDirPath ./SourcePackages.nosync -derivedDataPath ./DerivedData.nosync
+
+XCODEBUILD_EXIT=143

@@ -23,7 +23,7 @@ struct ChurchMentionPicker: View {
             // Search bar
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.secondary)
                 
                 TextField("Search churches...", text: $searchQuery)
@@ -36,7 +36,7 @@ struct ChurchMentionPicker: View {
                         searchQuery = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -59,7 +59,7 @@ struct ChurchMentionPicker: View {
                 } else if viewModel.results.isEmpty && !searchQuery.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "building.columns")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.secondary)
                         
                         Text("No churches found")
@@ -228,7 +228,7 @@ struct ChurchMentionTextField: View {
             }
         }
         .sheet(isPresented: $showChurchPicker) {
-            NavigationView {
+            NavigationStack {
                 ChurchMentionPicker(
                     searchQuery: $churchSearchQuery,
                     isPresented: $showChurchPicker,
@@ -254,7 +254,7 @@ struct ChurchMentionTextField: View {
     private func churchMentionChip(_ mention: ChurchMention) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "building.columns.fill")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(.blue)
             
             Text(mention.name)
@@ -265,7 +265,7 @@ struct ChurchMentionTextField: View {
                 removeChurchMention(mention)
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
         }

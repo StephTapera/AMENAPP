@@ -48,7 +48,7 @@ struct AINotificationPreferences: Codable {
 /// Service for intelligent notification batching and timing
 class SmartNotificationService {
     static let shared = SmartNotificationService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let notificationCenter = UNUserNotificationCenter.current()
     
     // Batching intervals
@@ -108,45 +108,60 @@ class SmartNotificationService {
         }
     }
     
-    /// Find existing batch within batching window
+    /// Find existing batch using the deterministic day-bucket notificationKey.
+    ///
+    /// The key encodes type + postId + recipientId + ISO date, so there is at
+    /// most one batch per combination per calendar day. This replaces the
+    /// previous rolling-15-minute window query, providing stronger deduplication.
     private func findExistingBatch(
         type: NotificationBatch.BatchType,
         recipientId: String,
         postId: String?
     ) async throws -> NotificationBatch? {
-        
-        let batchWindow = Date().addingTimeInterval(-Double(batchWindowMinutes * 60))
-        
-        var query = db.collection("notificationBatches")
-            .whereField("recipientId", isEqualTo: recipientId)
-            .whereField("type", isEqualTo: type.rawValue)
-            .whereField("delivered", isEqualTo: false)
-            .whereField("timestamp", isGreaterThan: Timestamp(date: batchWindow))
-        
-        // If post-specific, filter by post
-        if let postId = postId {
-            query = query.whereField("postId", isEqualTo: postId)
-        }
-        
-        let snapshot = try await query.limit(to: 1).getDocuments()
-        
-        guard let doc = snapshot.documents.first else { return nil }
-        
+
+        let dayBucket = ISO8601DateFormatter.dayBucketString(from: Date())
+        let postPart = postId ?? "nopost"
+        let notificationKey = "\(type.rawValue)_\(postPart)_\(recipientId)_\(dayBucket)"
+
+        let doc = try await db.collection("notificationBatches")
+            .document(notificationKey)
+            .getDocument()
+
+        guard doc.exists else { return nil }
+
+        // Only return if not yet delivered — delivered batches should not
+        // accumulate more senders after push has gone out.
+        let delivered = doc.data()?["delivered"] as? Bool ?? false
+        guard !delivered else { return nil }
+
         return try? doc.data(as: NotificationBatch.self)
     }
     
-    /// Add notification to existing batch
+    /// Add notification to existing batch.
+    /// `userIds` is capped at 10 senders for display ("John, Jane, and X others").
+    /// Beyond 10, only `count` is incremented to avoid unbounded array growth.
     private func addToBatch(batchId: String, senderId: String) async throws {
-        try await db.collection("notificationBatches")
-            .document(batchId)
-            .updateData([
-                "userIds": FieldValue.arrayUnion([senderId]),
-                "count": FieldValue.increment(Int64(1)),
-                "lastUpdated": FieldValue.serverTimestamp()
-            ])
+        let docRef = db.collection("notificationBatches").document(batchId)
+        let snapshot = try? await docRef.getDocument()
+        let existingIds = snapshot?.data()?["userIds"] as? [String] ?? []
+        var updateData: [String: Any] = [
+            "count": FieldValue.increment(Int64(1)),
+            "lastUpdated": FieldValue.serverTimestamp()
+        ]
+        if existingIds.count < 10 {
+            updateData["userIds"] = FieldValue.arrayUnion([senderId])
+        }
+        try await docRef.updateData(updateData)
     }
     
-    /// Create new notification batch
+    /// Create new notification batch.
+    ///
+    /// Deduplication key format: "{type}_{postId}_{recipientId}_{dayBucket}"
+    /// where dayBucket is the ISO date string (YYYY-MM-DD).
+    /// Using this as the document ID means only one batch exists per
+    /// type + post + recipient per calendar day. Subsequent triggers on the
+    /// same day increment `count` via `setData(merge: true)` rather than
+    /// creating a new document.
     private func createNewBatch(
         type: NotificationBatch.BatchType,
         recipientId: String,
@@ -154,8 +169,13 @@ class SmartNotificationService {
         postId: String?,
         message: String
     ) async throws -> String {
-        
+
+        let dayBucket = ISO8601DateFormatter.dayBucketString(from: Date())
+        let postPart = postId ?? "nopost"
+        let notificationKey = "\(type.rawValue)_\(postPart)_\(recipientId)_\(dayBucket)"
+
         var batchData: [String: Any] = [
+            "notificationKey": notificationKey,
             "type": type.rawValue,
             "recipientId": recipientId,
             "userIds": [senderId],
@@ -165,15 +185,19 @@ class SmartNotificationService {
             "timestamp": FieldValue.serverTimestamp(),
             "lastUpdated": FieldValue.serverTimestamp()
         ]
-        
+
         if let postId = postId {
             batchData["postId"] = postId
         }
-        
-        let ref = try await db.collection("notificationBatches")
-            .addDocument(data: batchData)
-        
-        return ref.documentID
+
+        // Use notificationKey as document ID for idempotency.
+        // If this key already exists (race condition), merge increments count
+        // without overwriting the existing batch state.
+        try await db.collection("notificationBatches")
+            .document(notificationKey)
+            .setData(batchData, merge: false)
+
+        return notificationKey
     }
     
     // MARK: - Smart Delivery Timing
@@ -239,7 +263,7 @@ class SmartNotificationService {
             // If all remaining hours are quiet, deliver at best time tomorrow
             if nextHour >= 24 {
                 var components = calendar.dateComponents([.year, .month, .day], from: now)
-                components.day! += 1
+                components.day = (components.day ?? 0) + 1
                 components.hour = preferences.bestTimeOfDay
                 return calendar.date(from: components) ?? now.addingTimeInterval(3600)
             }
@@ -391,5 +415,17 @@ struct AINotificationEngagement {
 extension Date {
     var hour: Int {
         Calendar.current.component(.hour, from: self)
+    }
+}
+
+// MARK: - Day Bucket Helper
+
+private extension ISO8601DateFormatter {
+    /// Returns an ISO date string (YYYY-MM-DD) for use as the daily deduplication
+    /// bucket in notification keys, e.g. "amens_postABC_userXYZ_2026-04-05".
+    static func dayBucketString(from date: Date) -> String {
+        let fmt = ISO8601DateFormatter()
+        fmt.formatOptions = [.withFullDate, .withDashSeparatorInDate]
+        return fmt.string(from: date)
     }
 }

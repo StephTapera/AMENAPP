@@ -42,7 +42,7 @@ struct ModernPrayerWallView: View {
                                     category: category,
                                     isSelected: selectedCategory == category
                                 ) {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         selectedCategory = category
                                     }
                                 }
@@ -76,17 +76,50 @@ struct ModernPrayerWallView: View {
                     }
                     .padding(.horizontal)
                     
+                    // Error state
+                    if let error = viewModel.errorMessage {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text(error)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Retry") {
+                                Task { await viewModel.loadPrayers() }
+                            }
+                            .font(.subheadline.bold())
+                        }
+                        .padding()
+                        .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal)
+                    }
+
                     // Prayer Cards
-                    LazyVStack(spacing: 16) {
-                        ForEach(filteredPrayers) { prayer in
-                            ModernPrayerCard(prayer: prayer) {
-                                await viewModel.prayForRequest(prayer)
+                    if viewModel.isLoading && viewModel.prayers.isEmpty {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                            Text("Loading prayers…")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else {
+                        LazyVStack(spacing: 16) {
+                            ForEach(filteredPrayers) { prayer in
+                                ModernPrayerCard(prayer: prayer) {
+                                    await viewModel.prayForRequest(prayer)
+                                }
                             }
                         }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                 }
                 .padding(.vertical)
+            }
+            .refreshable {
+                await viewModel.loadPrayers()
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -95,7 +128,7 @@ struct ModernPrayerWallView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -105,7 +138,7 @@ struct ModernPrayerWallView: View {
                         showNewPrayer = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -144,7 +177,7 @@ private struct PrayerCategoryPill: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 
                 Text(category.rawValue)
                     .font(.custom("OpenSans-SemiBold", size: 13))
@@ -176,7 +209,7 @@ private struct StatCard: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 24, weight: .semibold))
+                .font(.systemScaled(24, weight: .semibold))
                 .foregroundStyle(color)
             
             Text("\(count)")
@@ -214,7 +247,7 @@ private struct ModernPrayerCard: View {
                         .frame(width: 40, height: 40)
                         .overlay(
                             Image(systemName: "person.fill.questionmark")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(prayer.category.color)
                         )
                 } else if let imageURL = prayer.authorProfileImage {
@@ -242,7 +275,7 @@ private struct ModernPrayerCard: View {
                 // Category badge
                 HStack(spacing: 4) {
                     Image(systemName: prayer.category.icon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                     Text(prayer.category.rawValue)
                         .font(.custom("OpenSans-SemiBold", size: 11))
                 }
@@ -272,7 +305,7 @@ private struct ModernPrayerCard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: isPraying ? "hands.sparkles.fill" : "hands.sparkles")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                         
                         Text("\(prayer.prayerCount)")
                             .font(.custom("OpenSans-SemiBold", size: 14))
@@ -286,7 +319,7 @@ private struct ModernPrayerCard: View {
                 if prayer.isAnswered {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                         Text("Answered!")
                             .font(.custom("OpenSans-SemiBold", size: 13))
                     }
@@ -307,12 +340,18 @@ private struct ModernPrayerCard: View {
 
 private struct NewPrayerSheet: View {
     @Environment(\.dismiss) var dismiss
+    @ObservedObject private var supportDetectionService = SupportDetectionService.shared
+    @ObservedObject private var supportActionExecutor = SupportActionExecutor.shared
     let onSubmit: (String, PrayerWallCategory, Bool) async -> Void
     
     @State private var content = ""
     @State private var selectedCategory: PrayerWallCategory = .requests
     @State private var isAnonymous = false
     @State private var isSubmitting = false
+    @State private var supportDraftTask: Task<Void, Never>?
+    @State private var supportDraftPayload: SupportInterventionPayload?
+    @State private var showSupportDraftSheet = false
+    @State private var bypassSupportGate = false
     
     var body: some View {
         NavigationStack {
@@ -321,8 +360,33 @@ private struct NewPrayerSheet: View {
                     TextEditor(text: $content)
                         .frame(minHeight: 150)
                         .font(.custom("OpenSans-Regular", size: 15))
+                        .onChange(of: content) { _, newValue in
+                            scheduleSupportDraftAnalysis(for: newValue)
+                        }
                 } header: {
                     Text("Your Prayer")
+                }
+
+                if let payload = supportDraftPayload {
+                    Section {
+                        switch payload.presentationMode {
+                        case .chips(let chips):
+                            SupportChipsRowView(
+                                chips: chips,
+                                onTap: handleSupportAction(_:),
+                                onDismiss: dismissSupportPrompt
+                            )
+                        case .inlineCard(let model):
+                            SupportInlineCardView(
+                                model: model,
+                                actions: payload.actions,
+                                onTap: handleSupportAction(_:),
+                                onDismiss: dismissSupportPrompt
+                            )
+                        case .none, .sheet:
+                            EmptyView()
+                        }
+                    }
                 }
                 
                 Section {
@@ -348,6 +412,11 @@ private struct NewPrayerSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Post") {
                         Task {
+                            let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if shouldPresentSupportGate(for: trimmed) {
+                                showSupportDraftSheet = true
+                                return
+                            }
                             isSubmitting = true
                             await onSubmit(content, selectedCategory, isAnonymous)
                             dismiss()
@@ -357,6 +426,87 @@ private struct NewPrayerSheet: View {
                 }
             }
         }
+        .sheet(isPresented: $showSupportDraftSheet) {
+            if let payload = supportDraftPayload,
+               case .sheet(let model) = payload.presentationMode {
+                SupportInterventionSheetView(
+                    model: model,
+                    actions: payload.actions,
+                    onAction: handleSupportAction(_:),
+                    onDismiss: dismissSupportPrompt,
+                    onContinue: continueAfterSupportPrompt
+                )
+            }
+        }
+        .onDisappear {
+            supportDraftTask?.cancel()
+            supportDraftTask = nil
+        }
+        .supportDestinationSheet()
+    }
+
+    private func scheduleSupportDraftAnalysis(for text: String) {
+        supportDraftTask?.cancel()
+        bypassSupportGate = false
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            supportDraftPayload = nil
+            return
+        }
+
+        supportDraftTask = Task {
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled else { return }
+
+            let payload = await supportDetectionService.analyzeSupport(
+                surface: .prayerRequest,
+                text: trimmed,
+                metadata: [
+                    "category": selectedCategory.rawValue,
+                    "isAnonymous": isAnonymous ? "true" : "false"
+                ]
+            )
+
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                supportDraftPayload = payload
+                if let payload {
+                    supportDetectionService.record(payload: payload, outcome: .shown)
+                }
+            }
+        }
+    }
+
+    private func handleSupportAction(_ action: SupportAction) {
+        guard let payload = supportDraftPayload else { return }
+        supportActionExecutor.execute(action, from: .prayerRequest)
+        supportDetectionService.record(payload: payload, outcome: .engaged)
+        showSupportDraftSheet = false
+    }
+
+    private func dismissSupportPrompt() {
+        if let payload = supportDraftPayload {
+            supportDetectionService.record(payload: payload, outcome: .dismissed)
+        }
+        supportDraftPayload = nil
+        showSupportDraftSheet = false
+    }
+
+    private func continueAfterSupportPrompt() {
+        bypassSupportGate = true
+        showSupportDraftSheet = false
+    }
+
+    private func shouldPresentSupportGate(for text: String) -> Bool {
+        guard !bypassSupportGate,
+              let payload = supportDraftPayload,
+              payload.analyzedText == text,
+              case .sheet = payload.presentationMode else {
+            return false
+        }
+
+        return true
     }
 }
 
@@ -423,24 +573,29 @@ class PrayerWallViewModel: ObservableObject {
     @Published var totalPrayers = 0
     @Published var activePrayerWarriors = 0
     @Published var answeredToday = 0
-    
-    private let db = Firestore.firestore()
-    
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+
+    private lazy var db = Firestore.firestore()
+
     func loadPrayers() async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
         do {
             let snapshot = try await db.collection("prayerWall")
                 .order(by: "timestamp", descending: true)
                 .limit(to: 50)
                 .getDocuments()
-            
+
             prayers = snapshot.documents.compactMap { doc in
                 let data = doc.data()
-                
+
                 guard let categoryStr = data["category"] as? String,
                       let category = PrayerWallCategory(rawValue: categoryStr) else {
                     return nil
                 }
-                
+
                 return PrayerWallItem(
                     id: doc.documentID,
                     authorId: data["authorId"] as? String ?? "",
@@ -454,23 +609,61 @@ class PrayerWallViewModel: ObservableObject {
                     isAnswered: data["isAnswered"] as? Bool ?? false
                 )
             }
-            
+
             totalPrayers = prayers.count
-            activePrayerWarriors = Int.random(in: 100...500) // Placeholder
+            activePrayerWarriors = Set(prayers.map { $0.authorId }).count
             answeredToday = prayers.filter { $0.isAnswered }.count
-            
+
         } catch {
+            errorMessage = "Unable to load prayers. Please try again."
             dlog("❌ Failed to load prayers: \(error)")
         }
     }
     
     func submitPrayer(content: String, category: PrayerWallCategory, isAnonymous: Bool) async {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
-        
+
+        // ── MODERATION GATE (hard rule: no write without a decision record) ──
+        // Self-harm content must never be silently blocked — checkContentSafety
+        // writes crisisEscalations/ and returns crisis resources when detected.
+        do {
+            let safetyResult = try await ModerationGatewayService.check(
+                content: content,
+                contentType: .post, // prayer requests are treated as public posts
+                contextId: nil
+            )
+            if safetyResult.crisisEscalated {
+                // Show crisis support resources — do NOT block the prayer write
+                // (the person needs help, not to be silenced)
+                await MainActor.run {
+                    // Post a notification that the crisis UI layer listens to
+                    NotificationCenter.default.post(
+                        name: .showCrisisResources,
+                        object: nil,
+                        userInfo: ["resources": safetyResult.crisisResources ?? []]
+                    )
+                }
+                // Still allow the prayer to be submitted (the server-side trigger
+                // keeps it visible to the author and routes it to crisis review)
+            } else if !safetyResult.canProceed {
+                dlog("🛡️ [PrayerWall] Content blocked by safety gate: \(safetyResult.userFacingReason)")
+                await MainActor.run {
+                    errorMessage = safetyResult.userFacingReason
+                }
+                return
+            }
+        } catch {
+            dlog("⚠️ [PrayerWall] Safety gate error (fail-closed): \(error)")
+            // Fail closed: do not write
+            await MainActor.run { errorMessage = "Unable to submit prayer. Please try again." }
+            return
+        }
+        // ── END MODERATION GATE ──────────────────────────────────────────────
+
         do {
             let userDoc = try await db.collection("users").document(currentUserId).getDocument()
             let userData = userDoc.data()
-            
+
             let prayerData: [String: Any] = [
                 "authorId": currentUserId,
                 "authorName": isAnonymous ? "Anonymous" : (userData?["username"] as? String ?? "Unknown"),
@@ -480,12 +673,39 @@ class PrayerWallViewModel: ObservableObject {
                 "timestamp": Timestamp(date: Date()),
                 "isAnonymous": isAnonymous,
                 "prayerCount": 0,
-                "isAnswered": false
+                "isAnswered": false,
+                "moderationStatus": "pending"
             ]
-            
-            try await db.collection("prayerWall").addDocument(data: prayerData)
+
+            let wallRef = db.collection("prayerWall").document()
+            try await wallRef.setData(prayerData)
+
+            // Mirror to prayerRequests/{id} for Phase 2 Live Activity push counter.
+            let authorNameForActivity = isAnonymous ? "Anonymous" : (userData?["username"] as? String ?? "")
+            let prayerRequestPayload: [String: Any] = [
+                "requesterUid":       currentUserId,
+                "requesterName":      authorNameForActivity.isEmpty ? "Anonymous" : authorNameForActivity,
+                "title":              String(content.prefix(80)),
+                "prayingCount":       0,
+                "encouragementCount": 0,
+                "isAnswered":         false,
+                "lastUpdated":        Timestamp(date: Date()),
+                "pushToStartEnabled": true
+            ]
+            do {
+                try await db.collection("prayerRequests").document(wallRef.documentID).setData(prayerRequestPayload)
+            } catch {
+                print("ModernPrayerWallView: failed to write prayerRequest — \(error.localizedDescription)")
+            }
+
+            await PrayerRequestLiveActivityManager.shared.startActivity(
+                for: wallRef.documentID,
+                requesterName: authorNameForActivity.isEmpty ? "Anonymous" : authorNameForActivity,
+                title: String(content.prefix(80))
+            )
+
             await loadPrayers()
-            
+
         } catch {
             dlog("❌ Failed to submit prayer: \(error)")
         }

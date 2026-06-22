@@ -10,6 +10,7 @@
 
 import Foundation
 import FirebaseDatabase
+import FirebaseFirestore
 import FirebaseAuth
 import Combine
 
@@ -51,7 +52,7 @@ class RealtimeSavedPostsService: ObservableObject {
         }
         
         // ✅ Check network first
-        guard AMENNetworkMonitor.shared.isConnected else {
+        guard await AMENNetworkMonitor.shared.isConnected else {
             dlog("📱 Offline - cannot toggle save status")
             throw NSError(
                 domain: "RealtimeSavedPostsService",
@@ -70,12 +71,16 @@ class RealtimeSavedPostsService: ObservableObject {
         if isSaved {
             // Unsave
             dlog("🔖 Unsaving post: \(postId)")
-            
+
             let updates: [String: Any?] = [
                 savedPath: nil
             ]
-            
+
             try await database.updateChildValues(updates as [AnyHashable: Any])
+
+            // Decrement savesCount in Firestore (floor at 0)
+            let postRef = Firestore.firestore().collection("posts").document(postId)
+            try? await postRef.updateData(["savesCount": FieldValue.increment(Int64(-1))])
 
             // Mutate @Published property and post notification on MainActor so
             // @Published propagation is immediate and any observer reading
@@ -102,6 +107,10 @@ class RealtimeSavedPostsService: ObservableObject {
 
             try await database.updateChildValues(updates)
 
+            // Increment savesCount in Firestore
+            let postRef = Firestore.firestore().collection("posts").document(postId)
+            try? await postRef.updateData(["savesCount": FieldValue.increment(Int64(1))])
+
             // Mutate @Published property and post notification on MainActor so
             // @Published propagation is immediate and any observer reading
             // savedPostIds right after this returns sees the updated value.
@@ -113,7 +122,7 @@ class RealtimeSavedPostsService: ObservableObject {
                     userInfo: ["postId": postId]
                 )
             }
-            
+
             dlog("✅ Post saved successfully")
             return true
         }
@@ -128,7 +137,7 @@ class RealtimeSavedPostsService: ObservableObject {
         }
         
         // ✅ Check network first
-        guard AMENNetworkMonitor.shared.isConnected else {
+        guard await AMENNetworkMonitor.shared.isConnected else {
             dlog("📱 Offline - using cached saved status for: \(postId)")
             return isPostSavedSync(postId: postId)
         }
@@ -196,7 +205,7 @@ class RealtimeSavedPostsService: ObservableObject {
     func fetchSavedPosts() async throws -> [Post] {
         // ✅ Check if offline - use cached post IDs
         let postIds: [String]
-        if AMENNetworkMonitor.shared.isConnected {
+        if await AMENNetworkMonitor.shared.isConnected {
             postIds = try await fetchSavedPostIds()
         } else {
             dlog("📱 Offline - using cached saved post IDs")
@@ -217,9 +226,13 @@ class RealtimeSavedPostsService: ObservableObject {
                 if let post = try await FirebasePostService.shared.fetchPostById(postId: postId) {
                     posts.append(post)
                 } else {
-                    // Post document doesn't exist (deleted or not found) — remove stale save record
+                    // Post was deleted — remove the stale RTDB entry so it doesn't
+                    // reappear on the next launch and waste Firestore reads.
                     dlog("⚠️ Post \(postId) not found in Firestore — removing from saved cache")
-                    await MainActor.run { savedPostIds.remove(postId) }
+                    _ = await MainActor.run { savedPostIds.remove(postId) }
+                    if let userId = Auth.auth().currentUser?.uid {
+                        _ = try? await database.child("user_saved_posts").child(userId).child(postId).removeValue()
+                    }
                 }
             } catch let error as NSError {
                 // ✅ Handle offline errors gracefully

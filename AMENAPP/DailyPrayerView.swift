@@ -51,7 +51,7 @@ struct EnhancedDailyPrayerView: View {
                 HStack(spacing: 0) {
                     ForEach(PrayerTab.allCases, id: \.self) { tab in
                         Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                                 selectedTab = tab
                                 let haptic = UIImpactFeedbackGenerator(style: .medium)
                                 haptic.impactOccurred()
@@ -59,7 +59,7 @@ struct EnhancedDailyPrayerView: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: tab.icon)
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.systemScaled(18, weight: .semibold))
                                     .foregroundStyle(selectedTab == tab ? .white : .black.opacity(0.7))
                                 
                                 if selectedTab == tab {
@@ -123,7 +123,7 @@ struct EnhancedDailyPrayerView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                             Text("Back")
                                 .font(.custom("OpenSans-SemiBold", size: 16))
                         }
@@ -213,11 +213,11 @@ struct TodayPrayersContent: View {
             
             // Prayer items
             ForEach(prayers) { prayer in
-                PrayerCard(
+                PrayerCardView(
                     prayer: prayer,
                     isCompleted: completedPrayers.contains(prayer.id)
                 ) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         if completedPrayers.contains(prayer.id) {
                             completedPrayers.remove(prayer.id)
                         } else {
@@ -231,7 +231,7 @@ struct TodayPrayersContent: View {
 }
 
 // MARK: - Prayer Card
-struct PrayerCard: View {
+struct PrayerCardView: View {
     let prayer: EnhancedPrayerItem
     let isCompleted: Bool
     let onComplete: () -> Void
@@ -256,7 +256,7 @@ struct PrayerCard: View {
                             .frame(width: 60, height: 60)
                         
                         Image(systemName: prayer.category.icon)
-                            .font(.system(size: 26))
+                            .font(.systemScaled(26))
                             .foregroundStyle(prayer.category.color)
                     }
                     
@@ -275,14 +275,14 @@ struct PrayerCard: View {
                         HStack(spacing: 12) {
                             HStack(spacing: 4) {
                                 Image(systemName: "clock")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                 Text(prayer.time)
                                     .font(.custom("OpenSans-Regular", size: 13))
                             }
                             
                             HStack(spacing: 4) {
                                 Image(systemName: "timer")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                 Text(prayer.duration)
                                     .font(.custom("OpenSans-Regular", size: 13))
                             }
@@ -353,7 +353,7 @@ struct DailyPrayerDetailView: View {
                             .frame(width: 100, height: 100)
                         
                         Image(systemName: prayer.category.icon)
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(prayer.category.color)
                     }
                     .frame(maxWidth: .infinity)
@@ -419,7 +419,7 @@ struct DailyPrayerDetailView: View {
                     } label: {
                         HStack {
                             Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                             
                             Text(isCompleted ? "Completed" : "Mark as Complete")
                                 .font(.custom("OpenSans-Bold", size: 17))
@@ -444,7 +444,7 @@ struct DailyPrayerDetailView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -464,7 +464,7 @@ struct WeekPrayersContent: View {
             HStack(spacing: 12) {
                 ForEach(0..<weekDays.count, id: \.self) { index in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedDay = index
                         }
                     } label: {
@@ -501,7 +501,7 @@ struct SavedPrayersContent: View {
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "bookmark.fill")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.blue)
             
             Text("Saved Prayers")

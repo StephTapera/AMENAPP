@@ -1,0 +1,12 @@
+joinTable | us-east1 | PASS | 2026-06-14T22:46:34Z
+closeTheLoopNudge | us-east1 | PASS | 2026-06-14T22:50:12Z
+sunsetTable | us-east1 | PASS | 2026-06-14T22:55:00Z
+assemblePrayerChain | us-east1 | PASS | 2026-06-14T23:00:27Z
+generateC2PAManifest | us-east1 | FAIL | 2026-06-14T23:03:06Z
+generateC2PAManifest | us-east1 | PASS | 2 | 2026-06-14
+createRemixLineage | us-east1 | PASS | 1 | 2026-06-14
+generateDiscussionGuide | us-east1 | PASS | 1 | 2026-06-14
+retrievePersonalContext | us-east1 | PASS | 1 | 2026-06-14
+generateFeedExplanation | us-east1 | PASS | 1 | 2026-06-14
+enforceYouthDMPolicy | us-east1 | PASS | 1 | 2026-06-14
+detectAegisC59 | us-east1 | PASS | 1 | 2026-06-14

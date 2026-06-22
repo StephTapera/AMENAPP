@@ -105,18 +105,24 @@ struct DynamicGlassOverlay: View {
     var coverageFraction: CGFloat = 0.65
 
     /// Scroll distance (pts) over which the effect ramps from 0→1.
-    var rampDistance: CGFloat = 180
+    /// Defaults to nil, which auto-scales to 45% of the device screen height
+    /// so the ramp feels proportional on all iPhone sizes (SE → Max).
+    var rampDistance: CGFloat? = nil
+
+    private var resolvedRampDistance: CGFloat {
+        rampDistance ?? ScreenMetrics.bounds.height * 0.45
+    }
 
     /// Minimum intensity even at offset 0 (subtle depth at rest).
     var baseIntensity: CGFloat = 0.08
 
     @Environment(\.colorScheme) private var colorScheme
 
-    // Derived intensity: clamp scrolled-down distance to [0, rampDistance],
+    // Derived intensity: clamp scrolled-down distance to [0, resolvedRampDistance],
     // map to [baseIntensity, 1.0].
     private var intensity: CGFloat {
         let scrolledDown = max(0, -scrollOffset)   // positive when scrolled down
-        let progress = min(scrolledDown / rampDistance, 1.0)
+        let progress = min(scrolledDown / resolvedRampDistance, 1.0)
         return baseIntensity + (1.0 - baseIntensity) * progress
     }
 
@@ -256,7 +262,7 @@ extension View {
     func dynamicGlassOverlay(
         scrollOffset: CGFloat,
         coverageFraction: CGFloat = 0.65,
-        rampDistance: CGFloat = 180
+        rampDistance: CGFloat? = nil
     ) -> some View {
         ZStack {
             self

@@ -6,7 +6,7 @@
       "scale" : "1x"
     },
     {
-      "filename" : "amen-logo 2.png",
+      "filename" : "amen-logo.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
@@ -19,5 +19,8 @@
   "info" : {
     "author" : "xcode",
     "version" : 1
+  },
+  "properties" : {
+    "preserves-vector-representation" : true
   }
 }

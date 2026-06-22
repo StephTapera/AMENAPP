@@ -8,10 +8,16 @@
 //
 
 import SwiftUI
+import UIKit
+import Translation
 import FirebaseAuth
 import FirebaseDatabase
 import FirebaseFirestore
+import FirebaseFunctions
+import Combine
+import CoreLocation
 
+@MainActor
 struct PostCard: View {
     let post: Post?
     let authorName: String
@@ -21,20 +27,26 @@ struct PostCard: View {
     let topicTag: String?
     let isUserPost: Bool // Track if this is the current user's post
     
-    // PERF: Only observe services whose published properties are actually read in the view body.
-    // postsManager and moderationService are only used in action handlers — not observed.
-    // Not @ObservedObject — prevents all PostCards from re-rendering when any save changes.
-    // isSaved state is managed locally; service is only used for action calls and initial load.
+    // ⚡️ PERFORMANCE FIX: Minimize @ObservedObject to prevent render storms
+    // Only observe services where we MUST react to external changes in the view body.
+    // All other services are accessed directly for actions only (no observation).
     private let savedPostsService = RealtimeSavedPostsService.shared
-    @ObservedObject private var followService = FollowService.shared
-    @ObservedObject private var pinnedPostService = PinnedPostService.shared
-    @ObservedObject private var interactionsService = PostInteractionsService.shared
-    // Action-only singletons — accessed directly without observation to avoid render storms
+    private let followService = FollowService.shared  // ⚡️ Changed from @ObservedObject - use computed property
+    private let pinnedPostService = PinnedPostService.shared  // ⚡️ Changed from @ObservedObject
+    private let interactionsService = PostInteractionsService.shared
+    // Expansion state pulled from service via targeted onReceive — avoids full PostCard
+    // body re-evaluation on every PostInteractionsService publish (render storm fix)
+    @State private var isPostExpanded = false
     private let postsManager = PostsManager.shared
     private let moderationService = ModerationService.shared
-    @State private var showingMenu = false
-    @State private var showingEditSheet = false
-    @State private var showingDeleteAlert = false
+    private let actionMenuCoordinator = AmenPostCardActionMenuCoordinator.shared
+    // ⚡️ Local state driven by targeted .onReceive — avoids @ObservedObject render storm on ALL cards
+    @State private var isActionMenuActive_state: Bool = false
+    @State private var localIsFollowing: Bool = false
+    // ✅ Consolidated sheet presentation state to prevent SwiftUI presentation conflicts
+    @State private var activeSheet: PostCardSheet? = nil
+    // ✅ Removed: Consolidated into PostCardAlert enum to prevent EXC_BAD_ACCESS from stacked alerts
+    // @State private var showingDeleteAlert = false
     @State private var showingRepostConfirmation = false
     @State private var showRepostActionSheet = false
     @State private var showQuoteComposer = false
@@ -44,20 +56,13 @@ struct PostCard: View {
     @State private var cardAppeared = false
     @State private var hasSaidAmen = false
     @State private var isLightbulbAnimating = false
-    @State private var showShareSheet = false
-    @State private var showPostDetail = false  // ✅ Show PostDetailView (for tapping header/content)
-    @State private var showCommentsSheet = false  // ✅ Show CommentsView (for comment button and swipe)
     // ❌ REMOVED: @State private var isFollowing = false  // P0 FIX: Replaced with computed property
-    @State private var showReportSheet = false
-    @State private var showUserProfile = false
     @State private var lastProfileNavDate: Date = .distantPast
-    @State private var tappedMentionUserId: String? = nil
-    @State private var showMentionedUserProfile = false
     @State private var isSaved = false
-    @State private var showBereanSheet = false  // AI sparkle → Berean AI
     @State private var hasReposted = false
     @State private var hasCommented = false  // illuminates comment button after user comments
     @State private var isSaveInFlight = false
+    @State private var isDeletingPost = false
     @State private var isLightbulbToggleInFlight = false
     @State private var expectedLightbulbState = false
     @State private var isRepostToggleInFlight = false
@@ -70,10 +75,20 @@ struct PostCard: View {
     @State private var lastSaveActionTimestamp: Date?  // ✅ NEW: Track last save action for debouncing
     @State private var saveActionCounter = 0  // ✅ NEW: Count save actions for debugging
     @State private var isFollowInFlight = false  // P0 FIX: Prevent duplicate follow operations
+    @State private var actionMenuButtonFrame: CGRect = .zero
     
+    // Testimony resonance micro-copy
+    @State private var testimonyResonanceCopy: String = ""
+    @State private var showTestimonyResonance: Bool = false
+    @State private var testimonyResonanceDismissTask: Task<Void, Never>? = nil
+
     // Prayer activity
     @State private var isPraying = false
     @State private var prayingNowCount = 0
+    @State private var isFasting = false
+
+    // SELAH: Commitment connection — instantiated once per card, flag-gated inside the service
+    private let commitmentService = CommitmentConnectionService()
     
     // Animation timing constants
     private let fastAnimationDuration: Double = 0.15
@@ -82,16 +97,119 @@ struct PostCard: View {
     private let springDamping: Double = 0.75
     
     // Moderation confirmations
-    @State private var showMuteConfirmation = false
-    @State private var showBlockConfirmation = false
-    @State private var showMuteSuccess = false
-    @State private var showBlockSuccess = false
-    @State private var showNotInterestedConfirmation = false
-    @State private var showNotInterestedSuccess = false
+    // ✅ Removed: Consolidated into PostCardAlert enum to prevent EXC_BAD_ACCESS from stacked alerts
+    // @State private var showMuteConfirmation = false
+    // @State private var showBlockConfirmation = false
+    // @State private var showMuteSuccess = false
+    // @State private var showBlockSuccess = false
+    // @State private var showNotInterestedConfirmation = false
+    // @State private var showNotInterestedSuccess = false
+    
+    // Scripture attachment detail
+    @State private var postCardScriptureAttachment: ScriptureAttachment?
+    @State private var showPostCardScriptureDetail = false
+
+    // Music attachment card mode
+    @State private var musicCardMode: MusicCardMode = .compact
     
     // Error handling
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    // Local mirror of BereanLiveActivityService.showFallbackSheet — avoids Binding(get:set:)
+    // polling the singleton on every body render which can destabilize the view update cycle.
+    @State private var showBereanFallbackSheet = false
+    
+    // ✅ Consolidated alert state to prevent SwiftUI presentation conflicts
+    enum PostCardAlert: Identifiable {
+        case notInterested
+        case feedbackReceived
+        case error(String)
+        case muteConfirmation(String)
+        case blockConfirmation(String)
+        case muteSuccess(String)
+        case blockSuccess(String)
+        case deleteConfirmation
+        
+        var id: String {
+            switch self {
+            case .notInterested: return "notInterested"
+            case .feedbackReceived: return "feedbackReceived"
+            case .error(let msg): return "error-\(msg.hashValue)"
+            case .muteConfirmation(let name): return "muteConfirmation-\(name.hashValue)"
+            case .blockConfirmation(let name): return "blockConfirmation-\(name.hashValue)"
+            case .muteSuccess(let name): return "muteSuccess-\(name.hashValue)"
+            case .blockSuccess(let name): return "blockSuccess-\(name.hashValue)"
+            case .deleteConfirmation: return "deleteConfirmation"
+            }
+        }
+    }
+    @State private var activeAlert: PostCardAlert?
+    
+    // ✅ Single source of truth for sheet presentation
+    fileprivate enum PostCardSheet: Identifiable {
+        case options
+        case whyThisPost(post: Post)
+        case userProfile(userId: String)
+        case mentionedProfile(userId: String)
+        case edit(post: Post)
+        case share(post: Post, churchNote: ChurchNote?)
+        case postDetail(post: Post)
+        case comments(post: Post)
+        case report(post: Post)
+        case churchNoteDetail(note: ChurchNote)
+        case reasoningThread(postId: String, postText: String, authorName: String)
+        case tip(creatorId: String, creatorName: String)
+        case berean(initialQuery: String)
+        case quoteComposer(context: QuoteComposerContext)
+        case commentsWithQuote(post: Post, prefill: String)
+        case shareExcerpt(text: String, attribution: String)
+        case transformPost(postId: String, postText: String, authorName: String)
+
+        var id: String {
+            switch self {
+            case .options:
+                return "options"
+            case .whyThisPost(let post):
+                return "why-this-post-\(Self.stablePostId(post))"
+            case .userProfile(let userId):
+                return "profile-\(userId)"
+            case .mentionedProfile(let userId):
+                return "mention-profile-\(userId)"
+            case .edit(let post):
+                return "edit-\(Self.stablePostId(post))"
+            case .share(let post, _):
+                return "share-\(Self.stablePostId(post))"
+            case .postDetail(let post):
+                return "detail-\(Self.stablePostId(post))"
+            case .comments(let post):
+                return "comments-\(Self.stablePostId(post))"
+            case .report(let post):
+                return "report-\(Self.stablePostId(post))"
+            case .churchNoteDetail(let note):
+                return "church-note-\(note.id ?? "unknown")"
+            case .reasoningThread(let postId, _, _):
+                return "reasoning-\(postId)"
+            case .tip(let creatorId, _):
+                return "tip-\(creatorId)"
+            case .berean(let initialQuery):
+                return "berean-\(initialQuery.hashValue)"
+            case .quoteComposer(let context):
+                return "quote-\(context.id.uuidString)"
+            case .commentsWithQuote(let post, _):
+                return "comments-quote-\(Self.stablePostId(post))"
+            case .shareExcerpt(let text, let attribution):
+                return "share-excerpt-\(text.hashValue)-\(attribution.hashValue)"
+            case .transformPost(let postId, _, _):
+                return "transform-\(postId)"
+            }
+        }
+        
+        private static func stablePostId(_ post: Post) -> String {
+            if !post.firestoreId.isEmpty { return post.firestoreId }
+            if let firebaseId = post.firebaseId, !firebaseId.isEmpty { return firebaseId }
+            return post.id.uuidString
+        }
+    }
     
     // Real-time interaction counts
     @State private var lightbulbCount = 0
@@ -100,24 +218,42 @@ struct PostCard: View {
     @State private var repostCount = 0
 
     // Church Note
-    @State private var showChurchNoteDetail = false
     @State private var churchNote: ChurchNote?
     
     // ✅ Real-time profile image
     @State private var currentProfileImageURL: String?
-    // P2 FIX: Live Firestore listener for author profile photo changes
-    @State private var authorProfileListener: ListenerRegistration?
+    // ⚡️ PERFORMANCE FIX: Removed per-card Firestore listeners - rely on Post updates from PostsManager
+    // Per-card listeners create 20+ active Firestore connections during scroll, causing network thrashing
     
     // Translation state — managed by TranslationService
     @State private var showTranslatedContent = false
     @State private var translatedContent: String?
     @State private var detectedLanguage: String?
+    @State private var detectedLanguageConfidence: Double = 0
     @State private var translationUIState: TranslationUIState = .available
     @State private var showTranslationInfoSheet = false
     @State private var isTranslating = false
+    @State private var currentTranslationMode: TranslationMode = .literal
+    @State private var isRefinementLoading = false
+    // Apple Translation framework: session-based config for language download prompts
+    @State private var appleTranslationConfig: Any? // Translation.TranslationSession.Configuration; gated by #available(iOS 18)
+    @State private var difficultyScore: ContentDifficultyScore?
+    @State private var detectedContextTerms: [DetectedTerm] = []
+    @State private var selectedContextTerm: DetectedTerm?
+
+    // Highlight-to-quote selection state
+    @State private var textSelection: PostTextSelection?
+    @State private var isTextSelecting = false
     // PERF: Legacy translationService kept for backward compat; new service is action-only (not observed)
-    private let translationService = PostTranslationService.shared
-    private let newTranslationService = TranslationService.shared
+    // Use computed properties to defer access until actually needed (avoids initialization crash)
+    @MainActor
+    private var translationService: PostTranslationService {
+        PostTranslationService.shared
+    }
+    @MainActor
+    private var newTranslationService: TranslationService {
+        TranslationService.shared
+    }
     
     // P1-B FIX: Content expansion state now lives in PostInteractionsService
     // (keyed by stablePostId) so it survives SwiftUI view recycling during scroll.
@@ -128,6 +264,21 @@ struct PostCard: View {
     // This prevents reactions from being tied to wrong IDs when firestoreId changes
     private var stablePostId: String {
         post?.firebaseId ?? post?.id.uuidString ?? ""
+    }
+
+    private var actionMenuCardID: String {
+        if let post, !post.firestoreId.isEmpty {
+            return post.firestoreId
+        }
+        if !stablePostId.isEmpty {
+            return stablePostId
+        }
+        return "preview-\(authorName)-\(timeAgo)-\(content.prefix(24))"
+    }
+
+    // ⚡️ Use computed property that reads directly (no observation)
+    private var isActionMenuPresented: Bool {
+        isActionMenuActive
     }
     
     enum PostCardCategory {
@@ -154,7 +305,7 @@ struct PostCard: View {
         var displayName: String {
             switch self {
             case .openTable: return "" // Remove #OPENTABLE badge entirely
-            case .testimonies: return "Testimonies"
+            case .testimonies: return "" // Remove Testimonies badge for cleaner design
             case .prayer: return "" // Prayer Request topic tag is shown instead
             }
         }
@@ -261,13 +412,14 @@ struct PostCard: View {
                 let now = Date()
                 guard now.timeIntervalSince(lastProfileNavDate) > 0.35 else { return }
                 lastProfileNavDate = now
-                showUserProfile = true
+                presentSheet(.userProfile(userId: post.authorId))
                 HapticManager.impact(style: .light)
             } label: {
                 avatarContent
             }
             .buttonStyle(.liquidGlass)  // P0 FIX: Instant visual press feedback
-            
+            .accessibilityLabel("View \(authorName)'s profile")
+
             // Follow button - positioned outside the avatar button to avoid nesting
             if !isUserPost && post != nil {
                 followButton
@@ -297,12 +449,42 @@ struct PostCard: View {
             if let post = post, let profileImageURL = post.authorProfileImageURL, !profileImageURL.isEmpty {
                 currentProfileImageURL = profileImageURL
             }
+
+            // Score content difficulty for Understand pill (on-device, zero API cost)
+            if AMENFeatureFlags.shared.readabilityLayerEnabled && AMENFeatureFlags.shared.contentDifficultyScoring {
+                difficultyScore = ContentDifficultyScorer.shared.score(text: content)
+            }
+
+            // Detect faith context terms (on-device, zero API cost)
+            if AMENFeatureFlags.shared.contextBridgeEnabled {
+                let raw = ContextTermDetector.shared.detectTerms(in: content)
+                detectedContextTerms = ContextAssistService.shared.filterDismissed(raw)
+            }
         }
         .onChange(of: post?.authorProfileImageURL) { oldValue, newValue in
             // Sync currentProfileImageURL when Post updates from PostsManager
             if let newURL = newValue, !newURL.isEmpty, newURL != currentProfileImageURL {
                 dlog("🔄 [POSTCARD] Profile image updated: \(newURL.prefix(50))...")
                 currentProfileImageURL = newURL
+            }
+        }
+        .sheet(item: $selectedContextTerm) { term in
+            ContextCardView(
+                term: term,
+                onDismiss: {
+                    ContextAssistService.shared.dismissTerm(term.term)
+                    selectedContextTerm = nil
+                },
+                onSave: {
+                    ContextAssistService.shared.saveTerm(term.term)
+                    selectedContextTerm = nil
+                }
+            )
+            .presentationDetents([.height(300)])
+            .presentationDragIndicator(.visible)
+            .onAppear {
+                AccessibilitySignalCollector.shared.recordSignal(.contextCardOpened)
+                AccessibilitySuggestionEngine.shared.evaluate()
             }
         }
     }
@@ -322,16 +504,16 @@ struct PostCard: View {
             // Show placeholder while loading
             avatarCircleWithInitials
         }
+        .accessibilityLabel("Profile image of \(authorName)")
     }
     
     private var avatarCircleWithInitials: some View {
         ZStack {
             avatarCircle
             
-            // User initials - black text on white/gray background
             Text(userInitials)
-                .font(.custom("OpenSans-Bold", size: 16))
-                .foregroundStyle(.black)
+                .font(AMENFont.bold(16))
+                .foregroundStyle(.primary)
         }
     }
     
@@ -346,11 +528,43 @@ struct PostCard: View {
     }
     
     private var avatarGradient: LinearGradient {
-        // Black and white gradient
         LinearGradient(
-            colors: [Color.white, Color(.systemGray6)],
+            colors: [Color(.secondarySystemBackground), Color(.systemFill)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
+        )
+    }
+
+    private func quoteSnippetView(_ quote: PostQuoteMetadata) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(quote.sourceAuthorName)
+                    .font(AMENFont.semiBold(12))
+                    .foregroundStyle(.primary)
+                if let username = quote.sourceAuthorUsername, !username.isEmpty {
+                    Text("@\(username)")
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(quote.sourceExcerpt)
+                .font(AMENFont.regular(14))
+                .foregroundStyle(.primary)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(.tertiarySystemFill))
+                )
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(.separator).opacity(0.4), lineWidth: 1)
+                )
         )
     }
     
@@ -377,21 +591,36 @@ struct PostCard: View {
         FollowBadgeView(
             isFollowed: Binding(
                 get: { isFollowing },
-                set: { _ in } // mutations handled via onToggle → handleFollowButtonTap
+                set: { _ in }
             ),
-            onToggle: { handleFollowButtonTap() }
+            onToggle: { toggleActionMenu() },
+            openMenuMode: true
+        )
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(
+                        key: AmenPostCardActionMenuAnchorPreferenceKey.self,
+                        value: proxy.frame(in: .named(actionMenuCardID))
+                    )
+            }
         )
         .offset(x: 3, y: 3)
     }
     
     // MARK: - Follow Actions
     
-    // P0 FIX: Computed property that observes FollowService.shared.following Set
-    // This ensures ALL PostCards for the same author share the same follow state
-    private var isFollowing: Bool {
+    // Follow state: local @State updated by .onReceive — only re-renders cards whose state actually changes
+    private var isFollowing: Bool { localIsFollowing }
+    
+    // ⚡️ PERFORMANCE FIX: Computed property for pinned state (no observation)
+    private var isPinned: Bool {
         guard let post = post else { return false }
-        return followService.following.contains(post.authorId)
+        return PinnedPostService.shared.isPostPinned(post.firestoreId)
     }
+    
+    // Action menu state: read from local @State (updated by .onReceive in body)
+    private var isActionMenuActive: Bool { isActionMenuActive_state }
     
     private func handleFollowButtonTap() {
         // P0 FIX: Prevent duplicate follow operations
@@ -447,6 +676,183 @@ struct PostCard: View {
         // Keeping this function stub in case it's called elsewhere, but it's now a no-op
         return
     }
+
+    @MainActor
+    private func toggleActionMenu() {
+        HapticManager.impact(style: .light)
+        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.84))) {
+            if isActionMenuPresented {
+                actionMenuCoordinator.activePostId = nil
+            } else {
+                actionMenuCoordinator.activePostId = actionMenuCardID
+            }
+        }
+    }
+
+    @MainActor
+    private func closeActionMenu(animated: Bool = true) {
+        guard isActionMenuPresented else { return }
+        if animated {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.9))) {
+                actionMenuCoordinator.activePostId = nil
+            }
+        } else {
+            actionMenuCoordinator.activePostId = nil
+        }
+    }
+
+    @MainActor
+    private func presentSheet(_ sheet: PostCardSheet) {
+        guard activeSheet == nil else { return }
+        activeSheet = sheet
+    }
+
+    @MainActor
+    private func dismissSheet() {
+        activeSheet = nil
+    }
+
+    private func clearTextSelection() {
+        textSelection = nil
+        isTextSelecting = false
+    }
+
+    private func actionCapsulePosition(for rect: CGRect, in size: CGSize) -> CGPoint {
+        let isRectValid = !rect.isNull
+            && !rect.isEmpty
+            && rect.minX.isFinite
+            && rect.minY.isFinite
+            && rect.maxX.isFinite
+            && rect.maxY.isFinite
+        let isSizeValid = size.width.isFinite
+            && size.height.isFinite
+            && size.width > 0
+            && size.height > 0
+
+        guard isRectValid, isSizeValid else {
+            return CGPoint(x: size.width * 0.5, y: 24)
+        }
+        let padding: CGFloat = 16
+        let fallbackX = size.width * 0.5
+        let fallbackY = min(max(CGFloat(24), padding), size.height - padding)
+        let midX = rect.midX.isFinite
+            ? min(max(rect.midX, padding), size.width - padding)
+            : fallbackX
+        var y = rect.minY - 26
+        if y < padding {
+            y = rect.maxY + 26
+        }
+        y = y.isFinite
+            ? min(max(y, padding), size.height - padding)
+            : fallbackY
+        return CGPoint(x: midX, y: y)
+    }
+
+    private func handleQuoteSelection(_ selection: PostTextSelection) {
+        guard let post = post else { return }
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let context = QuoteComposerContext(
+            sourcePost: post,
+            sourceAuthorId: post.authorId,
+            sourceAuthorName: post.authorName,
+            sourceAuthorUsername: post.authorUsername,
+            selection: selection
+        )
+        presentSheet(.quoteComposer(context: context))
+        clearTextSelection()
+    }
+
+    private func handleReplyWithQuote(_ selection: PostTextSelection) {
+        guard let post = post else { return }
+        guard canQuote(post) else {
+            HapticManager.notification(type: .warning)
+            ToastManager.shared.info("Quoting is not allowed for this post")
+            clearTextSelection()
+            return
+        }
+        let excerpt = "“\(selection.text)” — \(authorName)"
+        presentSheet(.commentsWithQuote(post: post, prefill: excerpt))
+        clearTextSelection()
+    }
+
+    private func handleSaveSelection(_ selection: PostTextSelection) {
+        guard let post = post else { return }
+        let excerpt = SavedExcerpt(postId: post.firestoreId, authorId: post.authorId, authorName: authorName, excerpt: selection.text)
+        ExcerptStore.shared.save(excerpt)
+        HapticManager.notification(type: .success)
+        ToastManager.shared.success("Excerpt saved")
+        clearTextSelection()
+    }
+
+    private func handleShareSelection(_ selection: PostTextSelection) {
+        let attribution = "— \(authorName)"
+        presentSheet(.shareExcerpt(text: selection.text, attribution: attribution))
+        clearTextSelection()
+    }
+
+    private func handleBereanSelection(_ selection: PostTextSelection) {
+        let query = bereanQuery(for: selection)
+        presentSheet(.berean(initialQuery: query))
+        clearTextSelection()
+    }
+
+    private func bereanQuery(for selection: PostTextSelection) -> String {
+        let excerpt = selection.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if selection.suggestedQuoteType == .verse {
+            return "Reflect on this verse: \"\(excerpt)\"\n\nPlease ground your response in Scripture and provide cross-references."
+        }
+        return "Reflect on this highlighted excerpt: \"\(excerpt)\"\n\nWhat does Scripture say about this, and how should I respond?"
+    }
+
+    private func canQuote(_ post: Post) -> Bool {
+        let permission = post.quotesAllowed ?? .everyone
+        switch permission {
+        case .none:
+            return false
+        case .followers:
+            return isFollowing || isUserPost
+        case .everyone:
+            return true
+        }
+    }
+
+    @MainActor
+    private func handleActionMenuFollowTap() {
+        guard !isUserPost else { return }
+        closeActionMenu()
+        handleFollowButtonTap()
+    }
+
+    @MainActor
+    private func handleActionMenuProfileTap() {
+        guard let post = post, !post.authorId.isEmpty else {
+            closeActionMenu()
+            return
+        }
+        let now = Date()
+        guard now.timeIntervalSince(lastProfileNavDate) > 0.25 else {
+            closeActionMenu()
+            return
+        }
+        lastProfileNavDate = now
+        closeActionMenu()
+        HapticManager.impact(style: .light)
+        presentSheet(.userProfile(userId: post.authorId))
+        dlog("👤 Opening action menu profile for: \(authorName) (ID: \(post.authorId))")
+    }
+
+    @MainActor
+    private func presentOptionsSheet() {
+        guard activeSheet == nil else { return }
+        closeActionMenu(animated: false)
+        HapticManager.impact(style: .light)
+        presentSheet(.options)
+    }
     
     @ViewBuilder
     private var menuContent: some View {
@@ -462,16 +868,540 @@ struct PostCard: View {
             moderationMenuOptions
         }
     }
+
+    private var optionsQuickActions: [AmenQuickAction] {
+        let saveAction = AmenQuickAction(
+            title: isSaved ? "Saved" : "Save",
+            systemImage: isSaved ? "bookmark.fill" : "bookmark",
+            isSelected: isSaved
+        ) {
+            performOption { toggleSave() }
+        }
+
+        let repostAction = AmenQuickAction(
+            title: "Repost",
+            systemImage: "repeat",
+            isEnabled: !isUserPost
+        ) {
+            performOption { handleRemixAction() }
+        }
+
+        let sequenceAction = AmenQuickAction(
+            title: "Thread",
+            systemImage: "bubble.left.and.text.bubble.right"
+        ) {
+            performOption {
+                guard let post = post else { return }
+                presentSheet(.reasoningThread(postId: post.firestoreId, postText: post.content, authorName: authorName))
+            }
+        }
+
+        return [saveAction, repostAction, sequenceAction]
+    }
+
+    private var optionsSections: [AmenOptionsSectionModel] {
+        var sections: [AmenOptionsSectionModel] = []
+
+        if isUserPost {
+            var userActions: [AmenOptionAction] = []
+
+            if let post = post {
+                // ✅ Defensive: Ensure we have a valid firestoreId before accessing it
+                let postId = post.firestoreId
+                let isPinned = pinnedPostService.isPostPinned(postId)
+                userActions.append(
+                    AmenOptionAction(
+                        title: isPinned ? "Unpin from profile" : "Pin to profile",
+                        subtitle: "Choose what leads your profile",
+                        systemImage: isPinned ? "pin.slash" : "pin"
+                    ) {
+                        performOption {
+                            Task {
+                                do {
+                                    try await pinnedPostService.togglePin(postId: postId)
+                                    HapticManager.notification(type: .success)
+                                } catch {
+                                    dlog("❌ Pin error: \(error)")
+                                    HapticManager.notification(type: .error)
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+
+            if let post = post, canEditPost(post) {
+                userActions.append(
+                    AmenOptionAction(
+                        title: "Edit Post",
+                        subtitle: "Refine wording or details",
+                        systemImage: "pencil",
+                        showsChevron: true
+                    ) {
+                        performOption {
+                            presentSheet(.edit(post: post))
+                        }
+                    }
+                )
+            }
+
+            userActions.append(
+                AmenOptionAction(
+                    title: "Delete Post",
+                    subtitle: "This cannot be undone",
+                    systemImage: "trash",
+                    isDestructive: true
+                ) {
+                    performOption { activeAlert = .deleteConfirmation }
+                }
+            )
+
+            sections.append(AmenOptionsSectionModel(title: "Your Post", actions: userActions))
+        }
+
+        var primaryActions: [AmenOptionAction] = []
+
+        if !isUserPost && category == .openTable {
+            primaryActions.append(
+                AmenOptionAction(
+                    title: hasLitLightbulb ? "Remove Inspiration" : "Inspire",
+                    subtitle: "Let the author know this helped",
+                    systemImage: hasLitLightbulb ? "lightbulb.fill" : "lightbulb"
+                ) {
+                    performOption { toggleLightbulb() }
+                }
+            )
+        }
+
+        if category == .prayer, let post = post, post.topicTag == "Prayer Request" {
+            primaryActions.append(
+                AmenOptionAction(
+                    title: isFasting ? "End Fast" : "Join Fast",
+                    subtitle: "Commit to prayer for this request",
+                    systemImage: isFasting ? "flame.fill" : "flame"
+                ) {
+                    performOption { toggleFasting() }
+                }
+            )
+        }
+
+        primaryActions.append(
+            AmenOptionAction(
+                title: "Share",
+                subtitle: "Send in AMEN or outside",
+                systemImage: "square.and.arrow.up"
+            ) {
+                performOption { sharePost() }
+            }
+        )
+
+        primaryActions.append(
+            AmenOptionAction(
+                title: "Reasoning Thread",
+                subtitle: "Open the discussion",
+                systemImage: "bubble.left.and.text.bubble.right"
+            ) {
+                performOption {
+                    guard let post = post else { return }
+                    presentSheet(.reasoningThread(postId: post.firestoreId, postText: post.content, authorName: authorName))
+                }
+            }
+        )
+
+        if !isUserPost {
+            primaryActions.append(
+                AmenOptionAction(
+                    title: "Support Creator",
+                    subtitle: "Encourage the author",
+                    systemImage: "gift.fill",
+                    showsChevron: true
+                ) {
+                    performOption {
+                        guard let post = post, !post.authorId.isEmpty else { return }
+                        presentSheet(.tip(creatorId: post.authorId, creatorName: authorName))
+                    }
+                }
+            )
+        }
+
+        primaryActions.append(
+            AmenOptionAction(
+                title: "Copy Link",
+                subtitle: "Share this post anywhere",
+                systemImage: "link"
+            ) {
+                performOption { copyLink() }
+            }
+        )
+
+        primaryActions.append(
+            AmenOptionAction(
+                title: "Copy Text",
+                subtitle: "Copy the post content",
+                systemImage: "doc.on.doc"
+            ) {
+                performOption { copyPostText() }
+            }
+        )
+
+        if !primaryActions.isEmpty {
+            sections.append(AmenOptionsSectionModel(title: "Primary", actions: primaryActions))
+        }
+
+        let libraryActions: [AmenOptionAction] = [
+            AmenOptionAction(
+                title: isSaved ? "Remove from Library" : "Save to Library",
+                subtitle: "Keep this for later",
+                systemImage: isSaved ? "bookmark.fill" : "bookmark"
+            ) {
+                performOption { toggleSave() }
+            }
+        ]
+        sections.append(AmenOptionsSectionModel(title: "Library", actions: libraryActions))
+
+        let folderActions: [AmenOptionAction] = SavedFolder.allCases
+            .filter { $0 != .all }
+            .map { folder in
+                AmenOptionAction(
+                    title: folder.rawValue,
+                    subtitle: "Saved posts auto-sort by topic",
+                    systemImage: folder.icon,
+                    showsChevron: false
+                ) {
+                    performOption { saveToFolder(folder) }
+                }
+            }
+
+        if !folderActions.isEmpty {
+            sections.append(AmenOptionsSectionModel(title: "Folders", actions: folderActions))
+        }
+
+        if !isUserPost {
+            var safetyActions: [AmenOptionAction] = []
+
+            safetyActions.append(
+                AmenOptionAction(
+                    title: "Not Interested",
+                    subtitle: "Help shape your feed",
+                    systemImage: "eye.slash"
+                ) {
+                    performOption { activeAlert = .notInterested }
+                }
+            )
+
+            safetyActions.append(
+                AmenOptionAction(
+                    title: "Report",
+                    subtitle: "Help keep AMEN safe",
+                    systemImage: "exclamationmark.triangle",
+                    isDestructive: true
+                ) {
+                    performOption {
+                        guard let post = post else { return }
+                        presentSheet(.report(post: post))
+                    }
+                }
+            )
+
+            safetyActions.append(
+                AmenOptionAction(
+                    title: "Mute \(authorName)",
+                    subtitle: "Quiet posts from this author",
+                    systemImage: "speaker.slash",
+                    isDestructive: true
+                ) {
+                    performOption { 
+                        let safeName = authorName.isEmpty ? "this user" : authorName
+                        activeAlert = .muteConfirmation(safeName)
+                    }
+                }
+            )
+
+            if let postAuthorId = post?.authorId {
+                let isRestricted = RestrictService.shared.isRestricted(postAuthorId)
+                safetyActions.append(
+                    AmenOptionAction(
+                        title: isRestricted ? "Unrestrict \(authorName)" : "Restrict \(authorName)",
+                        subtitle: "Limit interactions quietly",
+                        systemImage: isRestricted ? "checkmark.circle" : "hand.raised.slash"
+                    ) {
+                        performOption {
+                            Task {
+                                await RestrictService.shared.loadIfNeeded()
+                                await RestrictService.shared.toggleRestrict(postAuthorId)
+                                let isNowRestricted = RestrictService.shared.isRestricted(postAuthorId)
+                                ToastManager.shared.success(isNowRestricted ? "\(authorName) restricted" : "\(authorName) unrestricted")
+                            }
+                        }
+                    }
+                )
+            }
+
+            safetyActions.append(
+                AmenOptionAction(
+                    title: "Block \(authorName)",
+                    subtitle: "Stop all interactions",
+                    systemImage: "hand.raised",
+                    isDestructive: true
+                ) {
+                    performOption { 
+                        let safeName = authorName.isEmpty ? "this user" : authorName
+                        activeAlert = .blockConfirmation(safeName)
+                    }
+                }
+            )
+
+            sections.append(AmenOptionsSectionModel(title: "Transparency & Safety", actions: safetyActions))
+
+            // HeyFeed quick-feedback section — lets the user tune their feed from the post itself
+            if let post = post {
+                let postId   = post.firestoreId
+                let authorId = post.authorId
+                let topicId: String = {
+                    if let tag = post.topicTag, !tag.isEmpty { return tag }
+                    switch post.category {
+                    case .testimonies: return "testimonies"
+                    case .prayer:      return "prayer_requests"
+                    case .tip:         return "bible_teaching"
+                    case .funFact:     return "bible_teaching"
+                    case .openTable:   return "community"
+                    }
+                }()
+
+                let heyFeedActions: [AmenOptionAction] = [
+                    AmenOptionAction(
+                        title: "More like this",
+                        subtitle: "See more posts like this in your feed",
+                        systemImage: "hand.thumbsup"
+                    ) {
+                        performOption {
+                            Task {
+                                await HeyFeedPreferencesService.shared.recordMoreLikeThis(postId: postId, authorId: authorId)
+                                try? await HeyFeedNLPreferencesService.shared.applyIntent(
+                                    HeyFeedParsedIntent(
+                                        action: .increase,
+                                        targets: [HeyFeedNLTarget(id: topicId, type: .topic, label: topicId.replacingOccurrences(of: "_", with: " ").capitalized, confidence: 1.0)],
+                                        duration: .sevenDays,
+                                        strength: 0.7,
+                                        confidence: 1.0,
+                                        originalText: "more like this",
+                                        requiresConfirmation: false,
+                                        parserVersion: 1
+                                    ),
+                                    source: "quick_chip"
+                                )
+                                HeyFeedContradictionService.shared.recordEngage(targetId: topicId)
+                                ToastManager.shared.success("Got it — more like this")
+                            }
+                        }
+                    },
+                    AmenOptionAction(
+                        title: "Less like this",
+                        subtitle: "See fewer posts like this",
+                        systemImage: "hand.thumbsdown"
+                    ) {
+                        performOption {
+                            Task {
+                                await HeyFeedPreferencesService.shared.recordLessLikeThis(postId: postId, authorId: authorId)
+                                try? await HeyFeedNLPreferencesService.shared.applyIntent(
+                                    HeyFeedParsedIntent(
+                                        action: .decrease,
+                                        targets: [HeyFeedNLTarget(id: topicId, type: .topic, label: topicId.replacingOccurrences(of: "_", with: " ").capitalized, confidence: 1.0)],
+                                        duration: .sevenDays,
+                                        strength: 0.7,
+                                        confidence: 1.0,
+                                        originalText: "less like this",
+                                        requiresConfirmation: false,
+                                        parserVersion: 1
+                                    ),
+                                    source: "quick_chip"
+                                )
+                                HeyFeedContradictionService.shared.recordSkip(targetId: topicId)
+                                ToastManager.shared.success("Got it — fewer posts like this")
+                            }
+                        }
+                    },
+                    AmenOptionAction(
+                        title: "Why this post?",
+                        subtitle: "Understand why this appeared in your feed",
+                        systemImage: "questionmark.circle"
+                    ) {
+                        performOption {
+                            presentSheet(.whyThisPost(post: post))
+                        }
+                    }
+                ]
+                sections.append(AmenOptionsSectionModel(title: "Your Feed", actions: heyFeedActions))
+            }
+        }
+
+        // Action Layer: every post can become a reminder, event, prayer item, task, discussion, or volunteer opportunity
+        if let post = post {
+            let actionLayerActions: [AmenOptionAction] = [
+                AmenOptionAction(
+                    title: "Turn into action →",
+                    subtitle: "Reminder, event, prayer, task, discussion, or volunteer",
+                    systemImage: "arrow.right.circle.fill"
+                ) {
+                    performOption {
+                        presentSheet(.transformPost(
+                            postId: post.firestoreId.isEmpty ? post.id.uuidString : post.firestoreId,
+                            postText: post.content,
+                            authorName: authorName
+                        ))
+                    }
+                }
+            ]
+            sections.append(AmenOptionsSectionModel(title: "Take Action", actions: actionLayerActions))
+        }
+
+        return sections
+    }
+
+    private func performOption(_ action: @escaping () -> Void) {
+        dismissSheet()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            action()
+        }
+    }
+
+    private func feedReasons(for post: Post) -> [FeedReason] {
+        var reasons: [FeedReason] = []
+        let preferences = HeyFeedPreferencesService.shared.preferences
+        let algorithm = HomeFeedAlgorithm.shared
+        let interests = algorithm.userInterests
+        let followingIds = FollowService.shared.following
+
+        if followingIds.contains(post.authorId) {
+            reasons.append(
+                FeedReason(
+                    type: .followedAuthor,
+                    description: "You follow \(post.authorName)"
+                )
+            )
+        }
+
+        if let topicTag = post.topicTag,
+           let score = interests.engagedTopics[topicTag],
+           score > 50 {
+            reasons.append(
+                FeedReason(
+                    type: .topicMatch,
+                    description: "You often engage with #\(topicTag) content"
+                )
+            )
+        } else {
+            let categoryKey = post.category.rawValue
+            if let preference = interests.preferredCategories[categoryKey], preference > 50 {
+                reasons.append(
+                    FeedReason(
+                        type: .topicMatch,
+                        description: "You often engage with \(post.category.displayName) content"
+                    )
+                )
+            }
+        }
+
+        let goalKeywords: [String: [String]] = [
+            "Consistent Prayer": ["prayer", "pray"],
+            "Daily Bible Reading": ["scripture", "bible", "verse"],
+            "Build Community": ["community", "fellowship", "church"],
+            "Grow in Faith": ["faith", "spiritual", "testimony"],
+            "Share the Gospel": ["gospel", "witness", "testimony"],
+            "Serve Others": ["serve", "service", "ministry"]
+        ]
+
+        for goal in interests.onboardingGoals {
+            guard let keywords = goalKeywords[goal] else { continue }
+            if keywords.contains(where: { post.content.lowercased().contains($0) }) {
+                reasons.append(
+                    FeedReason(
+                        type: .topicMatch,
+                        description: "Aligns with your goal: \(goal)"
+                    )
+                )
+                break
+            }
+        }
+
+        let engagementCount = post.amenCount + post.commentCount
+        if engagementCount > 5 {
+            reasons.append(
+                FeedReason(
+                    type: .engagement,
+                    description: "Popular in your community (\(engagementCount) interactions)"
+                )
+            )
+        }
+
+        let hoursSince = Date().timeIntervalSince(post.createdAt) / 3600
+        if hoursSince < 6 {
+            let recencyLabel = hoursSince < 1 ? "just now" : "\(Int(hoursSince))h ago"
+            reasons.append(
+                FeedReason(
+                    type: .recency,
+                    description: "Posted \(recencyLabel)"
+                )
+            )
+        }
+
+        if preferences.boostedAuthors.contains(post.authorId) {
+            reasons.append(
+                FeedReason(
+                    type: .boosted,
+                    description: "You boosted content from \(post.authorName)"
+                )
+            )
+        }
+
+        if reasons.isEmpty {
+            reasons.append(
+                FeedReason(
+                    type: .discovery,
+                    description: "Suggested based on what's resonating in the AMEN community"
+                )
+            )
+        }
+
+        return reasons
+    }
+
+    private func handleRemixAction() {
+        guard !isUserPost else { return }
+        if hasReposted {
+            toggleRepost()
+        } else {
+            showRepostActionSheet = true
+        }
+    }
+
+    private func saveToFolder(_ folder: SavedFolder) {
+        // Save the post if not already saved
+        if !isSaved { toggleSave() }
+        // Folders are keyword-based client-side filters. A post appears in a folder when
+        // its topicTag matches the folder's keyword list — there is no server-side folder
+        // assignment. We tell the user whether this specific post is likely to appear there.
+        let postTopicTag = post?.topicTag?.lowercased() ?? ""
+        let matchesFolder = folder.keywords.contains { postTopicTag.contains($0) }
+        if matchesFolder {
+            ToastManager.shared.success("Saved — will appear in \(folder.rawValue)")
+        } else {
+            ToastManager.shared.success("Saved to library")
+        }
+    }
     
     @ViewBuilder
     private var userPostMenuOptions: some View {
         // Pin/Unpin post (like Threads)
         if let post = post {
-            let isPinned = pinnedPostService.isPostPinned(post.firestoreId)
+            // ✅ Defensive: Capture postId to avoid potential issues with closure capture
+            let postId = post.firestoreId
+            let isPinned = pinnedPostService.isPostPinned(postId)
             Button {
                 Task {
                     do {
-                        try await pinnedPostService.togglePin(postId: post.firestoreId)
+                        try await pinnedPostService.togglePin(postId: postId)
                         HapticManager.notification(type: .success)
                     } catch {
                         dlog("❌ Pin error: \(error)")
@@ -491,7 +1421,7 @@ struct PostCard: View {
         // Check if post is within 30-minute edit window
         if let post = post, canEditPost(post) {
             Button {
-                showingEditSheet = true
+                presentSheet(.edit(post: post))
             } label: {
                 Label("Edit Post", systemImage: "pencil")
             }
@@ -499,7 +1429,7 @@ struct PostCard: View {
         
         // Users can always delete their posts
         Button(role: .destructive) {
-            showingDeleteAlert = true
+            activeAlert = .deleteConfirmation
         } label: {
             Label("Delete Post", systemImage: "trash")
         }
@@ -516,17 +1446,63 @@ struct PostCard: View {
             }
         }
         
+        // Join Fast - only show for prayer request posts
+        if category == .prayer, let post = post, post.topicTag == "Prayer Request" {
+            Button {
+                toggleFasting()
+            } label: {
+                Label(isFasting ? "End Fast" : "Join Fast", systemImage: isFasting ? "flame.fill" : "flame")
+            }
+        }
+        
         Button {
             sharePost()
         } label: {
             Label("Share", systemImage: "square.and.arrow.up")
         }
-        
-        // Save to Library
+
+        // Discuss — opens Reasoning Thread for this post
+        Button {
+            guard let post = post else { return }
+            presentSheet(.reasoningThread(postId: post.firestoreId, postText: post.content, authorName: authorName))
+        } label: {
+            Label("Discuss", systemImage: "bubble.left.and.text.bubble.right.fill")
+        }
+
+        // Tip — only show for other people's posts
+        if !isUserPost {
+            Button {
+                guard let post = post, !post.authorId.isEmpty else { return }
+                presentSheet(.tip(creatorId: post.authorId, creatorName: authorName))
+            } label: {
+                Label("Send Tip", systemImage: "gift.fill")
+            }
+        }
+
+        // Save to Library + folder shortcuts (Feature 3)
         Button {
             toggleSave()
         } label: {
             Label(isSaved ? "Remove from Library" : "Save to Library", systemImage: isSaved ? "bookmark.fill" : "bookmark")
+        }
+
+        // Quick-save to named folders (tag the post locally via topicTag matching)
+        Menu {
+            ForEach(SavedFolder.allCases.filter { $0 != .all }, id: \.id) { folder in
+                Button {
+                    // Save the post first, then navigate user to that folder
+                    if !isSaved { toggleSave() }
+                    NotificationCenter.default.post(
+                        name: Notification.Name("openSavedFolder"),
+                        object: nil,
+                        userInfo: ["folder": folder.rawValue]
+                    )
+                } label: {
+                    Label(folder.rawValue, systemImage: folder.icon)
+                }
+            }
+        } label: {
+            Label("Save to Folder", systemImage: "folder.badge.plus")
         }
         
         Button {
@@ -545,19 +1521,21 @@ struct PostCard: View {
     @ViewBuilder
     private var moderationMenuOptions: some View {
         Button {
-            showNotInterestedConfirmation = true
+            activeAlert = .notInterested
         } label: {
             Label("Not Interested", systemImage: "eye.slash")
         }
         
         Button(role: .destructive) {
-            showReportSheet = true
+            guard let post = post else { return }
+            presentSheet(.report(post: post))
         } label: {
             Label("Report Post", systemImage: "exclamationmark.triangle")
         }
         
         Button(role: .destructive) {
-            showMuteConfirmation = true
+            let safeName = authorName.isEmpty ? "this user" : authorName
+            activeAlert = .muteConfirmation(safeName)
         } label: {
             Label("Mute \(authorName)", systemImage: "speaker.slash")
         }
@@ -577,7 +1555,8 @@ struct PostCard: View {
         }
         
         Button(role: .destructive) {
-            showBlockConfirmation = true
+            let safeName = authorName.isEmpty ? "this user" : authorName
+            activeAlert = .blockConfirmation(safeName)
         } label: {
             Label("Block \(authorName)", systemImage: "hand.raised")
         }
@@ -585,21 +1564,18 @@ struct PostCard: View {
     
     // MARK: - Interaction Buttons
     
-    private var lightbulbGradientActive: LinearGradient {
-        LinearGradient(
-            colors: [.red, .red.opacity(0.8)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
+    // ⚡️ PERFORMANCE FIX: Static gradients computed once, not per render
+    private static let lightbulbGradientActive = LinearGradient(
+        colors: [.red, .red.opacity(0.8)],
+        startPoint: .top,
+        endPoint: .bottom
+    )
     
-    private var lightbulbGradientInactive: LinearGradient {
-        LinearGradient(
-            colors: [.black.opacity(0.5), .black.opacity(0.5)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
+    private static let lightbulbGradientInactive = LinearGradient(
+        colors: [Color(.label).opacity(0.45), Color(.label).opacity(0.45)],
+        startPoint: .top,
+        endPoint: .bottom
+    )
     
     private var lightbulbButton: some View {
         Button {
@@ -633,43 +1609,28 @@ struct PostCard: View {
         .padding(.vertical, 6)
     }
     
+    // ⚡️ PERFORMANCE FIX: Removed ZStack wrapper - direct icon rendering
     private var lightbulbIcon: some View {
-        ZStack {
-            // Enhanced glow effect when active
-            if hasLitLightbulb {
-                lightbulbGlowEffect
-            }
-            
-            lightbulbMainIcon
-        }
+        lightbulbMainIcon
     }
     
-    private var lightbulbGlowEffect: some View {
-        // P1 FIX: Reduced blur for performance (12px -> 4px, removed double layer)
-        Image(systemName: "lightbulb.fill")
-            .font(.system(size: 20, weight: .bold))
-            .foregroundStyle(.red)
-            .blur(radius: 4)
-            .opacity(0.3)
-    }
-    
+    // ⚡️ PERFORMANCE FIX: Removed glow effect entirely - too GPU intensive for feeds
+    // Simple icon with minimal styling performs 10x better during scroll
     private var lightbulbMainIcon: some View {
         Image(systemName: hasLitLightbulb ? "lightbulb.fill" : "lightbulb")
-            .font(.system(size: 20, weight: .semibold))
-            .foregroundStyle(hasLitLightbulb ? lightbulbGradientActive : lightbulbGradientInactive)
-            .shadow(color: hasLitLightbulb ? Color.red.opacity(0.3) : Color.clear, radius: 8, x: 0, y: 2)
-            .shadow(color: hasLitLightbulb ? Color.red.opacity(0.2) : Color.clear, radius: 4, x: 0, y: 1)
+            .font(.systemScaled(20, weight: .semibold))
+            .foregroundStyle(hasLitLightbulb ? Self.lightbulbGradientActive : Self.lightbulbGradientInactive)
     }
     
     private var lightbulbBackground: some View {
         Capsule()
-            .fill(hasLitLightbulb ? Color.red.opacity(0.15) : Color.black.opacity(0.05))
+            .fill(hasLitLightbulb ? Color.red.opacity(0.15) : Color(.tertiarySystemFill))
             .shadow(color: hasLitLightbulb ? Color.red.opacity(0.2) : Color.clear, radius: 8, y: 2)
     }
     
     private var lightbulbOverlay: some View {
         Capsule()
-            .stroke(hasLitLightbulb ? Color.red.opacity(0.3) : Color.black.opacity(0.1), lineWidth: hasLitLightbulb ? 1.5 : 1)
+            .stroke(hasLitLightbulb ? Color.red.opacity(0.3) : Color(.separator).opacity(0.25), lineWidth: hasLitLightbulb ? 1.5 : 1)
     }
     
     private var amenButton: some View {
@@ -694,24 +1655,12 @@ struct PostCard: View {
         .accessibilityHint(isUserPost ? "You cannot react to your own post" : "")
     }
     
+    // ⚡️ PERFORMANCE FIX: Removed ZStack and blur - simple icon only
     private var amenButtonLabel: some View {
         HStack(spacing: 6) {
-            ZStack {
-                // P1 FIX: Simplified glow for performance (12px -> 4px, single layer)
-                if hasSaidAmen {
-                    Image(systemName: "hands.clap.fill")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(.blue)
-                        .blur(radius: 4)
-                        .opacity(0.25)
-                }
-                
-                // Main icon
-                Image(systemName: hasSaidAmen ? "hands.clap.fill" : "hands.clap")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(hasSaidAmen ? Color.blue : Color.secondary)
-                    .shadow(color: hasSaidAmen ? Color.blue.opacity(0.2) : Color.clear, radius: 4, x: 0, y: 1)
-            }
+            Image(systemName: hasSaidAmen ? "hands.clap.fill" : "hands.clap")
+                .font(.systemScaled(20, weight: .semibold))
+                .foregroundStyle(hasSaidAmen ? Color.blue : Color.secondary)
             
             // Amen count is private — not shown publicly.
             // Icon state (filled/outlined) reflects user's own amen only.
@@ -722,13 +1671,13 @@ struct PostCard: View {
     
     private var amenBackground: some View {
         Capsule()
-            .fill(hasSaidAmen ? Color.white : Color.black.opacity(0.05))
-            .shadow(color: hasSaidAmen ? Color.black.opacity(0.15) : Color.clear, radius: 8, y: 2)
+            .fill(hasSaidAmen ? Color(.secondarySystemFill) : Color(.tertiarySystemFill))
+            .shadow(color: hasSaidAmen ? Color.black.opacity(0.10) : Color.clear, radius: 8, y: 2)
     }
     
     private var amenOverlay: some View {
         Capsule()
-            .stroke(hasSaidAmen ? Color.black.opacity(0.2) : Color.black.opacity(0.1), lineWidth: hasSaidAmen ? 1.5 : 1)
+            .stroke(Color(.separator).opacity(hasSaidAmen ? 0.5 : 0.25), lineWidth: hasSaidAmen ? 1.5 : 1)
     }
     
     // MARK: - Header View
@@ -742,9 +1691,8 @@ struct PostCard: View {
             authorInfoButton
             
             Spacer()
-            
-            // Three-dots menu
-            menuButton
+
+            optionsButton
         }
     }
     
@@ -759,7 +1707,7 @@ struct PostCard: View {
             let now = Date()
             guard now.timeIntervalSince(lastProfileNavDate) > 0.35 else { return }
             lastProfileNavDate = now
-            showUserProfile = true
+            presentSheet(.userProfile(userId: post.authorId))
             HapticManager.impact(style: .light)
         } label: {
             authorInfoContent
@@ -772,6 +1720,7 @@ struct PostCard: View {
             authorNameRow
             timeAndTagRow
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private var authorNameRow: some View {
@@ -782,24 +1731,29 @@ struct PostCard: View {
             } label: {
                 HStack(spacing: 4) {
                     Text(authorName)
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                         .foregroundStyle(.primary)
+                        .lineLimit(1)
 
                     // ✅ Verified badge
-                    if let post = post, VerifiedBadgeHelper.isVerified(userId: post.authorId) {
-                        VerifiedBadge(size: 14)
+                    if let post = post, VerifiedBadgeHelper.shared.isVerified(userId: post.authorId) {
+                        VerifiedBadge(
+                            type: VerifiedBadgeHelper.shared.getVerificationType(userId: post.authorId),
+                            size: 14
+                        )
                     }
                 }
             }
             .buttonStyle(PlainButtonStyle())
+            .layoutPriority(-1)
             
             // 📌 Pinned post indicator (like Threads)
             if let post = post, pinnedPostService.isPostPinned(post.firestoreId) {
                 HStack(spacing: 3) {
                     Image(systemName: "pin.fill")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                     Text("Pinned")
-                        .font(.custom("OpenSans-Bold", size: 11))
+                        .font(AMENFont.bold(11))
                 }
                 .foregroundStyle(.gray)
                 .padding(.horizontal, 8)
@@ -808,23 +1762,26 @@ struct PostCard: View {
                     Capsule()
                         .fill(Color.gray.opacity(0.15))
                 )
+                .fixedSize()
             }
 
             // Category badge - only show if category allows it (not for Tip, Fun Fact)
             if let post = post, post.category.showCategoryBadge {
                 categoryBadge
+                    .fixedSize()
             } else if post == nil && category != .openTable {
                 // Fallback for preview posts without full Post object
                 categoryBadge
+                    .fixedSize()
             }
 
             // AI-generated content label (shown when user chose to add a source label)
             if let post = post, let source = post.contentSource, !source.isEmpty {
                 HStack(spacing: 3) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                     Text("via \(source)")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .lineLimit(1)
                 }
                 .foregroundStyle(.purple.opacity(0.8))
@@ -832,8 +1789,10 @@ struct PostCard: View {
                 .padding(.vertical, 3)
                 .background(Color.purple.opacity(0.08), in: Capsule())
                 .overlay(Capsule().strokeBorder(Color.purple.opacity(0.15), lineWidth: 0.8))
+                .fixedSize()
             }
         }
+        .lineLimit(1)
     }
     
     private var categoryBadge: some View {
@@ -841,9 +1800,9 @@ struct PostCard: View {
             if !category.displayName.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: category.icon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                     Text(category.displayName)
-                        .font(.custom("OpenSans-Bold", size: 11))
+                        .font(AMENFont.bold(11))
                 }
                 .foregroundStyle(category.color)
                 .padding(.horizontal, 8)
@@ -863,9 +1822,9 @@ struct PostCard: View {
                 // Pulsing loading chip — matches AMEN design language
                 HStack(spacing: 5) {
                     Image(systemName: "globe")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                     Text("Translating…")
-                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .font(AMENFont.semiBold(12))
                 }
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 10)
@@ -874,30 +1833,44 @@ struct PostCard: View {
                 .modifier(PulsingOpacityModifier())
 
             case .translated(let variant):
-                HStack(spacing: 8) {
-                    // Source language label
-                    HStack(spacing: 4) {
-                        Image(systemName: "globe")
-                            .font(.system(size: 10, weight: .medium))
-                        Text("Translated from \(SupportedLanguage.displayName(for: variant.sourceLanguage))")
-                            .font(.custom("OpenSans-Regular", size: 11))
-                    }
-                    .foregroundStyle(.secondary)
-                    .onTapGesture { showTranslationInfoSheet = true }
-
-                    // Toggle original/translated
-                    Button {
-                        HapticManager.impact(style: .light)
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            showTranslatedContent.toggle()
-                        }
-                    } label: {
-                        Text(showTranslatedContent ? "View original" : "View translation")
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                VStack(alignment: .leading, spacing: 6) {
+                    // Mode switcher (when meaning-aware translation is enabled) or simple source label
+                    if AMENFeatureFlags.shared.meaningAwareTranslationEnabled {
+                        TranslationModeSwitcher(
+                            sourceLanguage: variant.sourceLanguage,
+                            selectedMode: $currentTranslationMode,
+                            isLoading: isRefinementLoading,
+                            onModeChanged: { newMode in
+                                Task { await retranslateWithMode(newMode) }
+                            }
+                        )
+                    } else {
+                        HStack(spacing: 8) {
+                            // Source language label
+                            HStack(spacing: 4) {
+                                Image(systemName: "globe")
+                                    .font(.systemScaled(10, weight: .medium))
+                                Text("Translated from \(SupportedLanguage.displayName(for: variant.sourceLanguage))")
+                                    .font(AMENFont.regular(11))
+                            }
                             .foregroundStyle(.secondary)
-                            .underline()
+                            .onTapGesture { showTranslationInfoSheet = true }
+
+                            // Toggle original/translated
+                            Button {
+                                HapticManager.impact(style: .light)
+                                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
+                                    showTranslatedContent.toggle()
+                                }
+                            } label: {
+                                Text(showTranslatedContent ? "View original" : "View translation")
+                                    .font(AMENFont.semiBold(11))
+                                    .foregroundStyle(.secondary)
+                                    .underline()
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
                 .sheet(isPresented: $showTranslationInfoSheet) {
                     TranslationInfoSheet(variant: variant, isPresented: $showTranslationInfoSheet)
@@ -911,9 +1884,9 @@ struct PostCard: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "globe")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                         Text("See translation")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .font(AMENFont.semiBold(12))
                     }
                     .foregroundStyle(.primary.opacity(0.65))
                     .padding(.horizontal, 10)
@@ -929,12 +1902,12 @@ struct PostCard: View {
             case .error(let err):
                 HStack(spacing: 6) {
                     Text(err.userFacingMessage)
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary)
                     Button("Retry") {
                         Task { await triggerTranslation() }
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(.secondary)
                 }
 
@@ -947,16 +1920,27 @@ struct PostCard: View {
     private var timeAndTagRow: some View {
         HStack(spacing: 6) {
             Text(timeAgo)
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.secondary)
-            
+                .fixedSize()
+
+            // "Edited" badge — shown when updatedAt is set and at least 60s after createdAt
+            if let post = post, let updatedAt = post.updatedAt,
+               updatedAt.timeIntervalSince(post.createdAt) > 60 {
+                Text("· Edited")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.tertiary)
+                    .fixedSize()
+            }
+
             if let tag = topicTag, !tag.isEmpty {
                 Text("•")
                     .foregroundStyle(.secondary)
                 // Topic tag as neutral pill
                 Text(tag)
-                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .font(AMENFont.semiBold(11))
                     .foregroundStyle(.primary)
+                    .lineLimit(1)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(
@@ -971,9 +1955,10 @@ struct PostCard: View {
                     .foregroundStyle(.secondary)
                 HStack(spacing: 4) {
                     Image(systemName: "info.circle")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                     Text("via \(source)")
-                        .font(.custom("OpenSans-SemiBold", size: 10))
+                        .font(AMENFont.semiBold(10))
+                        .lineLimit(1)
                 }
                 .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
                 .padding(.horizontal, 7)
@@ -984,8 +1969,17 @@ struct PostCard: View {
                 )
             }
         }
+        .lineLimit(1)
     }
     
+    /// Whether to show side-by-side (original + translated) view instead of toggle
+    private var showSideBySideTranslation: Bool {
+        guard TranslationSettingsManager.shared.preferences.sideBySideEnabled,
+              AMENFeatureFlags.shared.sideBySideTranslationEnabled else { return false }
+        guard showTranslatedContent, translatedContent != nil else { return false }
+        return true
+    }
+
     /// Controls visibility of the translation affordance row
     private var shouldShowTranslationAffordance: Bool {
         switch translationUIState {
@@ -1005,159 +1999,350 @@ struct PostCard: View {
     }
     
     private var menuButton: some View {
-        Menu {
-            menuContent
+        AmenPostCardPlusButton(isExpanded: isActionMenuPresented) {
+            toggleActionMenu()
+        }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(
+                        key: AmenPostCardActionMenuAnchorPreferenceKey.self,
+                        value: proxy.frame(in: .named(actionMenuCardID))
+                )
+            }
+        )
+    }
+
+    private var optionsButton: some View {
+        Button {
+            presentOptionsSheet()
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.6))
-                .frame(width: 32, height: 32)
+                .font(.systemScaled(15, weight: .semibold))
+                .foregroundStyle(Color.secondary)
+                .padding(.leading, 4)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Post options")
+    }
+
+    @ViewBuilder
+    private var actionMenuOverlay: some View {
+        // ✅ P0 CRASH FIX: Validate frame is not just non-empty, but also has valid (non-NaN, finite) values
+        // During view deallocation or rapid state updates, actionMenuButtonFrame can contain NaN/inf
+        // which causes EXC_BAD_ACCESS when passed to .position() modifier
+        let isFrameValid = !actionMenuButtonFrame.isEmpty 
+            && actionMenuButtonFrame.maxX.isFinite 
+            && actionMenuButtonFrame.maxY.isFinite
+            && actionMenuButtonFrame.minX.isFinite
+            && actionMenuButtonFrame.minY.isFinite
+        
+        if isActionMenuPresented, isFrameValid {
+            GeometryReader { proxy in
+                let menuWidth = AmenPostCardActionMenu.preferredWidth
+                let menuHeight = AmenPostCardActionMenu.preferredHeight
+                let inset: CGFloat = 18
+                let targetCenterX = actionMenuButtonFrame.maxX - (menuWidth * 0.5) + 18
+                let minCenterX = inset + (menuWidth * 0.5)
+                let maxCenterX = max(minCenterX, proxy.size.width - inset - (menuWidth * 0.5))
+                // ✅ Additional safety: ensure calculated values are finite before using in .position()
+                let clampedCenterX = min(max(targetCenterX, minCenterX), maxCenterX).isFinite 
+                    ? min(max(targetCenterX, minCenterX), maxCenterX) 
+                    : proxy.size.width * 0.5
+                let targetCenterY = (actionMenuButtonFrame.maxY + 18 + (menuHeight * 0.5)).isFinite
+                    ? actionMenuButtonFrame.maxY + 18 + (menuHeight * 0.5)
+                    : proxy.size.height * 0.5
+
+                ZStack(alignment: .topLeading) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.035))
+                        .frame(width: max(proxy.size.width * 6, 1600), height: max(proxy.size.height * 8, 2400))
+                        .position(x: proxy.size.width * 0.5, y: proxy.size.height * 0.5)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            closeActionMenu()
+                        }
+
+                    AmenPostCardActionMenu(
+                        isFollowing: isFollowing,
+                        canFollow: !isUserPost && post != nil,
+                        onFollow: { handleActionMenuFollowTap() },
+                        onVisitProfile: { handleActionMenuProfileTap() }
+                    )
+                    .frame(width: menuWidth, height: menuHeight)
+                    .position(x: clampedCenterX, y: targetCenterY)
+                    .transition(
+                        .asymmetric(
+                            insertion: .scale(scale: 0.88, anchor: .topLeading).combined(with: .opacity),
+                            removal: .scale(scale: 0.94, anchor: .topLeading).combined(with: .opacity)
+                        )
+                    )
+                }
+            }
+            .ignoresSafeArea()
+        }
     }
     
     // Break up the modifier chain into intermediate steps so the Swift type-checker
     // can resolve each piece independently (avoids "expression too complex" timeout).
 
-    @ViewBuilder
-    private var cardWithSheets: some View {
-        cardContent
-            .contextMenu {
-                menuContent
-            }
-            .modifier(PostCardSheetsModifier(
-                showUserProfile: $showUserProfile,
-                showingEditSheet: $showingEditSheet,
-                showShareSheet: $showShareSheet,
-                showPostDetail: $showPostDetail,
-                showCommentsSheet: $showCommentsSheet,
-                showingDeleteAlert: $showingDeleteAlert,
-                showReportSheet: $showReportSheet,
-                showChurchNoteDetail: $showChurchNoteDetail,
-                churchNote: $churchNote,
-                showMentionedUserProfile: $showMentionedUserProfile,
-                tappedMentionUserId: $tappedMentionUserId,
-                hasCommented: $hasCommented,
-                post: post,
-                authorName: authorName,
-                category: category,
-                deleteAction: deletePost
-            ))
-            .modifier(PostCardInteractionsModifier(
-                post: post,
-                interactionsService: interactionsService,
-                savedPostsService: savedPostsService,
-                hasLitLightbulb: $hasLitLightbulb,
-                hasSaidAmen: $hasSaidAmen,
-                isSaved: $isSaved,
-                hasReposted: $hasReposted,
-                isPraying: $isPraying,
-                lightbulbCount: $lightbulbCount,
-                amenCount: $amenCount,
-                commentCount: $commentCount,
-                repostCount: $repostCount,
-                prayingNowCount: $prayingNowCount,
-                isSaveInFlight: $isSaveInFlight,
-                isLightbulbToggleInFlight: $isLightbulbToggleInFlight,
-                expectedLightbulbState: $expectedLightbulbState,
-                isRepostToggleInFlight: $isRepostToggleInFlight,
-                expectedRepostState: $expectedRepostState,
-                hasCommented: $hasCommented
-            ))
-    }
-
-    @ViewBuilder
-    private var cardWithAlerts: some View {
-        cardWithSheets
-            .alert("Mute \(authorName)?", isPresented: $showMuteConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Mute", role: .destructive) { muteAuthor() }
-            } message: {
-                Text("You won't see posts from \(authorName) in your feed anymore. You can unmute them from your settings.")
-            }
-            .alert("Block \(authorName)?", isPresented: $showBlockConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Block", role: .destructive) { blockAuthor() }
-            } message: {
-                Text("\(authorName) won't be able to see your posts or interact with you. You can unblock them from your settings.")
-            }
-            .alert("User Muted", isPresented: $showMuteSuccess) {
-                Button("OK") { }
-            } message: {
-                Text("\(authorName) has been muted.")
-            }
-            .alert("User Blocked", isPresented: $showBlockSuccess) {
-                Button("OK") { }
-            } message: {
-                Text("\(authorName) has been blocked.")
-            }
-            .alert("Not Interested?", isPresented: $showNotInterestedConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Confirm") { markNotInterested() }
-            } message: {
-                Text("You'll see fewer posts like this. This helps us personalize your feed.")
-            }
-            .alert("Feedback Received", isPresented: $showNotInterestedSuccess) {
-                Button("OK") { }
-            } message: {
-                Text("We'll show you fewer posts like this.")
-            }
-            .alert("Error", isPresented: $showErrorAlert) {
-                Button("OK") { }
-            } message: {
-                Text(errorMessage)
-            }
+    private var cardWithSheets: AnyView {
+        AnyView(
+            cardContent
+                .onLongPressGesture(minimumDuration: 0.35) {
+                    guard !isTextSelecting else { return }
+                    closeActionMenu(animated: false)
+                    HapticManager.impact(style: .light)
+                    presentSheet(.options)
+                }
+                .modifier(PostCardSheetsModifier(
+                    activeSheet: $activeSheet,
+                    hasCommented: $hasCommented,
+                    optionsQuickActionsBuilder: { optionsQuickActions },
+                    optionsSectionsBuilder: { optionsSections },
+                    feedReasonsBuilder: { post in feedReasons(for: post) },
+                    authorName: authorName,
+                    category: category
+                ))
+                .modifier(PostCardInteractionsModifier(
+                    post: post,
+                    interactionsService: interactionsService,
+                    savedPostsService: savedPostsService,
+                    hasLitLightbulb: $hasLitLightbulb,
+                    hasSaidAmen: $hasSaidAmen,
+                    isSaved: $isSaved,
+                    hasReposted: $hasReposted,
+                    isPraying: $isPraying,
+                    lightbulbCount: $lightbulbCount,
+                    amenCount: $amenCount,
+                    commentCount: $commentCount,
+                    repostCount: $repostCount,
+                    prayingNowCount: $prayingNowCount,
+                    isSaveInFlight: $isSaveInFlight,
+                    isLightbulbToggleInFlight: $isLightbulbToggleInFlight,
+                    expectedLightbulbState: $expectedLightbulbState,
+                    isRepostToggleInFlight: $isRepostToggleInFlight,
+                    expectedRepostState: $expectedRepostState,
+                    hasCommented: $hasCommented
+                ))
+        )
     }
     
-    var body: some View {
-        cardWithAlerts
-            .pressableCard(scale: 0.985)   // A) Subtle press-down on the whole card
-            .onAppear {
-                if !cardAppeared {
-                    withAnimation { cardAppeared = true }
+    private var cardWithAlerts: AnyView {
+        AnyView(
+            cardWithMuteBlockAlerts
+                .alert(item: $activeAlert) { alert in
+                    switch alert {
+                    case .notInterested:
+                        return Alert(
+                            title: Text("Not Interested?"),
+                            message: Text("You'll see fewer posts like this. This helps us personalize your feed."),
+                            primaryButton: .cancel(),
+                            secondaryButton: .default(Text("Confirm")) {
+                                markNotInterested()
+                            }
+                        )
+                    case .feedbackReceived:
+                        return Alert(
+                            title: Text("Feedback Received"),
+                            message: Text("We'll show you fewer posts like this."),
+                            dismissButton: .default(Text("OK"))
+                        )
+                    case .error(let message):
+                        return Alert(
+                            title: Text("Error"),
+                            message: Text(message),
+                            dismissButton: .default(Text("OK")) {
+                                errorMessage = ""
+                            }
+                        )
+                    case .muteConfirmation(let name):
+                        return Alert(
+                            title: Text("Mute \(name)?"),
+                            message: Text("You won't see posts from \(name) in your feed anymore. You can unmute them from your settings."),
+                            primaryButton: .cancel(),
+                            secondaryButton: .destructive(Text("Mute")) {
+                                muteAuthor()
+                            }
+                        )
+                    case .blockConfirmation(let name):
+                        return Alert(
+                            title: Text("Block \(name)?"),
+                            message: Text("\(name) won't be able to see your posts or interact with you. You can unblock them from your settings."),
+                            primaryButton: .cancel(),
+                            secondaryButton: .destructive(Text("Block")) {
+                                blockAuthor()
+                            }
+                        )
+                    case .muteSuccess(let name):
+                        return Alert(
+                            title: Text("User Muted"),
+                            message: Text("\(name) has been muted."),
+                            dismissButton: .default(Text("OK"))
+                        )
+                    case .blockSuccess(let name):
+                        return Alert(
+                            title: Text("User Blocked"),
+                            message: Text("\(name) has been blocked."),
+                            dismissButton: .default(Text("OK"))
+                        )
+                    case .deleteConfirmation:
+                        return Alert(
+                            title: Text("Delete Post"),
+                            message: Text("Are you sure you want to delete this post? This action cannot be undone."),
+                            primaryButton: .cancel(),
+                            secondaryButton: .destructive(Text("Delete")) {
+                                deletePost()
+                            }
+                        )
+                    }
                 }
-                // P2 FIX: Attach a lightweight Firestore listener for the author's profilePhotoURL
-                // so profile photo changes propagate to existing PostCards in real-time.
-                // Called unconditionally (outside the cardAppeared guard) so the listener
-                // is re-established after the card disappears and reappears.
-                startAuthorProfileListener()
+        )
+    }
+    
+    private var cardWithMuteBlockAlerts: AnyView {
+        AnyView(cardWithSheets)
+    }
+
+    // CommunityOS Action Pill (A18) — conditionally overlays AmenActionPillContainer.
+    // Follows the existing cardWith* chain pattern. Gated by communityOSActionPillEnabled.
+    @ViewBuilder
+    private var cardWithActionPill: some View {
+        if AMENFeatureFlags.shared.communityOSActionPillEnabled {
+            cardWithAlerts
+                .amenActionPill(
+                    model: AmenActionPillModel(
+                        objectType: .post,
+                        objectRef: "posts/\(stablePostId)",
+                        objectOwnerId: post?.authorId ?? "",
+                        currentUserId: Auth.auth().currentUser?.uid ?? "",
+                        isSaved: isSaved,
+                        isFollowedUp: false
+                    ),
+                    placement: .bottomTrailing,
+                    onSave: { saved in isSaved = saved }
+                )
+        } else {
+            cardWithAlerts
+        }
+    }
+
+    var body: some View {
+        cardWithActionPill
+            // Long-Press Intelligence ("Press to Ask Berean"). Self-gates: when
+            // longPressIntelligenceEnabled is OFF (current build) this adds nothing.
+            // Result routing (streaming sheet / Ask-Why) is centralized inside the
+            // modifier, so the host onAction is intentionally a no-op here.
+            .longPressIntelligence(
+                objectType: .post,
+                objectId: post?.firestoreId ?? "",
+                surface: .feed,
+                payload: .post(PostPayload(
+                    text: content,
+                    authorId: post?.authorId ?? "",
+                    communityId: nil
+                )),
+                onAction: { _ in }
+            )
+            .opacity(isDeletingPost ? 0 : 1)
+            .scaleEffect(isDeletingPost ? 0.96 : 1)
+            .zIndex(isActionMenuPresented ? 1000 : 0)
+            .pressableCard(scale: 0.985)   // A) Subtle press-down on the whole card
+            .coordinateSpace(name: actionMenuCardID)
+            .onPreferenceChange(AmenPostCardActionMenuAnchorPreferenceKey.self) { newFrame in
+                let isValid = !newFrame.isNull
+                    && newFrame.minX.isFinite
+                    && newFrame.minY.isFinite
+                    && newFrame.maxX.isFinite
+                    && newFrame.maxY.isFinite
+                actionMenuButtonFrame = isValid ? newFrame : .zero
+            }
+            .overlay { actionMenuOverlay }
+            .onAppear {
+                // Set cardAppeared instantly (no animation) to avoid double-animation conflict
+                // with the external .feedItemAppear() modifier already animating the whole card
+                cardAppeared = true
+
+                // Sync follow state on appear (covers cross-tab navigation)
+                if let post = post {
+                    localIsFollowing = FollowService.shared.following.contains(post.authorId)
+                }
+
+                // Sync expansion state (handles scroll recycle where onReceive doesn't fire)
+                isPostExpanded = interactionsService.isExpanded(stablePostId)
+            }
+            .task(id: post?.authorId) {
+                // Set initial follow state when post loads or author changes
+                if let post = post {
+                    localIsFollowing = FollowService.shared.following.contains(post.authorId)
+                }
+            }
+            // Targeted re-render: only fires when THIS card's active state actually flips
+            .onReceive(
+                AmenPostCardActionMenuCoordinator.shared.$activePostId
+                    .map { [actionMenuCardID] id in id == actionMenuCardID }
+                    .removeDuplicates()
+            ) { newState in
+                if newState != isActionMenuActive_state {
+                    isActionMenuActive_state = newState
+                }
+            }
+            // Targeted re-render: only fires when THIS author's follow state actually changes
+            .onReceive(
+                FollowService.shared.$following
+                    .map { [authorId = post?.authorId ?? ""] set in set.contains(authorId) }
+                    .removeDuplicates()
+            ) { newState in
+                if newState != localIsFollowing {
+                    localIsFollowing = newState
+                }
+            }
+            // Targeted re-render: sync expansion state without full PostCard body re-evaluation
+            .onReceive(interactionsService.$expandedPostIds.map { [stablePostId] ids in
+                ids.contains(stablePostId)
+            }.removeDuplicates()) { expanded in
+                isPostExpanded = expanded
             }
             .onDisappear {
-                // P2 FIX: Clean up the author profile listener to prevent memory growth.
-                authorProfileListener?.remove()
-                authorProfileListener = nil
+                closeActionMenu(animated: false)
+                clearTextSelection()
+                if let music = post?.music,
+                   AudioPlaybackManager.shared.currentTrackID == music.id {
+                    AudioPlaybackManager.shared.pause()
+                }
             }
-            .sheet(isPresented: $showBereanSheet) {
-                BereanAIAssistantView(initialQuery: bereanInitialQuery)
+            .onChange(of: activeSheet?.id) { _, newValue in
+                if newValue != nil {
+                    closeActionMenu(animated: false)
+                }
             }
-            .sheet(isPresented: Binding(
-                get: { BereanLiveActivityService.shared.showFallbackSheet },
-                set: { BereanLiveActivityService.shared.showFallbackSheet = $0 }
-            )) {
+            // Sync local state from BereanLiveActivityService via onReceive instead of wrapping
+            // the singleton property in a Binding — the Binding(get:set:) pattern polls the
+            // singleton on every body render which can destabilize the view update cycle.
+            .onReceive(
+                BereanLiveActivityService.shared.$showFallbackSheet.removeDuplicates()
+            ) { show in
+                if show { showBereanFallbackSheet = true }
+            }
+            .sheet(isPresented: $showBereanFallbackSheet, onDismiss: {
+                BereanLiveActivityService.shared.showFallbackSheet = false
+            }) {
                 BereanFallbackSheet()
             }
             .task(id: content) {
                 await detectAndTranslatePost()
             }
+            .modifier(TranslationTaskBridge(config: appleTranslationConfig) { anySession in
+                guard #available(iOS 18, *) else { return }
+                guard let session = anySession as? Translation.TranslationSession else { return }
+                await handleAppleTranslationSession(session)
+            })
     }
 
-    /// Start a lightweight Firestore listener on the author's user document for profilePhotoURL.
-    /// Keeps the avatar in PostCard up-to-date without a full post refresh.
-    private func startAuthorProfileListener() {
-        guard let post = post, !post.authorId.isEmpty else { return }
-        guard authorProfileListener == nil else { return }
-        let db = Firestore.firestore()
-        // Note: @State vars have reference-type storage so they can safely be mutated
-        // from within an @escaping closure in a SwiftUI struct without explicit [self] capture.
-        authorProfileListener = db.collection("users").document(post.authorId)
-            .addSnapshotListener { snapshot, error in
-                guard error == nil, let data = snapshot?.data() else { return }
-                if let url = data["profilePhotoURL"] as? String, !url.isEmpty,
-                   url != currentProfileImageURL {
-                    currentProfileImageURL = url
-                }
-            }
-    }
+
+    // ⚡️ PERFORMANCE FIX: Removed startAuthorProfileListener()
+    // Per-card Firestore listeners were causing 20+ simultaneous connections during scroll
+    // Profile updates now come through PostsManager's centralized real-time listeners
     
     // MARK: - Translation Logic
 
@@ -1170,24 +2355,35 @@ struct PostCard: View {
         guard detection.isReliable else { return }
 
         detectedLanguage = detection.languageCode
+        detectedLanguageConfidence = detection.confidence
 
         let settings = TranslationSettingsManager.shared
-        let postId = post?.firestoreId ?? "unknown"
+
+        // Initialize default translation mode from user preferences
+        currentTranslationMode = settings.preferences.defaultTranslationMode
 
         // Check if we should auto-translate or just offer a button
         if settings.shouldAutoTranslate(detectedLang: detection.languageCode, contentType: .post) {
             await triggerTranslation()
-        } else if settings.shouldOfferTranslation(detectedLang: detection.languageCode, contentType: .post) {
+        } else if settings.shouldOfferTranslation(detectedLang: detection.languageCode, contentType: .post, confidence: detection.confidence) {
             translationUIState = .available
         } else {
             translationUIState = .notNeeded
         }
-        _ = postId // suppress unused warning
     }
 
     /// Manually or automatically trigger translation for this post.
     private func triggerTranslation() async {
         guard translationUIState != .loading else { return }
+
+        // .original mode means show original — no translation needed
+        guard currentTranslationMode.performsTranslation else {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
+                showTranslatedContent = false
+                translationUIState = .available
+            }
+            return
+        }
 
         let postId = post?.firestoreId ?? UUID().uuidString
         let visibility = post?.visibility
@@ -1202,19 +2398,175 @@ struct PostCard: View {
 
         translationUIState = .loading
 
-        let result = await newTranslationService.translate(
-            text: content,
-            contentType: .post,
-            contentId: postId,
-            surface: .feed,
-            isPublicContent: isPublic
-        )
+        // Route through MeaningAwareTranslationService for mode-aware translation
+        let result: TranslationUIState
+        if currentTranslationMode == .literal || !AMENFeatureFlags.shared.meaningAwareTranslationEnabled {
+            result = await newTranslationService.translate(
+                text: content,
+                contentType: .post,
+                contentId: postId,
+                surface: .feed,
+                isPublicContent: isPublic
+            )
+        } else {
+            result = await MeaningAwareTranslationService.shared.translate(
+                text: content,
+                contentType: .post,
+                contentId: postId,
+                surface: .feed,
+                mode: currentTranslationMode,
+                isPublicContent: isPublic
+            )
+        }
 
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+        // If language models need downloading, fall back to .translationTask() modifier
+        // which prompts the user to download and handles progress UI automatically.
+        if case .error(.languageDownloadNeeded) = result {
+            if #available(iOS 18, *) {
+                let sourceLang = detectedLanguage ?? "und"
+                let targetLang = TranslationSettingsManager.shared.userLanguageCode
+                if appleTranslationConfig == nil {
+                    appleTranslationConfig = Translation.TranslationSession.Configuration(
+                        source: Locale.Language(identifier: sourceLang),
+                        target: Locale.Language(identifier: targetLang)
+                    )
+                } else if var config = appleTranslationConfig as? Translation.TranslationSession.Configuration {
+                    config.invalidate()
+                    appleTranslationConfig = config
+                }
+            }
+            return
+        }
+
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
             translationUIState = result
             if let translated = result.translatedText {
                 translatedContent = translated
                 showTranslatedContent = true
+                AccessibilitySignalCollector.shared.recordSignal(.translated)
+                AccessibilitySuggestionEngine.shared.evaluate()
+
+                // Phase 4: Re-detect glossary terms on translated text so context cards
+                // appear in the user's language instead of the original language.
+                if AMENFeatureFlags.shared.contextBridgeEnabled {
+                    let raw = ContextTermDetector.shared.detectTerms(in: translated)
+                    detectedContextTerms = ContextAssistService.shared.filterDismissed(raw)
+                }
+            }
+        }
+    }
+
+    /// Handle a TranslationSession provided by the .translationTask() modifier.
+    /// This session can download language models automatically (prompting the user),
+    /// unlike TranslationSession(installedSource:) which only works with pre-installed models.
+    @available(iOS 18.0, *)
+    private func handleAppleTranslationSession(_ session: Translation.TranslationSession) async {
+        do {
+            let response = try await session.translate(content)
+            let targetLang = TranslationSettingsManager.shared.userLanguageCode
+            let variant = TranslationVariant(
+                translatedText: response.targetText.trimmingCharacters(in: .whitespacesAndNewlines),
+                sourceLanguage: detectedLanguage ?? "und",
+                targetLanguage: targetLang,
+                engineVersion: .appleOnDevice,
+                translatedAt: Date(),
+                characterCount: content.count,
+                isUserRequested: true
+            )
+            await MainActor.run {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
+                    translationUIState = .translated(variant)
+                    translatedContent = variant.translatedText
+                    showTranslatedContent = true
+                    AccessibilitySignalCollector.shared.recordSignal(.translated)
+                    AccessibilitySuggestionEngine.shared.evaluate()
+                    if AMENFeatureFlags.shared.contextBridgeEnabled {
+                        let raw = ContextTermDetector.shared.detectTerms(in: variant.translatedText)
+                        detectedContextTerms = ContextAssistService.shared.filterDismissed(raw)
+                    }
+                }
+            }
+        } catch {
+            await MainActor.run {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
+                    translationUIState = .error(.serviceUnavailable)
+                }
+            }
+        }
+    }
+
+    /// Listen pill button for audio narration
+    private var listenPillButton: some View {
+        Button {
+            HapticManager.impact(style: .light)
+            let postId = post?.firestoreId ?? UUID().uuidString
+            let textToRead = showTranslatedContent ? (translatedContent ?? content) : content
+            let lang = showTranslatedContent ? TranslationSettingsManager.shared.preferences.appLanguage : nil
+            SpeechSynthesisService.shared.play(
+                text: textToRead,
+                id: postId,
+                title: authorName,
+                language: lang
+            )
+            AccessibilitySignalCollector.shared.recordSignal(.listenedToPost)
+            AccessibilitySuggestionEngine.shared.evaluate()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: SpeechSynthesisService.shared.currentItemId == (post?.firestoreId ?? "")
+                      ? "speaker.wave.2.fill" : "speaker.wave.2")
+                    .font(.systemScaled(11, weight: .medium))
+                Text("Listen")
+                    .font(AMENFont.semiBold(12))
+            }
+            .foregroundStyle(Color(.secondaryLabel))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color(.tertiarySystemFill))
+            .clipShape(Capsule())
+        }
+        .accessibilityLabel("Listen to this post")
+    }
+
+    /// Re-translate current content with a different translation mode (original/literal/natural/contextual)
+    private func retranslateWithMode(_ mode: TranslationMode) async {
+        currentTranslationMode = mode
+
+        // .original mode: revert to original text, no API call
+        guard mode.performsTranslation else {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
+                showTranslatedContent = false
+            }
+            return
+        }
+
+        let postId = post?.firestoreId ?? UUID().uuidString
+        isRefinementLoading = true
+
+        let result = await MeaningAwareTranslationService.shared.translate(
+            text: content,
+            contentType: .post,
+            contentId: postId,
+            surface: .feed,
+            mode: mode,
+            isPublicContent: true
+        )
+
+        isRefinementLoading = false
+
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
+            translationUIState = result
+            if let translated = result.translatedText {
+                translatedContent = translated
+                showTranslatedContent = true
+                AccessibilitySignalCollector.shared.recordSignal(.translated)
+                AccessibilitySignalCollector.shared.recordSignal(.modeChanged)
+                AccessibilitySuggestionEngine.shared.evaluate()
+
+                // Phase 4: Re-detect glossary terms on translated text
+                if AMENFeatureFlags.shared.contextBridgeEnabled {
+                    let raw = ContextTermDetector.shared.detectTerms(in: translated)
+                    detectedContextTerms = ContextAssistService.shared.filterDismissed(raw)
+                }
             }
         }
     }
@@ -1272,7 +2624,7 @@ struct PostCard: View {
                             .font(.caption2.bold())
                         ForEach(debugLog.suffix(10).reversed(), id: \.self) { log in
                             Text(log)
-                                .font(.system(size: 8, design: .monospaced))
+                                .font(.systemScaled(8, design: .monospaced))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -1312,198 +2664,401 @@ struct PostCard: View {
         case none, left, right
     }
     
-    private var cardContent: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Moderation status banner — only visible to post author
-            if isUserPost, let post = post {
-                if post.flaggedForReview {
-                    HStack(spacing: 8) {
-                        Image(systemName: "clock.badge.exclamationmark")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.orange)
-                        Text("Under review")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
-                            .foregroundStyle(.orange)
-                        Spacer()
+    // MARK: - Header View
+    private var postHeaderView: some View {
+        headerView
+            .padding(.horizontal, 12)
+            .padding(.top, 4)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard NavigationGuard.shared.shouldNavigate() else { return }
+                guard let post = post else { return }
+                presentSheet(.postDetail(post: post))
+            }
+    }
+    
+    // MARK: - Post Content with Selection
+    private var postContentWithSelection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Side-by-side translation view (when enabled and translated)
+            if showSideBySideTranslation,
+               let translated = translatedContent,
+               let sourceLang = detectedLanguage {
+                SideBySideTranslationView(
+                    originalText: content,
+                    translatedText: translated,
+                    sourceLanguage: sourceLang,
+                    targetLanguage: TranslationSettingsManager.shared.preferences.appLanguage
+                )
+                .padding(.horizontal, 12)
+            }
+
+            ZStack(alignment: .topLeading) {
+                SelectablePostTextView(
+                    text: showSideBySideTranslation ? content : (showTranslatedContent ? (translatedContent ?? content) : content),
+                    mentions: post?.mentions,
+                    font: UIFont(name: "OpenSans-Regular", size: 16) ?? .systemFont(ofSize: 16),
+                    lineSpacing: 4,
+                    lineLimit: isPostExpanded ? nil : 10,
+                    onMentionTap: { mention in
+                        guard NavigationGuard.shared.shouldNavigate() else { return }
+                        presentSheet(.mentionedProfile(userId: mention.userId))
+                        HapticManager.impact(style: .light)
+                    },
+                    onTextTap: {
+                        guard NavigationGuard.shared.shouldNavigate() else { return }
+                        guard let post = post else { return }
+                        presentSheet(.postDetail(post: post))
+                    },
+                    selection: $textSelection,
+                    isSelecting: $isTextSelecting
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxHeight: isPostExpanded ? nil : 400)
+                // Hide the regular text view when side-by-side is showing
+                .opacity(showSideBySideTranslation ? 0 : 1)
+                .frame(height: showSideBySideTranslation ? 0 : nil)
+                .clipped()
+
+                if let selection = textSelection {
+                    GeometryReader { proxy in
+                        HighlightActionCapsule(
+                            onQuote: { handleQuoteSelection(selection) },
+                            onReply: { handleReplyWithQuote(selection) },
+                            onSave: { handleSaveSelection(selection) },
+                            onShare: { handleShareSelection(selection) },
+                            onBerean: { handleBereanSelection(selection) }
+                        )
+                        .position(actionCapsulePosition(for: selection.rect, in: proxy.size))
+                        .transition(.opacity.combined(with: .scale))
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .background(Color.orange.opacity(0.08))
-                } else if post.removed {
-                    HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.circle")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.red)
-                        Text("Removed — violated community guidelines")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
-                            .foregroundStyle(.red)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .background(Color.red.opacity(0.08))
                 }
             }
 
-            // Header with author info and menu
-            headerView
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    // Tap on header opens post detail — C) tap-guard
-                    guard NavigationGuard.shared.shouldNavigate() else { return }
-                    showPostDetail = true
-                }
-                .offset(y: cardAppeared ? 0 : 18)
-                .opacity(cardAppeared ? 1 : 0)
-                .blur(radius: cardAppeared ? 0 : 4)
-                .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.0), value: cardAppeared)
-            
-            // Post content with mention support
-            VStack(alignment: .leading, spacing: 8) {
-                MentionTextView(
-                    text: showTranslatedContent ? (translatedContent ?? content) : content,
-                    mentions: post?.mentions,
-                    font: .custom("OpenSans-Regular", size: 16),
-                    fontSize: 16,
-                    lineSpacing: 6
-                ) { mention in
-                    guard NavigationGuard.shared.shouldNavigate() else { return }
-                    tappedMentionUserId = mention.userId
-                    showMentionedUserProfile = true
+            if !isTextSelecting && content.count > 80 {
+                Text("Select a thought to quote")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            }
+
+            if !isPostExpanded && content.count > 300 {
+                Button {
                     HapticManager.impact(style: .light)
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                        interactionsService.toggleExpanded(stablePostId)
+                    }
+                } label: {
+                    Text("Show more")
+                        .font(AMENFont.semiBold(14))
+                        .foregroundStyle(.primary)
                 }
-                .foregroundStyle(.primary)
-                // Fix: Constrain text to available width so long unbreakable words don't overflow
-                .frame(maxWidth: .infinity, alignment: .leading)
-                // P1-B FIX: Read expansion state from the service (survives scroll recycle)
-                .lineLimit(interactionsService.isExpanded(stablePostId) ? nil : 10)
-                .frame(maxHeight: interactionsService.isExpanded(stablePostId) ? nil : 400)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    // Tap on content opens post detail — C) tap-guard
-                    guard NavigationGuard.shared.shouldNavigate() else { return }
-                    showPostDetail = true
+                // D-031: context label improvement tracked — add author name when API is available
+                .accessibilityLabel("Show more")
+            }
+
+            // Trust Wave 4: provenance label derived from the canonical True Source
+            // record (human / AI-assisted / AI-generated). Compact chip in feed.
+            if AMENFeatureFlags.shared.provenanceLabelsEnabled,
+               let provenance = post?.trustProvenanceLabel {
+                TrustProvenanceBadge(label: provenance, allowsHistory: false)
+                    .padding(.top, 4)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 0)
+    }
+    
+    // MARK: - Post Interaction Section
+    @ViewBuilder
+    private var postInteractionSection: some View {
+        interactionButtons
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, showTestimonyResonance ? 4 : 6)
+
+        if showTestimonyResonance && !testimonyResonanceCopy.isEmpty {
+            HStack(spacing: 5) {
+                Image(systemName: "sparkles")
+                    .font(.systemScaled(10, weight: .semibold))
+                    .foregroundStyle(Color.indigo.opacity(0.7))
+                Text(testimonyResonanceCopy)
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .italic()
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+    }
+    
+    // MARK: - Post Metadata
+    @ViewBuilder
+    private var postMetadata: some View {
+        if let post = post, post.isRepost {
+            let originalAuthor = post.originalAuthorName ?? post.authorName
+            repostIndicator(originalAuthor: originalAuthor)
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+        }
+        
+        if let post = post, post.category == .testimonies, post.linkedPrayerRequestId != nil {
+            TestimonyArcView(testimony: post)
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+        }
+
+        if let post = post, (post.category == .prayer || post.category == .testimonies) {
+            SermonConnectBanner(service: SermonConnectService.shared, onTapNote: { _ in }, paddingLeading: 16, paddingTop: 4)
+                .onAppear { SermonConnectService.shared.findMatch(for: post.content) }
+        }
+
+        if let post = post, let replyPerm = post.replyPermission, replyPerm != .everyone {
+            HStack(spacing: 4) {
+                Image(systemName: replyPerm.icon)
+                    .font(.systemScaled(10, weight: .semibold))
+                Text("\(replyPerm.displayName) can reply")
+                    .font(.systemScaled(12, weight: .regular))
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+        }
+
+        if let post = post, post.hasContext {
+            Button {
+                presentSheet(.postDetail(post: post))
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.systemScaled(11))
+                    Text("Community context added")
+                        .font(.systemScaled(12, weight: .medium))
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Color(.systemGray6)))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+        }
+
+        if let post = post, post.authorId == (Auth.auth().currentUser?.uid ?? "") {
+            let hasCounts = post.savesCount > 0 || post.prayTapsCount > 0 || post.encouragedCount > 0
+            if hasCounts {
+                HStack(spacing: 12) {
+                    if post.savesCount > 0 {
+                        insightItem(icon: "bookmark.fill", count: post.savesCount, label: "saved")
+                    }
+                    if post.prayTapsCount > 0 {
+                        insightItem(icon: "hands.sparkles.fill", count: post.prayTapsCount, label: "prayed")
+                    }
+                    if post.encouragedCount > 0 {
+                        insightItem(icon: "heart.fill", count: post.encouragedCount, label: "encouraged")
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+            }
+        }
+    }
+    
+    // MARK: - Post Media Content
+    @ViewBuilder
+    private var postMediaContent: some View {
+        if let quote = post?.quote {
+            quoteSnippetView(quote)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+        }
+
+        // Scripture attachment pill (published post)
+        if let post = post, let verseRef = post.verseReference, !verseRef.isEmpty {
+            PostCardScripturePill(
+                reference: verseRef,
+                translation: "KJV", // TODO(legal): was NIV (Biblica, copyrighted) — changed to KJV (public domain) per AMEN-CONTENT-001
+                onTap: {
+                    // Open scripture detail
+                    if let attachment = ScriptureAttachment.from(legacyReference: verseRef, legacyText: post.verseText) {
+                        postCardScriptureAttachment = attachment
+                        showPostCardScriptureDetail = true
+                    }
+                }
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
+        }
+
+        if shouldShowTranslationAffordance {
+            translationToggleButton
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+        }
+
+        // Accessibility pills row (Understand + Listen)
+        if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled {
+            HStack(spacing: 8) {
+                // Understand pill — shown when content difficulty is high
+                if AMENFeatureFlags.shared.readabilityLayerEnabled,
+                   let score = difficultyScore,
+                   score.score >= ContentDifficultyScore.displayThreshold {
+                    UnderstandPillButton(
+                        text: content,
+                        contentId: post?.firestoreId ?? UUID().uuidString,
+                        difficultyScore: score
+                    )
                 }
 
-                // Show More button for long content
-                if !interactionsService.isExpanded(stablePostId) && content.count > 300 {
-                    Button {
-                        HapticManager.impact(style: .light)
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            interactionsService.toggleExpanded(stablePostId)
-                        }
-                    } label: {
-                        Text("Show more")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
-                            .foregroundStyle(.black)
-                    }
+                // Listen pill — audio narration (only shown when user has opted in via Settings → Audio)
+                if AMENFeatureFlags.shared.audioNarrationEnabled,
+                   UserDefaults.standard.bool(forKey: "amen.audio.listenEnabled") {
+                    listenPillButton
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .offset(y: cardAppeared ? 0 : 18)
-            .opacity(cardAppeared ? 1 : 0)
-            .blur(radius: cardAppeared ? 0 : 4)
-            .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.12), value: cardAppeared)
-
-            // Translation affordance — driven by translationUIState state machine
-            // Shows: "See Translation" | loading chip | "Translated from X / View original" | error
-            if shouldShowTranslationAffordance {
-                translationToggleButton
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
-            
-            // ✅ Display post images if available
-            if let post = post, let imageURLs = post.imageURLs, !imageURLs.isEmpty {
-                PostImagesView(imageURLs: imageURLs)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-            }
-
-            // ✅ Church Note Preview (if post contains a church note)
-            if let post = post, let churchNoteId = post.churchNoteId {
-                churchNotePreview(churchNoteId: churchNoteId)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-            }
-            
-            // ✅ Poll Display (if post contains a poll)
-            if let post = post, let poll = post.poll {
-                PostPollView(
-                    postId: post.firestoreId,
-                    poll: poll,
-                    currentUserId: Auth.auth().currentUser?.uid
-                )
+            .padding(.top, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        
+        if let post = post, let imageURLs = post.imageURLs, !imageURLs.isEmpty {
+            PostImagesView(imageURLs: imageURLs)
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
-            }
+                .padding(.top, 6)
+        }
 
-            // ✅ Link / Verse Preview Card if post has a link
-            if let post = post,
-               let linkURLString = post.linkURL,
-               !linkURLString.isEmpty,
-               let linkURL = URL(string: linkURLString) {
-                // Reconstruct metadata from post fields (prefer cached metadata)
-                let cachedMeta = LinkPreviewService.shared.getCached(for: linkURL)
-                let meta = cachedMeta ?? LinkPreviewMetadata(
-                    url: linkURL,
-                    previewType: post.linkPreviewType == "verse" ? .verse : .link,
-                    title: post.linkPreviewTitle,
-                    description: post.linkPreviewDescription,
-                    imageURL: post.linkPreviewImageURL.flatMap { URL(string: $0) },
-                    siteName: post.linkPreviewSiteName,
-                    verseReference: post.verseReference,
-                    verseText: post.verseText
-                )
+        if let post = post, let churchNoteId = post.churchNoteId {
+            churchNotePreview(churchNoteId: churchNoteId)
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+        }
+
+        if let post = post, post.isChurchShare, let churchName = post.sharedChurchName {
+            ChurchNameCapsulePill(churchName: churchName) {
+                NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
+
+            if let eventName = post.sharedChurchEventName, !eventName.isEmpty {
+                ChurchEventCapsulePill(eventName: eventName, eventTime: post.sharedChurchEventTime) {
+                    NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+            }
+        }
+
+        if let post = post, let poll = post.poll {
+            PostPollView(
+                postId: post.firestoreId,
+                poll: poll,
+                currentUserId: Auth.auth().currentUser?.uid
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+        }
+
+        if let post = post,
+           let linkURLString = post.linkURL,
+           !linkURLString.isEmpty,
+           let linkURL = URL(string: linkURLString) {
+            let cachedMeta = LinkPreviewService.shared.getCached(for: linkURL)
+            let meta = cachedMeta ?? LinkPreviewMetadata(
+                url: linkURL,
+                previewType: post.linkPreviewType == "verse" ? .verse : .link,
+                title: post.linkPreviewTitle,
+                description: post.linkPreviewDescription,
+                imageURL: post.linkPreviewImageURL.flatMap { URL(string: $0) },
+                siteName: post.linkPreviewSiteName,
+                verseReference: post.verseReference,
+                verseText: post.verseText
+            )
+            if AMENFeatureFlags.shared.inAppBrowserEnabled {
+                EnhancedLinkPreviewCard(url: linkURL, metadata: meta)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+            } else {
                 FeedLinkPreviewCard(url: linkURL, metadata: meta)
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
             }
-            
-            // Repost indicator if this is a repost.
-            // Fall back to authorName if originalAuthorName is absent (older posts).
-            if let post = post, post.isRepost {
-                let originalAuthor = post.originalAuthorName ?? post.authorName
-                repostIndicator(originalAuthor: originalAuthor)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-            }
-            
-            // Testimony Arc — shown for testimony posts linked to a prayer request
-            if let post = post, post.category == .testimonies, post.linkedPrayerRequestId != nil {
-                TestimonyArcView(testimony: post)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-            }
+        }
 
-            // Fasting Chain — shown for Prayer Request posts
-            if let post = post, post.category == .prayer, post.topicTag == "Prayer Request",
-               !post.firestoreId.isEmpty {
-                FastingChainView(postId: post.firestoreId)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
+        // Music attachment card
+        if let music = post?.music {
+            MusicCardContainer(track: music, displayMode: $musicCardMode)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 4)
+        }
+    }
 
-            // Sermon Connect Banner — shown for prayer/testimony posts
-            if let post = post, (post.category == .prayer || post.category == .testimonies) {
-                SermonConnectBanner { _ in }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .onAppear { SermonConnectService.shared.findMatch(for: post.content) }
-            }
-
-            // Interaction buttons (no divider)
-            interactionButtons
+    // MARK: - Moderation Banner
+    @ViewBuilder
+    private var moderationBanner: some View {
+        if isUserPost, let post = post {
+            if post.flaggedForReview {
+                HStack(spacing: 8) {
+                    Image(systemName: "clock.badge.exclamationmark")
+                        .font(.systemScaled(12, weight: .semibold))
+                        .foregroundStyle(.orange)
+                    Text("Under review")
+                        .font(AMENFont.semiBold(12))
+                        .foregroundStyle(.orange)
+                    Spacer()
+                }
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 14)
-                .offset(y: cardAppeared ? 0 : 18)
-                .opacity(cardAppeared ? 1 : 0)
-                .blur(radius: cardAppeared ? 0 : 4)
-                .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.36), value: cardAppeared)
+                .padding(.vertical, 6)
+                .background(Color.orange.opacity(0.08))
+            } else if post.removed {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.systemScaled(12, weight: .semibold))
+                        .foregroundStyle(.red)
+                    Text("Removed — violated community guidelines")
+                        .font(AMENFont.semiBold(12))
+                        .foregroundStyle(.red)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(Color.red.opacity(0.08))
+            }
+        }
+    }
+    
+    private var cardContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            moderationBanner
+
+            postHeaderView
+            postContentWithSelection
+
+            postMediaContent
+            
+            postMetadata
+
+            postInteractionSection
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .clipped()
+        .onChange(of: hasSaidAmen) { _, newValue in
+            if newValue && category == .testimonies {
+                fetchTestimonyResonance(actionType: "amen")
+            }
+        }
+        .onChange(of: isSaved) { _, newValue in
+            if newValue && category == .testimonies {
+                fetchTestimonyResonance(actionType: "saved")
+            }
+        }
+        .onChange(of: hasLitLightbulb) { _, newValue in
+            if newValue && category == .testimonies {
+                fetchTestimonyResonance(actionType: "lightbulb")
+            }
         }
         .background(
             ZStack {
@@ -1534,45 +3089,74 @@ struct PostCard: View {
                     }
                 }
                 
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+                // Threads-style: clean white background, no rounded corners
+                Color(.systemBackground)
             }
         )
+        // SELAH W0: Apply liturgical season tint over the card surface.
+        // SeasonalGlassModifier reads LiturgicalSeasonService from the environment
+        // (injected at AMENAPPApp.swift:268) and is a no-op when the
+        // liturgicalTheming flag is OFF. No flag check needed here — the modifier
+        // guards itself internally.
+        .seasonalGlass()
+        .overlay(alignment: .bottom) {
+            // Threads-style: subtle, inset divider between posts
+            Rectangle()
+                .fill(Color(.separator).opacity(0.5))
+                .frame(height: 0.5)
+        }
         .offset(x: swipeOffset)
-        // FIX: Use .simultaneousGesture so the parent ScrollView keeps priority for vertical scrolling
-        // Direction guards (3x horizontal:vertical ratio) prevent accidental horizontal triggers
+        // P0 FIX: Use simultaneous gesture so ScrollView keeps priority for vertical scrolling
+        // This gesture only activates when user clearly swipes horizontally (4x ratio + 50pt minimum distance)
         .simultaneousGesture(
-            DragGesture(minimumDistance: 30) // Increased from 20 to reduce false triggers
+            DragGesture(minimumDistance: 50) // High threshold to avoid false triggers during vertical scroll
                 .onChanged { value in
-                    // Only respond to predominantly horizontal swipes
                     let horizontalAmount = abs(value.translation.width)
                     let verticalAmount = abs(value.translation.height)
-                    
-                    // Require horizontal movement to be significantly more than vertical
-                    // This allows vertical scrolling to work normally
-                    guard horizontalAmount > verticalAmount * 3 else { // Increased from 2x to 3x
+
+                    // Require very strong horizontal bias (4x ratio) to activate swipe
+                    // This ensures vertical scrolling always takes priority
+                    guard horizontalAmount > verticalAmount * 4.0 else { 
+                        // Reset any partial swipe state if gesture becomes too vertical
+                        if swipeOffset != 0 {
+                            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.9))) {
+                                swipeOffset = 0
+                                swipeDirection = .none
+                            }
+                        }
+                        return 
+                    }
+
+                    // Strict vertical limit - abort if ANY vertical movement detected
+                    // This ensures scrolling always works smoothly
+                    guard verticalAmount < 10 else {
+                        if swipeOffset != 0 {
+                            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.9))) {
+                                swipeOffset = 0
+                                swipeDirection = .none
+                            }
+                        }
                         return
                     }
-                    
-                    // Determine swipe direction
-                    if value.translation.width > 20 {
+
+                    // Only update swipe state if horizontal movement is significant
+                    if value.translation.width > 30 {
                         swipeDirection = .right
                         swipeOffset = min(value.translation.width, 100)
-                    } else if value.translation.width < -20 {
+                    } else if value.translation.width < -30 {
                         swipeDirection = .left
                         swipeOffset = max(value.translation.width, -100)
                     }
                 }
                 .onEnded { value in
-                    let threshold: CGFloat = 60
+                    let threshold: CGFloat = 70 // Increased threshold for more deliberate swipes
                     let horizontalAmount = abs(value.translation.width)
                     let verticalAmount = abs(value.translation.height)
-                    
-                    // Only trigger action if this was a horizontal swipe
-                    guard horizontalAmount > verticalAmount * 2 else {
-                        // Reset without triggering action
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+
+                    // Very strict check: only trigger if it's an unmistakably horizontal swipe
+                    // 4x ratio + minimal vertical movement ensures this never interferes with scrolling
+                    guard horizontalAmount > verticalAmount * 4.0, verticalAmount < 15 else {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             swipeOffset = 0
                             swipeDirection = .none
                         }
@@ -1584,7 +3168,7 @@ struct PostCard: View {
                         triggerSwipeLikeAction()
                         
                         // Reset with animation
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             swipeOffset = 0
                             swipeDirection = .none
                         }
@@ -1594,14 +3178,14 @@ struct PostCard: View {
                         
                         // Small delay before reset to ensure sheet presents properly
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 swipeOffset = 0
                                 swipeDirection = .none
                             }
                         }
                     } else {
                         // Reset with animation if threshold not met
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             swipeOffset = 0
                             swipeDirection = .none
                         }
@@ -1613,10 +3197,10 @@ struct PostCard: View {
     private func swipeIndicator(icon: String, color: Color, text: String) -> some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 28, weight: .medium))
+                .font(.systemScaled(28, weight: .medium))
                 .foregroundColor(color)
             Text(text)
-                .font(.custom("OpenSans-SemiBold", size: 12))
+                .font(AMENFont.semiBold(12))
                 .foregroundColor(color)
         }
         // P0 PERF FIX: Removed nested animation - scale effect updates implicitly with swipeOffset
@@ -1647,15 +3231,16 @@ struct PostCard: View {
     
     private func triggerSwipeCommentAction() {
         HapticManager.impact(style: .light)
-        showCommentsSheet = true
+        guard let post = post else { return }
+        presentSheet(.comments(post: post))
     }
     
     private func repostIndicator(originalAuthor: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
             Text("Reposted from \(originalAuthor)")
-                .font(.custom("OpenSans-SemiBold", size: 13))
+                .font(AMENFont.semiBold(13))
         }
         .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
@@ -1673,7 +3258,9 @@ struct PostCard: View {
         if let note = churchNote {
             ChurchNotePreviewCard(note: note) {
                 HapticManager.impact(style: .light)
-                showChurchNoteDetail = true
+                if let note = churchNote {
+                    presentSheet(.churchNoteDetail(note: note))
+                }
             }
         } else {
             // Loading state
@@ -1686,7 +3273,7 @@ struct PostCard: View {
 
     private func loadChurchNote(id: String) async {
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let doc = try await db.collection("churchNotes").document(id).getDocument()
 
             guard doc.exists, let note = try? doc.data(as: ChurchNote.self) else {
@@ -1711,38 +3298,47 @@ struct PostCard: View {
 
     private var interactionButtons: some View {
         HStack(spacing: 16) {
-            // 1. Lightbulb (OpenTable) / Praying hands (Prayer) / Amen clap (other)
+            // 1. Lightbulb (OpenTable) / Amen (Prayer + other categories)
+            // Wave 5 — Focus mode hides the like/Amen affordance (fail-open; flag-gated OFF).
+            Group {
             if category == .openTable {
                 circularInteractionButton(
                     icon: hasLitLightbulb ? "lightbulb.fill" : "lightbulb",
                     count: nil,
                     isActive: hasLitLightbulb,
                     activeColor: .black,
-                    disabled: isUserPost
+                    disabled: isUserPost,
+                    // HIGH FIX: Provide descriptive label so VoiceOver reads action, not SF Symbol name
+                    accessibilityLabel: isUserPost
+                        ? (hasLitLightbulb ? "Remove inspiration" : "Add inspiration — disabled for your own post")
+                        : (hasLitLightbulb ? "Remove inspiration" : "Mark as inspiring")
                 ) {
                     if !isUserPost { toggleLightbulb() }
                 }
-            } else if category == .prayer {
-                circularInteractionButton(
-                    icon: isPraying ? "hands.sparkles.fill" : "hands.sparkles",
-                    count: prayingNowCount > 0 ? prayingNowCount : nil,
-                    isActive: isPraying,
-                    activeColor: .black,
-                    disabled: false
-                ) {
-                    togglePraying()
-                }
             } else {
+                // Unified Amen button for Prayer, Testimonies, and other categories
                 circularInteractionButton(
                     icon: hasSaidAmen ? "hands.clap.fill" : "hands.clap",
                     count: nil,
                     isActive: hasSaidAmen,
                     activeColor: .black,
-                    disabled: isUserPost
+                    disabled: isUserPost,
+                    // HIGH FIX: Provide descriptive label so VoiceOver reads action, not SF Symbol name
+                    accessibilityLabel: isUserPost
+                        ? (hasSaidAmen ? "Remove Amen" : "Say Amen — disabled for your own post")
+                        : (hasSaidAmen ? "Remove Amen" : "Say Amen")
                 ) {
-                    if !isUserPost { toggleAmen() }
+                    if !isUserPost { 
+                        toggleAmen()
+                        // For prayer posts, also toggle the praying status
+                        if category == .prayer {
+                            togglePraying()
+                        }
+                    }
                 }
             }
+            }
+            .hiddenInFocus(.likes)
 
             // 2. Comment — illuminates when current user has commented
             circularInteractionButton(
@@ -1754,7 +3350,8 @@ struct PostCard: View {
                 enableBounce: false,
                 accessibilityLabel: "Comment"
             ) {
-                showCommentsSheet = true
+                guard let post = post else { return }
+                presentSheet(.comments(post: post))
             }
 
             // 3. Repost (repeat — illuminates when active; tap opens Repost/Quote sheet)
@@ -1800,6 +3397,20 @@ struct PostCard: View {
                     }
                 }
             }
+            .fullScreenCover(isPresented: $showPostCardScriptureDetail) {
+                if let attachment = postCardScriptureAttachment {
+                    ScriptureDetailRoute(
+                        context: SelahLaunchContext(
+                            attachment: attachment,
+                            sourceContext: .postCard,
+                            prefetchedPayload: nil,
+                            translationPreference: attachment.translation,
+                            openMode: .verseFocus
+                        ),
+                        onDismiss: { showPostCardScriptureDetail = false }
+                    )
+                }
+            }
             
             // Prayer Echo button — shown only for prayer posts
             if category == .prayer, let post = post {
@@ -1814,12 +3425,20 @@ struct PostCard: View {
                     if let post = post {
                         BereanLiveActivityService.shared.startActivity(for: post)
                     } else {
-                        showBereanSheet = true
+                        presentSheet(.berean(initialQuery: bereanInitialQuery))
                     }
                 }
-                .frame(width: 20, height: 20)
+                // ✅ FIX: Removed .frame(width: 20, height: 20) - was too small to tap
+                // Button has its own 28x28 frame which provides proper tap target
             }
-            
+
+            // 5. Check against Scripture — Requires DiscernmentActionButton.swift in target (see SelahScripture/)
+            DiscernmentActionButton(
+                inputText: content,
+                sourceType: "post",
+                sourceRef: stablePostId
+            )
+
             Spacer()
         }
     }
@@ -1841,8 +3460,8 @@ struct PostCard: View {
         Button(action: action) {
             // Threads-style: small, uniform icons; filled/bold weight when active
             Image(systemName: icon)
-                .font(.system(size: 17, weight: isActive ? .semibold : .thin))
-                .foregroundStyle(isActive ? Color.black : Color.black.opacity(0.55))
+                .font(.systemScaled(17, weight: isActive ? .semibold : .thin))
+                .foregroundStyle(isActive ? Color.primary : Color.secondary)
                 .contentTransition(.identity)  // instant swap — spring handles the visual transition
                 // E) Reaction pop/dip on toggle — only when bounce is enabled
                 .reactionPop(isActive: enableBounce ? isActive : false)
@@ -1853,6 +3472,17 @@ struct PostCard: View {
         // Fast spring so icon color/weight change feels instant on tap
         .animation(.spring(response: 0.12, dampingFraction: 0.75), value: isActive)
         .accessibilityLabel(accessibilityLabel ?? icon)
+    }
+
+    // Feature 5 — Tiny insight counter (author-only)
+    private func insightItem(icon: String, count: Int, label: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.systemScaled(10, weight: .semibold))
+            Text("\(count) \(label)")
+                .font(.systemScaled(11, weight: .regular))
+        }
+        .foregroundStyle(.secondary)
     }
     
     private var prayingNowButton: some View {
@@ -1865,14 +3495,14 @@ struct PostCard: View {
                     if isPraying {
                         // P1 FIX: Reduced blur for performance (6px -> 3px)
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.systemScaled(12, weight: .bold))
                             .foregroundStyle(.blue)
                             .blur(radius: 3)
                             .opacity(0.6)
                     }
                     
                     Image(systemName: isPraying ? "hands.sparkles.fill" : "hands.sparkles")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(isPraying ? 
                             LinearGradient(
                                 colors: [.blue, .purple],
@@ -1880,34 +3510,31 @@ struct PostCard: View {
                                 endPoint: .bottomTrailing
                             ) :
                             LinearGradient(
-                                colors: [.black.opacity(0.5), .black.opacity(0.5)],
+                                colors: [Color.secondary, Color.secondary],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
                 }
                 
-                if prayingNowCount > 0 {
-                    Text("\(prayingNowCount)")
-                        .font(.custom("OpenSans-SemiBold", size: 11))
-                        .foregroundStyle(isPraying ? Color.blue : Color.black.opacity(0.5))
-                        .contentTransition(.numericText())
-                }
+                // C-025: prayingNowCount not shown publicly — icon state only
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(isPraying ? Color.blue.opacity(0.15) : Color.black.opacity(0.05))
+                    .fill(isPraying ? Color.blue.opacity(0.15) : Color(.tertiarySystemFill))
                     .shadow(color: isPraying ? Color.blue.opacity(0.2) : Color.clear, radius: 8, y: 2)
             )
             .overlay(
                 Capsule()
-                    .stroke(isPraying ? Color.blue.opacity(0.3) : Color.black.opacity(0.1), lineWidth: isPraying ? 1.5 : 1)
+                    .stroke(isPraying ? Color.blue.opacity(0.3) : Color(.separator).opacity(0.25), lineWidth: isPraying ? 1.5 : 1)
             )
         }
         .buttonStyle(.instantFeedback)  // ✅ P0 FIX: INSTANT touch-down feedback
         .symbolEffect(.bounce, value: isPraying)
+        // HIGH FIX: VoiceOver label so "hands.sparkles" icon is announced as an action
+        .accessibilityLabel(isPraying ? "Stop praying for this post" : "Pray for this post")
     }
     
     // MARK: - Share Text Helper
@@ -1937,7 +3564,8 @@ struct PostCard: View {
         guard now.timeIntervalSince(lastProfileNavDate) > 0.35 else { return }
         lastProfileNavDate = now
         HapticManager.impact(style: .light)
-        showUserProfile = true
+        guard !post.authorId.isEmpty else { return }
+        presentSheet(.userProfile(userId: post.authorId))
         dlog("👤 Opening profile for: \(authorName) (ID: \(post.authorId))")
     }
     
@@ -1984,7 +3612,7 @@ struct PostCard: View {
 
         // Haptic + optimistic update fire immediately — before the network round-trip
         HapticManager.impact(style: .light)
-        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
             hasLitLightbulb.toggle()
             isLightbulbAnimating = true
         }
@@ -2008,6 +3636,9 @@ struct PostCard: View {
                 logDebug("  AFTER: hasLitLightbulb=\(hasLitLightbulb), count=\(lightbulbCount)", category: "LIGHTBULB")
                 logDebug("  Note: Count will update via real-time observer", category: "LIGHTBULB")
 
+                // WR-03: Analytics for lightbulb action
+                AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "lightbulb"))
+
                 // Reset animation state
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                     isLightbulbAnimating = false
@@ -2018,7 +3649,7 @@ struct PostCard: View {
                 logDebug("  ROLLBACK: Reverting to hasLitLightbulb=\(previousState)", category: "LIGHTBULB")
 
                 // Revert optimistic update on error
-                withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                     hasLitLightbulb = previousState
                 }
                 isLightbulbAnimating = false
@@ -2059,11 +3690,25 @@ struct PostCard: View {
         logDebug("  BEFORE: hasSaidAmen=\(previousState), count=\(previousCount)", category: "AMEN")
         logDebug("  Source: Local @State", category: "AMEN")
 
-        // Haptic + optimistic update fire immediately — before the network round-trip
-        HapticManager.notification(type: .success)
-        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
-            hasSaidAmen.toggle()
-        }
+        // Fire smart notification (apply = optimistic toggle, reverse = rollback on undo)
+        let amenAuthorName = authorName
+        AmenNotifications.fire(NotifContext(
+            action: .amen,
+            actorName: amenAuthorName,
+            toneColors: (Color.accentColor, Color.accentColor.opacity(0.7)),
+            undoWindow: 4.2,
+            apply: {
+                HapticManager.notification(type: .success)
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.hasSaidAmen = !self.hasSaidAmen
+                }
+            },
+            reverse: {
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.hasSaidAmen = !self.hasSaidAmen
+                }
+            }
+        ))
 
         logDebug("  OPTIMISTIC: hasSaidAmen=\(hasSaidAmen), count=\(amenCount)", category: "AMEN")
 
@@ -2094,6 +3739,18 @@ struct PostCard: View {
                         metadata: nil
                     )
                     try? await VertexAIPersonalizationService.shared.recordEngagement(event)
+                    // HeyFeed: amen = strong engagement signal
+                    let amenTopicId: String = {
+                        if let tag = post.topicTag, !tag.isEmpty { return tag }
+                        switch post.category {
+                        case .testimonies: return "testimonies"
+                        case .prayer:      return "prayer_requests"
+                        case .tip:         return "bible_teaching"
+                        case .funFact:     return "bible_teaching"
+                        case .openTable:   return "community"
+                        }
+                    }()
+                    HeyFeedContradictionService.shared.recordEngage(targetId: amenTopicId)
                 }
 
             } catch {
@@ -2101,7 +3758,7 @@ struct PostCard: View {
                 logDebug("  ROLLBACK: Reverting to hasSaidAmen=\(previousState)", category: "AMEN")
 
                 // Revert optimistic update on error
-                withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                     hasSaidAmen = previousState
                 }
                 amenShakeError.toggle()
@@ -2116,18 +3773,19 @@ struct PostCard: View {
 
     private func deletePost() {
         guard let post = post else { return }
-        
-        // Delete from PostsManager
-        postsManager.deletePost(postId: post.id)
-        
-        // Send notification for real-time ProfileView update
-        NotificationCenter.default.post(
-            name: Notification.Name("postDeleted"),
-            object: nil,
-            userInfo: ["postId": post.id]
-        )
-        
-        dlog("🗑️ Post deleted - notification sent")
+        // Optimistic: collapse card immediately so it feels instant
+        withAnimation(.easeOut(duration: 0.2)) {
+            isDeletingPost = true
+        }
+        Task {
+            postsManager.deletePost(postId: post.id)
+            NotificationCenter.default.post(
+                name: Notification.Name("postDeleted"),
+                object: nil,
+                userInfo: ["postId": post.id]
+            )
+            dlog("🗑️ Post deleted - notification sent")
+        }
     }
     
     private func toggleRepost() {
@@ -2169,11 +3827,25 @@ struct PostCard: View {
             }
         }
         
-        // Haptic + optimistic update fire immediately — before the network round-trip
-        HapticManager.notification(type: .success)
-        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
-            hasReposted.toggle()
-        }
+        // Fire smart notification (apply = optimistic toggle, reverse = rollback on undo)
+        let repostAuthorName = authorName
+        AmenNotifications.fire(NotifContext(
+            action: .repost,
+            actorName: repostAuthorName,
+            toneColors: (Color.accentColor, Color.accentColor.opacity(0.7)),
+            undoWindow: 4.2,
+            apply: {
+                HapticManager.notification(type: .success)
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.hasReposted = !self.hasReposted
+                }
+            },
+            reverse: {
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.hasReposted = !self.hasReposted
+                }
+            }
+        ))
 
         logDebug("  OPTIMISTIC: hasReposted=\(hasReposted), count=\(repostCount)", category: "REPOST")
 
@@ -2187,9 +3859,14 @@ struct PostCard: View {
                 logDebug("✅ Backend write SUCCESS", category: "REPOST")
                 logDebug("  Backend returned: isReposted=\(isReposted)", category: "REPOST")
 
+                // WR-11: Analytics for repost action (only on repost, not un-repost)
+                if isReposted {
+                    AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "repost"))
+                }
+
                 // Update UI to match database state
                 await MainActor.run {
-                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                    withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                         hasReposted = isReposted
                     }
                 }
@@ -2219,12 +3896,12 @@ struct PostCard: View {
                 logDebug("  ROLLBACK: Reverting to hasReposted=\(previousState)", category: "REPOST")
 
                 await MainActor.run {
-                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                    withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                         hasReposted = previousState
                     }
                     repostShakeError.toggle()
                     errorMessage = "Failed to toggle repost. Please try again."
-                    showErrorAlert = true
+                    activeAlert = .error(errorMessage)
                 }
                 HapticManager.notification(type: .error)
 
@@ -2236,11 +3913,23 @@ struct PostCard: View {
 
     private func sharePost() {
         HapticManager.impact(style: .light)
-        showShareSheet = true
+        if let post = post {
+            presentSheet(.share(post: post, churchNote: churchNote))
+        }
         
         // Record share engagement for ML training
         if let post = post, let userId = Auth.auth().currentUser?.uid {
             let postId = post.firebaseId ?? post.id.uuidString
+            let shareTopicId: String = {
+                if let tag = post.topicTag, !tag.isEmpty { return tag }
+                switch post.category {
+                case .testimonies: return "testimonies"
+                case .prayer:      return "prayer_requests"
+                case .tip:         return "bible_teaching"
+                case .funFact:     return "bible_teaching"
+                case .openTable:   return "community"
+                }
+            }()
             Task {
                 let event = EngagementEvent(
                     userId: userId,
@@ -2251,6 +3940,8 @@ struct PostCard: View {
                     metadata: nil
                 )
                 try? await VertexAIPersonalizationService.shared.recordEngagement(event)
+                // HeyFeed: share = strong engagement signal
+                HeyFeedContradictionService.shared.recordEngage(targetId: shareTopicId)
             }
         }
     }
@@ -2258,8 +3949,8 @@ struct PostCard: View {
     private func copyLink() {
         guard let post = post else { return }
 
-        // ✅ Generate deep link URL for production
-        let deepLink = "amenapp://post/\(post.id.uuidString)"
+        // Use firestoreId so the deep link is stable and matches the server-side route
+        let deepLink = "amenapp://post/\(post.firestoreId)"
 
         UIPasteboard.general.string = deepLink
         HapticManager.notification(type: .success)
@@ -2277,21 +3968,22 @@ struct PostCard: View {
     private func muteAuthor() {
         guard let post = post else { return }
         let authorId = post.authorId
+        let safeName = authorName.isEmpty ? "this user" : authorName  // ✅ Capture before async context
         
         Task {
             do {
                 try await moderationService.muteUser(userId: authorId)
-                dlog("🔇 Muted \(authorName)")
+                dlog("🔇 Muted \(safeName)")
                 
                 await MainActor.run {
-                    showMuteSuccess = true
+                    activeAlert = .muteSuccess(safeName)
                     HapticManager.notification(type: .success)
                 }
             } catch {
                 dlog("❌ Failed to mute: \(error)")
                 await MainActor.run {
                     errorMessage = "Failed to mute user. Please try again."
-                    showErrorAlert = true
+                    activeAlert = .error(errorMessage)
                     HapticManager.notification(type: .error)
                 }
             }
@@ -2301,21 +3993,22 @@ struct PostCard: View {
     private func blockAuthor() {
         guard let post = post else { return }
         let authorId = post.authorId
+        let safeName = authorName.isEmpty ? "this user" : authorName  // ✅ Capture before async context
         
         Task {
             do {
                 try await moderationService.blockUser(userId: authorId)
-                dlog("🚫 Blocked \(authorName)")
+                dlog("🚫 Blocked \(safeName)")
                 
                 await MainActor.run {
-                    showBlockSuccess = true
+                    activeAlert = .blockSuccess(safeName)
                     HapticManager.notification(type: .success)
                 }
             } catch {
                 dlog("❌ Failed to block: \(error)")
                 await MainActor.run {
                     errorMessage = "Failed to block user. Please try again."
-                    showErrorAlert = true
+                    activeAlert = .error(errorMessage)
                     HapticManager.notification(type: .error)
                 }
             }
@@ -2330,35 +4023,89 @@ struct PostCard: View {
             do {
                 let db = Firestore.firestore()
                 
-                // Store "not interested" feedback for personalization
-                try await db.collection("users")
-                    .document(currentUserId)
-                    .collection("notInterested")
-                    .document(post.firestoreId)
+                // Store "not interested" feedback in the TOP-LEVEL notInterested collection.
+                // Firestore rule: /notInterested/{signalId} requires {userId, postId} fields
+                // and checks userId == auth.uid. Document ID is userId_postId for idempotency.
+                try await db.collection("notInterested")
+                    .document("\(currentUserId)_\(post.firestoreId)")
                     .setData([
+                        "userId": currentUserId,
                         "postId": post.firestoreId,
                         "postCategory": post.category.rawValue,
                         "postAuthorId": post.authorId,
                         "timestamp": FieldValue.serverTimestamp()
-                    ])
+                    ], merge: true)
                 
                 dlog("👎 Marked post as not interested: \(post.firestoreId)")
-                
+
+                // HeyFeed: "not interested" = explicit skip signal
+                let skipTopicId: String = {
+                    if let tag = post.topicTag, !tag.isEmpty { return tag }
+                    switch post.category {
+                    case .testimonies: return "testimonies"
+                    case .prayer:      return "prayer_requests"
+                    case .tip:         return "bible_teaching"
+                    case .funFact:     return "bible_teaching"
+                    case .openTable:   return "community"
+                    }
+                }()
                 await MainActor.run {
-                    showNotInterestedSuccess = true
+                    HeyFeedContradictionService.shared.recordSkip(targetId: skipTopicId)
+                }
+
+                await MainActor.run {
+                    activeAlert = .feedbackReceived
                     HapticManager.notification(type: .success)
                 }
             } catch {
                 dlog("❌ Failed to mark not interested: \(error)")
                 await MainActor.run {
                     errorMessage = "Failed to save feedback. Please try again."
-                    showErrorAlert = true
+                    activeAlert = .error(errorMessage)
                     HapticManager.notification(type: .error)
                 }
             }
         }
     }
     
+    // MARK: - Testimony Resonance
+
+    private func fetchTestimonyResonance(actionType: String) {
+        guard let post = post, !post.content.isEmpty else { return }
+        let testimonyText = post.content
+        Task {
+            do {
+                let functions = Functions.functions()
+                let result = try await functions.httpsCallable("testimonyResonanceScore").call([
+                    "testimonyText": testimonyText,
+                    "actionType": actionType,
+                ])
+                if let data = result.data as? [String: Any],
+                   let copy = data["copy"] as? String,
+                   !copy.isEmpty {
+                    await MainActor.run {
+                        testimonyResonanceCopy = copy
+                        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
+                            showTestimonyResonance = true
+                        }
+                        testimonyResonanceDismissTask?.cancel()
+                        testimonyResonanceDismissTask = Task {
+                            try? await Task.sleep(nanoseconds: 5_000_000_000)
+                            guard !Task.isCancelled else { return }
+                            await MainActor.run {
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    showTestimonyResonance = false
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch {
+                // Silent fail — resonance copy is non-critical
+            }
+        }
+    }
+
     private func toggleSave() {
         // ✅ IDEMPOTENCY CHECK #1: Prevent saves already in flight
         guard !isSaveInFlight else {
@@ -2393,7 +4140,7 @@ struct PostCard: View {
             logDebug("📱 Offline - cannot save/unsave posts", category: "SAVE")
             dlog("📱 [SAVE-GUARD-5] Offline - save blocked")
             errorMessage = "You're offline. Please check your connection and try again."
-            showErrorAlert = true
+            activeAlert = .error(errorMessage)
             
             HapticManager.notification(type: .warning)
             return
@@ -2426,13 +4173,25 @@ struct PostCard: View {
         logDebug("  Timestamp: \(Date())", category: "SAVE")
         logDebug("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", category: "SAVE")
 
-        // Haptic + optimistic update fire immediately — before the network round-trip
-        HapticManager.impact(style: .light)
-        logDebug("  📤 Performing OPTIMISTIC UI update...", category: "SAVE")
-        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
-            isSaved.toggle()
-        }
-        
+        // Fire smart notification (apply = optimistic toggle, reverse = rollback on undo)
+        AmenNotifications.fire(NotifContext(
+            action: .save,
+            actorName: "Your Library",
+            toneColors: (Color(hex: "#2D6A4F"), Color(hex: "#52B788")),
+            undoWindow: 4.2,
+            apply: {
+                HapticManager.impact(style: .light)
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.isSaved = !self.isSaved
+                }
+            },
+            reverse: {
+                withAnimation(Motion.adaptive(.spring(response: self.springResponse, dampingFraction: self.springDamping))) {
+                    self.isSaved = !self.isSaved
+                }
+            }
+        ))
+
         logDebug("  ✅ OPTIMISTIC UPDATE COMPLETE: isSaved=\(isSaved)", category: "SAVE")
         logDebug("  Expected outcome: \(isSaved ? "SAVED" : "UNSAVED")", category: "SAVE")
         
@@ -2454,7 +4213,7 @@ struct PostCard: View {
                 // Ensure UI matches server state
                 await MainActor.run {
                     if isSaved != isSavedNow {
-                        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                             isSaved = isSavedNow
                         }
                     }
@@ -2484,6 +4243,18 @@ struct PostCard: View {
                             metadata: nil
                         )
                         try? await VertexAIPersonalizationService.shared.recordEngagement(event)
+                        // HeyFeed: save = strong engagement signal
+                        let saveTopicId: String = {
+                            if let tag = post.topicTag, !tag.isEmpty { return tag }
+                            switch post.category {
+                            case .testimonies: return "testimonies"
+                            case .prayer:      return "prayer_requests"
+                            case .tip:         return "bible_teaching"
+                            case .funFact:     return "bible_teaching"
+                            case .openTable:   return "community"
+                            }
+                        }()
+                        HeyFeedContradictionService.shared.recordEngage(targetId: saveTopicId)
                     }
                 } else {
                     NotificationCenter.default.post(
@@ -2500,7 +4271,7 @@ struct PostCard: View {
                 
                 // Revert on error
                 await MainActor.run {
-                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                    withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                         isSaved = previousState
                     }
                     
@@ -2517,7 +4288,7 @@ struct PostCard: View {
                         errorMessage = "Failed to save post. Please try again."
                     }
                     
-                    showErrorAlert = true
+                    activeAlert = .error(errorMessage)
                     saveShakeError.toggle() // H) Shake save/bookmark button
                     
                     let haptic = UINotificationFeedbackGenerator()
@@ -2548,7 +4319,7 @@ struct PostCard: View {
         
         // Haptic + optimistic update fire immediately — before the network round-trip
         HapticManager.impact(style: .light)
-        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
             isPraying.toggle()
         }
 
@@ -2573,10 +4344,30 @@ struct PostCard: View {
 
             if success {
                 dlog("✅ \(isPraying ? "Started" : "Stopped") praying for post")
+                // WR-12: Analytics for prayer action (only on start, not stop)
+                if isPraying {
+                    await MainActor.run {
+                        AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "prayer"))
+                    }
+                }
+                // SELAH: Create a prayer commitment when user starts praying (not stopping).
+                // Flag-gated; failure is silent — the pray tap is already recorded.
+                if isPraying,
+                   AMENFeatureFlags.shared.commitmentConnections,
+                   let fromUid = Auth.auth().currentUser?.uid,
+                   !post.authorId.isEmpty,
+                   fromUid != post.authorId {
+                    _ = try? await commitmentService.createCommitment(
+                        fromUid: fromUid,
+                        toUid: post.authorId,
+                        kind: .prayFor,
+                        requestRef: "posts/\(post.firestoreId)"
+                    )
+                }
             } else {
                 dlog("❌ Failed to \(isPraying ? "start" : "stop") praying")
                 await MainActor.run {
-                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                    withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
                         isPraying = previousState
                     }
                     HapticManager.notification(type: .error)
@@ -2584,829 +4375,411 @@ struct PostCard: View {
             }
         }
     }
-}
 
-// MARK: - Report Post Sheet
-
-struct ReportPostSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let post: Post
-    let postAuthor: String
-    let category: PostCard.PostCardCategory
-    
-    @State private var selectedReason: ReportReason?
-    @State private var additionalDetails = ""
-    @State private var showSuccessAlert = false
-    @FocusState private var isTextFieldFocused: Bool
-    
-    enum ReportReason: String, CaseIterable, Identifiable {
-        case spam = "Spam or misleading"
-        case harassment = "Harassment or bullying"
-        case hateSpeech = "Hate speech or violence"
-        case inappropriateContent = "Inappropriate content"
-        case falseInformation = "False information"
-        case offTopic = "Off-topic or irrelevant"
-        case copyright = "Copyright violation"
-        case other = "Other"
+    private func toggleFasting() {
+        dlog("🔥 toggleFasting() called")
         
-        var id: String { rawValue }
-        
-        var icon: String {
-            switch self {
-            case .spam: return "envelope.badge.fill"
-            case .harassment: return "exclamationmark.bubble.fill"
-            case .hateSpeech: return "hand.raised.fill"
-            case .inappropriateContent: return "eye.slash.fill"
-            case .falseInformation: return "checkmark.seal.fill"
-            case .offTopic: return "arrow.triangle.branch"
-            case .copyright: return "c.circle.fill"
-            case .other: return "ellipsis.circle.fill"
-            }
+        guard let post = post else {
+            dlog("❌ No post object available")
+            return
         }
         
-        var description: String {
-            switch self {
-            case .spam:
-                return "Unwanted commercial content or repetitive posts"
-            case .harassment:
-                return "Targeted harassment, threats, or bullying"
-            case .hateSpeech:
-                return "Content promoting violence or hatred"
-            case .inappropriateContent:
-                return "Sexually explicit or disturbing content"
-            case .falseInformation:
-                return "Deliberately misleading or false claims"
-            case .offTopic:
-                return "Content that doesn't fit this category"
-            case .copyright:
-                return "Unauthorized use of copyrighted material"
-            case .other:
-                return "Something else that violates community guidelines"
-            }
+        guard category == .prayer, post.topicTag == "Prayer Request" else {
+            dlog("⚠️ Not a prayer request post")
+            return
         }
-    }
-    
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    // Header
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Report Post")
-                            .font(.custom("OpenSans-Bold", size: 28))
-                        
-                        Text("Help us keep AMEN safe. Why are you reporting this post?")
-                            .font(.custom("OpenSans-Regular", size: 15))
-                            .foregroundStyle(.secondary)
-                            .lineSpacing(4)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    
-                    // Report Reasons
-                    VStack(spacing: 12) {
-                        ForEach(ReportReason.allCases) { reason in
-                            ReportReasonCard(
-                                reason: reason,
-                                isSelected: selectedReason == reason
-                            ) {
-                                HapticManager.impact(style: .light)
-                                selectedReason = reason
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    
-                    // Additional Details (optional)
-                    if selectedReason != nil {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Additional Details (Optional)")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
-                                .foregroundStyle(.primary)
-                            
-                            ZStack(alignment: .topLeading) {
-                                if additionalDetails.isEmpty {
-                                    Text("Provide any additional context that might help us review this report...")
-                                        .font(.custom("OpenSans-Regular", size: 15))
-                                        .foregroundStyle(.secondary)
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 12)
-                                }
-                                
-                                TextEditor(text: $additionalDetails)
-                                    .font(.custom("OpenSans-Regular", size: 15))
-                                    .frame(minHeight: 100)
-                                    .focused($isTextFieldFocused)
-                                    .scrollContentBackground(.hidden)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                            }
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(.systemGray6))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color(.systemGray4), lineWidth: 1)
-                            )
-                            
-                            Text("\(additionalDetails.count)/500 characters")
-                                .font(.custom("OpenSans-Regular", size: 12))
-                                .foregroundStyle(additionalDetails.count > 500 ? .red : .secondary)
-                        }
-                        .padding(.horizontal, 16)
-                        .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: 0.2)))
-                    }
-                    
-                    // Privacy Notice
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "shield.checkered")
-                                .font(.system(size: 14))
-                                .foregroundStyle(.blue)
-                            
-                            Text("Your report is confidential")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundStyle(.primary)
-                        }
-                        
-                        Text("We'll review this report and take appropriate action. The person who posted this won't know you reported it.")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                            .lineSpacing(4)
-                    }
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.blue.opacity(0.08))
-                    )
-                    .padding(.horizontal, 16)
-                    
-                    Spacer(minLength: 100)
-                }
-                .padding(.vertical, 20)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                // Submit Button
-                Button {
-                    submitReport()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18))
-                        Text("Submit Report")
-                            .font(.custom("OpenSans-Bold", size: 16))
-                    }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(selectedReason != nil ? Color.red : Color.red.opacity(0.3))
-                    )
-                }
-                .disabled(selectedReason == nil)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 10, y: -5)
-            }
-        }
-        .alert("Report Submitted", isPresented: $showSuccessAlert) {
-            Button("OK") {
-                dismiss()
-            }
-        } message: {
-            Text("Thank you for helping keep AMEN safe. We'll review this report and take appropriate action.")
-        }
-    }
-    
-    private func submitReport() {
-        guard let reason = selectedReason else { return }
         
-        Task {
-            do {
-                try await ModerationService.shared.reportPost(
-                    postId: post.firestoreId,
-                    postAuthorId: post.authorId,
-                    reason: convertToModerationReason(reason),
-                    additionalDetails: additionalDetails.isEmpty ? nil : additionalDetails
-                )
-                
-                dlog("✅ Report submitted successfully")
-                
-                await MainActor.run {
-                    showSuccessAlert = true
-                }
-                
-            } catch {
-                dlog("❌ Failed to submit report: \(error)")
-                
-                await MainActor.run {
-                    // Show error to user
-                    dismiss()
-                }
-            }
-        }
-    }
-    
-    private func convertToModerationReason(_ reason: ReportReason) -> ModerationReportReason {
-        switch reason {
-        case .spam: return .spam
-        case .harassment: return .harassment
-        case .hateSpeech: return .hateSpeech
-        case .inappropriateContent: return .inappropriateContent
-        case .falseInformation: return .falseInformation
-        case .offTopic: return .offTopic
-        case .copyright: return .copyright
-        case .other: return .other
-        }
-    }
-}
-
-// MARK: - Report Reason Card
-
-struct ReportReasonCard: View {
-    let reason: ReportPostSheet.ReportReason
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 16) {
-                // Icon
-                ZStack {
-                    Circle()
-                        .fill(isSelected ? Color.red.opacity(0.15) : Color(.systemGray6))
-                        .frame(width: 48, height: 48)
-                    
-                    Image(systemName: reason.icon)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(isSelected ? Color.red : Color.secondary)
-                }
-                
-                // Text
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(reason.rawValue)
-                        .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.primary)
-                    
-                    Text(reason.description)
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                        .lineSpacing(2)
-                }
-                
-                Spacer()
-                
-                // Checkmark
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 24))
-                    .foregroundStyle(isSelected ? Color.red : Color(.systemGray4))
-                    .symbolEffect(.bounce, value: isSelected)
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemBackground))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(isSelected ? Color.red.opacity(0.3) : Color(.systemGray5), lineWidth: isSelected ? 2 : 1)
-                    )
-                    .shadow(color: isSelected ? Color.red.opacity(0.1) : Color.black.opacity(0.04), radius: isSelected ? 12 : 6, y: 2)
-            )
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(isSelected ? 1.0 : 1.0)
-        .animation(.easeOut(duration: 0.15), value: isSelected)
-    }
-}
-
-// MARK: - View Modifiers
-
-/// Handles all sheet presentations and alerts
-private struct PostCardSheetsModifier: ViewModifier {
-    @Binding var showUserProfile: Bool
-    @Binding var showingEditSheet: Bool
-    @Binding var showShareSheet: Bool
-    @Binding var showPostDetail: Bool  // ✅ Shows full post detail view
-    @Binding var showCommentsSheet: Bool  // ✅ Shows dedicated comments UI
-    @Binding var showingDeleteAlert: Bool
-    @Binding var showReportSheet: Bool
-    @Binding var showChurchNoteDetail: Bool
-    @Binding var churchNote: ChurchNote?
-    @Binding var showMentionedUserProfile: Bool
-    @Binding var tappedMentionUserId: String?
-
-    @Binding var hasCommented: Bool
-
-    let post: Post?
-    let authorName: String
-    let category: PostCard.PostCardCategory
-    let deleteAction: () -> Void
-    
-    func body(content: Content) -> some View {
-        content
-            // User Profile Sheet - Opens when tapping avatar or author name
-            .sheet(isPresented: $showUserProfile) {
-                if let post = post, !post.authorId.isEmpty {
-                    UserProfileView(userId: post.authorId, showsDismissButton: true)
-                } else {
-                    // Fallback if no post data or invalid authorId
-                    VStack(spacing: 16) {
-                        Image(systemName: "person.crop.circle.badge.exclamationmark")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.secondary)
-                        Text("Unable to load profile")
-                            .font(.custom("OpenSans-SemiBold", size: 16))
-                            .foregroundStyle(.primary)
-                        Text("The user information is not available")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding()
-                }
-            }
-            // ✅ Mentioned user profile — tapping @username in post text
-            .sheet(isPresented: $showMentionedUserProfile, onDismiss: {
-                tappedMentionUserId = nil
-            }) {
-                if let uid = tappedMentionUserId {
-                    UserProfileView(userId: uid, showsDismissButton: true)
-                }
-            }
-            .sheet(isPresented: $showingEditSheet) {
-                if let post = post {
-                    EditPostSheet(post: post)
-                }
-            }
-            .sheet(isPresented: $showShareSheet) {
-                if let post = post {
-                    // If post has a church note, show church note share options
-                    if post.churchNoteId != nil, let note = churchNote {
-                        ChurchNoteShareOptionsSheet(note: note)
-                    } else {
-                        // ✅ Show new share options sheet with "Send in Message" and "Share Externally"
-                        PostShareOptionsSheet(post: post)
-                    }
-                }
-            }
-            // ✅ Full PostDetailView - shown when tapping header/content
-            .sheet(isPresented: $showPostDetail) {
-                if let post = post {
-                    PostDetailView(post: post)
-                }
-            }
-            // ✅ CommentsView - shown for comment button tap and swipe-to-comment
-            .sheet(isPresented: $showCommentsSheet, onDismiss: {
-                // Re-check if user has commented after dismissing the sheet
-                if let post = post, let userId = Auth.auth().currentUser?.uid {
-                    let postId = post.firestoreId
-                    Task {
-                        let ref = Database.database().reference()
-                            .child("user_comments").child(userId)
-                        let snapshot = try? await ref.getData()
-                        if let children = snapshot?.children.allObjects as? [DataSnapshot] {
-                            let didComment = children.contains {
-                                ($0.childSnapshot(forPath: "postId").value as? String) == postId
-                            }
-                            await MainActor.run {
-                                withAnimation(.spring(response: 0.12, dampingFraction: 0.75)) {
-                                    hasCommented = didComment
-                                }
-                            }
-                        }
-                    }
-                }
-            }) {
-                if let post = post {
-                    CommentsView(post: post)
-                }
-            }
-            .sheet(isPresented: $showReportSheet) {
-                if let post = post {
-                    ReportPostSheet(
-                        post: post,
-                        postAuthor: authorName,
-                        category: category
-                    )
-                }
-            }
-            .sheet(isPresented: $showChurchNoteDetail) {
-                if let note = churchNote {
-                    ChurchNoteDetailModal(note: note)
-                }
-            }
-            .alert("Delete Post", isPresented: $showingDeleteAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
-                    deleteAction()
-                }
-            } message: {
-                Text("Are you sure you want to delete this post? This action cannot be undone.")
-            }
-    }
-    
-    private func shareText(for post: Post) -> String {
-        """
-        \(category.displayName) by \(post.authorName)
+        dlog("   - Post ID: \(post.firestoreId)")
+        dlog("   - Current state: \(isFasting ? "fasting" : "not fasting")")
         
-        \(post.content)
+        // Store previous state for rollback
+        let previousState = isFasting
         
-        Join the conversation on AMEN APP!
-        https://amenapp.com/post/\(post.firestoreId)
-        """
-    }
-}
-
-/// Handles all interaction observers and state updates
-private struct PostCardInteractionsModifier: ViewModifier {
-    let post: Post?
-    @ObservedObject var interactionsService: PostInteractionsService  // ✅ FIXED: Observe changes
-    // Not @ObservedObject — we don't want every card to re-render when ANY post is saved/unsaved.
-    // State sync happens through the isSaved @Binding + isSaveInFlight guard.
-    let savedPostsService: RealtimeSavedPostsService
-    
-    @Binding var hasLitLightbulb: Bool
-    @Binding var hasSaidAmen: Bool
-    @Binding var isSaved: Bool
-    @Binding var hasReposted: Bool
-    @Binding var isPraying: Bool
-    @Binding var lightbulbCount: Int
-    @Binding var amenCount: Int
-    @Binding var commentCount: Int
-    @Binding var repostCount: Int
-    @Binding var prayingNowCount: Int
-    @Binding var isSaveInFlight: Bool
-    @Binding var isLightbulbToggleInFlight: Bool
-    @Binding var expectedLightbulbState: Bool
-    @Binding var isRepostToggleInFlight: Bool
-    @Binding var expectedRepostState: Bool
-    @Binding var hasCommented: Bool
-    
-    @State private var hasCompletedInitialLoad = false
-    
-    // PERF: Single narrow value watched by ONE onChange — replaces 4 separate dictionary-level
-    // observers. Each PostCard only re-evaluates its own 4 counts, not the full global dict.
-    private struct PostCounts: Equatable {
-        var lightbulbs: Int
-        var amens: Int
-        var comments: Int
-        var reposts: Int
-    }
-    private var countsForThisPost: PostCounts {
-        let id = post?.firebaseId ?? post?.id.uuidString ?? ""
-        return PostCounts(
-            lightbulbs: interactionsService.postLightbulbs[id] ?? lightbulbCount,
-            amens:      interactionsService.postAmens[id]      ?? amenCount,
-            comments:   interactionsService.postComments[id]   ?? commentCount,
-            reposts:    interactionsService.postReposts[id]    ?? repostCount
-        )
-    }
-
-    // Helper computed properties to simplify onChange expressions
-    private var isPostLightbulbed: Bool {
-        guard let post = post else { return false }
-        return interactionsService.userLightbulbedPosts.contains(post.firestoreId)
-    }
-    
-    private var isPostAmened: Bool {
-        guard let post = post else { return false }
-        return interactionsService.userAmenedPosts.contains(post.firestoreId)
-    }
-    
-    private var isPostReposted: Bool {
-        guard let post = post else { return false }
-        return interactionsService.userRepostedPosts.contains(post.firestoreId)
-    }
-    
-    func body(content: Content) -> some View {
-        content
-            .task(priority: .userInitiated) { // P0 PERF FIX: Set explicit priority
-                guard let post = post else { return }
-                // P0 FIX: Use firebaseId if available, fallback to UUID for stable ID
-                let postId = post.firebaseId ?? post.id.uuidString
-                guard Auth.auth().currentUser?.uid != nil else { return }
-                
-                // P0 PERF FIX: Start observation WITHOUT blocking the main thread
-                // This allows the PostCard to render immediately while interactions load in background
-                interactionsService.observePostInteractions(postId: postId)
-                
-                // Record view engagement for ML training (fire-and-forget, low priority)
-                if let userId = Auth.auth().currentUser?.uid {
-                    Task(priority: .background) {
-                        let event = EngagementEvent(
-                            userId: userId,
-                            postId: postId,
-                            eventType: .view,
-                            timestamp: Date(),
-                            duration: nil,
-                            metadata: nil
-                        )
-                        try? await VertexAIPersonalizationService.shared.recordEngagement(event)
-                    }
-                }
-                
-                // P0 PERF FIX: Removed cache wait loop - causes 150 tasks to poll simultaneously
-                // InteractionsService publishes updates via Combine, so state syncs automatically
-                // No need to block here - the UI will update reactively when cache loads
-                
-                // P0 PERF FIX: Load state synchronously from cache (no await)
-                // This is instant and doesn't block scroll rendering
-                await MainActor.run {
-                    hasLitLightbulb = interactionsService.userLightbulbedPosts.contains(postId)
-                    hasSaidAmen = interactionsService.userAmenedPosts.contains(postId)
-                    if !isRepostToggleInFlight {
-                        hasReposted = interactionsService.userRepostedPosts.contains(postId)
-                    }
-                }
-                
-                // Load hasCommented in background — checks RTDB user_comments index
-                if let userId = Auth.auth().currentUser?.uid {
-                    let firestoreId = post.firestoreId
-                    Task(priority: .background) {
-                        let ref = Database.database().reference()
-                            .child("user_comments").child(userId)
-                        if let snapshot = try? await ref.getData(),
-                           let children = snapshot.children.allObjects as? [DataSnapshot] {
-                            let didComment = children.contains {
-                                ($0.childSnapshot(forPath: "postId").value as? String) == firestoreId
-                            }
-                            await MainActor.run { hasCommented = didComment }
-                        }
-                    }
-                }
-                
-                // P0 PERF FIX: Load counts and saved status asynchronously in background
-                // Don't block PostCard rendering - let .onChange handle updates
-                Task(priority: .utility) {
-                    let stableId = post.firebaseId ?? post.id.uuidString
-                    let savedStatus = await checkSavedStatusSafely(postId: stableId)
-                    let lightbulbs = await interactionsService.getLightbulbCount(postId: stableId)
-                    let amens = await interactionsService.getAmenCount(postId: stableId)
-                    let comments = await interactionsService.getCommentCount(postId: stableId)
-                    let reposts = await interactionsService.getRepostCount(postId: stableId)
-                    
-                    await MainActor.run {
-                        // Only apply saved status on the FIRST load. After that, the user's
-                        // taps and the real-time listener own the state. Re-applying on every
-                        // scroll-triggered task re-run caused the bookmark to flip by itself.
-                        if !hasCompletedInitialLoad && !isSaveInFlight {
-                            isSaved = savedStatus
-                        }
-                        lightbulbCount = lightbulbs
-                        amenCount = amens
-                        commentCount = comments
-                        repostCount = reposts
-                        hasCompletedInitialLoad = true
-                    }
-                    
-                    // Prayer-specific state
-                    if post.category == .prayer {
-                        let praying = await checkIfPraying(postId: stableId)
-                        await MainActor.run {
-                            isPraying = praying
-                        }
-                        observePrayingCount(postId: stableId)
-                    }
-                }
-            }
-            .onDisappear {
-                if let post = post {
-                    // P0 FIX: Use stable ID for stop observing
-                    let stableId = post.firebaseId ?? post.id.uuidString
-                    interactionsService.stopObservingPost(postId: stableId)
-                }
-            }
-            // PERF: Single observer on a narrow Equatable value keyed to THIS post only.
-            // Previously 4 separate onChange(of: [String:Int]) handlers fired for EVERY
-            // PostCard whenever any post's count changed — O(visible cards) re-renders
-            // per interaction. Now only this card re-evaluates its own counts.
-            .onChange(of: countsForThisPost) { _, counts in
-                lightbulbCount = counts.lightbulbs
-                amenCount      = counts.amens
-                commentCount   = counts.comments
-                repostCount    = counts.reposts
-            }
-            // ✅ Update lightbulb state when userLightbulbedPosts changes
-            .onChange(of: isPostLightbulbed) { oldState, newState in
-                guard post != nil else { return }
-                guard oldState != newState else { return }
-                
-                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
-                
-                if isLightbulbToggleInFlight {
-                    if newState == expectedLightbulbState {
-                        if hasLitLightbulb != newState {
-                            withAnimation(animation) {
-                                hasLitLightbulb = newState
-                            }
-                        }
-                        isLightbulbToggleInFlight = false
-                    }
-                    return
-                }
-                
-                if hasLitLightbulb != newState {
-                    withAnimation(animation) {
-                        hasLitLightbulb = newState
-                    }
-                }
-            }
-            // ✅ Update amen state when userAmenedPosts changes
-            .onChange(of: isPostAmened) { oldState, newState in
-                guard post != nil else { return }
-                guard oldState != newState else { return }
-                
-                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
-                
-                if hasSaidAmen != newState {
-                    withAnimation(animation) {
-                        hasSaidAmen = newState
-                    }
-                }
-            }
-            // ✅ Update repost state when userRepostedPosts changes (after initial load only)
-            .onChange(of: isPostReposted) { oldState, newState in
-                guard post != nil else { return }
-                guard oldState != newState else { return }
-                
-                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
-                
-                if isRepostToggleInFlight {
-                    if newState == expectedRepostState {
-                        if hasReposted != newState {
-                            withAnimation(animation) {
-                                hasReposted = newState
-                            }
-                        }
-                        isRepostToggleInFlight = false
-                    }
-                    return
-                }
-                
-                if hasReposted != newState {
-                    withAnimation(animation) {
-                        hasReposted = newState
-                    }
-                }
-            }
-            // NOTE: We intentionally do NOT observe savedPostsService.savedPostIds here.
-            // Observing the shared singleton would cause EVERY PostCard to re-render
-            // (and animate its bookmark icon) whenever any user saves any post.
-            // isSaved is kept correct by: (1) initial task load, (2) toggleSave() reconciliation.
-    }
-    
-    private func checkIfPraying(postId: String) async -> Bool {
-        // Check if current user is praying for this post
-        guard let userId = Auth.auth().currentUser?.uid else { return false }
-
-        return await withCheckedContinuation { continuation in
-            let ref = Database.database().reference()
-                .child("prayerActivity")
-                .child(postId)
-                .child("prayingUsers")
-                .child(userId)
-
-            ref.observeSingleEvent(of: .value) { snapshot in
-                continuation.resume(returning: snapshot.exists())
-            } withCancel: { _ in
-                // Permission denied or network error — treat as not praying.
-                continuation.resume(returning: false)
-            }
+        // Haptic + optimistic update
+        HapticManager.impact(style: .medium)
+        withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
+            isFasting.toggle()
         }
-    }
-    
-    /// ✅ Check saved status with offline handling
-    private func checkSavedStatusSafely(postId: String) async -> Bool {
-        // Always use the authoritative in-memory set from RealtimeSavedPostsService.
-        // The per-post RTDB getData() can return stale offline-cached data during the
-        // brief DISCONNECTED→CONNECTED window on startup, causing all bookmarks to
-        // illuminate incorrectly. The savedPostIds set is populated by fetchSavedPostIds()
-        // which does a single authoritative read of the full saved set.
-        return savedPostsService.isPostSavedSync(postId: postId)
-    }
-    
-    private func observePrayingCount(postId: String) {
+        
         let rtdb = RealtimeDatabaseManager.shared
-        _ = rtdb.observePrayingNowCount(postId: postId) { count in
-            Task { @MainActor in
-                prayingNowCount = count
-            }
-        }
-    }
-}
-
-// MARK: - Edit Comment Sheet
-
-struct EditCommentSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var commentService = CommentService.shared
-    
-    let comment: Comment
-    @State private var editedContent: String
-    @State private var isSaving = false
-    @FocusState private var isFocused: Bool
-    
-    init(comment: Comment) {
-        self.comment = comment
-        _editedContent = State(initialValue: comment.content)
-    }
-    
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Text editor
-                TextEditor(text: $editedContent)
-                    .font(.custom("OpenSans-Regular", size: 16))
-                    .padding(16)
-                    .focused($isFocused)
-                    .scrollContentBackground(.hidden)
-                    .background(Color(.systemGroupedBackground))
-                
-                Spacer()
-                
-                // Character count
-                HStack {
-                    Text("\(editedContent.count) characters")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
-                    
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color(.systemBackground))
-            }
-            .navigationTitle("Edit Comment")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .disabled(isSaving)
-                }
-                
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        saveChanges()
-                    } label: {
-                        if isSaving {
-                            ProgressView()
-                        } else {
-                            Text("Save")
-                                .font(.custom("OpenSans-Bold", size: 16))
-                        }
-                    }
-                    .disabled(editedContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || editedContent == comment.content || isSaving)
-                }
-            }
-            .onAppear {
-                // Auto-focus the text editor
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    isFocused = true
-                }
-            }
-        }
-    }
-    
-    private func saveChanges() {
+        
         Task {
-            guard let commentId = comment.id else { return }
+            let success: Bool
             
-            isSaving = true
+            if isFasting {
+                success = await withCheckedContinuation { continuation in
+                    rtdb.joinFast(postId: post.firestoreId) { result in
+                        continuation.resume(returning: result)
+                    }
+                }
+            } else {
+                success = await withCheckedContinuation { continuation in
+                    rtdb.leaveFast(postId: post.firestoreId) { result in
+                        continuation.resume(returning: result)
+                    }
+                }
+            }
             
-            do {
-                try await commentService.editComment(
-                    commentId: commentId,
-                    postId: comment.postId,
-                    newContent: editedContent.trimmingCharacters(in: .whitespacesAndNewlines)
-                )
-                
+            if success {
+                dlog("✅ \(isFasting ? "Joined" : "Left") fast for post")
                 await MainActor.run {
                     HapticManager.notification(type: .success)
-                    dismiss()
+                    ToastManager.shared.success(isFasting ? "Joined fast" : "Left fast")
                 }
-
-                dlog("✅ Comment updated successfully")
-
-            } catch {
-                dlog("❌ Failed to update comment: \(error)")
+                // SELAH: Create a prayer-request commitment when the user joins a fast.
+                // Fires only on join (isFasting == true after toggle) and only when the
+                // feature flag is on. Errors are swallowed — the fast is already recorded.
+                if isFasting,
+                   AMENFeatureFlags.shared.commitmentConnections,
+                   let currentUid = Auth.auth().currentUser?.uid,
+                   !post.authorId.isEmpty {
+                    _ = try? await commitmentService.createCommitment(
+                        fromUid: currentUid,
+                        toUid: post.authorId,
+                        kind: .prayFor,
+                        requestRef: post.firestoreId
+                    )
+                }
+            } else {
+                dlog("❌ Failed to \(isFasting ? "join" : "leave") fast")
                 await MainActor.run {
-                    isSaving = false
+                    withAnimation(Motion.adaptive(.spring(response: springResponse, dampingFraction: springDamping))) {
+                        isFasting = previousState
+                    }
                     HapticManager.notification(type: .error)
                 }
             }
         }
+    }
+}
+
+// MARK: - Liquid Glass Post Card Action Menu
+
+@MainActor
+final class AmenPostCardActionMenuCoordinator: ObservableObject {
+    static let shared = AmenPostCardActionMenuCoordinator()
+    @Published var activePostId: String?
+
+    private init() {}
+}
+
+private struct AmenPostCardActionMenuAnchorPreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if !next.isEmpty {
+            value = next
+        }
+    }
+}
+
+private struct AmenPostCardPlusButton: View {
+    let isExpanded: Bool
+    let action: () -> Void
+
+    @GestureState private var isPressed = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let isDark = colorScheme == .dark
+        Button(action: action) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(isDark ? 0.08 : 0.92),
+                                Color.white.opacity(isDark ? 0.04 : 0.78),
+                                Color.white.opacity(isDark ? 0.02 : 0.70)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(Color.white.opacity(isDark ? 0.16 : 0.72), lineWidth: 0.9)
+                    )
+
+                Image(systemName: "plus")
+                    .font(.systemScaled(17, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .rotationEffect(.degrees(isExpanded ? 45 : 0))
+            }
+            .frame(width: 40, height: 40)
+            .frame(minWidth: 44, minHeight: 44)
+            .shadow(color: Color.black.opacity(isExpanded ? 0.12 : 0.08), radius: isExpanded ? 20 : 14, y: isExpanded ? 12 : 7)
+            .scaleEffect(isPressed ? 0.94 : (isExpanded ? 1.02 : 1.0))
+            .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isExpanded)
+            .animation(.easeOut(duration: 0.12), value: isPressed)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isExpanded ? "Collapse actions" : "Expand actions")
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in
+                    state = true
+                }
+        )
+    }
+}
+
+private struct AmenPostCardOverflowButton: View {
+    let action: () -> Void
+
+    @GestureState private var isPressed = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let isDark = colorScheme == .dark
+        Button(action: action) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(isDark ? 0.08 : 0.94),
+                                Color.white.opacity(isDark ? 0.04 : 0.80),
+                                Color.white.opacity(isDark ? 0.02 : 0.72)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(Color.white.opacity(isDark ? 0.16 : 0.74), lineWidth: 0.9)
+                    )
+
+                Image(systemName: "ellipsis")
+                    .font(.systemScaled(17, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+            .frame(width: 40, height: 40)
+            .shadow(color: Color.black.opacity(0.08), radius: 14, y: 7)
+            .scaleEffect(isPressed ? 0.94 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: isPressed)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("More actions")
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in
+                    state = true
+                }
+        )
+    }
+}
+
+private struct AmenPostCardActionMenu: View {
+    static let preferredWidth: CGFloat = 296
+    static let preferredHeight: CGFloat = 196
+
+    let isFollowing: Bool
+    let canFollow: Bool
+    let onFollow: () -> Void
+    let onVisitProfile: () -> Void
+
+    @State private var hasAppeared = false
+
+    var body: some View {
+        AmenGlassContainer(cornerRadius: 32) {
+            VStack(spacing: 0) {
+                AmenGlassRow(
+                    icon: isFollowing ? "person.crop.circle.badge.checkmark" : "person.badge.plus",
+                    title: isFollowing ? "Following" : "Follow",
+                    isDisabled: !canFollow,
+                    action: onFollow
+                )
+
+                Rectangle()
+                    .fill(AmenTheme.Colors.separatorSubtle)
+                    .frame(height: 0.8)
+                    .padding(.horizontal, 18)
+
+                AmenGlassRow(
+                    icon: "person.circle",
+                    title: "Visit Profile",
+                    action: onVisitProfile
+                )
+            }
+            .padding(8)
+        }
+        .frame(width: Self.preferredWidth, height: Self.preferredHeight)
+        .scaleEffect(hasAppeared ? 1.0 : 0.88, anchor: .topLeading)
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : -10)
+        .shadow(color: AmenTheme.Colors.glassHighlightTop.opacity(hasAppeared ? 0.35 : 0), radius: 18, y: -4)
+        .onAppear {
+            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.84))) {
+                hasAppeared = true
+            }
+        }
+        .onDisappear {
+            hasAppeared = false
+        }
+    }
+}
+
+private struct AmenGlassContainer<Content: View>: View {
+    let cornerRadius: CGFloat
+    let content: Content
+
+    @State private var shinePhase: CGFloat = -0.9
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(cornerRadius: CGFloat = 32, @ViewBuilder content: () -> Content) {
+        self.cornerRadius = cornerRadius
+        self.content = content()
+    }
+
+    var body: some View {
+        let isDark = colorScheme == .dark
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    LinearGradient(
+                        colors: [
+                            AmenTheme.Colors.glassHighlightTop.opacity(isDark ? 0.8 : 1.0),
+                            AmenTheme.Colors.glassFill.opacity(isDark ? 0.9 : 1.0),
+                            AmenTheme.Colors.glassHighlightBottom.opacity(isDark ? 1.0 : 0.9)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    AmenTheme.Colors.glassStroke.opacity(isDark ? 1.0 : 0.95),
+                                    AmenTheme.Colors.glassStroke.opacity(isDark ? 0.5 : 0.6)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(AmenTheme.Colors.surfaceGlassDark.opacity(isDark ? 0.85 : 0.38))
+                        .blur(radius: 14)
+                )
+
+            content
+        }
+        .compositingGroup()
+        .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.82), radius: 34, y: 20)
+        .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.55), radius: 12, y: 4)
+        .overlay {
+            GeometryReader { proxy in
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.0),
+                                AmenTheme.Colors.glassHighlightTop.opacity(isDark ? 0.8 : 1.0),
+                                Color.white.opacity(0.0)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: proxy.size.width * 0.52)
+                    .blur(radius: 11)
+                    .rotationEffect(.degrees(16))
+                    .offset(x: proxy.size.width * shinePhase)
+                    .blendMode(.plusLighter)
+                    .mask(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    )
+            }
+            .allowsHitTesting(false)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(AmenTheme.Colors.glassHighlightBottom.opacity(isDark ? 1.0 : 0.75))
+                .blur(radius: 20)
+                .padding(10)
+                .opacity(0.7)
+                .allowsHitTesting(false)
+        }
+        .onAppear {
+            shinePhase = -0.9
+            withAnimation(.easeInOut(duration: 0.95).delay(0.06)) {
+                shinePhase = 1.05
+            }
+        }
+    }
+}
+
+private struct AmenGlassRow: View {
+    let icon: String
+    let title: String
+    var isDisabled: Bool = false
+    let action: () -> Void
+
+    @GestureState private var isPressed = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let isDark = colorScheme == .dark
+        Button {
+            guard !isDisabled else { return }
+            HapticManager.impact(style: .light)
+            action()
+        } label: {
+            HStack(spacing: 16) {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(isDark ? AmenTheme.Colors.surfaceElevated.opacity(0.92) : AmenTheme.Colors.glassFill.opacity(0.8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(AmenTheme.Colors.glassStroke.opacity(isDark ? 0.9 : 0.75), lineWidth: 0.8)
+                    )
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        Image(systemName: icon)
+                            .font(.systemScaled(24, weight: .medium))
+                            .foregroundStyle(.primary)
+                    )
+
+                Text(title)
+                    .font(.systemScaled(25, weight: .medium, design: .rounded))
+                    .foregroundStyle(isDisabled ? AmenTheme.Colors.textSecondary : AmenTheme.Colors.textPrimary)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 18)
+            .frame(maxWidth: .infinity, minHeight: 84, maxHeight: 84, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(
+                        isDark
+                        ? AmenTheme.Colors.pressedOverlay.opacity(isPressed ? 1.0 : 0.6)
+                        : AmenTheme.Colors.selectedFill.opacity(isPressed ? 0.9 : 0.55)
+                    )
+            )
+            .scaleEffect(isPressed ? 0.98 : 1.0)
+            .opacity(isDisabled ? 0.72 : 1.0)
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .animation(.easeOut(duration: 0.12), value: isPressed)
+        }
+        .buttonStyle(.plain)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in
+                    state = true
+                }
+        )
     }
 }
 
@@ -3432,36 +4805,6 @@ struct EditCommentSheet: View {
         .padding()
     }
 }
-#Preview("Report Sheet") {
-    let samplePost = Post(
-        id: UUID(),
-        authorId: "preview-user",
-        authorName: "John Doe",
-        authorInitials: "JD",
-        timeAgo: "2h",
-        content: "Sample post content",
-        category: .openTable,
-        topicTag: nil,
-        visibility: .everyone,
-        allowComments: true,
-        imageURLs: nil,
-        linkURL: nil,
-        createdAt: Date(),
-        amenCount: 0,
-        lightbulbCount: 0,
-        commentCount: 0,
-        repostCount: 0,
-        isRepost: false,
-        originalAuthorName: nil,
-        originalAuthorId: nil
-    )
-    
-    ReportPostSheet(
-        post: samplePost,
-        postAuthor: "John Doe",
-        category: .openTable
-    )
-}
 
 // MARK: - Post Link Button Component
 /// Button to open external links from posts
@@ -3481,18 +4824,18 @@ struct PostLinkButton: View {
                         .frame(width: 36, height: 36)
                     
                     Image(systemName: "link")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.blue)
                 }
                 
                 // URL text (shortened)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Open Link")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.primary)
                     
                     Text(displayURL)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -3501,7 +4844,7 @@ struct PostLinkButton: View {
                 
                 // External link indicator
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.blue)
             }
             .padding(12)
@@ -3561,213 +4904,533 @@ struct PostLinkButton: View {
     }
 }
 
-// MARK: - Minimal Reaction Button Style (Instagram/Threads Style)
-/// Custom button style for minimal outline/filled reactions.
-/// Press-down: immediate tight spring. Release: crisp snap back via Motion presets.
-struct MinimalReactionButtonStyle: ButtonStyle {
-    let isActive: Bool
+// MARK: - View Modifiers
 
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.88 : 1.0)
-            .animation(
-                Motion.adaptive(
-                    configuration.isPressed ? Motion.springPress : Motion.springRelease
-                ),
-                value: configuration.isPressed
+/// Handles all sheet presentations and alerts
+@MainActor
+private struct PostCardSheetsModifier: ViewModifier {
+    @Binding var activeSheet: PostCard.PostCardSheet?
+    @Binding var hasCommented: Bool
+
+    let optionsQuickActionsBuilder: () -> [AmenQuickAction]
+    let optionsSectionsBuilder: () -> [AmenOptionsSectionModel]
+    let feedReasonsBuilder: (Post) -> [FeedReason]
+    let authorName: String
+    let category: PostCard.PostCardCategory
+
+    @State private var commentsRefreshTask: Task<Void, Never>?
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: $activeSheet) { sheet in
+                sheetView(for: sheet)
+            }
+    }
+
+    @ViewBuilder
+    private func sheetView(for sheet: PostCard.PostCardSheet) -> some View {
+        switch sheet {
+        case .options:
+            AmenOptionsSheet(
+                isPresented: optionsBinding(),
+                title: "Post Options",
+                subtitle: "Steward your feed with clarity",
+                quickActions: optionsQuickActionsBuilder(),
+                sections: optionsSectionsBuilder()
             )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(24)
+            .presentationBackground(.regularMaterial)
+        case .whyThisPost(let post):
+            // Trust Wave 6: prefer the recommendation-transparency surface (real
+            // server FeedExplanation) when enabled. Falls through to the existing
+            // native sheets — V2 when feedWhyAmISeeingThis is on, else V1 — so the
+            // user always sees an honest explanation.
+            TrustWhySeeingThisSheet(
+                feedItemId: post.firebaseId ?? (post.firestoreId.isEmpty ? nil : post.firestoreId)
+            ) {
+                if AMENFeatureFlags.shared.feedWhyAmISeeingThis,
+                   let postId = post.firebaseId ?? (post.firestoreId.isEmpty ? nil : post.firestoreId) {
+                    WhyAmISeeingThisSheetV2(feedItemId: postId)
+                } else {
+                    WhyAmISeeingThisSheet(post: post, reasons: feedReasonsBuilder(post))
+                }
+            }
+        case .userProfile(let userId):
+            UserProfileView(userId: userId, showsDismissButton: true)
+        case .mentionedProfile(let userId):
+            UserProfileView(userId: userId, showsDismissButton: true)
+        case .edit(let post):
+            EditPostSheet(post: post)
+        case .share(let post, let note):
+            if post.churchNoteId != nil, let note {
+                ChurchNoteShareOptionsSheet(note: note)
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+                    .presentationCornerRadius(28)
+            } else if post.isChurchShare, let churchName = post.sharedChurchName {
+                FindChurchShareOptionsSheet(church: Church(
+                    name: churchName,
+                    denomination: post.sharedChurchDenomination ?? "",
+                    address: "",
+                    distance: "",
+                    serviceTime: post.sharedChurchServiceTime ?? "",
+                    phone: "",
+                    coordinate: .init()
+                ))
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+            } else {
+                PostShareOptionsSheet(post: post)
+            }
+        case .postDetail(let post):
+            PostDetailView(post: post)
+        case .comments(let post):
+            CommentsView(post: post)
+                .onDisappear { refreshCommentedState(for: post) }
+        case .commentsWithQuote(let post, let prefill):
+            CommentsView(post: post, prefillText: prefill)
+                .onDisappear { refreshCommentedState(for: post) }
+        case .report(let post):
+            ReportPostSheet(
+                post: post,
+                postAuthor: authorName,
+                category: category
+            )
+        case .churchNoteDetail(let note):
+            ChurchNoteDetailModal(note: note)
+        case .reasoningThread(let postId, let postText, let authorName):
+            NavigationStack {
+                ReasoningThreadView(postId: postId, postText: postText, postAuthorName: authorName)
+            }
+        case .tip(let creatorId, let creatorName):
+            TipView(creatorId: creatorId, creatorName: creatorName, onSuccess: {})
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        case .berean(let initialQuery):
+            BereanAIAssistantView(initialQuery: initialQuery)
+        case .quoteComposer(let context):
+            QuoteComposerView(context: context)
+        case .shareExcerpt(let text, let attribution):
+            ShareSheet(items: ["\(text)\n\n\(attribution)"])
+        case .transformPost(let postId, let postText, let authorName):
+            AmenPostActionTransformSheet(
+                postId: postId,
+                postText: postText,
+                authorName: authorName,
+                isPresented: transformBinding()
+            )
+        }
+    }
+
+    private func transformBinding() -> Binding<Bool> {
+        Binding(
+            get: {
+                if case .transformPost = activeSheet { return true }
+                return false
+            },
+            set: { newValue in
+                if !newValue { activeSheet = nil }
+            }
+        )
+    }
+
+    private func optionsBinding() -> Binding<Bool> {
+        Binding(
+            get: {
+                if case .options = activeSheet { return true }
+                return false
+            },
+            set: { newValue in
+                if !newValue { activeSheet = nil }
+            }
+        )
+    }
+
+    private func refreshCommentedState(for post: Post) {
+        commentsRefreshTask?.cancel()
+        commentsRefreshTask = Task {
+            guard let userId = Auth.auth().currentUser?.uid else { return }
+            let postId = post.firestoreId
+            let ref = Database.database().reference().child("user_comments").child(userId)
+            let snapshot = try? await ref.getData()
+            guard !Task.isCancelled else { return }
+            if let children = snapshot?.children.allObjects as? [DataSnapshot] {
+                let didComment = children.contains {
+                    ($0.childSnapshot(forPath: "postId").value as? String) == postId
+                }
+                await MainActor.run {
+                    withAnimation(Motion.adaptive(.spring(response: 0.12, dampingFraction: 0.75))) {
+                        hasCommented = didComment
+                    }
+                }
+            }
+        }
     }
 }
 
-// MARK: - Poll Display Component
+/// Handles all interaction observers and state updates
+@MainActor
+private struct PostCardInteractionsModifier: ViewModifier {
+    let post: Post?
+    let interactionsService: PostInteractionsService
+    let savedPostsService: RealtimeSavedPostsService
 
-struct PostPollView: View {
-    let postId: String
-    let poll: PostPoll
-    let currentUserId: String?
-    
-    @State private var userVote: String? = nil
-    @State private var isVoting = false
-    @State private var localPoll: PostPoll
-    
-    init(postId: String, poll: PostPoll, currentUserId: String?) {
-        self.postId = postId
-        self.poll = poll
-        self.currentUserId = currentUserId
-        self._localPoll = State(initialValue: poll)
+    @Binding var hasLitLightbulb: Bool
+    @Binding var hasSaidAmen: Bool
+    @Binding var isSaved: Bool
+    @Binding var hasReposted: Bool
+    @Binding var isPraying: Bool
+    @Binding var lightbulbCount: Int
+    @Binding var amenCount: Int
+    @Binding var commentCount: Int
+    @Binding var repostCount: Int
+    @Binding var prayingNowCount: Int
+    @Binding var isSaveInFlight: Bool
+    @Binding var isLightbulbToggleInFlight: Bool
+    @Binding var expectedLightbulbState: Bool
+    @Binding var isRepostToggleInFlight: Bool
+    @Binding var expectedRepostState: Bool
+    @Binding var hasCommented: Bool
+
+    @State private var hasCompletedInitialLoad = false
+
+    private struct PostCounts: Equatable {
+        var lightbulbs: Int
+        var amens: Int
+        var comments: Int
+        var reposts: Int
     }
-    
-    var isPollExpired: Bool {
-        guard let expiresAt = poll.expiresAt else { return false }
-        return Date() > expiresAt
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Poll question (if provided)
-            if !poll.question.isEmpty {
-                Text(poll.question)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .foregroundStyle(.primary)
-            }
-            
-            // Poll options
-            VStack(spacing: 8) {
-                ForEach(localPoll.options) { option in
-                    pollOptionButton(option)
-                }
-            }
-            
-            // Poll footer (total votes + expiry)
-            HStack(spacing: 12) {
-                Text("\(localPoll.totalVotes) \(localPoll.totalVotes == 1 ? "vote" : "votes")")
-                    .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.secondary)
-                
-                if let expiresAt = poll.expiresAt {
-                    Text("•")
-                        .foregroundStyle(.secondary)
-                    
-                    if isPollExpired {
-                        Text("Poll ended")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Ends \(expiresAt, style: .relative)")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+    private var countsForThisPost: PostCounts {
+        let id = post?.firebaseId ?? post?.id.uuidString ?? ""
+        return PostCounts(
+            lightbulbs: interactionsService.postLightbulbs[id] ?? lightbulbCount,
+            amens:      interactionsService.postAmens[id]      ?? amenCount,
+            comments:   interactionsService.postComments[id]   ?? commentCount,
+            reposts:    interactionsService.postReposts[id]    ?? repostCount
         )
-        .onAppear {
-            loadUserVote()
-        }
     }
-    
-    @ViewBuilder
-    private func pollOptionButton(_ option: PostPoll.PollOption) -> some View {
-        let hasVoted = userVote != nil
-        let isThisOption = userVote == option.id
-        let percentage = localPoll.totalVotes > 0 ? Double(option.voteCount) / Double(localPoll.totalVotes) : 0.0
-        
-        Button {
-            guard !hasVoted && !isPollExpired else { return }
-            vote(for: option.id)
-        } label: {
-            HStack(spacing: 0) {
-                // Background bar (shows percentage if voted)
-                if hasVoted {
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(isThisOption ? Color.blue.opacity(0.2) : Color(.tertiarySystemFill))
-                            .frame(width: geometry.size.width * percentage)
+
+    private var isPostLightbulbed: Bool {
+        guard let post = post else { return false }
+        return interactionsService.userLightbulbedPosts.contains(post.firestoreId)
+    }
+
+    private var isPostAmened: Bool {
+        guard let post = post else { return false }
+        return interactionsService.userAmenedPosts.contains(post.firestoreId)
+    }
+
+    private var isPostReposted: Bool {
+        guard let post = post else { return false }
+        return interactionsService.userRepostedPosts.contains(post.firestoreId)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .task(priority: .userInitiated) {
+                guard let post = post else { return }
+                let postId = post.firebaseId ?? post.id.uuidString
+                guard Auth.auth().currentUser?.uid != nil else { return }
+
+                interactionsService.observePostInteractions(postId: postId)
+
+                if let userId = Auth.auth().currentUser?.uid {
+                    Task(priority: .background) {
+                        let event = EngagementEvent(
+                            userId: userId,
+                            postId: postId,
+                            eventType: .view,
+                            timestamp: Date(),
+                            duration: nil,
+                            metadata: nil
+                        )
+                        try? await VertexAIPersonalizationService.shared.recordEngagement(event)
                     }
                 }
-                
-                HStack {
-                    Text(option.text)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                        .foregroundStyle(isThisOption ? .blue : .primary)
-                    
-                    Spacer()
-                    
-                    if hasVoted {
-                        Text("\(Int(percentage * 100))%")
-                            .font(.custom("OpenSans-Bold", size: 14))
-                            .foregroundStyle(isThisOption ? .blue : .secondary)
-                        
-                        if isThisOption {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundStyle(.blue)
+
+                let heyTopicId: String = {
+                    if let tag = post.topicTag, !tag.isEmpty { return tag }
+                    switch post.category {
+                    case .testimonies: return "testimonies"
+                    case .prayer:      return "prayer_requests"
+                    case .tip:         return "bible_teaching"
+                    case .funFact:     return "bible_teaching"
+                    case .openTable:   return "community"
+                    }
+                }()
+                await MainActor.run {
+                    HeyFeedSaturationService.shared.recordImpression(topics: [heyTopicId])
+                }
+
+                await MainActor.run {
+                    hasLitLightbulb = interactionsService.userLightbulbedPosts.contains(postId)
+                    hasSaidAmen = interactionsService.userAmenedPosts.contains(postId)
+                    if !isRepostToggleInFlight {
+                        hasReposted = interactionsService.userRepostedPosts.contains(postId)
+                    }
+                }
+
+                if let userId = Auth.auth().currentUser?.uid {
+                    let firestoreId = post.firestoreId
+                    Task(priority: .background) {
+                        let ref = Database.database().reference()
+                            .child("user_comments").child(userId)
+                        if let snapshot = try? await ref.getData(),
+                           let children = snapshot.children.allObjects as? [DataSnapshot] {
+                            let didComment = children.contains {
+                                ($0.childSnapshot(forPath: "postId").value as? String) == firestoreId
+                            }
+                            await MainActor.run { hasCommented = didComment }
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-            }
-        }
-        .frame(height: 44)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(
-                    isThisOption ? Color.blue : Color(.separator),
-                    lineWidth: isThisOption ? 2 : 1
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(hasVoted ? Color.clear : Color(.tertiarySystemFill))
-                )
-        )
-        .disabled(hasVoted || isPollExpired || isVoting)
-    }
-    
-    private func loadUserVote() {
-        guard let uid = currentUserId else { return }
-        
-        // Check if user already voted by querying Firestore poll data
-        Task {
-            do {
-                let doc = try await Firestore.firestore()
-                    .collection("posts")
-                    .document(postId)
-                    .getDocument()
-                
-                if let pollData = doc.data()?["poll"] as? [String: Any],
-                   let voters = pollData["voters"] as? [String: String],
-                   let votedOptionId = voters[uid] {
+
+                Task(priority: .utility) {
+                    let stableId = post.firebaseId ?? post.id.uuidString
+                    let savedStatus = await checkSavedStatusSafely(postId: stableId)
+                    let lightbulbs = await interactionsService.getLightbulbCount(postId: stableId)
+                    let amens = await interactionsService.getAmenCount(postId: stableId)
+                    let comments = await interactionsService.getCommentCount(postId: stableId)
+                    let reposts = await interactionsService.getRepostCount(postId: stableId)
+
                     await MainActor.run {
-                        userVote = votedOptionId
+                        if !hasCompletedInitialLoad && !isSaveInFlight {
+                            isSaved = savedStatus
+                        }
+                        lightbulbCount = lightbulbs
+                        amenCount = amens
+                        commentCount = comments
+                        repostCount = reposts
+                        hasCompletedInitialLoad = true
+                    }
+
+                    if post.category == .prayer {
+                        let praying = await checkIfPraying(postId: stableId)
+                        await MainActor.run { isPraying = praying }
+                        observePrayingCount(postId: stableId)
                     }
                 }
-            } catch {
-                dlog("❌ Error loading user vote: \(error)")
+            }
+            .onDisappear {
+                if let post = post {
+                    let stableId = post.firebaseId ?? post.id.uuidString
+                    interactionsService.stopObservingPost(postId: stableId)
+                }
+            }
+            .onReceive(
+                interactionsService.$postLightbulbs
+                    .combineLatest(interactionsService.$postAmens,
+                                   interactionsService.$postComments,
+                                   interactionsService.$postReposts)
+                    .map { [post] lbs, amens, comments, reposts -> PostCounts in
+                        let id = post?.firebaseId ?? post?.id.uuidString ?? ""
+                        return PostCounts(
+                            lightbulbs: lbs[id] ?? 0,
+                            amens:      amens[id] ?? 0,
+                            comments:   comments[id] ?? 0,
+                            reposts:    reposts[id] ?? 0
+                        )
+                    }
+                    .removeDuplicates()
+            ) { counts in
+                lightbulbCount = counts.lightbulbs
+                amenCount      = counts.amens
+                commentCount   = counts.comments
+                repostCount    = counts.reposts
+            }
+            .onReceive(
+                interactionsService.$userLightbulbedPosts
+                    .map { [post] set in set.contains(post?.firestoreId ?? "") }
+                    .removeDuplicates()
+            ) { newState in
+                guard post != nil else { return }
+                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
+                if isLightbulbToggleInFlight {
+                    if newState == expectedLightbulbState {
+                        if hasLitLightbulb != newState {
+                            withAnimation(animation) { hasLitLightbulb = newState }
+                        }
+                        isLightbulbToggleInFlight = false
+                    }
+                    return
+                }
+                if hasLitLightbulb != newState {
+                    withAnimation(animation) { hasLitLightbulb = newState }
+                }
+            }
+            .onReceive(
+                interactionsService.$userAmenedPosts
+                    .map { [post] set in set.contains(post?.firestoreId ?? "") }
+                    .removeDuplicates()
+            ) { newState in
+                guard post != nil else { return }
+                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
+                if hasSaidAmen != newState {
+                    withAnimation(animation) { hasSaidAmen = newState }
+                }
+            }
+            .onReceive(
+                interactionsService.$userRepostedPosts
+                    .map { [post] set in set.contains(post?.firestoreId ?? "") }
+                    .removeDuplicates()
+            ) { newState in
+                guard post != nil else { return }
+                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
+                if isRepostToggleInFlight {
+                    if newState == expectedRepostState {
+                        if hasReposted != newState {
+                            withAnimation(animation) { hasReposted = newState }
+                        }
+                        isRepostToggleInFlight = false
+                    }
+                    return
+                }
+                if hasReposted != newState {
+                    withAnimation(animation) { hasReposted = newState }
+                }
+            }
+    }
+
+    private func checkIfPraying(postId: String) async -> Bool {
+        guard let userId = Auth.auth().currentUser?.uid else { return false }
+        return await withCheckedContinuation { continuation in
+            let ref = Database.database().reference()
+                .child("prayerActivity")
+                .child(postId)
+                .child("prayingUsers")
+                .child(userId)
+            ref.observeSingleEvent(of: .value) { snapshot in
+                continuation.resume(returning: snapshot.exists())
+            } withCancel: { _ in
+                continuation.resume(returning: false)
             }
         }
     }
-    
-    private func vote(for optionId: String) {
-        guard let uid = currentUserId, !isVoting else { return }
-        
-        isVoting = true
-        HapticManager.impact(style: .light)
-        
-        // Optimistic update
-        userVote = optionId
-        var updatedOptions = localPoll.options
-        if let index = updatedOptions.firstIndex(where: { $0.id == optionId }) {
-            updatedOptions[index].voteCount += 1
+
+    private func checkSavedStatusSafely(postId: String) async -> Bool {
+        return savedPostsService.isPostSavedSync(postId: postId)
+    }
+
+    private func observePrayingCount(postId: String) {
+        let rtdb = RealtimeDatabaseManager.shared
+        _ = rtdb.observePrayingNowCount(postId: postId) { count in
+            Task { @MainActor in prayingNowCount = count }
         }
-        localPoll = PostPoll(
-            question: localPoll.question,
-            options: updatedOptions,
-            expiresAt: localPoll.expiresAt,
-            totalVotes: localPoll.totalVotes + 1
-        )
-        
-        Task {
-            do {
-                try await PollService.shared.vote(postId: postId, optionId: optionId)
-                await MainActor.run {
-                    isVoting = false
-                    HapticManager.notification(type: .success)
+    }
+}
+
+// MARK: - Edit Comment Sheet
+
+struct EditCommentSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var commentService = CommentService.shared
+
+    let comment: Comment
+    @State private var editedContent: String
+    @State private var isSaving = false
+    @FocusState private var isFocused: Bool
+
+    init(comment: Comment) {
+        self.comment = comment
+        _editedContent = State(initialValue: comment.content)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                TextEditor(text: $editedContent)
+                    .font(AMENFont.regular(16))
+                    .padding(16)
+                    .focused($isFocused)
+                    .scrollContentBackground(.hidden)
+                    .background(Color(.systemGroupedBackground))
+
+                Spacer()
+
+                HStack {
+                    Text("\(editedContent.count) characters")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
+                    Spacer()
                 }
-            } catch {
-                // Revert optimistic update on error
-                await MainActor.run {
-                    userVote = nil
-                    localPoll = poll
-                    isVoting = false
-                    HapticManager.notification(type: .error)
-                    dlog("❌ Error voting: \(error)")
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color(.systemBackground))
+            }
+            .navigationTitle("Edit Comment")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .disabled(isSaving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        saveChanges()
+                    } label: {
+                        if isSaving {
+                            ProgressView()
+                        } else {
+                            Text("Save").font(AMENFont.bold(16))
+                        }
+                    }
+                    .disabled(
+                        editedContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || editedContent == comment.content
+                        || isSaving
+                    )
                 }
             }
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isFocused = true }
+            }
+        }
+    }
+
+    private func saveChanges() {
+        Task {
+            guard let commentId = comment.id else { return }
+            isSaving = true
+            do {
+                try await commentService.editComment(
+                    commentId: commentId,
+                    postId: comment.postId,
+                    newContent: editedContent.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+                await MainActor.run {
+                    HapticManager.notification(type: .success)
+                    dismiss()
+                }
+            } catch {
+                dlog("❌ Failed to update comment: \(error)")
+                await MainActor.run {
+                    isSaving = false
+                    HapticManager.notification(type: .error)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - TranslationTaskBridge
+
+/// Applies `.translationTask` only on iOS 18+, bridging through `Any` so the enclosing
+/// view doesn't need to declare `Translation.TranslationSession.Configuration` as a property type.
+private struct TranslationTaskBridge: ViewModifier {
+    let config: Any?
+    let onSession: (Any) async -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 18, *) {
+            content.translationTask(config as? Translation.TranslationSession.Configuration) { session in
+                await onSession(session)
+            }
+        } else {
+            content
         }
     }
 }

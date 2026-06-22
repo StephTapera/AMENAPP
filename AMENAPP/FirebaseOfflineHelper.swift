@@ -207,6 +207,10 @@ class OfflineWriteQueue: ObservableObject {
         )
     }
     
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     func queue(path: String, value: Any) {
         pendingWrites.append((path, value))
         savePendingWrites()

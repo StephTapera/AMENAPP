@@ -15,7 +15,7 @@ import FirebaseAuth
 class FirestorePostsDiagnostics {
     
     static let shared = FirestorePostsDiagnostics()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     private init() {}
     

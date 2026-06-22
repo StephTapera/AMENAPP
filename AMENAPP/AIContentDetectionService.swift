@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -465,7 +466,7 @@ class AIContentDetectionService {
     
     /// Flag post as AI-generated
     private func flagPost(postId: String, result: AIContentDetectionResult) async throws {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         try await db.collection("posts").document(postId).updateData([
             "aiDetection": [
@@ -480,7 +481,7 @@ class AIContentDetectionService {
     
     /// Delete post
     private func deletePost(postId: String) async throws {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         // Soft delete (mark as deleted)
         try await db.collection("posts").document(postId).updateData([
@@ -492,7 +493,7 @@ class AIContentDetectionService {
     
     /// Notify user about AI detection
     private func notifyUser(userId: String, result: AIContentDetectionResult) async throws {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         let notificationData: [String: Any] = [
             "userId": userId,
@@ -514,7 +515,7 @@ class AIContentDetectionService {
     
     /// Scan existing posts for AI content
     func scanExistingPosts(batchSize: Int = 50) async throws -> ScanResult {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         var totalScanned = 0
         var flaggedCount = 0

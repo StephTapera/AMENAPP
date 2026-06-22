@@ -292,7 +292,7 @@ struct SexualPolicyEnforcementRecord: Codable {
 @MainActor
 final class AppealFlowService {
     static let shared = AppealFlowService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 

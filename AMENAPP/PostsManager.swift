@@ -19,6 +19,93 @@ struct MentionedUser: Codable, Equatable, Hashable {
     let displayName: String
 }
 
+enum PostEditType: String, Codable, CaseIterable, Hashable {
+    case typoFix = "typo_fix"
+    case formattingChange = "formatting_change"
+    case toneAdjustment = "tone_adjustment"
+    case clarityImprovement = "clarity_improvement"
+    case mediaUpdate = "media_update"
+    case topicChange = "topic_change"
+    case typeChange = "type_change"
+    case correction = "correction"
+    case contextUpdate = "context_update"
+    case substantiveChange = "substantive_change"
+
+    var displayName: String {
+        switch self {
+        case .typoFix: return "Typo fix"
+        case .formattingChange: return "Formatting"
+        case .toneAdjustment: return "Tone refined"
+        case .clarityImprovement: return "Clarified"
+        case .mediaUpdate: return "Media updated"
+        case .topicChange: return "Topic changed"
+        case .typeChange: return "Post type changed"
+        case .correction: return "Corrected"
+        case .contextUpdate: return "Context added"
+        case .substantiveChange: return "Substantive edit"
+        }
+    }
+}
+
+enum MeaningChangeLevel: String, Codable, CaseIterable, Hashable {
+    case noMeaningChange = "no_meaning_change"
+    case lowChange = "low_change"
+    case mediumChange = "medium_change"
+    case highChange = "high_change"
+}
+
+enum ThreadIntegrityRiskLevel: String, Codable, CaseIterable, Hashable {
+    case safeToEditSilently = "safe_to_edit_silently"
+    case minorContextShift = "minor_context_shift"
+    case potentialReplyMisalignment = "potential_reply_misalignment"
+    case majorThreadIntegrityRisk = "major_thread_integrity_risk"
+}
+
+enum EditTransparencyLevel: String, Codable, CaseIterable, Hashable {
+    case typoFix = "typo_fix"
+    case clarified = "clarified"
+    case corrected = "corrected"
+    case updatedContext = "updated_context"
+    case mediaChanged = "media_changed"
+    case substantiveEdit = "substantive_edit"
+
+    var publicLabel: String {
+        switch self {
+        case .typoFix: return "Edited"
+        case .clarified: return "Clarified"
+        case .corrected: return "Corrected"
+        case .updatedContext: return "Updated"
+        case .mediaChanged: return "Media updated"
+        case .substantiveEdit: return "Edited"
+        }
+    }
+}
+
+struct PostEditMetadata: Codable, Equatable, Hashable {
+    var lastEditTypePrimary: PostEditType
+    var lastEditTypesSecondary: [PostEditType]
+    var semanticChangeScore: Double
+    var meaningChangeLevel: MeaningChangeLevel
+    var threadIntegrityRisk: ThreadIntegrityRiskLevel
+    var transparencyLevel: EditTransparencyLevel
+    var updateSuggested: Bool
+    var updateUsed: Bool
+    var correctedAt: Date?
+    var contextUpdatedAt: Date?
+}
+
+struct PostUpdateItem: Codable, Equatable, Hashable, Identifiable {
+    var updateId: String
+    var postId: String
+    var authorId: String
+    var text: String
+    var createdAt: Date
+    var reasonType: PostEditType
+    var linkedEditVersion: Int
+
+    var id: String { updateId }
+}
+
 struct Post: Identifiable, Codable, Equatable {
     let id: UUID
     let firebaseId: String?
@@ -29,12 +116,15 @@ struct Post: Identifiable, Codable, Equatable {
     var authorProfileImageURL: String?  // Profile image URL (var for profile-refresh updates)
     let timeAgo: String
     var content: String  // Made mutable for editing
-    let category: PostCategory
-    let topicTag: String?
+    var category: PostCategory
+    var topicTag: String?
     let visibility: PostVisibility
     let allowComments: Bool
     var commentPermissions: CommentPermissions? // Who can comment
-    let imageURLs: [String]?
+    var replyPermission: ReplyPermission?     // Who can reply (everyone if nil)
+    var quotesAllowed: QuotePermission?       // Who can quote-repost (everyone if nil)
+    var trustedCircle: TrustedCircle?         // nil = public; set = visible to that circle only
+    var imageURLs: [String]?
     let linkURL: String?
     let linkPreviewTitle: String?      // Link preview title
     let linkPreviewDescription: String? // Link preview description
@@ -44,6 +134,13 @@ struct Post: Identifiable, Codable, Equatable {
     let verseReference: String?        // e.g. "John 3:16"
     let verseText: String?             // verse body text (optional)
     let createdAt: Date
+    var updatedAt: Date? = nil  // Set when post is edited; nil means never edited
+    var editedAt: Date? = nil
+    var wasEdited: Bool = false
+    var editVersion: Int = 0
+    var editWindowExpiresAt: Date? = nil
+    var editMetadata: PostEditMetadata? = nil
+    var postUpdates: [PostUpdateItem]? = nil
     var amenCount: Int
     var lightbulbCount: Int
     var commentCount: Int
@@ -72,21 +169,93 @@ struct Post: Identifiable, Codable, Equatable {
     var intercessorUids: [String]? = nil      // UIDs of stone layers
     var bereanArcInsight: String? = nil       // Cached Claude insight phrase
 
+    // Prayer → Testimony connection
+    var prayerStatus: String? = nil           // "praying" | "believing" | "answered"
+    var linkedTestimonyId: String? = nil      // Set on prayer posts when answered
+    var isAnsweredPrayer: Bool = false        // Set on testimony posts
+    var linkedPrayerText: String? = nil       // Copied from original prayer when testimony is written
+
+    // Ripple & community engagement
+    var rippleCount: Int? = nil
+    var neededCount: Int? = nil
+    var witnessCount: Int? = nil
+    var prayerEchoCount: Int? = nil
+    var scriptureCount: Int? = nil
+    var testimonyStrength: Int? = nil
+
     // Church tag — optional church the post is associated with
     var taggedChurchId: String? = nil
     var taggedChurchName: String? = nil
+
+    // Quote metadata (highlight-to-quote)
+    var quote: PostQuoteMetadata? = nil
+
+    // Find a Church share — embeds church snapshot so the pill displays without a Firestore fetch
+    var isChurchShare: Bool = false
+    var sharedChurchName: String? = nil
+    var sharedChurchDenomination: String? = nil
+    var sharedChurchServiceTime: String? = nil
+    var sharedChurchEventId: String? = nil
+    var sharedChurchEventName: String? = nil
+    var sharedChurchEventTime: String? = nil
+
+    // Insight counts (Feature 5 — meaningful engagement metrics)
+    var savesCount: Int = 0        // Incremented by toggleSavePost
+    var sharesCount: Int = 0       // Incremented when shared via share sheet
+    var prayTapsCount: Int = 0     // Amen taps on prayer posts
+    var encouragedCount: Int = 0   // "Felt encouraged" reactions
+
+    // Community context flag (Feature 6 — set true server-side when context is submitted)
+    var hasContext: Bool = false
+
+    // Author privacy — cached from the author's user document at post-load time.
+    // nil means unknown (treat as public). true = private account (gate by follow).
+    var authorIsPrivate: Bool? = nil
 
     // Moderation metadata (set by server-side onPostCreate trigger)
     var flaggedForReview: Bool = false // Post is under review by moderators
     var removed: Bool = false // Post was removed by automated moderation
 
+    // True Source — backend-written safety/provenance/context/ranking bundle.
+    // nil for legacy posts created before True Source deployment.
+    var trueSource: TrueSourceBundle? = nil
+
     // Poll attachment — nil when the post has no poll
     var poll: PostPoll? = nil
-    
+
+    // Thread / chain — nil on standalone posts
+    var threadId: String? = nil      // shared UUID across all posts in a thread
+    var threadIndex: Int? = nil      // 0 = head, 1…N = continuations
+    var isThreadHead: Bool = false   // true only on the first post in a thread
+    var threadPostCount: Int = 0     // total posts in thread (set on head only)
+
+    // Sensitive content — blurred in feed until tapped
+    var hasSensitiveContent: Bool = false
+    var sensitiveContentReason: String? = nil
+
     // Pinned post metadata — user can pin important posts to their profile
     var isPinned: Bool = false
     var pinnedAt: Date? = nil
     var pinnedExpiresAt: Date? = nil
+
+    // Action Thread — optional link to a support workflow attached to this post
+    var actionThreadId: String? = nil       // ID of the primary action thread
+    var actionThreadType: String? = nil     // ActionThreadType raw value for fast filtering
+    var hasActiveActionThread: Bool = false  // Denormalized flag for feed filtering
+
+    // Topic Drill-Down — normalized topic keys for array-contains feed queries (System 11)
+    var normalizedTopicKeys: [String]? = nil     // Canonical topic keys (e.g. ["prayer", "healing"])
+    var topicScoreMap: [String: Double]? = nil    // Per-key confidence (0–1.0) from enrichment
+    var primaryTopicKey: String? = nil            // Highest-confidence topic key
+    var feedContext: AmenFeedContextLabel? = nil  // Client-side enriched feed context label
+
+    // File attachment — Storage download URL for a document attached via Files picker
+    var documentURL: String? = nil
+    // Original filename shown in the composer chip and post card
+    var documentName: String? = nil
+
+    // Music attachment — optional song attached to this post
+    var music: MusicAttachment? = nil
 
     enum PostCategory: String, Codable, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
@@ -109,10 +278,10 @@ struct Post: Identifiable, Codable, Equatable {
         /// Whether this category should show its badge on post cards
         var showCategoryBadge: Bool {
             switch self {
-            case .openTable, .testimonies, .prayer:
+            case .openTable, .prayer:
                 return true
-            case .tip, .funFact:
-                return false  // Hide category badge for Tips and Fun Facts
+            case .testimonies, .tip, .funFact:
+                return false  // Hide category badge for cleaner design
             }
         }
         
@@ -162,7 +331,7 @@ struct Post: Identifiable, Codable, Equatable {
         case following = "People I follow"
         case mentioned = "Mentioned only"
         case off = "Comments off"
-        
+
         var icon: String {
             switch self {
             case .everyone: return "globe"
@@ -172,21 +341,117 @@ struct Post: Identifiable, Codable, Equatable {
             }
         }
     }
+
+    // MARK: - Reply Permissions (who can reply to this post)
+    enum ReplyPermission: String, Codable, CaseIterable {
+        case everyone  = "everyone"
+        case followers = "followers"
+        case mutuals   = "mutuals"
+        case mentioned = "mentioned"
+
+        var displayName: String {
+            switch self {
+            case .everyone:  return "Everyone"
+            case .followers: return "Followers"
+            case .mutuals:   return "Mutuals Only"
+            case .mentioned: return "People I Mention"
+            }
+        }
+        var icon: String {
+            switch self {
+            case .everyone:  return "globe"
+            case .followers: return "person.2.fill"
+            case .mutuals:   return "arrow.left.arrow.right"
+            case .mentioned: return "at"
+            }
+        }
+    }
+
+    // MARK: - Quote Permission (who can quote-repost this post)
+    enum QuotePermission: String, Codable, CaseIterable {
+        case everyone  = "everyone"
+        case followers = "followers"
+        case none      = "none"
+
+        var displayName: String {
+            switch self {
+            case .everyone:  return "Everyone"
+            case .followers: return "Followers Only"
+            case .none:      return "No Quotes"
+            }
+        }
+        var icon: String {
+            switch self {
+            case .everyone:  return "quote.bubble"
+            case .followers: return "person.2.fill"
+            case .none:      return "quote.bubble.fill"
+            }
+        }
+    }
+
+    // MARK: - Trusted Circle (Instagram Close Friends equivalent)
+    enum TrustedCircle: String, Codable, CaseIterable {
+        case prayer    = "prayer"
+        case family    = "family"
+        case mentors   = "mentors"
+        case church    = "church_leadership"
+        case all       = "all"           // visible to all trusted circles the user has
+
+        var displayName: String {
+            switch self {
+            case .prayer:  return "Prayer Circle"
+            case .family:  return "Family"
+            case .mentors: return "Mentors"
+            case .church:  return "Church Leadership"
+            case .all:     return "All Trusted Circles"
+            }
+        }
+        var icon: String {
+            switch self {
+            case .prayer:  return "hands.sparkles.fill"
+            case .family:  return "house.fill"
+            case .mentors: return "person.badge.shield.checkmark.fill"
+            case .church:  return "building.columns.fill"
+            case .all:     return "person.3.fill"
+            }
+        }
+        var tintColor: Color {
+            switch self {
+            case .prayer:  return Color(red: 0.35, green: 0.50, blue: 0.95)
+            case .family:  return Color(red: 0.85, green: 0.48, blue: 0.18)
+            case .mentors: return Color(red: 0.20, green: 0.62, blue: 0.45)
+            case .church:  return Color(red: 0.55, green: 0.30, blue: 0.90)
+            case .all:     return Color(red: 0.60, green: 0.35, blue: 0.20)
+            }
+        }
+    }
     
     // MARK: - Custom Decoding (Handle Missing Fields)
     
     enum CodingKeys: String, CodingKey {
         case id, firebaseId, authorId, authorName, authorUsername, authorInitials, authorProfileImageURL, timeAgo
         case content, category, topicTag, visibility, allowComments, commentPermissions
+        case replyPermission, quotesAllowed, trustedCircle
+        case savesCount, sharesCount, prayTapsCount, encouragedCount, hasContext
         case imageURLs, linkURL, linkPreviewTitle, linkPreviewDescription, linkPreviewImageURL, linkPreviewSiteName
         case linkPreviewType, verseReference, verseText
-        case createdAt
+        case createdAt, updatedAt, editedAt, wasEdited, editVersion, editWindowExpiresAt, editMetadata, postUpdates
         case amenCount, lightbulbCount, commentCount, repostCount
         case isRepost, originalAuthorName, originalAuthorId, churchNoteId, mentions
         case taggedUserIds, tagStatusByUid
         case originalContent, detectedLanguage, isTranslated
         case contentSource
         case linkedPrayerRequestId, journeyDays, stoneCount, intercessorUids, bereanArcInsight
+        case prayerStatus, linkedTestimonyId, isAnsweredPrayer, linkedPrayerText
+        case rippleCount, neededCount, witnessCount, prayerEchoCount, scriptureCount, testimonyStrength
+        case taggedChurchId, taggedChurchName
+        case quote
+        case isChurchShare, sharedChurchName, sharedChurchDenomination, sharedChurchServiceTime
+        case sharedChurchEventId, sharedChurchEventName, sharedChurchEventTime
+        case actionThreadId, actionThreadType, hasActiveActionThread
+        case normalizedTopicKeys, topicScoreMap, primaryTopicKey
+        case music
+        case trueSource
     }
     
     init(from decoder: Decoder) throws {
@@ -212,6 +477,14 @@ struct Post: Identifiable, Codable, Equatable {
         visibility = try container.decode(PostVisibility.self, forKey: .visibility)
         allowComments = try container.decode(Bool.self, forKey: .allowComments)
         commentPermissions = try container.decodeIfPresent(CommentPermissions.self, forKey: .commentPermissions)
+        replyPermission    = try container.decodeIfPresent(ReplyPermission.self,    forKey: .replyPermission)
+        quotesAllowed      = try container.decodeIfPresent(QuotePermission.self,    forKey: .quotesAllowed)
+        trustedCircle      = try container.decodeIfPresent(TrustedCircle.self,      forKey: .trustedCircle)
+        savesCount         = try container.decodeIfPresent(Int.self, forKey: .savesCount)     ?? 0
+        sharesCount        = try container.decodeIfPresent(Int.self, forKey: .sharesCount)    ?? 0
+        prayTapsCount      = try container.decodeIfPresent(Int.self, forKey: .prayTapsCount)  ?? 0
+        encouragedCount    = try container.decodeIfPresent(Int.self, forKey: .encouragedCount) ?? 0
+        hasContext         = try container.decodeIfPresent(Bool.self, forKey: .hasContext)     ?? false
         imageURLs = try container.decodeIfPresent([String].self, forKey: .imageURLs)
         linkURL = try container.decodeIfPresent(String.self, forKey: .linkURL)
         linkPreviewTitle = try container.decodeIfPresent(String.self, forKey: .linkPreviewTitle)
@@ -222,6 +495,13 @@ struct Post: Identifiable, Codable, Equatable {
         verseReference = try container.decodeIfPresent(String.self, forKey: .verseReference)
         verseText = try container.decodeIfPresent(String.self, forKey: .verseText)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+        editedAt = try container.decodeIfPresent(Date.self, forKey: .editedAt)
+        wasEdited = try container.decodeIfPresent(Bool.self, forKey: .wasEdited) ?? false
+        editVersion = try container.decodeIfPresent(Int.self, forKey: .editVersion) ?? 0
+        editWindowExpiresAt = try container.decodeIfPresent(Date.self, forKey: .editWindowExpiresAt)
+        editMetadata = try container.decodeIfPresent(PostEditMetadata.self, forKey: .editMetadata)
+        postUpdates = try container.decodeIfPresent([PostUpdateItem].self, forKey: .postUpdates)
         amenCount = try container.decode(Int.self, forKey: .amenCount)
         lightbulbCount = try container.decode(Int.self, forKey: .lightbulbCount)
         commentCount = try container.decode(Int.self, forKey: .commentCount)
@@ -242,6 +522,38 @@ struct Post: Identifiable, Codable, Equatable {
         stoneCount = try container.decodeIfPresent(Int.self, forKey: .stoneCount)
         intercessorUids = try container.decodeIfPresent([String].self, forKey: .intercessorUids)
         bereanArcInsight = try container.decodeIfPresent(String.self, forKey: .bereanArcInsight)
+        prayerStatus = try container.decodeIfPresent(String.self, forKey: .prayerStatus)
+        linkedTestimonyId = try container.decodeIfPresent(String.self, forKey: .linkedTestimonyId)
+        isAnsweredPrayer = try container.decodeIfPresent(Bool.self, forKey: .isAnsweredPrayer) ?? false
+        linkedPrayerText = try container.decodeIfPresent(String.self, forKey: .linkedPrayerText)
+        rippleCount = try container.decodeIfPresent(Int.self, forKey: .rippleCount)
+        neededCount = try container.decodeIfPresent(Int.self, forKey: .neededCount)
+        witnessCount = try container.decodeIfPresent(Int.self, forKey: .witnessCount)
+        prayerEchoCount = try container.decodeIfPresent(Int.self, forKey: .prayerEchoCount)
+        scriptureCount = try container.decodeIfPresent(Int.self, forKey: .scriptureCount)
+        testimonyStrength = try container.decodeIfPresent(Int.self, forKey: .testimonyStrength)
+        taggedChurchId = try container.decodeIfPresent(String.self, forKey: .taggedChurchId)
+        taggedChurchName = try container.decodeIfPresent(String.self, forKey: .taggedChurchName)
+        quote = try container.decodeIfPresent(PostQuoteMetadata.self, forKey: .quote)
+        isChurchShare = try container.decodeIfPresent(Bool.self, forKey: .isChurchShare) ?? false
+        sharedChurchName = try container.decodeIfPresent(String.self, forKey: .sharedChurchName)
+        sharedChurchDenomination = try container.decodeIfPresent(String.self, forKey: .sharedChurchDenomination)
+        sharedChurchServiceTime = try container.decodeIfPresent(String.self, forKey: .sharedChurchServiceTime)
+        sharedChurchEventId = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventId)
+        sharedChurchEventName = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventName)
+        sharedChurchEventTime = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventTime)
+        actionThreadId = try container.decodeIfPresent(String.self, forKey: .actionThreadId)
+        actionThreadType = try container.decodeIfPresent(String.self, forKey: .actionThreadType)
+        hasActiveActionThread = try container.decodeIfPresent(Bool.self, forKey: .hasActiveActionThread) ?? false
+        normalizedTopicKeys = try container.decodeIfPresent([String].self, forKey: .normalizedTopicKeys)
+        topicScoreMap = try container.decodeIfPresent([String: Double].self, forKey: .topicScoreMap)
+        primaryTopicKey = try container.decodeIfPresent(String.self, forKey: .primaryTopicKey)
+        music = try container.decodeIfPresent(MusicAttachment.self, forKey: .music)
+        // Backend-written True Source bundle (read-only on the client). Decoded so
+        // client-side eligibility/harm forwarding reflects real moderation verdicts;
+        // nil only for genuine pre-True-Source posts (legacy grandfather clause).
+        trueSource = try container.decodeIfPresent(TrueSourceBundle.self, forKey: .trueSource)
+        feedContext = nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -261,6 +573,14 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encode(visibility, forKey: .visibility)
         try container.encode(allowComments, forKey: .allowComments)
         try container.encodeIfPresent(commentPermissions, forKey: .commentPermissions)
+        try container.encodeIfPresent(replyPermission,   forKey: .replyPermission)
+        try container.encodeIfPresent(quotesAllowed,     forKey: .quotesAllowed)
+        try container.encodeIfPresent(trustedCircle,     forKey: .trustedCircle)
+        try container.encode(savesCount,      forKey: .savesCount)
+        try container.encode(sharesCount,     forKey: .sharesCount)
+        try container.encode(prayTapsCount,   forKey: .prayTapsCount)
+        try container.encode(encouragedCount, forKey: .encouragedCount)
+        try container.encode(hasContext,      forKey: .hasContext)
         try container.encodeIfPresent(imageURLs, forKey: .imageURLs)
         try container.encodeIfPresent(linkURL, forKey: .linkURL)
         try container.encodeIfPresent(linkPreviewTitle, forKey: .linkPreviewTitle)
@@ -271,6 +591,13 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(verseReference, forKey: .verseReference)
         try container.encodeIfPresent(verseText, forKey: .verseText)
         try container.encode(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
+        try container.encodeIfPresent(editedAt, forKey: .editedAt)
+        try container.encode(wasEdited, forKey: .wasEdited)
+        try container.encode(editVersion, forKey: .editVersion)
+        try container.encodeIfPresent(editWindowExpiresAt, forKey: .editWindowExpiresAt)
+        try container.encodeIfPresent(editMetadata, forKey: .editMetadata)
+        try container.encodeIfPresent(postUpdates, forKey: .postUpdates)
         try container.encode(amenCount, forKey: .amenCount)
         try container.encode(lightbulbCount, forKey: .lightbulbCount)
         try container.encode(commentCount, forKey: .commentCount)
@@ -286,8 +613,30 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(detectedLanguage, forKey: .detectedLanguage)
         try container.encode(isTranslated, forKey: .isTranslated)
         try container.encodeIfPresent(contentSource, forKey: .contentSource)
+        try container.encodeIfPresent(taggedChurchId, forKey: .taggedChurchId)
+        try container.encodeIfPresent(taggedChurchName, forKey: .taggedChurchName)
+        try container.encodeIfPresent(quote, forKey: .quote)
+        try container.encode(isChurchShare, forKey: .isChurchShare)
+        try container.encodeIfPresent(sharedChurchName, forKey: .sharedChurchName)
+        try container.encodeIfPresent(sharedChurchDenomination, forKey: .sharedChurchDenomination)
+        try container.encodeIfPresent(sharedChurchServiceTime, forKey: .sharedChurchServiceTime)
+        try container.encodeIfPresent(sharedChurchEventId, forKey: .sharedChurchEventId)
+        try container.encodeIfPresent(sharedChurchEventName, forKey: .sharedChurchEventName)
+        try container.encodeIfPresent(sharedChurchEventTime, forKey: .sharedChurchEventTime)
+        try container.encodeIfPresent(actionThreadId, forKey: .actionThreadId)
+        try container.encodeIfPresent(actionThreadType, forKey: .actionThreadType)
+        try container.encode(hasActiveActionThread, forKey: .hasActiveActionThread)
+        try container.encodeIfPresent(normalizedTopicKeys, forKey: .normalizedTopicKeys)
+        try container.encodeIfPresent(topicScoreMap, forKey: .topicScoreMap)
+        try container.encodeIfPresent(primaryTopicKey, forKey: .primaryTopicKey)
+        try container.encodeIfPresent(music, forKey: .music)
+        // NOTE: `trueSource` is intentionally NOT encoded. True Source safety/provenance
+        // metadata is backend-written and read-only on the client (Firestore rules deny
+        // client writes to these fields). Encoding it would break whole-document writes
+        // such as repost via addDocument(from:), or risk client-side spoofing of safety
+        // verdicts. Decode-only by design.
     }
-    
+
     init(
         id: UUID = UUID(),
         firebaseId: String? = nil,
@@ -303,6 +652,9 @@ struct Post: Identifiable, Codable, Equatable {
         visibility: PostVisibility = .everyone,
         allowComments: Bool = true,
         commentPermissions: CommentPermissions? = .everyone,
+        replyPermission: ReplyPermission? = nil,
+        quotesAllowed: QuotePermission? = nil,
+        trustedCircle: TrustedCircle? = nil,
         imageURLs: [String]? = nil,
         linkURL: String? = nil,
         linkPreviewTitle: String? = nil,
@@ -313,6 +665,13 @@ struct Post: Identifiable, Codable, Equatable {
         verseReference: String? = nil,
         verseText: String? = nil,
         createdAt: Date = Date(),
+        updatedAt: Date? = nil,
+        editedAt: Date? = nil,
+        wasEdited: Bool = false,
+        editVersion: Int = 0,
+        editWindowExpiresAt: Date? = nil,
+        editMetadata: PostEditMetadata? = nil,
+        postUpdates: [PostUpdateItem]? = nil,
         amenCount: Int = 0,
         lightbulbCount: Int = 0,
         commentCount: Int = 0,
@@ -321,7 +680,9 @@ struct Post: Identifiable, Codable, Equatable {
         originalAuthorName: String? = nil,
         originalAuthorId: String? = nil,
         churchNoteId: String? = nil,
-        contentSource: String? = nil
+        contentSource: String? = nil,
+        quote: PostQuoteMetadata? = nil,
+        feedContext: AmenFeedContextLabel? = nil
     ) {
         self.id = id
         self.firebaseId = firebaseId
@@ -337,6 +698,9 @@ struct Post: Identifiable, Codable, Equatable {
         self.visibility = visibility
         self.allowComments = allowComments
         self.commentPermissions = commentPermissions
+        self.replyPermission = replyPermission
+        self.quotesAllowed = quotesAllowed
+        self.trustedCircle = trustedCircle
         self.imageURLs = imageURLs
         self.linkURL = linkURL
         self.linkPreviewTitle = linkPreviewTitle
@@ -347,6 +711,13 @@ struct Post: Identifiable, Codable, Equatable {
         self.verseReference = verseReference
         self.verseText = verseText
         self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.editedAt = editedAt
+        self.wasEdited = wasEdited
+        self.editVersion = editVersion
+        self.editWindowExpiresAt = editWindowExpiresAt
+        self.editMetadata = editMetadata
+        self.postUpdates = postUpdates
         self.amenCount = amenCount
         self.lightbulbCount = lightbulbCount
         self.commentCount = commentCount
@@ -356,10 +727,54 @@ struct Post: Identifiable, Codable, Equatable {
         self.originalAuthorId = originalAuthorId
         self.churchNoteId = churchNoteId
         self.contentSource = contentSource
+        self.quote = quote
+        self.feedContext = feedContext
     }
 
     var backendId: String {
         firebaseId ?? id.uuidString
+    }
+
+    // MARK: - Media Feed Computed Properties
+
+    /// Whether this post contains at least one image or video URL.
+    var hasMedia: Bool {
+        guard let urls = imageURLs else { return false }
+        return !urls.isEmpty
+    }
+
+    /// Number of media items in this post.
+    var mediaCount: Int {
+        imageURLs?.count ?? 0
+    }
+
+    /// Whether this post has more than one media item (carousel).
+    var isCarousel: Bool {
+        mediaCount > 1
+    }
+
+    /// Number of image items (currently all media is image-based in the legacy model).
+    var imageCount: Int { mediaCount }
+
+    /// Build a `PostMediaContainer` from this post's imageURLs for viewer/detail use.
+    var mediaContainer: PostMediaContainer? {
+        guard hasMedia, let urls = imageURLs else { return nil }
+        return PostMediaContainer.fromImageURLs(urls)
+    }
+
+    /// Primary thumbnail URL — first image in the post.
+    var primaryThumbnailURL: String? {
+        imageURLs?.first
+    }
+
+    /// Whether this post is visible and eligible for the media feed.
+    /// Excludes removed, flagged, deleted, or sensitive-content posts.
+    var isMediaFeedEligible: Bool {
+        guard hasMedia else { return false }
+        if removed { return false }
+        if flaggedForReview { return false }
+        if hasSensitiveContent { return false }
+        return true
     }
 }
 
@@ -399,8 +814,9 @@ struct PostPoll: Codable, Equatable {
 
 // MARK: - Posts Manager
 
+@MainActor
 class PostsManager: ObservableObject {
-    @MainActor static let shared = PostsManager()
+    static let shared = PostsManager()
     
     @Published var openTablePosts: [Post] = []
     @Published var testimoniesPosts: [Post] = []
@@ -443,18 +859,22 @@ class PostsManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
+                // ✅ FIX CR-6: Filter out blocked users
+                let filteredNewPosts = newPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                
                 // Keep only optimistic posts (firebaseId == nil) that have NOT been confirmed
                 // by the server yet. Use nil-check directly — never use "" as a sentinel.
-                let serverIds = Set(newPosts.compactMap { $0.firebaseId })
+                let serverIds = Set(filteredNewPosts.compactMap { $0.firebaseId })
                 let uniqueOptimistic = self.prayerPosts.filter { $0.firebaseId == nil }
                     .filter { post in
                         // Belt-and-suspenders: also skip any optimistic post whose UUID
                         // somehow matches a server ID string (should never happen).
                         !serverIds.contains(post.id.uuidString)
                     }
-                self.prayerPosts = uniqueOptimistic + newPosts
+                    .filter { !BlockService.shared.blockedUsers.contains($0.authorId) }  // ✅ Also filter optimistic
+                self.prayerPosts = uniqueOptimistic + filteredNewPosts
                 #if DEBUG
-                dlog("🔄 Prayer posts updated: \(newPosts.count) posts")
+                dlog("🔄 Prayer posts updated: \(filteredNewPosts.count) posts (filtered from \(newPosts.count))")
                 #endif
             }
             .store(in: &cancellables)
@@ -465,10 +885,14 @@ class PostsManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                let serverIds = Set(newPosts.compactMap { $0.firebaseId })
+                // ✅ FIX CR-6: Filter out blocked users
+                let filteredNewPosts = newPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                
+                let serverIds = Set(filteredNewPosts.compactMap { $0.firebaseId })
                 let uniqueOptimistic = self.testimoniesPosts.filter { $0.firebaseId == nil }
                     .filter { !serverIds.contains($0.id.uuidString) }
-                self.testimoniesPosts = uniqueOptimistic + newPosts
+                    .filter { !BlockService.shared.blockedUsers.contains($0.authorId) }  // ✅ Also filter optimistic
+                self.testimoniesPosts = uniqueOptimistic + filteredNewPosts
             }
             .store(in: &cancellables)
 
@@ -478,12 +902,16 @@ class PostsManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
+                // ✅ FIX CR-6: Filter out blocked users
+                let filteredNewPosts = newPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                
                 // Preserve any optimistic (not-yet-confirmed) posts at the top that
                 // are not yet in the server snapshot (firebaseId == nil means temp UUID post)
-                let serverIds = Set(newPosts.compactMap { $0.firebaseId })
+                let serverIds = Set(filteredNewPosts.compactMap { $0.firebaseId })
                 let uniqueOptimistic = self.openTablePosts.filter { $0.firebaseId == nil }
                     .filter { !serverIds.contains($0.id.uuidString) }
-                self.openTablePosts = uniqueOptimistic + newPosts
+                    .filter { !BlockService.shared.blockedUsers.contains($0.authorId) }  // ✅ Also filter optimistic
+                self.openTablePosts = uniqueOptimistic + filteredNewPosts
             }
             .store(in: &cancellables)
 
@@ -493,7 +921,8 @@ class PostsManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                self.allPosts = newPosts
+                // ✅ FIX CR-6: Filter out blocked users
+                self.allPosts = newPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
             }
             .store(in: &cancellables)
     }
@@ -512,10 +941,11 @@ class PostsManager: ObservableObject {
             
             // Update local arrays from FirebasePostService
             await MainActor.run {
-                self.allPosts = firebasePostService.posts
-                self.openTablePosts = firebasePostService.openTablePosts
-                self.testimoniesPosts = firebasePostService.testimoniesPosts
-                self.prayerPosts = firebasePostService.prayerPosts
+                // ✅ FIX CR-6: Filter out blocked users
+                self.allPosts = firebasePostService.posts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                self.openTablePosts = firebasePostService.openTablePosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                self.testimoniesPosts = firebasePostService.testimoniesPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+                self.prayerPosts = firebasePostService.prayerPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
                 
                 dlog("✅ Posts loaded: \(allPosts.count) total, \(prayerPosts.count) prayer, \(testimoniesPosts.count) testimonies, \(openTablePosts.count) openTable")
             }
@@ -539,7 +969,12 @@ class PostsManager: ObservableObject {
         allowComments: Bool = true,
         imageURLs: [String]? = nil,
         linkURL: String? = nil,
-        churchNoteId: String? = nil
+        churchNoteId: String? = nil,
+        quote: PostQuoteMetadata? = nil,
+        verseReference: String? = nil,
+        verseText: String? = nil,
+        scriptureAttachment: ScriptureAttachment? = nil,
+        authenticitySignals: AuthenticitySignals? = nil
     ) {
         Task {
             do {
@@ -552,7 +987,12 @@ class PostsManager: ObservableObject {
                     allowComments: allowComments,
                     imageURLs: imageURLs,
                     linkURL: linkURL,
-                    churchNoteId: churchNoteId
+                    churchNoteId: churchNoteId,
+                    quote: quote,
+                    verseReference: verseReference,
+                    verseText: verseText,
+                    scriptureAttachment: scriptureAttachment,
+                    authenticitySignals: authenticitySignals
                 )
                 
                 // Real-time Combine publisher in setupFirebaseSync() will automatically
@@ -604,15 +1044,19 @@ class PostsManager: ObservableObject {
                 topicTag: topicTag
             )
             
+            // Defense-in-depth: filter blocked authors at iOS layer (server rules are authoritative)
+            let blockedIds = BlockService.shared.blockedUsers
+            let unblocked = posts.filter { !blockedIds.contains($0.authorId) }
+
             // Apply personalization if "For You" filter
             let finalPosts: [Post]
             if filter == "For You" {
                 // Use the new PersonalizationService for better algorithm
-                finalPosts = personalizationService.personalizePostsFeed(posts, category: category)
+                finalPosts = personalizationService.personalizePostsFeed(unblocked, category: category)
             } else {
-                finalPosts = posts
+                finalPosts = unblocked
             }
-            
+
             // Update the appropriate category array
             switch category {
             case .openTable:
@@ -653,6 +1097,7 @@ class PostsManager: ObservableObject {
                 updatePostInAllArrays(postId: postId) { post in
                     var updatedPost = post
                     updatedPost.content = newContent
+                    updatedPost.updatedAt = Date()
                     return updatedPost
                 }
                 
@@ -672,6 +1117,23 @@ class PostsManager: ObservableObject {
                 self.error = error.localizedDescription
             }
         }
+    }
+
+    @MainActor
+    func submitEdit(request: EditPostRequest, localPostId: UUID) async throws -> EditPostResult {
+        let result = try await firebasePostService.saveEditedPost(request: request)
+        replacePostInAllArrays(postId: localPostId, with: result.updatedPost)
+
+        NotificationCenter.default.post(
+            name: .postEdited,
+            object: nil,
+            userInfo: [
+                "postId": localPostId,
+                "firebaseId": request.postId,
+                "editVersion": result.updatedPost.editVersion
+            ]
+        )
+        return result
     }
     
     // MARK: - Delete Post
@@ -845,6 +1307,24 @@ class PostsManager: ObservableObject {
             prayerPosts[index] = update(prayerPosts[index])
         }
     }
+
+    @MainActor
+    private func replacePostInAllArrays(postId: UUID, with post: Post) {
+        allPosts.removeAll { $0.id == postId }
+        openTablePosts.removeAll { $0.id == postId }
+        testimoniesPosts.removeAll { $0.id == postId }
+        prayerPosts.removeAll { $0.id == postId }
+
+        allPosts.insert(post, at: 0)
+        switch post.category {
+        case .openTable, .tip, .funFact:
+            openTablePosts.insert(post, at: 0)
+        case .testimonies:
+            testimoniesPosts.insert(post, at: 0)
+        case .prayer:
+            prayerPosts.insert(post, at: 0)
+        }
+    }
     
     // MARK: - Profile Picture Sync
     
@@ -853,6 +1333,11 @@ class PostsManager: ObservableObject {
     private var hasStartedProfileRefresh = false
 
     private func startListeningForProfileUpdates() async {
+        guard Auth.auth().currentUser != nil else {
+            dlog("⏭️ Skipping profile refresh timer start — no authenticated user")
+            return
+        }
+
         // Guard: only start once
         guard !hasStartedProfileRefresh else {
             dlog("⏭️ Profile refresh timer already running — skipping")
@@ -874,12 +1359,18 @@ class PostsManager: ObservableObject {
 
         dlog("✅ Batch profile update timer started (5 min intervals)")
     }
+
+    @MainActor
+    func resumeListeningForProfileUpdatesIfNeeded() async {
+        guard Auth.auth().currentUser != nil else { return }
+        await startListeningForProfileUpdates()
+    }
     
     /// Batch refresh profile images for all unique authors
     private func refreshProfileImages() async {
         // Don't fetch if user is signed out
         guard Auth.auth().currentUser != nil else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         // Get unique author IDs
         var authorIds = Set<String>()
@@ -905,8 +1396,11 @@ class PostsManager: ObservableObject {
                 
                 for document in snapshot.documents {
                     if let profileImageURL = document.data()["profileImageURL"] as? String {
+                        let normalizedURL = profileImageURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !normalizedURL.isEmpty else { continue }
+
                         await MainActor.run {
-                            self.updatePostsForUser(userId: document.documentID, newProfileImageURL: profileImageURL)
+                            self.updatePostsForUser(userId: document.documentID, newProfileImageURL: normalizedURL)
                         }
                     }
                 }
@@ -916,6 +1410,18 @@ class PostsManager: ObservableObject {
         }
     }
     
+    /// Clear all post arrays so the previous user's posts (including any
+    /// block-filter state baked into them) are not visible during the
+    /// sign-out → sign-in transition window.
+    /// Called by AppLifecycleManager.performFullSignOutCleanup().
+    func clearPosts() {
+        openTablePosts.removeAll()
+        testimoniesPosts.removeAll()
+        prayerPosts.removeAll()
+        allPosts.removeAll()
+        dlog("🧹 PostsManager: post arrays cleared on sign-out")
+    }
+
     // ✅ P0-1 FIX: Add cleanup method to remove all profile listeners
     /// Stop all profile picture listeners to prevent memory leaks
     /// Call this from view onDisappear blocks
@@ -936,6 +1442,7 @@ class PostsManager: ObservableObject {
         // Cancel the background refresh loop
         profileRefreshTask?.cancel()
         profileRefreshTask = nil
+        hasStartedProfileRefresh = false
         
         dlog("✅ All profile listeners stopped")
     }
@@ -948,11 +1455,14 @@ class PostsManager: ObservableObject {
 
         allPosts = allPosts.map { post in
             guard post.authorId == userId else { return post }
+            guard post.authorProfileImageURL != newProfileImageURL else { return post }
             postsUpdated += 1
             var updated = post
             updated.authorProfileImageURL = newProfileImageURL
             return updated
         }
+
+        guard postsUpdated > 0 else { return }
 
         // Derive category arrays from the already-updated allPosts (no extra iteration)
         openTablePosts  = allPosts.filter { $0.category == .openTable }
@@ -971,7 +1481,7 @@ class PostsManager: ObservableObject {
     func syncAllPostsWithUserProfiles() async {
         dlog("🔄 Syncing all posts with user profile images...")
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         // Collect all unique author IDs from all posts
         var authorIds = Set<String>()
@@ -1072,32 +1582,37 @@ class PostsManager: ObservableObject {
 
     // MARK: - Quote Post
 
-    /// Writes a quote post to Firestore. Called from QuotePostComposerView via PostCard.
+    /// Publishes a quote post by routing through the standard firebasePostService.createPost
+    /// pipeline. This ensures rate-limiting, AI-content detection, idempotency, and the
+    /// moderatePost Cloud Function trigger all execute before the post becomes visible.
+    /// Direct Firestore writes are intentionally removed — quoted fields (quotedAuthorName,
+    /// quotedContent) must never be set client-side without going through the server pipeline.
     func publishQuotePost(text: String, originalPost: Post) async {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
-        let ref = db.collection("posts").document()
-        let data: [String: Any] = [
-            "id": ref.documentID,
-            "content": text,
-            "authorId": uid,
-            "category": originalPost.category.rawValue,
-            "isQuotePost": true,
-            "quotedPostId": originalPost.firebaseId ?? originalPost.id.uuidString,
-            "quotedAuthorId": originalPost.authorId,
-            "quotedAuthorName": originalPost.authorName,
-            "quotedContent": originalPost.content,
-            "createdAt": FieldValue.serverTimestamp(),
-            "visibility": Post.PostVisibility.everyone.rawValue,
-            "allowComments": true
-        ]
+        let sourcePostId = originalPost.firebaseId ?? originalPost.id.uuidString
+        let quote = PostQuoteMetadata(
+            sourcePostId: sourcePostId,
+            sourceAuthorId: originalPost.authorId,
+            sourceAuthorName: originalPost.authorName,
+            sourceAuthorUsername: originalPost.authorUsername,
+            sourceExcerpt: String(originalPost.content.prefix(280)),
+            selectionStart: 0,
+            selectionLength: min(originalPost.content.count, 280),
+            quoteType: .sentence,
+            createdAt: Date()
+        )
         do {
-            try await ref.setData(data)
-            dlog("✅ Quote post published: \(ref.documentID)")
+            try await firebasePostService.createPost(
+                content: text,
+                category: originalPost.category,
+                topicTag: originalPost.topicTag,
+                visibility: originalPost.visibility,
+                allowComments: true,
+                quote: quote
+            )
+            dlog("✅ Quote post submitted through moderation pipeline")
         } catch {
             dlog("❌ Quote post failed: \(error)")
+            await MainActor.run { self.error = error.localizedDescription }
         }
     }
 }
-
-

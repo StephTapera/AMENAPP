@@ -15,7 +15,7 @@ import FirebaseFirestore
 class PollService: ObservableObject {
     static let shared = PollService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 
@@ -56,7 +56,7 @@ class PollService: ObservableObject {
         // Atomic transaction: increment vote count + record user vote
         let postRef = db.collection("posts").document(postId)
 
-        try await db.runTransaction { transaction, errorPointer in
+        _ = try await db.runTransaction { transaction, errorPointer in
             let doc: DocumentSnapshot
             do {
                 doc = try transaction.getDocument(postRef)

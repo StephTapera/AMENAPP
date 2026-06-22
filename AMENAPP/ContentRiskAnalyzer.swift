@@ -47,7 +47,7 @@ enum SafetyContentContext: String {
 // MARK: - Risk Category
 
 /// The primary risk category identified in a piece of content.
-enum ContentRiskCategory: String, CaseIterable, Equatable {
+enum LocalRiskCategory: String, CaseIterable, Equatable {
     case none                   = "none"
     case emotionalDistress      = "emotional_distress"
     case selfHarmCrisis         = "self_harm_crisis"
@@ -70,13 +70,13 @@ enum ContentRiskCategory: String, CaseIterable, Equatable {
 /// The output of a content risk analysis pass.
 struct ContentRiskResult {
     /// The dominant risk category (highest score)
-    let primaryCategory: ContentRiskCategory
+    let primaryCategory: LocalRiskCategory
 
     /// Aggregate risk score for the primary category (0.0 – 1.0)
     let totalScore: Double
 
     /// Per-category scores for all categories analyzed
-    let categoryScores: [ContentRiskCategory: Double]
+    let categoryScores: [LocalRiskCategory: Double]
 
     /// Human-readable signal labels that fired (for moderator explainability)
     let matchedSignals: [String]
@@ -449,7 +449,7 @@ final class ContentRiskAnalyzer {
         }
 
         let lower = text.lowercased()
-        var scores: [ContentRiskCategory: Double] = [:]
+        var scores: [LocalRiskCategory: Double] = [:]
         var allMatchedSignals: [String] = []
 
         // Score each category
@@ -609,7 +609,7 @@ final class ContentRiskAnalyzer {
 
     // MARK: - Context Boost
 
-    private func contextBoost(_ context: SafetyContentContext, for category: ContentRiskCategory) -> Double {
+    private func contextBoost(_ context: SafetyContentContext, for category: LocalRiskCategory) -> Double {
         switch (context, category) {
         case (.prayerRequest, .selfHarmCrisis):   return 1.10
         case (.prayerRequest, .emotionalDistress): return 1.12

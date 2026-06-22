@@ -33,7 +33,7 @@ final class ReplyActivityTriggers {
     static let shared = ReplyActivityTriggers()
     private init() {}
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     // MARK: - Notification Trigger (comment / mention / DM arrival)
 
@@ -153,13 +153,15 @@ final class ReplyActivityTriggers {
 
     /// Returns true if sender is a known minor (uses MinorSafetyService if available).
     private func senderIsMinor(userId: String) async -> Bool {
-        guard !userId.isEmpty else { return false }
-        // Check the user profile for age restriction flag
+        guard !userId.isEmpty else { return true }
+        // SECURITY FIX (HIGH 2026-06-11): Fail CLOSED (return true) on both missing
+        // isMinor field and on lookup failure. A missing isMinor field means the account
+        // is new or had a partial write — it must not be treated as adult.
         do {
             let doc = try await db.collection("users").document(userId).getDocument()
-            return doc.data()?["isMinor"] as? Bool ?? false
+            return doc.data()?["isMinor"] as? Bool ?? true
         } catch {
-            return false  // Default safe: do not block suggestions due to lookup failure
+            return true  // Fail closed: cannot verify age, treat as minor
         }
     }
 }

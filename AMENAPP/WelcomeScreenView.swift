@@ -29,6 +29,7 @@ struct WelcomeScreenView: View {
                 // Logo - single instance, optimized
                 Image("amen-logo")
                     .resizable()
+                    .renderingMode(.original)
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 100, height: 100)
                     .opacity(logoOpacity)
@@ -36,7 +37,7 @@ struct WelcomeScreenView: View {
                 
                 // Tagline
                 Text("Social Media, Re-ordered")
-                    .font(.system(size: 14, weight: .light))
+                    .font(.systemScaled(14, weight: .light))
                     .tracking(2)
                     .foregroundColor(.black.opacity(0.6))
                     .opacity(taglineOpacity)

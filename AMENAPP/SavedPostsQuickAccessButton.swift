@@ -22,7 +22,7 @@ struct SavedPostsQuickAccessButton: View {
                 // Main button
                 VStack(spacing: 8) {
                     Image(systemName: "bookmark.fill")
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(.blue)
                     
                     Text("Saved")
@@ -72,7 +72,7 @@ struct SavedPostsQuickAccessButton: View {
             
             if newCount != savedCount {
                 // Animate badge when count changes
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     savedCount = newCount
                     showBadgePulse = true
                 }
@@ -105,7 +105,7 @@ struct SavedPostsRow: View {
             HStack(spacing: 12) {
                 // Icon
                 Image(systemName: "bookmark.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.blue)
                     .frame(width: 40, height: 40)
                     .background(Color.blue.opacity(0.1))
@@ -141,7 +141,7 @@ struct SavedPostsRow: View {
                 }
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(.vertical, 8)

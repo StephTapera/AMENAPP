@@ -112,9 +112,14 @@ struct ChurchNotesView: View {
     }
     
     var body: some View {
+        bodyContent
+    }
+
+    @ViewBuilder
+    private var bodyContent: some View {
         ZStack {
-            // Minimal light gray background (matching the design)
-            Color(red: 0.96, green: 0.96, blue: 0.96)
+            // AMEN Liquid Glass — warm pearl base
+            Color(.systemGroupedBackground)
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -124,14 +129,24 @@ struct ChurchNotesView: View {
                     selectedFilter: $selectedFilter,
                     isScrolled: scrollOffset < -20,
                     onNewNote: {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                             showingNewNote = true
                         }
                         let haptic = UIImpactFeedbackGenerator(style: .medium)
                         haptic.impactOccurred()
-                    }
+                    },
+                    notes: notesService.notes
                 )
                 
+                // Smart Header Orchestrator (feature-flagged, off by default)
+                SmartHeaderOrchestrator(
+                    screenType: .church,
+                    userName: Auth.auth().currentUser?.displayName ?? "",
+                    intentMode: nil,
+                    scrollOffset: max(0, -scrollOffset),
+                    hasVerseReady: DailyVerseGenkitService.shared.todayVerse != nil
+                )
+
                 // Content with minimal list design or community feed
                 Group {
                     if selectedFilter == .community {
@@ -148,7 +163,7 @@ struct ChurchNotesView: View {
                             hasSearch: !searchText.isEmpty,
                             filterType: selectedFilter,
                             onCreateNote: {
-                                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                                     showingNewNote = true
                                 }
                                 let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -162,7 +177,7 @@ struct ChurchNotesView: View {
                             notesService: notesService,
                             scrollOffset: $scrollOffset,
                             onNoteSelected: { note in
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
                                     selectedNote = note
                                 }
                                 let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -178,18 +193,12 @@ struct ChurchNotesView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .fullScreenCover(isPresented: $showingNewNote) {
-            MinimalNewNoteSheet(notesService: notesService)
+            ChurchNotesPremiumEditor(notesService: notesService, existingNote: nil)
         }
         .sheet(item: $selectedNote) { note in
-            MinimalNoteDetailSheet(note: note, notesService: notesService)
+            ChurchNotesPremiumEditor(notesService: notesService, existingNote: note)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
-        }
-        // Semantic search overlay button (top-right alongside existing icons)
-        .overlay(alignment: .topTrailing) {
-            SemanticSearchButton(notes: notesService.notes)
-                .padding(.top, 60)
-                .padding(.trailing, 56) // offset left of existing + button
         }
         .sheet(isPresented: $showOnboarding) {
             ChurchNotesOnboardingView()
@@ -231,7 +240,7 @@ struct ChurchNotesView: View {
     /// and common tags from their recent notes, used to power the For You feed ranking.
     private func loadUserChurchForPersonalization() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
 
         // 1. Look up user's most recent church relation (member or regular visitor)
         do {
@@ -281,6 +290,11 @@ private struct ChurchNotesAnimatedGradientBackground: View {
     @State private var animationPhase: CGFloat = 0
     
     var body: some View {
+        bodyContent
+    }
+
+    @ViewBuilder
+    private var bodyContent: some View {
         ZStack {
             // Base gradient - warm cream to brown inspired by design
             LinearGradient(
@@ -373,7 +387,7 @@ struct LiquidGlassHeader: View {
                     
                     if !isScrolled {
                         Text("Sermons, insights, & reflections")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.white.opacity(0.7))
                             .transition(.asymmetric(
                                 insertion: .move(edge: .top).combined(with: .opacity),
@@ -388,11 +402,11 @@ struct LiquidGlassHeader: View {
                 
                 Button {
                     // Bounce animation on tap
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                         headerScale = 0.95
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                             headerScale = 1.0
                         }
                     }
@@ -421,7 +435,7 @@ struct LiquidGlassHeader: View {
                         
                         // Icon
                         Image(systemName: "plus")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                         
                         // Border with warm glow
@@ -466,7 +480,7 @@ struct LiquidGlassHeader: View {
                             )
                         
                         Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.9))
                     }
                     .frame(width: 40, height: 40)
@@ -482,15 +496,15 @@ struct LiquidGlassHeader: View {
                 // Search field
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .regular))
+                        .font(.systemScaled(16, weight: .regular))
                         .foregroundStyle(.white.opacity(0.6))
                     
                     TextField("", text: $searchText, prompt: Text("Search notes, sermons, scriptures...").foregroundStyle(.white.opacity(0.4)))
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                         .foregroundStyle(.white)
                         .tint(Color(hex: "A67C52"))
                         .onTapGesture {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 isSearchFocused = true
                             }
                         }
@@ -510,7 +524,7 @@ struct LiquidGlassHeader: View {
                     
                     if !searchText.isEmpty {
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 searchText = ""
                                 isSearchFocused = false
                             }
@@ -518,7 +532,7 @@ struct LiquidGlassHeader: View {
                             haptic.impactOccurred()
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.white.opacity(0.5))
                         }
                         .transition(.scale.combined(with: .opacity))
@@ -597,7 +611,7 @@ struct LiquidGlassHeader: View {
                             )
                         
                         Image(systemName: "waveform")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.9))
                     }
                     .frame(width: 40, height: 40)
@@ -630,10 +644,10 @@ struct FilterPill: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: filter.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 
                 Text(filter.rawValue)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
             }
             .foregroundStyle(isSelected ? .white : .white.opacity(0.7))
             .padding(.horizontal, 20)
@@ -736,7 +750,7 @@ struct LoadingGlassView: View {
                         )
                     
                     Image(systemName: "note.text")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.white)
                         .rotationEffect(.degrees(rotationAngle))
                     
@@ -759,7 +773,7 @@ struct LoadingGlassView: View {
             .frame(width: 160, height: 160)
             
             Text("Loading Notes...")
-                .font(.custom("OpenSans-SemiBold", size: 18))
+                .font(AMENFont.semiBold(18))
                 .foregroundStyle(.white.opacity(0.9))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -803,20 +817,20 @@ struct EmptyStateGlassView: View {
                         )
                     
                     Image(systemName: hasSearch ? "magnifyingglass" : "note.text")
-                        .font(.system(size: 64, weight: .light))
+                        .font(.systemScaled(64, weight: .light))
                         .foregroundStyle(.white.opacity(0.9))
                         .frame(width: 140, height: 140)
-                        .glassEffect(GlassEffectStyle.regular, in: Circle())
+                        .amenGlassEffect(in: Circle())
                 }
                 
                 // Message
                 VStack(spacing: 12) {
                     Text(emptyTitle)
-                        .font(.custom("OpenSans-Bold", size: 28))
+                        .font(AMENFont.bold(28))
                         .foregroundStyle(.white)
                     
                     Text(emptySubtitle)
-                        .font(.custom("OpenSans-Regular", size: 16))
+                        .font(AMENFont.regular(16))
                         .foregroundStyle(.white.opacity(0.7))
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
@@ -832,9 +846,9 @@ struct EmptyStateGlassView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                             Text("Create Your First Note")
-                                .font(.custom("OpenSans-Bold", size: 17))
+                                .font(AMENFont.bold(17))
                         }
                         .foregroundStyle(.white)
                         .padding(.horizontal, 28)
@@ -974,6 +988,9 @@ struct NotesGridView: View {
         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
             scrollOffset = value
         }
+        .refreshable {
+            await notesService.fetchNotes()
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
@@ -1001,12 +1018,12 @@ struct LiquidGlassNoteCard: View {
             haptic.impactOccurred()
             
             // Animated press effect
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
                 cardScale = 0.97
             }
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     cardScale = 1.0
                 }
                 onTap()
@@ -1017,18 +1034,18 @@ struct LiquidGlassNoteCard: View {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(note.title)
-                            .font(.custom("OpenSans-Bold", size: 20))
+                            .font(AMENFont.bold(20))
                             .foregroundStyle(.white)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                         
                         if let sermonTitle = note.sermonTitle, !sermonTitle.isEmpty {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 10) {
                                 Image(systemName: "quote.bubble.fill")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.purple.opacity(0.8))
                                 Text(sermonTitle)
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .font(AMENFont.semiBold(14))
                             }
                             .foregroundStyle(.white.opacity(0.7))
                             .transition(.asymmetric(
@@ -1046,11 +1063,11 @@ struct LiquidGlassNoteCard: View {
                             try? await notesService.toggleFavorite(note)
                             
                             // Fun bounce animation
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.4))) {
                                 cardRotation = note.isFavorite ? -10 : 10
                             }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                                     cardRotation = 0
                                 }
                             }
@@ -1084,7 +1101,7 @@ struct LiquidGlassNoteCard: View {
                             }
                             
                             Image(systemName: note.isFavorite ? "star.fill" : "star")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(
                                     note.isFavorite 
                                         ? LinearGradient(
@@ -1127,7 +1144,7 @@ struct LiquidGlassNoteCard: View {
                 // Content Preview with smart truncation
                 if !note.content.isEmpty {
                     Text(note.content)
-                        .font(.custom("OpenSans-Regular", size: 15))
+                        .font(AMENFont.regular(15))
                         .foregroundStyle(.white.opacity(0.8))
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
@@ -1142,9 +1159,9 @@ struct LiquidGlassNoteCard: View {
                 if let scripture = note.scripture, !scripture.isEmpty {
                     HStack(spacing: 8) {
                         Image(systemName: "book.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                         Text(scripture)
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                     }
                     .foregroundStyle(Color(hex: "D4A574"))
                     .padding(.horizontal, 14)
@@ -1192,9 +1209,9 @@ struct LiquidGlassNoteCard: View {
                     // Date
                     HStack(spacing: 6) {
                         Image(systemName: "calendar")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text(note.date, style: .date)
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                     }
                     .foregroundStyle(.white.opacity(0.6))
                     
@@ -1204,9 +1221,9 @@ struct LiquidGlassNoteCard: View {
                         
                         HStack(spacing: 6) {
                             Image(systemName: "building.2")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text(churchName)
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                         }
                         .foregroundStyle(.white.opacity(0.6))
                         .lineLimit(1)
@@ -1219,7 +1236,7 @@ struct LiquidGlassNoteCard: View {
                         HStack(spacing: 6) {
                             ForEach(note.tags.prefix(2), id: \.self) { tag in
                                 Text("#\(tag)")
-                                    .font(.custom("OpenSans-SemiBold", size: 11))
+                                    .font(AMENFont.semiBold(11))
                                     .foregroundStyle(Color(hex: "F5E9DD").opacity(0.9))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 4)
@@ -1272,7 +1289,7 @@ struct LiquidGlassNoteCard: View {
                                 )
 
                             Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(
                                     LinearGradient(
                                         colors: [
@@ -1428,7 +1445,7 @@ struct LiquidGlassNoteCard: View {
             // Toast notification for copy confirmation
             if showCopiedToast {
                 Text("Link copied to clipboard")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
@@ -1505,7 +1522,7 @@ struct LiquidGlassNoteCard: View {
         UIPasteboard.general.string = shareURL
         
         // Show toast confirmation with animation
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
             showCopiedToast = true
         }
         
@@ -1569,6 +1586,11 @@ struct NewChurchNoteView: View {
     }
     
     var body: some View {
+        bodyContent
+    }
+
+    @ViewBuilder
+    private var bodyContent: some View {
         ZStack {
             // Dark gradient background
             LinearGradient(
@@ -1590,13 +1612,13 @@ struct NewChurchNoteView: View {
                         haptic.impactOccurred()
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 17))
+                    .font(AMENFont.semiBold(17))
                     .foregroundStyle(.white.opacity(0.8))
                     
                     Spacer()
                     
                     Text("New Note")
-                        .font(.custom("OpenSans-Bold", size: 20))
+                        .font(AMENFont.bold(20))
                         .foregroundStyle(.white)
                     
                     Spacer()
@@ -1612,7 +1634,7 @@ struct NewChurchNoteView: View {
                                     .tint(.white)
                             } else {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.systemScaled(18, weight: .semibold))
                                     .foregroundStyle(canSave ? .white : .white.opacity(0.4))
                             }
                         }
@@ -1656,7 +1678,7 @@ struct NewChurchNoteView: View {
                         // Sermon Details Card
                         VStack(alignment: .leading, spacing: 16) {
                             Label("Sermon Details", systemImage: "quote.bubble")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                                 .foregroundStyle(.white.opacity(0.9))
                             
                             VStack(spacing: 12) {
@@ -1670,7 +1692,7 @@ struct NewChurchNoteView: View {
                                 HStack {
                                     HStack(spacing: 10) {
                                         Image(systemName: "calendar")
-                                            .font(.system(size: 16, weight: .medium))
+                                            .font(.systemScaled(16, weight: .medium))
                                             .foregroundStyle(.white.opacity(0.7))
                                         
                                         DatePicker("", selection: $selectedDate, displayedComponents: .date)
@@ -1719,7 +1741,7 @@ struct NewChurchNoteView: View {
                             }
                         }
                         .padding(20)
-                        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 20))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20))
                         
                         // Scripture
                         GlassTextField(
@@ -1732,7 +1754,7 @@ struct NewChurchNoteView: View {
                         // Content Editor with Rich Text Formatting
                         VStack(alignment: .leading, spacing: 12) {
                             Label("Notes", systemImage: "note.text")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                                 .foregroundStyle(.white.opacity(0.9))
                             
                             RichTextEditorView(
@@ -1740,19 +1762,19 @@ struct NewChurchNoteView: View {
                                 placeholder: "Start writing your sermon notes...",
                                 minHeight: 200
                             )
-                            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+                            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16))
                         }
                         .padding(20)
-                        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 20))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20))
                         
                         // Tags Section
                         VStack(alignment: .leading, spacing: 12) {
                             Label("Tags", systemImage: "tag")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                                 .foregroundStyle(.white.opacity(0.9))
                             
                             if !tags.isEmpty {
-                                FlowLayout(spacing: 8) {
+                                AMENFlowLayout(spacing: 8) {
                                     ForEach(tags, id: \.self) { tag in
                                         TagPill(tag: tag) {
                                             withAnimation {
@@ -1777,20 +1799,20 @@ struct NewChurchNoteView: View {
                                     addTag()
                                 } label: {
                                     Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 32))
+                                        .font(.systemScaled(32))
                                         .foregroundStyle(.cyan.opacity(0.9))
                                 }
                                 .disabled(newTag.isEmpty)
                             }
                         }
                         .padding(20)
-                        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 20))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20))
 
                         // ── Worship Music Section ──────────────────────────
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Label("Worship Music", systemImage: "music.note.list")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                                     .foregroundStyle(.white.opacity(0.9))
 
                                 Spacer()
@@ -1802,7 +1824,7 @@ struct NewChurchNoteView: View {
                                         Image(systemName: "plus.circle.fill")
                                         Text("Add Song")
                                     }
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(.purple)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 7)
@@ -1818,7 +1840,7 @@ struct NewChurchNoteView: View {
                                     Image(systemName: "music.note")
                                         .foregroundStyle(.white.opacity(0.3))
                                     Text("Tap \u{201C}Add Song\u{201D} to attach worship music to this note")
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                         .foregroundStyle(.white.opacity(0.4))
                                 }
                                 .padding(.vertical, 4)
@@ -1827,15 +1849,15 @@ struct NewChurchNoteView: View {
                                     ForEach(worshipSongs) { song in
                                         HStack(spacing: 10) {
                                             Image(systemName: "music.note")
-                                                .font(.system(size: 14))
+                                                .font(.systemScaled(14))
                                                 .foregroundStyle(.purple)
                                             VStack(alignment: .leading, spacing: 1) {
                                                 Text(song.title)
-                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .font(.systemScaled(14, weight: .semibold))
                                                     .foregroundStyle(.white)
                                                     .lineLimit(1)
                                                 Text(song.artist)
-                                                    .font(.system(size: 12))
+                                                    .font(.systemScaled(12))
                                                     .foregroundStyle(.white.opacity(0.55))
                                                     .lineLimit(1)
                                             }
@@ -1861,7 +1883,7 @@ struct NewChurchNoteView: View {
                             }
                         }
                         .padding(20)
-                        .glassEffect(GlassEffectStyle.regular.tint(.purple), in: RoundedRectangle(cornerRadius: 20))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20))
                         // ─────────────────────────────────────────────────
                     }
                     .padding(20)
@@ -1913,7 +1935,7 @@ struct NewChurchNoteView: View {
                                 .frame(width: 64, height: 64)
                             
                             Image(systemName: "checkmark")
-                                .font(.system(size: 32, weight: .semibold))
+                                .font(.systemScaled(32, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                         .scaleEffect(saveConfirmationScale)
@@ -1921,11 +1943,11 @@ struct NewChurchNoteView: View {
                         
                         VStack(spacing: 8) {
                             Text("Note Saved!")
-                                .font(.custom("OpenSans-Bold", size: 22))
+                                .font(AMENFont.bold(22))
                                 .foregroundStyle(.white)
                             
                             Text("Your sermon notes have been saved successfully")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.white.opacity(0.7))
                                 .multilineTextAlignment(.center)
                                 .lineSpacing(2)
@@ -1963,7 +1985,7 @@ struct NewChurchNoteView: View {
         let trimmed = newTag.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty && !tags.contains(trimmed) else { return }
         
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             tags.append(trimmed)
             newTag = ""
             
@@ -2005,7 +2027,7 @@ struct NewChurchNoteView: View {
                     isSaving = false
                     
                     // Show save confirmation
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         showSaveConfirmation = true
                         saveConfirmationScale = 1.0
                     }
@@ -2045,7 +2067,7 @@ struct GlassTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: isLarge ? 18 : 16))
+                .font(.systemScaled(isLarge ? 18 : 16))
                 .foregroundStyle(tintColor.opacity(0.6))
                 .frame(width: 24)
             
@@ -2059,7 +2081,7 @@ struct GlassTextField: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, isLarge ? 16 : 14)
-        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
@@ -2072,17 +2094,17 @@ struct TagPill: View {
     var body: some View {
         HStack(spacing: 8) {
             Text("#\(tag)")
-                .font(.custom("OpenSans-SemiBold", size: 14))
+                .font(AMENFont.semiBold(14))
             
             Button(action: onDelete) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
             }
         }
         .foregroundStyle(.cyan.opacity(0.9))
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .glassEffect(GlassEffectStyle.regular.tint(.cyan), in: Capsule())
+        .amenGlassEffect(in: Capsule())
     }
 }
 
@@ -2113,6 +2135,7 @@ struct ChurchNoteDetailView: View {
     @State private var showDeleteConfirmation = false
     @State private var activeSheet: ChurchNoteDetailSheet?
     @State private var showCopiedToast = false
+    @State private var showPrayerSaved = false
     @State private var localWorshipSongs: [WorshipSongReference] = []
 
     var body: some View {
@@ -2136,10 +2159,10 @@ struct ChurchNoteDetailView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
-                            .glassEffect(GlassEffectStyle.regular.interactive(), in: Circle())
+                            .amenGlassEffect(in: Circle())
                     }
                     
                     Spacer()
@@ -2153,10 +2176,10 @@ struct ChurchNoteDetailView: View {
                         }
                     } label: {
                         Image(systemName: note.isFavorite ? "star.fill" : "star")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(note.isFavorite ? .yellow : .white)
                             .frame(width: 44, height: 44)
-                            .glassEffect(GlassEffectStyle.regular.interactive(), in: Circle())
+                            .amenGlassEffect(in: Circle())
                     }
                     
                     // Menu Button
@@ -2196,10 +2219,10 @@ struct ChurchNoteDetailView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
-                            .glassEffect(GlassEffectStyle.regular.interactive(), in: Circle())
+                            .amenGlassEffect(in: Circle())
                     }
                 }
                 .padding(.horizontal, 20)
@@ -2210,22 +2233,22 @@ struct ChurchNoteDetailView: View {
                         // Title and Metadata
                         VStack(alignment: .leading, spacing: 16) {
                             Text(note.title)
-                                .font(.custom("OpenSans-Bold", size: 32))
+                                .font(AMENFont.bold(32))
                                 .foregroundStyle(.white)
                                 .lineSpacing(4)
                             
                             if let sermonTitle = note.sermonTitle, !sermonTitle.isEmpty {
                                 HStack(spacing: 8) {
                                     Image(systemName: "quote.bubble.fill")
-                                        .font(.system(size: 16))
+                                        .font(.systemScaled(16))
                                     Text(sermonTitle)
-                                        .font(.custom("OpenSans-SemiBold", size: 18))
+                                        .font(AMENFont.semiBold(18))
                                 }
                                 .foregroundStyle(.white.opacity(0.8))
                             }
                             
                             // Metadata Pills
-                            FlowLayout(spacing: 10) {
+                            AMENFlowLayout(spacing: 10) {
                                 if let churchName = note.churchName, !churchName.isEmpty {
                                     MetadataPill(icon: "building.2", text: churchName)
                                 }
@@ -2238,58 +2261,66 @@ struct ChurchNoteDetailView: View {
                             }
                         }
                         .padding(24)
-                        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 24))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 24))
                         
                         // Scripture
                         if let scripture = note.scripture, !scripture.isEmpty {
                             HStack(spacing: 12) {
                                 Image(systemName: "book.fill")
-                                    .font(.system(size: 20))
+                                    .font(.systemScaled(20))
                                     .foregroundStyle(.purple)
                                 
                                 Text(scripture)
-                                    .font(.custom("OpenSans-Bold", size: 18))
+                                    .font(AMENFont.bold(18))
                                     .foregroundStyle(.purple.opacity(0.9))
                             }
                             .padding(20)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .glassEffect(GlassEffectStyle.regular.tint(.purple), in: RoundedRectangle(cornerRadius: 20))
+                            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20))
                         }
                         
                         // Content
                         VStack(alignment: .leading, spacing: 16) {
                             Label("Notes", systemImage: "note.text")
-                                .font(.custom("OpenSans-Bold", size: 18))
+                                .font(AMENFont.bold(18))
                                 .foregroundStyle(.white.opacity(0.9))
-                            
+
+                            // Accessibility Intelligence Layer — reader controls
+                            if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    AILReadingLevelControl()
+                                    AILTranslatePill(originalText: note.content, originalRef: note.id ?? "")
+                                }
+                            }
+
                             Text(note.content)
-                                .font(.custom("OpenSans-Regular", size: 17))
+                                .font(AMENFont.regular(17))
                                 .foregroundStyle(.white.opacity(0.9))
                                 .lineSpacing(8)
                         }
                         .padding(24)
-                        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 24))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 24))
                         
                         // Tags
                         if !note.tags.isEmpty {
                             VStack(alignment: .leading, spacing: 16) {
                                 Label("Tags", systemImage: "tag")
-                                    .font(.custom("OpenSans-Bold", size: 18))
+                                    .font(AMENFont.bold(18))
                                     .foregroundStyle(.white.opacity(0.9))
 
-                                FlowLayout(spacing: 10) {
+                                AMENFlowLayout(spacing: 10) {
                                     ForEach(note.tags, id: \.self) { tag in
                                         Text("#\(tag)")
-                                            .font(.custom("OpenSans-SemiBold", size: 15))
+                                            .font(AMENFont.semiBold(15))
                                             .foregroundStyle(.cyan.opacity(0.9))
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 10)
-                                            .glassEffect(GlassEffectStyle.regular.tint(.cyan), in: Capsule())
+                                            .amenGlassEffect(in: Capsule())
                                     }
                                 }
                             }
                             .padding(24)
-                            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 24))
+                            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 24))
                         }
 
                         // Saved worship songs — always visible when the note has songs
@@ -2338,7 +2369,7 @@ struct ChurchNoteDetailView: View {
             // Toast notification for copy confirmation
             if showCopiedToast {
                 Text("Link copied to clipboard")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
@@ -2353,6 +2384,80 @@ struct ChurchNoteDetailView: View {
         }
     }
     
+    private func defaultPrayerFocusTextLocal(from note: ChurchNote) -> String {
+        if let scripture = note.scripture, !scripture.isEmpty {
+            return "Pray through \(scripture)"
+        }
+        let trimmed = note.content.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        if let sentenceEnd = trimmed.firstIndex(of: ".") {
+            return String(trimmed[..<sentenceEnd]).prefix(120) + "…"
+        }
+        return String(trimmed.prefix(120))
+    }
+
+    private var prayerFocusSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                let focusText = defaultPrayerFocusTextLocal(from: note)
+                PrayerFocusStore.shared.saveFocus(text: focusText, noteId: note.id)
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+                withAnimation(.easeOut(duration: 0.25)) {
+                    showPrayerSaved = true
+                }
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_400_000_000)
+                    await MainActor.run {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            showPrayerSaved = false
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "hands.sparkles")
+                        .font(.systemScaled(14, weight: .semibold))
+                    Text("Save to this week’s prayer focus")
+                        .font(.systemScaled(14, weight: .semibold))
+                }
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule()
+                        .fill(.thinMaterial)
+                        .overlay(Capsule().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.75))
+                )
+            }
+            .buttonStyle(.plain)
+
+            if showPrayerSaved {
+                Text("Saved to prayer focus")
+                    .font(.systemScaled(12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func defaultPrayerFocusText(from note: ChurchNote) -> String {
+        if let scripture = note.scripture, !scripture.isEmpty {
+            return "Pray through \(scripture)"
+        }
+        if !note.keyPoints.isEmpty {
+            return note.keyPoints[0]
+        }
+        let trimmedContent = note.content.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        if !trimmedContent.isEmpty {
+            if let firstLine = trimmedContent.split(separator: "\n").first {
+                return String(firstLine)
+            }
+            return trimmedContent
+        }
+        return note.title
+    }
+
     private func generateShareText() -> String {
         var text = "📝 \(note.title)\n\n"
         
@@ -2394,7 +2499,7 @@ struct ChurchNoteDetailView: View {
         UIPasteboard.general.string = shareURL
         
         // Show toast confirmation with animation
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
             showCopiedToast = true
         }
         
@@ -2431,14 +2536,14 @@ struct MetadataPill: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
             Text(text)
-                .font(.custom("OpenSans-SemiBold", size: 14))
+                .font(AMENFont.semiBold(14))
         }
         .foregroundStyle(.white.opacity(0.7))
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .glassEffect(GlassEffectStyle.regular, in: Capsule())
+        .amenGlassEffect(in: Capsule())
     }
 }
 
@@ -2464,8 +2569,8 @@ struct ThreadsStyleHeader: View {
             // Title and Add Button
             HStack {
                 Text("Notes")
-                    .font(.system(size: isScrolled ? 28 : 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(isScrolled ? 28 : 34, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
                 
                 Spacer()
                 
@@ -2507,7 +2612,7 @@ struct ThreadsStyleHeader: View {
                                 .frame(width: 50, height: 40)
                                 .overlay(
                                     Image(systemName: "plus")
-                                        .font(.system(size: 18, weight: .semibold))
+                                        .font(.systemScaled(18, weight: .semibold))
                                         .foregroundStyle(.white)
                                 )
                             
@@ -2542,15 +2647,15 @@ struct ThreadsStyleHeader: View {
             if !isScrolled {
                 HStack(spacing: 12) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.black.opacity(0.6))
                     
                     TextField("", text: $searchText, prompt: Text("Search notes...").foregroundStyle(.black.opacity(0.4)))
-                        .font(.system(size: 16, weight: .regular, design: .rounded))
-                        .foregroundStyle(.black)
+                        .font(.systemScaled(16, weight: .regular, design: .rounded))
+                        .foregroundStyle(.primary)
                         .tint(.blue)
                         .onTapGesture {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 isSearchFocused = true
                             }
                         }
@@ -2558,12 +2663,12 @@ struct ThreadsStyleHeader: View {
                     if !searchText.isEmpty {
                         Button {
                             searchText = ""
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 isSearchFocused = false
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.black.opacity(0.4))
                         }
                         .transition(.scale.combined(with: .opacity))
@@ -2653,10 +2758,10 @@ struct MonochromeFilterPill: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: filter.icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 
                 Text(filter.rawValue)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(.systemScaled(14, weight: .semibold, design: .rounded))
             }
             .foregroundStyle(isSelected ? .white : .black.opacity(0.7))
             .padding(.horizontal, 16)
@@ -2761,11 +2866,11 @@ struct ThreadsStyleNoteCard: View {
     
     var body: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                 isPressed = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                     isPressed = false
                 }
                 onTap()
@@ -2776,8 +2881,8 @@ struct ThreadsStyleNoteCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     // Title
                     Text(note.title)
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundStyle(.black)
+                        .font(.systemScaled(20, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
@@ -2785,9 +2890,9 @@ struct ThreadsStyleNoteCard: View {
                     if let sermonTitle = note.sermonTitle, !sermonTitle.isEmpty {
                         HStack(spacing: 6) {
                             Image(systemName: "quote.bubble")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text(sermonTitle)
-                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .font(.systemScaled(14, weight: .medium, design: .rounded))
                         }
                         .foregroundStyle(.black.opacity(0.6))
                         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -2796,7 +2901,7 @@ struct ThreadsStyleNoteCard: View {
                     // Content preview
                     if !note.content.isEmpty {
                         Text(note.content)
-                            .font(.system(size: 15, weight: .regular, design: .rounded))
+                            .font(.systemScaled(15, weight: .regular, design: .rounded))
                             .foregroundStyle(.black.opacity(0.7))
                             .lineLimit(3)
                             .multilineTextAlignment(.leading)
@@ -2806,15 +2911,15 @@ struct ThreadsStyleNoteCard: View {
                     HStack(spacing: 12) {
                         HStack(spacing: 4) {
                             Image(systemName: "calendar")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                             Text(note.date, style: .date)
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .font(.systemScaled(12, weight: .medium, design: .rounded))
                         }
                         
                         if let churchName = note.churchName, !churchName.isEmpty {
                             Text("•")
                             Text(churchName)
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .font(.systemScaled(12, weight: .medium, design: .rounded))
                                 .lineLimit(1)
                         }
                         
@@ -2829,7 +2934,7 @@ struct ThreadsStyleNoteCard: View {
                             }
                         } label: {
                             Image(systemName: note.isFavorite ? "star.fill" : "star")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(note.isFavorite ? .orange : .black.opacity(0.4))
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -2926,14 +3031,14 @@ struct MonochromeLoadingView: View {
                 }
                 
                 Image(systemName: "note.text")
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.systemScaled(24, weight: .semibold))
                     .foregroundStyle(.blue)
                     .rotationEffect(.degrees(rotation))
             }
             .frame(width: 80, height: 80)
             
             Text("Loading Notes...")
-                .font(.system(size: 16, weight: .medium, design: .rounded))
+                .font(.systemScaled(16, weight: .medium, design: .rounded))
                 .foregroundStyle(.black.opacity(0.6))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -2964,18 +3069,18 @@ struct MonochromeEmptyState: View {
                     .scaleEffect(bounce ? 1.1 : 1.0)
                 
                 Image(systemName: hasSearch ? "magnifyingglass" : "note.text")
-                    .font(.system(size: 48, weight: .light))
+                    .font(.systemScaled(48, weight: .light))
                     .foregroundStyle(.blue.opacity(0.6))
             }
             .animation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true), value: bounce)
             
             VStack(spacing: 12) {
                 Text(emptyTitle)
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(24, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
                 
                 Text(emptySubtitle)
-                    .font(.system(size: 15, weight: .regular, design: .rounded))
+                    .font(.systemScaled(15, weight: .regular, design: .rounded))
                     .foregroundStyle(.black.opacity(0.6))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
@@ -2985,9 +3090,9 @@ struct MonochromeEmptyState: View {
                 Button(action: onCreateNote) {
                     HStack(spacing: 10) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                         Text("Create Note")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .font(.systemScaled(16, weight: .semibold, design: .rounded))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 24)
@@ -3091,7 +3196,7 @@ struct MonochromeNewNoteView: View {
                         dismiss()
                     } label: {
                         Text("Cancel")
-                            .font(.system(size: 17, weight: .medium, design: .rounded))
+                            .font(.systemScaled(17, weight: .medium, design: .rounded))
                             .foregroundStyle(.black.opacity(0.7))
                     }
                     
@@ -3100,12 +3205,12 @@ struct MonochromeNewNoteView: View {
                     // Writer stats in center
                     VStack(spacing: 2) {
                         Text("New Note")
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.black)
+                            .font(.systemScaled(17, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.primary)
                         
                         if wordCount > 0 {
                             Text("\(wordCount) words")
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .font(.systemScaled(11, weight: .medium, design: .rounded))
                                 .foregroundStyle(.black.opacity(0.5))
                         }
                     }
@@ -3161,7 +3266,7 @@ struct MonochromeNewNoteView: View {
                             
                             // Text
                             Text(isSaving ? "Saving..." : "Save")
-                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .font(.systemScaled(15, weight: .semibold, design: .rounded))
                                 .foregroundStyle(canSave ? .white : .black.opacity(0.4))
                             
                             // Border
@@ -3210,13 +3315,13 @@ struct MonochromeNewNoteView: View {
                         // Empowering Title Section
                         VStack(alignment: .leading, spacing: 12) {
                             Text("✨ Your Story Matters")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .font(.systemScaled(13, weight: .semibold, design: .rounded))
                                 .foregroundStyle(.blue.opacity(0.8))
                                 .padding(.horizontal, 4)
                             
                             TextField("", text: $title, prompt: Text("Give your note a powerful title...").foregroundStyle(.black.opacity(0.4)))
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
-                                .foregroundStyle(.black)
+                                .font(.systemScaled(28, weight: .bold, design: .rounded))
+                                .foregroundStyle(.primary)
                                 .tint(.blue)
                                 .focused($focusedField, equals: .title)
                                 .padding(20)
@@ -3261,13 +3366,13 @@ struct MonochromeNewNoteView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             HStack {
                                 Label("Sermon Context", systemImage: "quote.bubble")
-                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    .font(.systemScaled(15, weight: .semibold, design: .rounded))
                                     .foregroundStyle(.white.opacity(0.9))
                                 
                                 Spacer()
                                 
                                 Text("Optional")
-                                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                                    .font(.systemScaled(12, weight: .medium, design: .rounded))
                                     .foregroundStyle(.white.opacity(0.5))
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
@@ -3307,7 +3412,7 @@ struct MonochromeNewNoteView: View {
                                 // Date Picker
                                 HStack(spacing: 12) {
                                     Image(systemName: "calendar")
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.systemScaled(16, weight: .medium))
                                         .foregroundStyle(.white.opacity(0.7))
                                         .frame(width: 24)
                                     
@@ -3388,7 +3493,7 @@ struct MonochromeNewNoteView: View {
                         // Scripture Reference
                         VStack(alignment: .leading, spacing: 8) {
                             Label("Scripture Reference", systemImage: "book.closed")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .font(.systemScaled(13, weight: .semibold, design: .rounded))
                                 .foregroundStyle(.purple.opacity(0.9))
                                 .padding(.horizontal, 4)
                             
@@ -3406,14 +3511,14 @@ struct MonochromeNewNoteView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Label("Your Notes", systemImage: "pencil.line")
-                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    .font(.systemScaled(15, weight: .semibold, design: .rounded))
                                     .foregroundStyle(.white.opacity(0.9))
                                 
                                 Spacer()
                                 
                                 if !content.isEmpty {
                                     Text("\(wordCount) words")
-                                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                                        .font(.systemScaled(12, weight: .medium, design: .rounded))
                                         .foregroundStyle(.blue.opacity(0.8))
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 4)
@@ -3428,18 +3533,18 @@ struct MonochromeNewNoteView: View {
                                 if content.isEmpty {
                                     VStack(alignment: .leading, spacing: 8) {
                                         Text("Write your thoughts, insights, and reflections...")
-                                            .font(.system(size: 17, weight: .regular, design: .rounded))
+                                            .font(.systemScaled(17, weight: .regular, design: .rounded))
                                             .foregroundStyle(.white.opacity(0.4))
                                         
                                         Text("💡 Tip: Don't worry about perfection—just write!")
-                                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                                            .font(.systemScaled(14, weight: .medium, design: .rounded))
                                             .foregroundStyle(.blue.opacity(0.5))
                                     }
                                     .padding(20)
                                 }
                                 
                                 TextEditor(text: $content)
-                                    .font(.system(size: 17, weight: .regular, design: .rounded))
+                                    .font(.systemScaled(17, weight: .regular, design: .rounded))
                                     .foregroundStyle(.white)
                                     .scrollContentBackground(.hidden)
                                     .background(Color.clear)
@@ -3491,11 +3596,11 @@ struct MonochromeNewNoteView: View {
                         if !title.isEmpty && !content.isEmpty {
                             HStack(spacing: 12) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(.green)
                                 
                                 Text("Ready to save! Your note looks great.")
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                                    .font(.systemScaled(14, weight: .medium, design: .rounded))
                                     .foregroundStyle(.white.opacity(0.8))
                                 
                                 Spacer()
@@ -3574,12 +3679,12 @@ struct MonochromeTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
                 .frame(width: 24)
             
             TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(.white.opacity(0.5)))
-                .font(.system(size: 16, weight: .regular, design: .rounded))
+                .font(.systemScaled(16, weight: .regular, design: .rounded))
                 .foregroundStyle(.white)
                 .tint(.white)
         }
@@ -3647,7 +3752,7 @@ struct MonochromeNoteDetailView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .background(
@@ -3675,7 +3780,7 @@ struct MonochromeNoteDetailView: View {
                         }
                     } label: {
                         Image(systemName: note.isFavorite ? "star.fill" : "star")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(note.isFavorite ? .yellow : .white)
                             .frame(width: 44, height: 44)
                             .background(
@@ -3694,9 +3799,10 @@ struct MonochromeNoteDetailView: View {
                     }
                     
                     Menu {
-                        Button {
-                            // Share functionality - handled by share button in footer
-                        } label: {
+                        ShareLink(
+                            item: "\(note.title)\n\(note.sermonTitle ?? note.content)",
+                            subject: Text(note.title)
+                        ) {
                             Label("Share", systemImage: "square.and.arrow.up")
                         }
                         
@@ -3707,7 +3813,7 @@ struct MonochromeNoteDetailView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .background(
@@ -3743,7 +3849,7 @@ struct MonochromeNoteDetailView: View {
                     VStack(alignment: .leading, spacing: 24) {
                         // Title
                         Text(note.title)
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .font(.systemScaled(32, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
                             .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
                         
@@ -3769,7 +3875,7 @@ struct MonochromeNoteDetailView: View {
                         
                         // Content
                         Text(note.content)
-                            .font(.system(size: 17, weight: .regular, design: .rounded))
+                            .font(.systemScaled(17, weight: .regular, design: .rounded))
                             .foregroundStyle(.white.opacity(0.9))
                             .lineSpacing(6)
                     }
@@ -3795,12 +3901,12 @@ struct MetadataRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
                 .frame(width: 20)
             
             Text(text)
-                .font(.system(size: 15, weight: .regular, design: .rounded))
+                .font(.systemScaled(15, weight: .regular, design: .rounded))
                 .foregroundStyle(.white.opacity(0.85))
         }
     }
@@ -3855,13 +3961,13 @@ struct EnhancedTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.black.opacity(0.6))
                 .frame(width: 24)
             
             TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(.black.opacity(0.4)))
-                .font(.system(size: 16, weight: .regular, design: .rounded))
-                .foregroundStyle(.black)
+                .font(.systemScaled(16, weight: .regular, design: .rounded))
+                .foregroundStyle(.primary)
                 .tint(tintColor)
                 .focused(focusedField, equals: field)
         }
@@ -3895,21 +4001,21 @@ struct ShareNoteToOpenTableSheet: View {
     @ObservedObject private var postsManager = PostsManager.shared
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Header
                 HStack {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .font(.system(size: 17, weight: .regular))
+                    .font(.systemScaled(17, weight: .regular))
                     .foregroundStyle(.black.opacity(0.6))
                     
                     Spacer()
                     
                     Text("Share to #OPENTABLE")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .font(.systemScaled(17, weight: .semibold))
+                        .foregroundStyle(.primary)
                     
                     Spacer()
                     
@@ -3921,45 +4027,48 @@ struct ShareNoteToOpenTableSheet: View {
                                 .tint(.black)
                         } else {
                             Text("Post")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(.black)
+                                .font(.systemScaled(17, weight: .semibold))
+                                .foregroundStyle(.primary)
                         }
                     }
                     .disabled(postContent.isEmpty || isPosting)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
-                .background(Color(red: 0.98, green: 0.98, blue: 0.98))
-                
-                Divider()
-                
+                .background(.thinMaterial)
+
+                Rectangle()
+                    .fill(Color.black.opacity(0.06))
+                    .frame(height: 0.5)
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         // Text editor for post content
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Your Thoughts")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.5))
                                 .textCase(.uppercase)
                                 .tracking(1)
                             
                             TextEditor(text: $postContent)
-                                .font(.system(size: 17, weight: .regular))
-                                .foregroundStyle(.black)
+                                .font(.systemScaled(17, weight: .regular))
+                                .foregroundStyle(.primary)
                                 .frame(minHeight: 120)
                                 .padding(12)
-                                .background(Color.white)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                                .scrollContentBackground(.hidden)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(.thinMaterial)
+                                        .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.68)))
+                                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
                                 )
                         }
                         
                         // Note Preview
                         VStack(alignment: .leading, spacing: 16) {
                             Text("Note Preview")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.5))
                                 .textCase(.uppercase)
                                 .tracking(1)
@@ -3967,16 +4076,16 @@ struct ShareNoteToOpenTableSheet: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 // Title
                                 Text(note.title)
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundStyle(.black)
+                                    .font(.systemScaled(20, weight: .bold))
+                                    .foregroundStyle(.primary)
                                 
                                 // Sermon info
                                 if let sermon = note.sermonTitle {
                                     HStack(spacing: 6) {
                                         Image(systemName: "mic.fill")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                         Text(sermon)
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                     }
                                     .foregroundStyle(.black.opacity(0.6))
                                 }
@@ -3985,31 +4094,32 @@ struct ShareNoteToOpenTableSheet: View {
                                 if let scripture = note.scripture {
                                     HStack(spacing: 6) {
                                         Image(systemName: "book.fill")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                         Text(scripture)
-                                            .font(.system(size: 14, weight: .medium))
+                                            .font(.systemScaled(14, weight: .medium))
                                     }
                                     .foregroundStyle(.purple)
                                 }
                                 
                                 // Content preview
                                 Text(note.content)
-                                    .font(.system(size: 15))
+                                    .font(.systemScaled(15))
                                     .foregroundStyle(.black.opacity(0.8))
                                     .lineLimit(4)
                             }
                             .padding(16)
-                            .background(Color.white)
-                            .cornerRadius(12)
-                            .overlay(
+                            .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                                    .fill(.thinMaterial)
+                                    .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.65)))
+                                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
                             )
+                            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                         }
                     }
                     .padding(20)
                 }
-                .background(Color(red: 0.96, green: 0.96, blue: 0.96))
+                .background(Color(.systemGroupedBackground))
             }
         }
         .alert("Posted to #OPENTABLE", isPresented: $showSuccessMessage) {
@@ -4056,14 +4166,18 @@ struct ShareNoteToOpenTableSheet: View {
                 
                 // Write a share event for Cloud Function fanout to followers/church members
                 if let sharerId = Auth.auth().currentUser?.uid {
-                    let db = Firestore.firestore()
-                    _ = try? await db.collection("churchNoteShareEvents").addDocument(data: [
-                        "noteId": note.id ?? "",
-                        "noteTitle": note.title,
-                        "sharerId": sharerId,
-                        "churchName": note.churchName ?? "",
-                        "sharedAt": FieldValue.serverTimestamp()
-                    ])
+                    lazy var db = Firestore.firestore()
+                    do {
+                        try await db.collection("churchNoteShareEvents").addDocument(data: [
+                            "noteId": note.id ?? "",
+                            "noteTitle": note.title,
+                            "sharerId": sharerId,
+                            "churchName": note.churchName ?? "",
+                            "sharedAt": FieldValue.serverTimestamp()
+                        ])
+                    } catch {
+                        print("ChurchNotesView: failed to write share event — \(error.localizedDescription)")
+                    }
                 }
                 
                 await MainActor.run {
@@ -4093,7 +4207,7 @@ struct ElegantChurchNotesFeedForChurchNotesView: View {
                 // Elegant header
                 VStack(spacing: 20) {
                     Text("SHARED NOTES")
-                        .font(.system(size: 11, weight: .semibold, design: .default))
+                        .font(.systemScaled(11, weight: .semibold, design: .default))
                         .tracking(2.5)
                         .foregroundStyle(Color.black.opacity(0.5))
                         .padding(.top, 32)
@@ -4106,7 +4220,7 @@ struct ElegantChurchNotesFeedForChurchNotesView: View {
                         .padding(.horizontal, 32)
                     
                     Text("Discover sermon insights, biblical teachings, and spiritual reflections shared by believers in our community.")
-                        .font(.system(size: 15, weight: .regular, design: .default))
+                        .font(.systemScaled(15, weight: .regular, design: .default))
                         .multilineTextAlignment(.center)
                         .lineSpacing(5)
                         .foregroundStyle(Color.black.opacity(0.55))
@@ -4124,18 +4238,18 @@ struct ElegantChurchNotesFeedForChurchNotesView: View {
                                 .frame(width: 120, height: 120)
                             
                             Image(systemName: "book.closed")
-                                .font(.system(size: 48, weight: .light))
+                                .font(.systemScaled(48, weight: .light))
                                 .foregroundStyle(Color.black.opacity(0.25))
                         }
                         .padding(.top, 80)
                         
                         VStack(spacing: 8) {
                             Text("No Shared Notes Yet")
-                                .font(.system(size: 22, weight: .medium, design: .default))
+                                .font(.systemScaled(22, weight: .medium, design: .default))
                                 .foregroundStyle(Color.black.opacity(0.7))
                             
                             Text("Be the first to share your sermon notes\nwith the community")
-                                .font(.system(size: 15, weight: .regular, design: .default))
+                                .font(.systemScaled(15, weight: .regular, design: .default))
                                 .foregroundStyle(Color.black.opacity(0.45))
                                 .multilineTextAlignment(.center)
                                 .lineSpacing(3)
@@ -4233,7 +4347,7 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
                     .frame(width: 36, height: 36)
                 
                 Image(systemName: "note.text")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.7))
             }
             
@@ -4241,22 +4355,22 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
             VStack(alignment: .leading, spacing: 3) {
                 if let note = churchNote {
                     Text(note.title)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.black.opacity(0.85))
                         .lineLimit(1)
                     
                     HStack(spacing: 6) {
                         Text(post.authorName)
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.black.opacity(0.5))
                         
                         if let churchName = note.churchName, !churchName.isEmpty {
                             Text("•")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.3))
                             
                             Text(churchName)
-                                .font(.custom("OpenSans-Regular", size: 13))
+                                .font(AMENFont.regular(13))
                                 .foregroundStyle(.black.opacity(0.5))
                                 .lineLimit(1)
                         }
@@ -4266,7 +4380,7 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
                         ProgressView()
                             .scaleEffect(0.6)
                         Text("Loading note...")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.black.opacity(0.4))
                     }
                 }
@@ -4275,7 +4389,7 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.black.opacity(0.25))
         }
         .padding(.horizontal, 16)
@@ -4375,7 +4489,7 @@ struct ElegantChurchNoteReadView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.systemScaled(17, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.6))
                             .frame(width: 32, height: 32)
                     }
@@ -4386,7 +4500,7 @@ struct ElegantChurchNoteReadView: View {
                         showShareSheet = true
                     } label: {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.systemScaled(17, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.6))
                             .frame(width: 32, height: 32)
                     }
@@ -4417,18 +4531,18 @@ struct ElegantChurchNoteReadView: View {
                                     .frame(width: 44, height: 44)
                                     .overlay(
                                         Text(post.authorInitials)
-                                            .font(.system(size: 15, weight: .medium))
+                                            .font(.systemScaled(15, weight: .medium))
                                             .foregroundStyle(Color.black.opacity(0.6))
                                     )
                             }
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(post.authorName)
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(.systemScaled(15, weight: .medium))
                                     .foregroundStyle(Color.black.opacity(0.85))
                                 
                                 Text("Shared \(post.timeAgo)")
-                                    .font(.system(size: 13, weight: .regular))
+                                    .font(.systemScaled(13, weight: .regular))
                                     .foregroundStyle(Color.black.opacity(0.45))
                             }
                         }
@@ -4476,16 +4590,16 @@ struct ElegantChurchNoteReadView: View {
                         
                         // Content
                         Text(churchNote.content)
-                            .font(.system(size: 17, weight: .regular))
+                            .font(.systemScaled(17, weight: .regular))
                             .foregroundStyle(Color.black.opacity(0.8))
                             .lineSpacing(8)
                         
                         // Tags if available
                         if !churchNote.tags.isEmpty {
-                            FlowLayout(spacing: 8) {
+                            AMENFlowLayout(spacing: 8) {
                                 ForEach(churchNote.tags, id: \.self) { tag in
                                     Text("#\(tag)")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.systemScaled(14, weight: .medium))
                                         .foregroundStyle(Color.black.opacity(0.5))
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 6)
@@ -4519,11 +4633,11 @@ struct ElegantChurchNoteReadView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: hasAmenned ? "hands.clap.fill" : "hands.clap")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(hasAmenned ? .orange : .black.opacity(0.6))
                                 
                                 Text("AMEN")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .font(AMENFont.semiBold(14))
                                     .foregroundStyle(hasAmenned ? .orange : .black.opacity(0.6))
                             }
                             .padding(.horizontal, 20)
@@ -4540,11 +4654,11 @@ struct ElegantChurchNoteReadView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: commentCount > 0 ? "bubble.left.fill" : "bubble.left")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(commentCount > 0 ? .blue : .black.opacity(0.6))
                                 
                                 Text("Comment")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .font(AMENFont.semiBold(14))
                                     .foregroundStyle(commentCount > 0 ? .blue : .black.opacity(0.6))
                             }
                             .padding(.horizontal, 20)
@@ -4627,7 +4741,7 @@ struct ElegantChurchNoteReadView: View {
         let postId = post.firestoreId
         
         // Optimistic update
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             hasAmenned.toggle()
         }
         
@@ -4661,30 +4775,22 @@ struct ElegantWorshipSongsSection: View {
     let noteId: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "music.note.list")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.purple.opacity(0.7))
-                Text("WORSHIP MUSIC")
-                    .font(.system(size: 11, weight: .semibold))
-                    .tracking(0.8)
-                    .foregroundStyle(Color.black.opacity(0.4))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 5) {
+                Image(systemName: "music.note")
+                    .font(.systemScaled(10, weight: .medium))
+                Text("WORSHIP")
+                    .font(.systemScaled(10, weight: .semibold))
+                    .tracking(1.2)
             }
+            .foregroundStyle(Color.black.opacity(0.35))
 
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 ForEach(songs) { song in
                     ElegantWorshipSongRow(song: song, noteId: noteId)
                 }
             }
         }
-        .padding(16)
-        .background(Color.white.opacity(0.6))
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.purple.opacity(0.12), lineWidth: 1)
-        )
     }
 }
 
@@ -4692,90 +4798,116 @@ private struct ElegantWorshipSongRow: View {
     let song: WorshipSongReference
     let noteId: String?
 
-    @ObservedObject private var vm = WorshipNowPlayingViewModel.shared
-    @State private var isLoading = false
-
-    private var isCurrentSong: Bool {
-        vm.currentSong?.title == song.title && vm.currentSong?.artist == song.artist
-    }
-    private var isPlaying: Bool { isCurrentSong && vm.isPlaying }
+    @Environment(\.openURL) private var openURL
+    @State private var showUnavailableAlert = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Album art thumbnail
-            ZStack {
-                RoundedRectangle(cornerRadius: 7)
-                    .fill(Color.purple.opacity(0.10))
-                    .frame(width: 42, height: 42)
-                if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
-                    AsyncImage(url: url) { phase in
-                        if case .success(let img) = phase {
-                            img.resizable().scaledToFill()
-                                .frame(width: 42, height: 42)
-                                .clipShape(RoundedRectangle(cornerRadius: 7))
-                        } else {
-                            noteIcon
-                        }
-                    }
-                } else {
-                    noteIcon
-                }
-            }
+        HStack(spacing: 10) {
+            artworkView
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(song.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.8))
                     .lineLimit(1)
-                Text(song.artist)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.black.opacity(0.45))
+                Text(statusLine)
+                    .font(.systemScaled(11))
+                    .foregroundStyle(Color.black.opacity(0.4))
                     .lineLimit(1)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Play / Pause
-            Button {
-                if isCurrentSong {
-                    WorshipMusicService.shared.pauseResume()
-                } else {
-                    isLoading = true
-                    Task {
-                        await WorshipMusicService.shared.playSong(
-                            title: song.title, artist: song.artist, churchNoteId: noteId
-                        )
-                        await MainActor.run { isLoading = false }
-                    }
-                }
-            } label: {
-                ZStack {
-                    if isLoading {
-                        ProgressView().scaleEffect(0.7)
-                    } else {
-                        Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(isCurrentSong ? Color.purple : Color.black.opacity(0.45))
-                    }
-                }
-                .frame(width: 32, height: 32)
+            Button { handlePlayTap() } label: {
+                Image(systemName: trailingIcon)
+                    .font(.systemScaled(11, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.62))
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color.black.opacity(0.05)))
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 9)
-                .fill(isCurrentSong ? Color.purple.opacity(0.07) : Color.clear)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color.black.opacity(0.07), lineWidth: 0.5)
         )
-        .animation(.spring(duration: 0.3), value: isCurrentSong)
+        .alert("Music Unavailable", isPresented: $showUnavailableAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("This attachment can’t be opened right now. Try another link or remove the song from this note.")
+        }
     }
 
-    private var noteIcon: some View {
-        Image(systemName: isPlaying ? "waveform" : "music.note")
-            .font(.system(size: 16))
-            .foregroundStyle(Color.purple.opacity(0.7))
-            .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+    private var artworkView: some View {
+        Group {
+            if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
+                AsyncImage(url: url) { phase in
+                    if case .success(let img) = phase {
+                        img.resizable().scaledToFill()
+                    } else {
+                        artFallback
+                    }
+                }
+            } else {
+                artFallback
+            }
+        }
+        .frame(width: 32, height: 32)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+    }
+
+    private var artFallback: some View {
+        RoundedRectangle(cornerRadius: 7)
+            .fill(Color.black.opacity(0.06))
+            .overlay(
+                Image(systemName: "music.note")
+                    .font(.systemScaled(12))
+                    .foregroundStyle(Color.black.opacity(0.55))
+            )
+    }
+
+    private var statusLine: String {
+        let base = song.subtitle ?? song.artist
+        let helper = song.availabilityState.helperText
+        return base.isEmpty ? helper : "\(base) · \(helper)"
+    }
+
+    private var trailingIcon: String {
+        switch song.availabilityState {
+        case .unavailable:
+            return "exclamationmark.circle"
+        case .accountRequired:
+            return "lock.circle"
+        case .viewOnly:
+            return "arrow.up.right.circle"
+        case .readyToOpen:
+            return "arrow.up.right"
+        }
+    }
+
+    private var preferredURL: URL? {
+        guard let deepLinkURL = song.deepLinkURL, let url = URL(string: deepLinkURL) else {
+            return nil
+        }
+        return UIApplication.shared.canOpenURL(url) ? url : nil
+    }
+
+    private var webFallbackURL: URL? {
+        guard let webURL = song.webURL else { return nil }
+        return URL(string: webURL)
+    }
+
+    private func handlePlayTap() {
+        if let preferredURL {
+            openURL(preferredURL)
+        } else if let webFallbackURL {
+            openURL(webFallbackURL)
+        } else {
+            showUnavailableAlert = true
+        }
     }
 }
 
@@ -4787,18 +4919,18 @@ struct ElegantMetadataRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(Color.black.opacity(0.4))
                 .frame(width: 20)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(label.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(Color.black.opacity(0.4))
                 
                 Text(value)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.75))
             }
             
@@ -4832,7 +4964,7 @@ struct ShareWithFriendsSheet: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 // Dark gradient background
                 LinearGradient(
@@ -4852,14 +4984,14 @@ struct ShareWithFriendsSheet: View {
                             dismiss()
                         } label: {
                             Text("Cancel")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .font(AMENFont.semiBold(16))
                                 .foregroundStyle(.white.opacity(0.7))
                         }
                         
                         Spacer()
                         
                         Text("Share with Friends")
-                            .font(.custom("OpenSans-Bold", size: 18))
+                            .font(AMENFont.bold(18))
                             .foregroundStyle(.white)
                         
                         Spacer()
@@ -4872,7 +5004,7 @@ struct ShareWithFriendsSheet: View {
                                     .tint(.white)
                             } else {
                                 Text("Share")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                                     .foregroundStyle(selectedFriends.isEmpty ? .white.opacity(0.3) : .white)
                             }
                         }
@@ -4884,11 +5016,11 @@ struct ShareWithFriendsSheet: View {
                     // Search Bar
                     HStack(spacing: 12) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(.white.opacity(0.5))
                         
                         TextField("Search friends...", text: $searchText)
-                            .font(.custom("OpenSans-Regular", size: 16))
+                            .font(AMENFont.regular(16))
                             .foregroundStyle(.white)
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.never)
@@ -4898,7 +5030,7 @@ struct ShareWithFriendsSheet: View {
                                 searchText = ""
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(.white.opacity(0.5))
                             }
                         }
@@ -4916,7 +5048,7 @@ struct ShareWithFriendsSheet: View {
                     if !selectedFriends.isEmpty {
                         HStack {
                             Text("\(selectedFriends.count) friend\(selectedFriends.count == 1 ? "" : "s") selected")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .font(AMENFont.semiBold(14))
                                 .foregroundStyle(.white.opacity(0.7))
                             
                             Spacer()
@@ -4925,7 +5057,7 @@ struct ShareWithFriendsSheet: View {
                                 selectedFriends.removeAll()
                             } label: {
                                 Text("Clear All")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .font(AMENFont.semiBold(14))
                                     .foregroundStyle(.purple)
                             }
                         }
@@ -4937,15 +5069,15 @@ struct ShareWithFriendsSheet: View {
                     if followService.followingList.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: "person.2.slash")
-                                .font(.system(size: 48))
+                                .font(.systemScaled(48))
                                 .foregroundStyle(.white.opacity(0.3))
                             
                             Text("No Friends Yet")
-                                .font(.custom("OpenSans-Bold", size: 20))
+                                .font(AMENFont.bold(20))
                                 .foregroundStyle(.white)
                             
                             Text("Follow people to share notes with them")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.white.opacity(0.6))
                                 .multilineTextAlignment(.center)
                         }
@@ -4954,15 +5086,15 @@ struct ShareWithFriendsSheet: View {
                     } else if filteredFriends.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: "magnifyingglass")
-                                .font(.system(size: 48))
+                                .font(.systemScaled(48))
                                 .foregroundStyle(.white.opacity(0.3))
                             
                             Text("No Results")
-                                .font(.custom("OpenSans-Bold", size: 20))
+                                .font(AMENFont.bold(20))
                                 .foregroundStyle(.white)
                             
                             Text("Try a different search term")
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.white.opacity(0.6))
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -4994,11 +5126,11 @@ struct ShareWithFriendsSheet: View {
                     
                     HStack(spacing: 12) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.green)
                         
                         Text("Note shared with \(selectedFriends.count) friend\(selectedFriends.count == 1 ? "" : "s")")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .font(AMENFont.semiBold(15))
                             .foregroundStyle(.white)
                     }
                     .padding(.horizontal, 20)
@@ -5044,13 +5176,13 @@ struct ShareWithFriendsSheet: View {
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                     
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         showSuccessToast = true
                     }
                     
                     // Auto-hide toast and dismiss sheet
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             showSuccessToast = false
                         }
                         
@@ -5102,14 +5234,14 @@ struct FriendSelectionRow: View {
                                 .scaledToFill()
                         } placeholder: {
                             Text(friend.initials)
-                                .font(.custom("OpenSans-Bold", size: 18))
+                                .font(AMENFont.bold(18))
                                 .foregroundStyle(.white)
                         }
                         .frame(width: 52, height: 52)
                         .clipShape(Circle())
                     } else {
                         Text(friend.initials)
-                            .font(.custom("OpenSans-Bold", size: 18))
+                            .font(AMENFont.bold(18))
                             .foregroundStyle(.white)
                     }
                 }
@@ -5117,11 +5249,11 @@ struct FriendSelectionRow: View {
                 // Friend Info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(friend.displayName)
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.white)
                     
                     Text("@\(friend.username)")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.white.opacity(0.6))
                 }
                 
@@ -5139,7 +5271,7 @@ struct FriendSelectionRow: View {
                             .frame(width: 28, height: 28)
                         
                         Image(systemName: "checkmark")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.systemScaled(14, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -5165,146 +5297,174 @@ struct FriendSelectionRow: View {
 
 // MARK: - Minimal Typography Design Components (Inspired by Gentle Systems)
 
-// MARK: - Minimal Typography Header
+// MARK: - Minimal Typography Header (AMEN Liquid Glass)
 struct MinimalTypographyHeader: View {
     @Binding var searchText: String
     @Binding var selectedFilter: ChurchNotesView.FilterOption
     let isScrolled: Bool
     let onNewNote: () -> Void
-    @State private var isSearching = false
-    
+    var notes: [ChurchNote] = []
+    @State private var showSemanticSearch = false
+    @Namespace private var filterNS
+
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Church Notes")
-                        .font(.system(size: isScrolled ? 24 : 36, weight: .medium))
-                        .foregroundStyle(.black)
-                        .tracking(-1)
-                        .animation(.easeInOut(duration: 0.2), value: isScrolled)
-                    
-                    Spacer()
-                    
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isSearching.toggle()
-                        }
-                        let haptic = UISelectionFeedbackGenerator()
-                        haptic.selectionChanged()
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.black)
-                            .frame(width: 36, height: 36)
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Button(action: onNewNote) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.black)
-                            .frame(width: 36, height: 36)
-                    }
-                    .buttonStyle(.plain)
+            // ── Title row ──────────────────────────────────────────────
+            HStack(alignment: .center, spacing: 12) {
+                Text("Church Notes")
+                    .font(.systemScaled(isScrolled ? 24 : 34, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                    .animation(.spring(response: 0.36, dampingFraction: 0.82), value: isScrolled)
+
+                Spacer(minLength: 8)
+
+                // Berean semantic (AI) search
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    showSemanticSearch = true
+                } label: {
+                    Image(systemName: "sparkle.magnifyingglass")
+                        .font(.systemScaled(17, weight: .semibold))
+                        .foregroundStyle(ChurchNotesDesignTokens.Colors.personalTint)
+                        .frame(width: 50, height: 50)
+                        .amenLiquidGlassCapsuleSurface(isSelected: true)
+                        .contentShape(Capsule())
                 }
-                
-                if !isScrolled {
-                    Text("Capture sermon insights, reflections, and scriptures. Your notes help you grow in faith and remember what matters most.")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(Color.black.opacity(0.6))
-                        .lineSpacing(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 16)
-            
-            // Filter tabs (horizontal scrollable)
-            HStack(spacing: 0) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 4) {
-                        ForEach(ChurchNotesView.FilterOption.allCases, id: \.self) { filter in
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    selectedFilter = filter
+                .buttonStyle(.plain)
+                .accessibilityLabel("Smart search")
+                .sheet(isPresented: $showSemanticSearch) {
+                    NavigationStack {
+                        BereanSemanticSearchView(notes: notes)
+                            .navigationTitle("Smart Search")
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbar {
+                                ToolbarItem(placement: .navigationBarTrailing) {
+                                    Button("Done") { showSemanticSearch = false }
                                 }
-                                let haptic = UISelectionFeedbackGenerator()
-                                haptic.selectionChanged()
-                            } label: {
-                                Text(filter.rawValue)
-                                    .font(.system(size: 14, weight: selectedFilter == filter ? .semibold : .regular))
-                                    .foregroundStyle(selectedFilter == filter ? Color.white : Color.black.opacity(0.6))
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        Capsule()
-                                            .fill(selectedFilter == filter ? Color.black : Color.black.opacity(0.06))
-                                    )
                             }
-                        }
                     }
-                    .padding(.horizontal, 12)
+                    .presentationDetents([.large])
                 }
-                
-                Spacer(minLength: 0)
+
+                // New note
+                Button(action: onNewNote) {
+                    Image(systemName: "plus")
+                        .font(.systemScaled(18, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 50, height: 50)
+                        .amenLiquidGlassCapsuleSurface(isSelected: false)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Create church note")
             }
-            .padding(.vertical, 8)
-            .background(Color(red: 0.96, green: 0.96, blue: 0.96))
-            
-            Divider()
-                .background(Color.black.opacity(0.1))
-            
-            // Search bar (minimal, appears when searching)
-            if isSearching || !searchText.isEmpty {
-                HStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.black.opacity(0.4))
-                    
-                    TextField("Search notes...", text: $searchText)
-                        .font(.system(size: 17, weight: .regular))
-                        .foregroundStyle(.black)
-                        .tint(.black)
-                    
-                    if !searchText.isEmpty {
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
+            .padding(.bottom, isScrolled ? 10 : 6)
+
+            // ── Subtitle (collapses on scroll) ─────────────────────────
+            if !isScrolled {
+                Text("Capture sermon insights, reflections, and scriptures.")
+                    .font(.systemScaled(15, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 14)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            // ── Search bar ─────────────────────────────────────────────
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.systemScaled(15, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                TextField("Search notes, scriptures…", text: $searchText)
+                    .font(.systemScaled(16))
+                    .foregroundStyle(.primary)
+                    .tint(.primary)
+
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.systemScaled(16))
+                            .foregroundStyle(.secondary)
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .padding(.horizontal, 18)
+            .frame(height: 58)
+            .amenLiquidGlassCapsuleSurface(isSelected: false)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
+
+            // ── Filter chips ───────────────────────────────────────────
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(ChurchNotesView.FilterOption.allCases, id: \.self) { filter in
+                        let isActive = selectedFilter == filter
                         Button {
-                            searchText = ""
-                            isSearching = false
+                            withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.76))) {
+                                selectedFilter = filter
+                            }
+                            UISelectionFeedbackGenerator().selectionChanged()
                         } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundStyle(.black.opacity(0.3))
+                            Text(filter.rawValue)
+                                .font(.systemScaled(14, weight: isActive ? .semibold : .regular))
+                                .foregroundStyle(isActive ? Color.primary : Color.secondary)
+                                .lineLimit(1)
+                                .padding(.horizontal, 18)
+                                .frame(height: 46)
+                                .background(
+                                    ZStack {
+                                        if isActive {
+                                            Capsule(style: .continuous)
+                                                .fill(.ultraThinMaterial)
+                                                .overlay(Capsule(style: .continuous).fill(Color.white.opacity(0.72)))
+                                                .overlay(Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.42), lineWidth: 0.8))
+                                                .overlay(Capsule(style: .continuous).strokeBorder(Color.black.opacity(0.08), lineWidth: 0.7))
+                                                .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
+                                                .matchedGeometryEffect(id: "filterActive", in: filterNS)
+                                        } else {
+                                            Capsule(style: .continuous)
+                                                .fill(.ultraThinMaterial)
+                                                .overlay(Capsule(style: .continuous).fill(Color(.systemBackground).opacity(0.44)))
+                                                .overlay(Capsule(style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.7))
+                                        }
+                                    }
+                                )
+                                .scaleEffect(isActive ? 1.02 : 1.0)
                         }
+                        .buttonStyle(.plain)
+                        .animation(.spring(response: 0.28, dampingFraction: 0.76), value: isActive)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white)
-                .cornerRadius(10)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                )
                 .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .padding(.vertical, 6)
             }
+
+            // ── Hair-line separator ────────────────────────────────────
+            Rectangle()
+                .fill(Color.black.opacity(0.06))
+                .frame(height: 0.5)
         }
-        .background(Color(red: 0.96, green: 0.96, blue: 0.96))
-        .animation(.easeInOut(duration: 0.3), value: isScrolled)
+        .background(.thinMaterial)
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: isScrolled)
     }
 }
 
-// MARK: - Minimal Notes List
+// MARK: - Minimal Notes List (AMEN Liquid Glass)
 struct MinimalNotesList: View {
     let notes: [ChurchNote]
     @ObservedObject var notesService: ChurchNotesService
     @Binding var scrollOffset: CGFloat
     let onNoteSelected: (ChurchNote) -> Void
-    
+
     var body: some View {
         ScrollView {
             GeometryReader { geometry in
@@ -5314,8 +5474,31 @@ struct MinimalNotesList: View {
                 )
             }
             .frame(height: 0)
-            
-            LazyVStack(spacing: 0) {
+
+            if let insights = ChurchNotesInsights.make(from: notes) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Your rhythm")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 2)
+
+                    if let rhythm = insights.attendanceRhythm {
+                        AttendanceRhythmCard(title: rhythm.title, subtitle: rhythm.subtitle)
+                    }
+
+                    if let focus = insights.prayerFocus {
+                        PrayerFocusCard(text: focus.text)
+                    }
+
+                    if !insights.favoriteThemes.isEmpty {
+                        FavoriteThemesRow(themes: insights.favoriteThemes)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+            }
+
+            LazyVStack(spacing: 10) {
                 ForEach(notes) { note in
                     MinimalNoteRow(
                         note: note,
@@ -5324,15 +5507,15 @@ struct MinimalNotesList: View {
                     )
                     .scrollTransition(.animated(.spring(response: 0.3, dampingFraction: 0.8))) { content, phase in
                         content
-                            .scaleEffect(phase.isIdentity ? 1.0 : 0.94)
-                            .opacity(phase.isIdentity ? 1.0 : 0.58)
+                            .scaleEffect(phase.isIdentity ? 1.0 : 0.96)
+                            .opacity(phase.isIdentity ? 1.0 : 0.6)
                     }
                 }
             }
-            .scrollTargetLayout()
-            .padding(.top, 8)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 40)
         }
-        .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByFew))
         .coordinateSpace(name: "scroll")
         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
             scrollOffset = value
@@ -5340,91 +5523,106 @@ struct MinimalNotesList: View {
     }
 }
 
-// MARK: - Minimal Note Row (List item like in the design)
+// MARK: - Minimal Note Row (AMEN Liquid Glass card)
 struct MinimalNoteRow: View {
     let note: ChurchNote
     @ObservedObject var notesService: ChurchNotesService
     let onTap: () -> Void
     @State private var showDeleteConfirmation = false
     @State private var showShareSheet = false
-    
+    @State private var isPressed = false
+
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 0) {
-                HStack(alignment: .top, spacing: 16) {
-                    // Left side: Title and metadata
-                    VStack(alignment: .leading, spacing: 8) {
-                        // Note title
-                        Text(note.title)
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundStyle(.black)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        // Sermon title if available
-                        if let sermonTitle = note.sermonTitle, !sermonTitle.isEmpty {
-                            Text(sermonTitle)
-                                .font(.system(size: 15, weight: .regular))
-                                .foregroundStyle(.black.opacity(0.5))
-                                .lineLimit(1)
-                        }
+            HStack(alignment: .top, spacing: 16) {
+                // ── Left: title + sermon context
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(note.title)
+                        .font(.systemScaled(17, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if let sermonTitle = note.sermonTitle, !sermonTitle.isEmpty {
+                        Text(sermonTitle)
+                            .font(.systemScaled(14, weight: .regular))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
-                    
-                    Spacer()
-                    
-                    // Right side: Share button and Date
-                    VStack(alignment: .trailing, spacing: 8) {
-                        // Share button
-                        Button {
-                            showShareSheet = true
-                        } label: {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(.black.opacity(0.4))
-                                .frame(width: 32, height: 32)
+
+                    // Tag pills (up to 3)
+                    if !note.tags.isEmpty {
+                        HStack(spacing: 4) {
+                            ForEach(note.tags.prefix(3), id: \.self) { tag in
+                                Text(tag)
+                                    .font(.systemScaled(11, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.black.opacity(0.05))
+                                            .overlay(Capsule().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                                    )
+                            }
                         }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        // Date (like "2025" in the design)
-                        Text(note.date.formatted(.dateTime.year()))
-                            .font(.system(size: 15, weight: .regular))
-                            .foregroundStyle(.black.opacity(0.4))
-                        
-                        // Favorite indicator
-                        if note.isFavorite {
-                            Image(systemName: "star.fill")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.black.opacity(0.3))
-                        }
+                        .padding(.top, 2)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 20)
-                .background(Color(red: 0.96, green: 0.96, blue: 0.96))
-                
-                // Divider
-                Divider()
-                    .background(Color.black.opacity(0.1))
-                    .padding(.leading, 20)
+
+                Spacer()
+
+                // ── Right: share + date + favorite
+                VStack(alignment: .trailing, spacing: 6) {
+                    Button {
+                        showShareSheet = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.systemScaled(14, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Text(note.date.formatted(.dateTime.month(.abbreviated).day()))
+                        .font(.systemScaled(13, weight: .regular))
+                        .foregroundStyle(.secondary)
+
+                    if note.isFavorite {
+                        Image(systemName: "star.fill")
+                            .font(.systemScaled(11))
+                            .foregroundStyle(Color.cnGold)
+                    }
+                }
             }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+            .noteRowCard()
+            .scaleEffect(isPressed ? 0.975 : 1.0)
+            .animation(.spring(response: 0.22, dampingFraction: 0.65), value: isPressed)
         }
         .buttonStyle(PlainButtonStyle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
         .contextMenu {
             Button {
                 showShareSheet = true
             } label: {
                 Label("Share Note", systemImage: "square.and.arrow.up")
             }
-            
+
             Button {
-                Task {
-                    try? await notesService.toggleFavorite(note)
-                }
+                Task { try? await notesService.toggleFavorite(note) }
             } label: {
-                Label(note.isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                      systemImage: note.isFavorite ? "star.slash" : "star.fill")
+                Label(
+                    note.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                    systemImage: note.isFavorite ? "star.slash" : "star.fill"
+                )
             }
-            
+
             Button(role: .destructive) {
                 showDeleteConfirmation = true
             } label: {
@@ -5436,73 +5634,86 @@ struct MinimalNoteRow: View {
         }
         .confirmationDialog("Delete this note?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
-                Task {
-                    try? await notesService.deleteNote(note)
-                }
+                Task { try? await notesService.deleteNote(note) }
             }
         }
     }
 }
 
-// MARK: - Minimal Loading View
+// MARK: - Minimal Loading View (AMEN Liquid Glass)
 struct MinimalLoadingView: View {
-    @State private var isAnimating = false
-    
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             ProgressView()
-                .tint(.black)
-                .scaleEffect(1.2)
-            
-            Text("Loading notes...")
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(.black.opacity(0.5))
+                .tint(.secondary)
+                .scaleEffect(1.1)
+
+            Text("Loading notes…")
+                .font(.systemScaled(15, weight: .regular))
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.bottom, 80)
     }
 }
 
-// MARK: - Minimal Empty State
+// MARK: - Minimal Empty State (AMEN Liquid Glass)
 struct MinimalEmptyState: View {
     let hasSearch: Bool
     let filterType: ChurchNotesView.FilterOption
     let onCreateNote: () -> Void
-    
+    @State private var appeared = false
+
     var body: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 28) {
             Spacer()
-            
-            VStack(spacing: 16) {
+
+            Image(systemName: hasSearch ? "magnifyingglass" : "note.text")
+                .font(.systemScaled(34, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 96, height: 96)
+                .amenLiquidGlassCapsuleSurface(isSelected: false)
+            .scaleEffect(appeared ? 1.0 : 0.82)
+            .opacity(appeared ? 1.0 : 0)
+
+            VStack(spacing: 10) {
                 Text(emptyTitle)
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(.black)
-                    .tracking(-0.5)
-                
+                    .font(.systemScaled(24, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .tracking(-0.3)
+
                 Text(emptySubtitle)
-                    .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .font(.systemScaled(16, weight: .regular))
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                    .padding(.horizontal, 40)
+                    .lineSpacing(3)
+                    .padding(.horizontal, 36)
             }
-            
+            .opacity(appeared ? 1.0 : 0)
+            .offset(y: appeared ? 0 : 10)
+
             if !hasSearch && filterType == .all {
                 Button(action: onCreateNote) {
-                    Text("Create First Note")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 28)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.black.opacity(0.2), lineWidth: 1)
-                        )
+                    Label("Create First Note", systemImage: "plus")
+                        .font(.systemScaled(16, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 26)
+                        .frame(height: 56)
+                        .amenLiquidGlassCapsuleSurface(isSelected: true)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Create first church note")
+                .opacity(appeared ? 1.0 : 0)
             }
-            
+
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            withAnimation(Motion.adaptive(.spring(response: 0.52, dampingFraction: 0.80)).delay(0.1)) {
+                appeared = true
+            }
+        }
     }
     
     var emptyTitle: String {
@@ -5549,6 +5760,7 @@ struct MinimalNewNoteSheet: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var showingToolbar = false
+    @State private var editorScrollOffset: CGFloat = 0
     @State private var editorSelection = NSRange(location: 0, length: 0)
     @State private var isEditorFocused = false
     @State private var worshipSongs: [WorshipSongReference] = []
@@ -5558,55 +5770,70 @@ struct MinimalNewNoteSheet: View {
         !title.isEmpty && !content.isEmpty
     }
     
+    /// Drives formatting toolbar compression — 0 = fully visible, 1 = fully hidden
+    private var toolbarCompression: CGFloat {
+        min(max((-editorScrollOffset - 20) / 60, 0), 1.0)
+    }
+    
     var body: some View {
         ZStack {
-            Color(red: 0.96, green: 0.96, blue: 0.96)
+            Color(.systemGroupedBackground)
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
-                // Header
+                // Header (Liquid Glass bar)
                 HStack {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(.black.opacity(0.6))
-                    
+                    .font(.systemScaled(17, weight: .regular))
+                    .foregroundStyle(.secondary)
+
                     Spacer()
-                    
+
                     Text("New Note")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(.black)
-                    
+                        .font(.systemScaled(17, weight: .semibold))
+                        .foregroundStyle(.primary)
+
                     Spacer()
-                    
+
                     Button {
                         saveNote()
                     } label: {
                         if isSaving {
                             ProgressView()
-                                .tint(.black)
+                                .tint(.primary)
                         } else {
                             Text("Save")
-                                .font(.system(size: 17, weight: .medium))
-                                .foregroundStyle(canSave ? .black : .black.opacity(0.3))
+                                .font(.systemScaled(17, weight: .semibold))
+                                .foregroundStyle(canSave ? .primary : Color.primary.opacity(0.3))
                         }
                     }
                     .disabled(!canSave || isSaving)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
-                .background(Color(red: 0.96, green: 0.96, blue: 0.96))
-                
-                Divider()
-                    .background(Color.black.opacity(0.1))
+                .background(.thinMaterial)
+
+                Rectangle()
+                    .fill(Color.black.opacity(0.06))
+                    .frame(height: 0.5)
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
+                        // Scroll offset tracker — drives formatting toolbar compression
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: ScrollOffsetPreferenceKey.self,
+                                value: geo.frame(in: .named("noteEditorScroll")).minY
+                            )
+                        }
+                        .frame(height: 0)
+                        
                         // Title field (large)
                         TextField("Note Title", text: $title)
-                            .font(.system(size: 32, weight: .medium))
-                            .foregroundStyle(.black)
+                            .font(.systemScaled(32, weight: .medium))
+                            .foregroundStyle(.primary)
                             .tint(.black)
                             .padding(.horizontal, 20)
                             .padding(.top, 20)
@@ -5614,7 +5841,7 @@ struct MinimalNewNoteSheet: View {
                         // Sermon context (collapsible section)
                         VStack(alignment: .leading, spacing: 16) {
                             Text("Sermon Context")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.5))
                                 .textCase(.uppercase)
                                 .tracking(1)
@@ -5628,7 +5855,7 @@ struct MinimalNewNoteSheet: View {
                                 // Date picker
                                 HStack {
                                     Image(systemName: "calendar")
-                                        .font(.system(size: 16))
+                                        .font(.systemScaled(16))
                                         .foregroundStyle(.black.opacity(0.4))
                                         .frame(width: 24)
                                     
@@ -5638,21 +5865,22 @@ struct MinimalNewNoteSheet: View {
                                         .tint(.black)
                                 }
                                 .padding(.horizontal, 16)
-                                .padding(.vertical, 14)
-                                .background(Color.white)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                                .padding(.vertical, 13)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(.thinMaterial)
+                                        .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.68)))
+                                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
                                 )
+                                .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
                                 .padding(.horizontal, 20)
                             }
                         }
-                        
+
                         // Scripture
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Scripture Reference")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.5))
                                 .textCase(.uppercase)
                                 .tracking(1)
@@ -5665,7 +5893,7 @@ struct MinimalNewNoteSheet: View {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Text("Your Notes")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.black.opacity(0.5))
                                     .textCase(.uppercase)
                                     .tracking(1)
@@ -5674,7 +5902,7 @@ struct MinimalNewNoteSheet: View {
                                 
                                 // Formatting toolbar toggle
                                 Button {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                         showingToolbar.toggle()
                                     }
                                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -5682,9 +5910,9 @@ struct MinimalNewNoteSheet: View {
                                 } label: {
                                     HStack(spacing: 6) {
                                         Image(systemName: showingToolbar ? "textformat" : "textformat")
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(.systemScaled(12, weight: .medium))
                                         Text(showingToolbar ? "Hide" : "Format")
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(.systemScaled(12, weight: .medium))
                                     }
                                     .foregroundStyle(.black.opacity(0.5))
                                     .padding(.horizontal, 10)
@@ -5701,7 +5929,7 @@ struct MinimalNewNoteSheet: View {
                             }
                             .padding(.horizontal, 20)
                             
-                            // Formatting toolbar
+                            // Formatting toolbar — compresses as user scrolls into the note
                             if showingToolbar {
                                 TextFormattingToolbar(
                                     content: $content,
@@ -5710,23 +5938,28 @@ struct MinimalNewNoteSheet: View {
                                         isEditorFocused = true
                                     }
                                 )
-                                    .padding(.horizontal, 20)
-                                    .padding(.bottom, 8)
-                                    .transition(.asymmetric(
-                                        insertion: .move(edge: .top).combined(with: .opacity),
-                                        removal: .opacity
-                                    ))
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 8)
+                                .opacity(1.0 - toolbarCompression)
+                                .scaleEffect(y: 1.0 - toolbarCompression * 0.15, anchor: .top)
+                                .frame(height: max(0, (1.0 - toolbarCompression) * 52), alignment: .top)
+                                .clipped()
+                                .animation(Motion.adaptive(.interactiveSpring(response: 0.22, dampingFraction: 0.78)), value: toolbarCompression)
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .top).combined(with: .opacity),
+                                    removal: .opacity
+                                ))
                             }
                             
                             ZStack(alignment: .topLeading) {
                                 if content.isEmpty {
-                                    Text("Start writing...")
-                                        .font(.system(size: 17, weight: .regular))
-                                        .foregroundStyle(.black.opacity(0.3))
+                                    Text("Start writing…")
+                                        .font(.systemScaled(17, weight: .regular))
+                                        .foregroundStyle(.tertiary)
                                         .padding(.horizontal, 36)
                                         .padding(.vertical, 30)
                                 }
-                                
+
                                 RichTextEditor(
                                     text: $content,
                                     selectedRange: $editorSelection,
@@ -5736,21 +5969,28 @@ struct MinimalNewNoteSheet: View {
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 14)
                             }
-                            .background(Color.white)
-                            .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(isEditorFocused ? Color.black.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.thinMaterial)
+                                    .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.70)))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .strokeBorder(
+                                                isEditorFocused ? Color.black.opacity(0.14) : Color.black.opacity(0.07),
+                                                lineWidth: 1
+                                            )
+                                    )
                             )
+                            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                             .padding(.horizontal, 20)
-                            .animation(.easeInOut(duration: 0.2), value: isEditorFocused)
+                            .animation(.easeInOut(duration: 0.18), value: isEditorFocused)
                         }
 
                         // Worship Music section
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Text("Worship Music")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(.black.opacity(0.5))
                                     .textCase(.uppercase)
                                     .tracking(1)
@@ -5760,9 +6000,9 @@ struct MinimalNewNoteSheet: View {
                                 } label: {
                                     HStack(spacing: 4) {
                                         Image(systemName: "plus")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .font(.systemScaled(12, weight: .semibold))
                                         Text("Add Song")
-                                            .font(.system(size: 12, weight: .medium))
+                                            .font(.systemScaled(12, weight: .medium))
                                     }
                                     .foregroundStyle(.black.opacity(0.6))
                                     .padding(.horizontal, 10)
@@ -5776,36 +6016,39 @@ struct MinimalNewNoteSheet: View {
                             if worshipSongs.isEmpty {
                                 HStack(spacing: 8) {
                                     Image(systemName: "music.note")
-                                        .font(.system(size: 14))
-                                        .foregroundStyle(.black.opacity(0.25))
+                                        .font(.systemScaled(14))
+                                        .foregroundStyle(.secondary)
                                     Text("Add worship songs from this sermon")
-                                        .font(.system(size: 14))
-                                        .foregroundStyle(.black.opacity(0.3))
+                                        .font(.systemScaled(14))
+                                        .foregroundStyle(.secondary)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(Color.white)
-                                .cornerRadius(8)
-                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.08), lineWidth: 1))
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(.thinMaterial)
+                                        .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.60)))
+                                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.75))
+                                )
                                 .padding(.horizontal, 20)
                             } else {
                                 VStack(spacing: 8) {
                                     ForEach(worshipSongs) { song in
                                         HStack(spacing: 12) {
                                             Image(systemName: "music.note")
-                                                .font(.system(size: 14))
-                                                .foregroundStyle(.black.opacity(0.4))
+                                                .font(.systemScaled(14))
+                                                .foregroundStyle(.secondary)
                                                 .frame(width: 32, height: 32)
                                                 .background(Color.black.opacity(0.05))
                                                 .clipShape(RoundedRectangle(cornerRadius: 6))
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(song.title)
-                                                    .font(.system(size: 14, weight: .medium))
-                                                    .foregroundStyle(.black)
+                                                    .font(.systemScaled(14, weight: .medium))
+                                                    .foregroundStyle(.primary)
                                                     .lineLimit(1)
                                                 Text(song.artist)
-                                                    .font(.system(size: 12))
-                                                    .foregroundStyle(.black.opacity(0.5))
+                                                    .font(.systemScaled(12))
+                                                    .foregroundStyle(.secondary)
                                                     .lineLimit(1)
                                             }
                                             Spacer()
@@ -5813,8 +6056,8 @@ struct MinimalNewNoteSheet: View {
                                                 worshipSongs.removeAll { $0.id == song.id }
                                             } label: {
                                                 Image(systemName: "xmark")
-                                                    .font(.system(size: 12, weight: .medium))
-                                                    .foregroundStyle(.black.opacity(0.4))
+                                                    .font(.systemScaled(12, weight: .medium))
+                                                    .foregroundStyle(.secondary)
                                                     .frame(width: 28, height: 28)
                                                     .background(Color.black.opacity(0.05))
                                                     .clipShape(Circle())
@@ -5822,9 +6065,12 @@ struct MinimalNewNoteSheet: View {
                                         }
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 10)
-                                        .background(Color.white)
-                                        .cornerRadius(8)
-                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.08), lineWidth: 1))
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .fill(.thinMaterial)
+                                                .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.68)))
+                                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
+                                        )
                                         .padding(.horizontal, 20)
                                     }
                                 }
@@ -5832,6 +6078,12 @@ struct MinimalNewNoteSheet: View {
                         }
                     }
                     .padding(.bottom, 40)
+                }
+                .coordinateSpace(name: "noteEditorScroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    withAnimation(.interactiveSpring(response: 0.2, dampingFraction: 0.8)) {
+                        editorScrollOffset = value
+                    }
                 }
             }
         }
@@ -5907,6 +6159,196 @@ struct MinimalNewNoteSheet: View {
     }
 }
 
+// MARK: - Church Notes Insights (Private)
+
+private struct ChurchNotesInsights {
+    struct Rhythm {
+        let title: String
+        let subtitle: String
+    }
+    struct PrayerFocus {
+        let text: String
+    }
+
+    let attendanceRhythm: Rhythm?
+    let favoriteThemes: [String]
+    let prayerFocus: PrayerFocus?
+
+    static func make(from notes: [ChurchNote]) -> ChurchNotesInsights? {
+        guard !notes.isEmpty else { return nil }
+
+        let rhythm = AttendanceRhythmInsights.compute(from: notes)
+        let themes = FavoriteThemeInsights.compute(from: notes)
+        let focus = PrayerFocusStore.shared.latestFocus()
+
+        if rhythm == nil && themes.isEmpty && focus == nil { return nil }
+        return ChurchNotesInsights(attendanceRhythm: rhythm, favoriteThemes: themes, prayerFocus: focus)
+    }
+}
+
+private struct AttendanceRhythmInsights {
+    static func compute(from notes: [ChurchNote]) -> ChurchNotesInsights.Rhythm? {
+        let dates = notes.map { $0.date }.sorted(by: >)
+        guard let mostRecent = dates.first else { return nil }
+
+        let calendar = Calendar.current
+        let weeks = dates.map { calendar.dateComponents([.weekOfYear, .yearForWeekOfYear], from: $0) }
+        let uniqueWeeks = Set(weeks.compactMap { comp -> String? in
+            guard let week = comp.weekOfYear, let year = comp.yearForWeekOfYear else { return nil }
+            return "\(year)-\(week)"
+        })
+        let streak = computeWeeklyStreak(from: dates)
+
+        let title: String
+        if streak >= 3 {
+            title = "\(streak)-week rhythm"
+        } else if streak == 2 {
+            title = "2-week rhythm"
+        } else {
+            title = "Recent reflection"
+        }
+
+        let subtitle = "\(uniqueWeeks.count) weeks reflected · last note \(mostRecent.formatted(.dateTime.month(.abbreviated).day()))"
+        return ChurchNotesInsights.Rhythm(title: title, subtitle: subtitle)
+    }
+
+    private static func computeWeeklyStreak(from dates: [Date]) -> Int {
+        let calendar = Calendar.current
+        guard let mostRecent = dates.first else { return 0 }
+        var streak = 0
+        var current = mostRecent
+
+        while true {
+            let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: current)?.start
+            guard let weekStart = startOfWeek else { break }
+            let hasNoteThisWeek = dates.contains { date in
+                let interval = calendar.dateInterval(of: .weekOfYear, for: date)
+                return interval?.contains(weekStart) ?? false
+            }
+            if !hasNoteThisWeek { break }
+            streak += 1
+            guard let prevWeek = calendar.date(byAdding: .weekOfYear, value: -1, to: weekStart) else { break }
+            current = prevWeek
+        }
+        return streak
+    }
+}
+
+private struct FavoriteThemeInsights {
+    static func compute(from notes: [ChurchNote]) -> [String] {
+        var counts: [String: Int] = [:]
+        notes.forEach { note in
+            let tags = (note.tags + note.claudeTags).map { $0.lowercased() }
+            for tag in tags {
+                counts[tag, default: 0] += 1
+            }
+        }
+        return counts
+            .sorted { $0.value > $1.value }
+            .prefix(5)
+            .map { $0.key.capitalized }
+    }
+}
+
+private final class PrayerFocusStore {
+    static let shared = PrayerFocusStore()
+    private let storageKey = "churchNotesPrayerFocus"
+
+    private init() {}
+
+    func saveFocus(text: String, noteId: String?) {
+        let item = PrayerFocusItem(id: UUID().uuidString, text: text, noteId: noteId, createdAt: Date())
+        var items = loadAll()
+        items.insert(item, at: 0)
+        persist(items: items)
+    }
+
+    func latestFocus() -> ChurchNotesInsights.PrayerFocus? {
+        guard let item = loadAll().first else { return nil }
+        return ChurchNotesInsights.PrayerFocus(text: item.text)
+    }
+
+    private func loadAll() -> [PrayerFocusItem] {
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else { return [] }
+        return (try? JSONDecoder().decode([PrayerFocusItem].self, from: data)) ?? []
+    }
+
+    private func persist(items: [PrayerFocusItem]) {
+        guard let data = try? JSONEncoder().encode(items) else { return }
+        UserDefaults.standard.set(data, forKey: storageKey)
+    }
+}
+
+private struct PrayerFocusItem: Codable {
+    let id: String
+    let text: String
+    let noteId: String?
+    let createdAt: Date
+}
+
+private struct AttendanceRhythmCard: View {
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "calendar.circle.fill")
+                .font(.systemScaled(16))
+                .foregroundStyle(.black.opacity(0.75))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.systemScaled(14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.systemScaled(12))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(.thinMaterial).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.6)))
+    }
+}
+
+private struct PrayerFocusCard: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "hands.sparkles")
+                .font(.systemScaled(16))
+                .foregroundStyle(.black.opacity(0.75))
+            Text(text)
+                .font(.systemScaled(13, weight: .medium))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(.ultraThinMaterial).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.6)))
+    }
+}
+
+private struct FavoriteThemesRow: View {
+    let themes: [String]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(themes.prefix(4), id: \.self) { theme in
+                Text(theme)
+                    .font(.systemScaled(11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.black.opacity(0.05)))
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
 // MARK: - Rich Text Editor
 struct RichTextEditor: UIViewRepresentable {
     @Binding var text: String
@@ -5968,32 +6410,33 @@ struct RichTextEditor: UIViewRepresentable {
     }
 }
 
-// MARK: - Minimal Text Field
+// MARK: - Minimal Text Field (AMEN Liquid Glass)
 struct MinimalTextField: View {
     let icon: String
     let placeholder: String
     @Binding var text: String
-    
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundStyle(.black.opacity(0.4))
-                .frame(width: 24)
-            
+                .font(.systemScaled(15))
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+
             TextField(placeholder, text: $text)
-                .font(.system(size: 17, weight: .regular))
-                .foregroundStyle(.black)
-                .tint(.black)
+                .font(.systemScaled(16))
+                .foregroundStyle(.primary)
+                .tint(.primary)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(Color.white)
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.black.opacity(0.1), lineWidth: 1)
+        .padding(.vertical, 13)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.thinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.68)))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
         )
+        .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
         .padding(.horizontal, 20)
     }
 }
@@ -6007,17 +6450,23 @@ struct MinimalNoteDetailSheet: View {
     @State private var showShareSheet = false
     @State private var showCopiedToast = false
     @State private var localWorshipSongs: [WorshipSongReference] = []
+    @State private var showPrayerSaved = false
 
     // AI Features
     @State private var noteSummary: NoteSummary?
     @State private var isGeneratingSummary = false
-    @State private var scriptureReferences: [ScriptureReference] = []
+    @State private var scriptureReferences: [AIScriptureRef] = []
     @State private var isLoadingScripture = false
     @State private var showAISection = false
     
     var body: some View {
+        bodyContent
+    }
+
+    @ViewBuilder
+    private var bodyContent: some View {
         ZStack {
-            Color(red: 0.96, green: 0.96, blue: 0.96)
+            Color(.systemGroupedBackground)
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -6027,8 +6476,8 @@ struct MinimalNoteDetailSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(.black)
+                            .font(.systemScaled(20, weight: .medium))
+                            .foregroundStyle(.primary)
                     }
                     
                     Spacer()
@@ -6040,8 +6489,8 @@ struct MinimalNoteDetailSheet: View {
                             }
                         } label: {
                             Image(systemName: note.isFavorite ? "star.fill" : "star")
-                                .font(.system(size: 20))
-                                .foregroundStyle(.black)
+                                .font(.systemScaled(20))
+                                .foregroundStyle(.primary)
                         }
                         
                         Menu {
@@ -6064,24 +6513,25 @@ struct MinimalNoteDetailSheet: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis")
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundStyle(.black)
+                                .font(.systemScaled(20, weight: .medium))
+                                .foregroundStyle(.primary)
                         }
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
-                .background(Color(red: 0.96, green: 0.96, blue: 0.96))
-                
-                Divider()
-                    .background(Color.black.opacity(0.1))
-                
+                .background(.thinMaterial)
+
+                Rectangle()
+                    .fill(Color.black.opacity(0.06))
+                    .frame(height: 0.5)
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         // Title
                         Text(note.title)
-                            .font(.system(size: 38, weight: .medium))
-                            .foregroundStyle(.black)
+                            .font(.systemScaled(38, weight: .medium))
+                            .foregroundStyle(.primary)
                             .tracking(-1)
                             .padding(.horizontal, 20)
                             .padding(.top, 24)
@@ -6113,7 +6563,7 @@ struct MinimalNoteDetailSheet: View {
                         VStack(alignment: .leading, spacing: 16) {
                             // AI Features Toggle Button
                             Button {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                                     showAISection.toggle()
                                 }
                                 
@@ -6126,15 +6576,15 @@ struct MinimalNoteDetailSheet: View {
                             } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: "sparkles")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                     
                                     Text("AI Insights")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                     
                                     Spacer()
                                     
                                     Image(systemName: showAISection ? "chevron.up" : "chevron.down")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.systemScaled(14, weight: .medium))
                                 }
                                 .foregroundStyle(.purple)
                                 .padding(16)
@@ -6153,9 +6603,9 @@ struct MinimalNoteDetailSheet: View {
                                 VStack(alignment: .leading, spacing: 12) {
                                     HStack {
                                         Image(systemName: "brain.head.profile")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                         Text("AI Summary")
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .font(.systemScaled(15, weight: .semibold))
                                         
                                         if isGeneratingSummary {
                                             Spacer()
@@ -6170,27 +6620,27 @@ struct MinimalNoteDetailSheet: View {
                                             // Main Theme
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text("Main Theme")
-                                                    .font(.system(size: 13, weight: .medium))
+                                                    .font(.systemScaled(13, weight: .medium))
                                                     .foregroundStyle(.black.opacity(0.5))
                                                 Text(summary.mainTheme)
-                                                    .font(.system(size: 15, weight: .regular))
-                                                    .foregroundStyle(.black)
+                                                    .font(.systemScaled(15, weight: .regular))
+                                                    .foregroundStyle(.primary)
                                             }
                                             
                                             // Key Points
                                             if !summary.keyPoints.isEmpty {
                                                 VStack(alignment: .leading, spacing: 6) {
                                                     Text("Key Points")
-                                                        .font(.system(size: 13, weight: .medium))
+                                                        .font(.systemScaled(13, weight: .medium))
                                                         .foregroundStyle(.black.opacity(0.5))
                                                     ForEach(summary.keyPoints, id: \.self) { point in
                                                         HStack(alignment: .top, spacing: 8) {
                                                             Text("•")
-                                                                .font(.system(size: 15, weight: .bold))
+                                                                .font(.systemScaled(15, weight: .bold))
                                                             Text(point)
-                                                                .font(.system(size: 14, weight: .regular))
+                                                                .font(.systemScaled(14, weight: .regular))
                                                         }
-                                                        .foregroundStyle(.black)
+                                                        .foregroundStyle(.primary)
                                                     }
                                                 }
                                             }
@@ -6199,16 +6649,16 @@ struct MinimalNoteDetailSheet: View {
                                             if !summary.actionSteps.isEmpty {
                                                 VStack(alignment: .leading, spacing: 6) {
                                                     Text("Action Steps")
-                                                        .font(.system(size: 13, weight: .medium))
+                                                        .font(.systemScaled(13, weight: .medium))
                                                         .foregroundStyle(.black.opacity(0.5))
                                                     ForEach(summary.actionSteps, id: \.self) { step in
                                                         HStack(alignment: .top, spacing: 8) {
                                                             Image(systemName: "checkmark.circle.fill")
-                                                                .font(.system(size: 12))
+                                                                .font(.systemScaled(12))
                                                                 .foregroundStyle(.green)
                                                             Text(step)
-                                                                .font(.system(size: 14, weight: .regular))
-                                                                .foregroundStyle(.black)
+                                                                .font(.systemScaled(14, weight: .regular))
+                                                                .foregroundStyle(.primary)
                                                         }
                                                     }
                                                 }
@@ -6225,7 +6675,7 @@ struct MinimalNoteDetailSheet: View {
                                         )
                                     } else if !isGeneratingSummary {
                                         Text("Failed to generate summary")
-                                            .font(.system(size: 14, weight: .regular))
+                                            .font(.systemScaled(14, weight: .regular))
                                             .foregroundStyle(.black.opacity(0.5))
                                             .italic()
                                     }
@@ -6236,9 +6686,9 @@ struct MinimalNoteDetailSheet: View {
                                     VStack(alignment: .leading, spacing: 12) {
                                         HStack {
                                             Image(systemName: "book.closed.fill")
-                                                .font(.system(size: 14, weight: .semibold))
+                                                .font(.systemScaled(14, weight: .semibold))
                                             Text("Related Scripture")
-                                                .font(.system(size: 15, weight: .semibold))
+                                                .font(.systemScaled(15, weight: .semibold))
                                         }
                                         .foregroundStyle(.black.opacity(0.8))
                                         
@@ -6246,10 +6696,10 @@ struct MinimalNoteDetailSheet: View {
                                             ForEach(scriptureReferences.prefix(5)) { reference in
                                                 VStack(alignment: .leading, spacing: 4) {
                                                     Text(reference.verse)
-                                                        .font(.system(size: 14, weight: .semibold))
+                                                        .font(.systemScaled(14, weight: .semibold))
                                                         .foregroundStyle(.blue)
                                                     Text(reference.description)
-                                                        .font(.system(size: 13, weight: .regular))
+                                                        .font(.systemScaled(13, weight: .regular))
                                                         .foregroundStyle(.black.opacity(0.7))
                                                 }
                                                 .padding(10)
@@ -6268,9 +6718,9 @@ struct MinimalNoteDetailSheet: View {
                                 } else if isLoadingScripture {
                                     HStack {
                                         Image(systemName: "book.closed.fill")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                         Text("Loading related scripture...")
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .font(.systemScaled(15, weight: .semibold))
                                         Spacer()
                                         ProgressView()
                                             .scaleEffect(0.8)
@@ -6285,10 +6735,12 @@ struct MinimalNoteDetailSheet: View {
                         
                         // Content
                         Text(note.content)
-                            .font(.system(size: 17, weight: .regular))
-                            .foregroundStyle(.black)
+                            .font(.systemScaled(17, weight: .regular))
+                            .foregroundStyle(.primary)
                             .lineSpacing(6)
                             .padding(.horizontal, 20)
+
+                        prayerFocusSection
 
                         // Worship songs
                         if !localWorshipSongs.isEmpty {
@@ -6322,7 +6774,67 @@ struct MinimalNoteDetailSheet: View {
             ShareSheet(items: [generateShareText()])
         }
     }
-    
+
+    private var prayerFocusSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                let focusText = defaultPrayerFocusTextLocal(from: note)
+                PrayerFocusStore.shared.saveFocus(text: focusText, noteId: note.id)
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+                withAnimation(.easeOut(duration: 0.25)) {
+                    showPrayerSaved = true
+                }
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_400_000_000)
+                    await MainActor.run {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            showPrayerSaved = false
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "hands.sparkles")
+                        .font(.systemScaled(14, weight: .semibold))
+                    Text("Save to this week’s prayer focus")
+                        .font(.systemScaled(14, weight: .semibold))
+                }
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule()
+                        .fill(.thinMaterial)
+                        .overlay(Capsule().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.75))
+                )
+            }
+            .buttonStyle(.plain)
+
+            if showPrayerSaved {
+                Text("Saved to prayer focus")
+                    .font(.systemScaled(12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func defaultPrayerFocusTextLocal(from note: ChurchNote) -> String {
+        if let scripture = note.scripture, !scripture.isEmpty {
+            return "Pray through \(scripture)"
+        }
+        if !note.keyPoints.isEmpty {
+            return note.keyPoints[0]
+        }
+        let trimmed = note.content.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        if let sentenceEnd = trimmed.firstIndex(of: ".") {
+            return String(trimmed[..<sentenceEnd]).prefix(120) + "…"
+        }
+        return String(trimmed.prefix(120))
+    }
+
     private func generateShareText() -> String {
         var text = "📝 \(note.title)\n\n"
         
@@ -6361,7 +6873,7 @@ struct MinimalNoteDetailSheet: View {
         UIPasteboard.general.string = shareURL
         
         // Show toast confirmation with animation
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
             showCopiedToast = true
         }
         
@@ -6398,7 +6910,7 @@ struct MinimalNoteDetailSheet: View {
                 // Parse structured JSON into NoteSummary
                 let summary = parseBereanNoteSummary(jsonString)
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         noteSummary = summary
                         isGeneratingSummary = false
                     }
@@ -6410,7 +6922,7 @@ struct MinimalNoteDetailSheet: View {
                 // Graceful degradation: orchestrator failed (all providers down), hide spinner
                 dlog("⚠️ [Berean] Note summary unavailable: \(error)")
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         isGeneratingSummary = false
                     }
                 }
@@ -6463,7 +6975,7 @@ struct MinimalNoteDetailSheet: View {
                     let references = try await AIScriptureCrossRefService.shared.findRelatedVerses(for: firstVerse)
                     
                     await MainActor.run {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             scriptureReferences = references
                             isLoadingScripture = false
                         }
@@ -6496,13 +7008,13 @@ struct MinimalMetadataRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text(label)
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(.black.opacity(0.5))
                 .frame(width: 80, alignment: .leading)
             
             Text(value)
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(.black)
+                .font(.systemScaled(15, weight: .regular))
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -6583,7 +7095,7 @@ struct TextFormattingToolbar: View {
     
     private func applyFormatting(_ option: FormattingOption) {
         // Flash animation
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
             selectedButton = option
         }
         
@@ -6593,7 +7105,7 @@ struct TextFormattingToolbar: View {
         
         // Reset after animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.6))) {
                 selectedButton = nil
             }
         }
@@ -6636,7 +7148,7 @@ struct FormattingButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: option.icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(isSelected ? .white : .black.opacity(0.6))
                 .frame(width: 36, height: 36)
                 .background(
@@ -6659,4 +7171,3 @@ struct FormattingButton: View {
 #Preview {
     ChurchNotesView()
 }
-

@@ -4,14 +4,17 @@
 
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
+
+const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 
 // ── Lazy clients ──────────────────────────────────────────────────────────────
 
 let _openai = null;
 let _openaiKey = null;
 function getOpenAI() {
-  const key = process.env.OPENAI_API_KEY;
+  const key = OPENAI_API_KEY.value();
   if (!key) throw new Error("OPENAI_API_KEY environment variable is not set");
   // Re-create the client if the key has changed (e.g. rotated between cold starts)
   if (!_openai || _openaiKey !== key) {

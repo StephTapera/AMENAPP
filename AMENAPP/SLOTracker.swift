@@ -19,7 +19,7 @@ class SLOTracker {
     static let shared = SLOTracker()
 
     private var events: [String: (successes: Int, failures: Int)] = [:]
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
 
     private init() {}
 
@@ -88,14 +88,18 @@ class SLOTracker {
             let total = entry.successes + entry.failures
             guard total > 0 else { continue }
 
-            try? await db.collection("sloMetrics").document("\(dateKey)_\(category)").setData([
-                "category": category,
-                "date": String(dateKey),
-                "successes": entry.successes,
-                "failures": entry.failures,
-                "successRate": Double(entry.successes) / Double(total),
-                "updatedAt": FieldValue.serverTimestamp(),
-            ], merge: true)
+            do {
+                try await db.collection("sloMetrics").document("\(dateKey)_\(category)").setData([
+                    "category": category,
+                    "date": String(dateKey),
+                    "successes": entry.successes,
+                    "failures": entry.failures,
+                    "successRate": Double(entry.successes) / Double(total),
+                    "updatedAt": FieldValue.serverTimestamp(),
+                ], merge: true)
+            } catch {
+                print("SLOTracker: failed to write SLO metrics for \(category) — \(error.localizedDescription)")
+            }
         }
     }
 

@@ -206,7 +206,7 @@ final class SpiritualCheckInService: ObservableObject {
     private var signals: [CheckInSignal] = []
     private var preferences = CheckInPreferences()
     private let flags = AMENFeatureFlags.shared
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var sessionOpenCount: Int = 0
     private var lastSessionOpenTime: Date?
 
@@ -324,7 +324,7 @@ final class SpiritualCheckInService: ObservableObject {
     // MARK: - Intervention Presentation
 
     private func showIntervention(_ intervention: CheckInIntervention) {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             currentIntervention = intervention
             isActive = true
         }
@@ -333,7 +333,7 @@ final class SpiritualCheckInService: ObservableObject {
     }
 
     func dismissIntervention(snooze: Bool = false) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
             currentIntervention = nil
             isActive = false
         }
@@ -448,7 +448,7 @@ final class SpiritualCheckInService: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         // Only log tier + timestamp — no behavioral data
         Task.detached(priority: .background) { [weak self] in
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             _ = try? await db
                 .collection("users").document(uid)
                 .collection("wellnessEvents")
@@ -473,7 +473,7 @@ struct SpiritualCheckInCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 Image(systemName: intervention.icon)
-                    .font(.system(size: 22, weight: .medium))
+                    .font(.systemScaled(22, weight: .medium))
                     .foregroundColor(intervention.iconColor)
                     .frame(width: 44, height: 44)
                     .background(intervention.iconColor.opacity(0.12), in: Circle())

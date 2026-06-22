@@ -196,7 +196,7 @@ final class SemanticEmbeddingService: ObservableObject {
         var params: [String: Any] = ["prayerText": prayerText]
         if let prayerId { params["prayerId"] = prayerId }
 
-        let result = try await functions.httpsCallable("matchPrayerPartners").safeCall(params)
+        let result = try await functions.httpsCallable("matchPrayerSupport").safeCall(params)
         guard let data = result.data as? [String: Any],
               let rawList = data["partners"] as? [[String: Any]] else {
             return []

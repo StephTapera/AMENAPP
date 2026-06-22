@@ -445,7 +445,7 @@ struct ConversationContextBuilder {
 
         // Classify each historical message so detectors have signal history.
         // classifyPublic is on-device (no I/O) so this is fast.
-        let gateway = MessageSafetyGateway.shared
+        let gateway = await MainActor.run { MessageSafetyGateway.shared }
         var contextMessages: [ContextMessage] = []
         for msg in recentWindow {
             let (signals, _) = await gateway.classifyPublic(msg.text)

@@ -18,7 +18,7 @@ struct MetaballMergeEffect: ViewModifier {
         content
             .scaleEffect(isMerged ? mergeScale : 1.0)
             .blur(radius: isMerged ? 8 : 0)
-            .animation(.spring(response: 0.4, dampingFraction: 0.7, blendDuration: 0), value: isMerged)
+            .animation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7, blendDuration: 0)), value: isMerged)
     }
 }
 
@@ -32,12 +32,12 @@ extension View {
 
 struct ElasticPressEffect: ViewModifier {
     @Binding var isPressed: Bool
-    
+
     func body(content: Content) -> some View {
         content
             .scaleEffect(isPressed ? 0.94 : 1.0)
             .brightness(isPressed ? 0.05 : 0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+            .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6)), value: isPressed)
     }
 }
 
@@ -59,7 +59,7 @@ struct StickyEdgeDockEffect: ViewModifier {
     func body(content: Content) -> some View {
         content
             .offset(y: calculateOffset())
-            .animation(.interpolatingSpring(stiffness: 300, damping: 25), value: offset)
+            .animation(Motion.adaptive(.interpolatingSpring(stiffness: 300, damping: 25)), value: offset)
     }
     
     private func calculateOffset() -> CGFloat {
@@ -93,7 +93,7 @@ struct LiquidGlassButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
             .brightness(configuration.isPressed ? 0.05 : 0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .animation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7)), value: configuration.isPressed)
     }
 }
 
@@ -111,7 +111,7 @@ struct InstantFeedbackButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
             .brightness(configuration.isPressed ? 0.08 : 0)
-            .animation(.spring(response: 0.18, dampingFraction: 0.75), value: configuration.isPressed)
+            .animation(Motion.adaptive(.spring(response: 0.18, dampingFraction: 0.75)), value: configuration.isPressed)
     }
 }
 
@@ -158,7 +158,7 @@ struct FloatingActionBubble: View {
                 
                 // Icon
                 Image(systemName: icon)
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.systemScaled(24, weight: .medium))
                     .foregroundColor(color)
             }
             .shadow(color: color.opacity(0.3), radius: 12, x: 0, y: 4)
@@ -168,12 +168,12 @@ struct FloatingActionBubble: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         scale = 0.94
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                         scale = 1.0
                     }
                 }
@@ -204,23 +204,23 @@ struct MetaballBadge: View {
                 
                 // Count
                 Text("\(min(count, 99))")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.systemScaled(12, weight: .bold))
                     .foregroundColor(.white)
             }
             .scaleEffect(scale)
             .opacity(opacity)
             .onAppear {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.1)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6)).delay(0.1)) {
                     scale = 1.0
                     opacity = 1.0
                 }
             }
             .onChange(of: count) { oldValue, newValue in
                 // Bounce animation when count changes
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                     scale = 1.2
                 }
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.1)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.6)).delay(0.1)) {
                     scale = 1.0
                 }
             }
@@ -232,7 +232,7 @@ struct MetaballBadge: View {
 
 struct LiquidGlassCardStyle: ViewModifier {
     @State private var isPressed = false
-    
+
     func body(content: Content) -> some View {
         content
             .background(
@@ -241,7 +241,7 @@ struct LiquidGlassCardStyle: ViewModifier {
                     .shadow(color: .black.opacity(isPressed ? 0.1 : 0.05), radius: isPressed ? 8 : 12, y: isPressed ? 2 : 4)
             )
             .scaleEffect(isPressed ? 0.98 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
+            .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7)), value: isPressed)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in isPressed = true }
@@ -268,10 +268,10 @@ struct TabBarIconBounce: ViewModifier {
             .onChange(of: isSelected) { oldValue, newValue in
                 if newValue {
                     // Bounce when selected
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.5))) {
                         scale = 1.2
                     }
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7).delay(0.15)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7)).delay(0.15)) {
                         scale = 1.0
                     }
                 }
@@ -342,7 +342,7 @@ struct LiquidGlassExampleView: View {
             // Example: Badge with metaball effect
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "bell.fill")
-                    .font(.system(size: 32))
+                    .font(.systemScaled(32))
                     .foregroundColor(.blue)
                 
                 MetaballBadge(count: badgeCount)

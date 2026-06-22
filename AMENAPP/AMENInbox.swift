@@ -20,6 +20,21 @@ import SwiftUI
 import Combine
 import FirebaseAuth
 
+// Row glass background shared by AMENThreadRow.
+// Reduce Transparency → solid system background.  Live glass → ultraThinMaterial.
+private struct ThreadRowGlassBackground: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    func body(content: Content) -> some View {
+        if reduceTransparency {
+            content.background(AMENInboxTokens.background)
+        } else {
+            content
+                .background(.ultraThinMaterial)
+                .background(Color.white.opacity(0.04))
+        }
+    }
+}
+
 // MARK: - Design Tokens
 
 enum AMENInboxTokens {
@@ -41,23 +56,23 @@ enum AMENInboxTokens {
 
     // Typography
     // Large lowercase editorial title ("messages")
-    static let editorialHeroFont = Font.system(size: 48, weight: .light, design: .default)
+    static let editorialHeroFont = Font.systemScaled(48, weight: .light, design: .default)
     // Small index label ("01")
-    static let editorialIndexFont = Font.system(size: 18, weight: .light, design: .default)
+    static let editorialIndexFont = Font.systemScaled(18, weight: .light, design: .default)
     // Greeting above hero
-    static let greetingFont      = Font.system(size: 13, weight: .semibold)
+    static let greetingFont      = Font.systemScaled(13, weight: .semibold)
     // Compact collapsed title
-    static let heroFont          = Font.system(size: 28, weight: .bold, design: .default)
-    static let nameFontRead      = Font.system(size: 15, weight: .regular)
-    static let nameFontUnread    = Font.system(size: 15, weight: .semibold)
-    static let previewFont       = Font.system(size: 13, weight: .regular)
-    static let previewFontUnread = Font.system(size: 13, weight: .medium)
-    static let timestampFont     = Font.system(size: 12, weight: .regular)
-    static let labelFont         = Font.system(size: 11, weight: .semibold)
-    static let aiLabelFont       = Font.system(size: 11, weight: .medium, design: .monospaced)
+    static let heroFont          = Font.systemScaled(28, weight: .bold, design: .default)
+    static let nameFontRead      = Font.systemScaled(15, weight: .regular)
+    static let nameFontUnread    = Font.systemScaled(15, weight: .semibold)
+    static let previewFont       = Font.systemScaled(13, weight: .regular)
+    static let previewFontUnread = Font.systemScaled(13, weight: .medium)
+    static let timestampFont     = Font.systemScaled(12, weight: .regular)
+    static let labelFont         = Font.systemScaled(11, weight: .semibold)
+    static let aiLabelFont       = Font.systemScaled(11, weight: .medium, design: .monospaced)
     // Filter pill
-    static let pillFont          = Font.system(size: 13, weight: .medium)
-    static let pillFontActive    = Font.system(size: 13, weight: .semibold)
+    static let pillFont          = Font.systemScaled(13, weight: .medium)
+    static let pillFontActive    = Font.systemScaled(13, weight: .semibold)
 
     // Metrics
     static let avatarSize: CGFloat      = 50
@@ -130,7 +145,7 @@ struct InboxSearchBar: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(AMENInboxTokens.tertiaryText)
 
             TextField("Search conversations…", text: $text)
@@ -146,7 +161,7 @@ struct InboxSearchBar: View {
                     text = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(AMENInboxTokens.tertiaryText)
                 }
             }
@@ -193,7 +208,7 @@ struct QuickAccessRow: View {
                                 BreathingAvatarWrapper(conversation: conv)
 
                                 Text(conv.name.components(separatedBy: " ").first ?? conv.name)
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.systemScaled(11, weight: .medium))
                                     .foregroundStyle(AMENInboxTokens.secondaryText)
                                     .lineLimit(1)
                                     .frame(width: AMENInboxTokens.quickAvatarSize + 4)
@@ -233,7 +248,7 @@ private struct QuickAvatarView: View {
             .frame(width: size, height: size)
             .overlay(
                 Text(conversation.initials)
-                    .font(.system(size: size * 0.32, weight: .semibold))
+                    .font(.systemScaled(size * 0.32, weight: .semibold))
                     .foregroundStyle(AMENInboxTokens.secondaryText)
             )
     }
@@ -317,12 +332,12 @@ struct AMENThreadRow: View, Equatable {
 
                         if conversation.isGroup {
                             Image(systemName: "person.2.fill")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                                 .foregroundStyle(AMENInboxTokens.tertiaryText)
                         }
                         if conversation.isMuted {
                             Image(systemName: "bell.slash.fill")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                                 .foregroundStyle(AMENInboxTokens.tertiaryText)
                         }
 
@@ -337,7 +352,7 @@ struct AMENThreadRow: View, Equatable {
                     if let summary = aiSummary {
                         HStack(spacing: 4) {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 9, weight: .medium))
+                                .font(.systemScaled(9, weight: .medium))
                                 .foregroundStyle(AMENInboxTokens.tertiaryText)
                             Text(summary)
                                 .font(AMENInboxTokens.aiLabelFont)
@@ -365,7 +380,7 @@ struct AMENThreadRow: View, Equatable {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(AMENInboxTokens.background)
+        .modifier(ThreadRowGlassBackground())
     }
 }
 
@@ -396,7 +411,7 @@ private struct ThreadAvatarView: View {
             .frame(width: AMENInboxTokens.avatarSize, height: AMENInboxTokens.avatarSize)
             .overlay(
                 Text(conversation.initials)
-                    .font(.system(size: AMENInboxTokens.avatarSize * 0.32, weight: .semibold))
+                    .font(.systemScaled(AMENInboxTokens.avatarSize * 0.32, weight: .semibold))
                     .foregroundStyle(Color(.secondaryLabel))
             )
             .shimmering()
@@ -408,7 +423,7 @@ private struct ThreadAvatarView: View {
             .frame(width: AMENInboxTokens.avatarSize, height: AMENInboxTokens.avatarSize)
             .overlay(
                 Text(conversation.initials)
-                    .font(.system(size: AMENInboxTokens.avatarSize * 0.32, weight: .semibold))
+                    .font(.systemScaled(AMENInboxTokens.avatarSize * 0.32, weight: .semibold))
                     .foregroundStyle(Color(.secondaryLabel))
             )
     }
@@ -465,13 +480,13 @@ struct InboxEmptyState: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: icon)
-                .font(.system(size: 48, weight: .ultraLight))
+                .font(.systemScaled(48, weight: .ultraLight))
                 .foregroundStyle(AMENInboxTokens.tertiaryText)
             Text(headline)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(AMENInboxTokens.primaryText)
             Text(subhead)
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
                 .foregroundStyle(AMENInboxTokens.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -515,6 +530,9 @@ struct InboxHeroHeader: View {
     let greetingName: String
     let onCompose: () -> Void
     let onBack: () -> Void
+    let onSettings: () -> Void
+    let onRequests: () -> Void
+    var requestCount: Int = 0
     @Binding var searchText: String
 
     // Tracks how far the content has scrolled — fed from parent — so the
@@ -543,39 +561,61 @@ struct InboxHeroHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
 
-            // ── Row 1: Avatar chip + compose button ──────────────────────────
+            // ── Row 1: Back button + compose button ──────────────────────────
             HStack(alignment: .center) {
-                // Small user avatar — doubles as navigation hint back to profile
+                // Back button
                 Button(action: onBack) {
-                    Group {
-                        if let urlStr = userService.currentUser?.profileImageURL,
-                           let url = URL(string: urlStr) {
-                            CachedAsyncImage(url: url) { img in
-                                img.resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: AMENInboxTokens.headerAvatarSize,
-                                           height: AMENInboxTokens.headerAvatarSize)
-                                    .clipShape(Circle())
-                            } placeholder: {
-                                initialsChip
-                            }
-                        } else {
-                            initialsChip
-                        }
-                    }
+                    Image(systemName: "chevron.backward")
+                        .font(.systemScaled(17, weight: .semibold))
+                        .foregroundStyle(AMENInboxTokens.primaryText)
+                        .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Back")
 
                 Spacer()
 
-                // Notification Bell Button
-                NotificationBellButton()
-                
+                // 3-dot settings menu
+                Menu {
+                    Button {
+                        onRequests()
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Label(
+                            requestCount > 0 ? "Message Requests (\(requestCount))" : "Message Requests",
+                            systemImage: "tray.and.arrow.down"
+                        )
+                    }
+
+                    Button {
+                        onCompose()
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Label("New Group", systemImage: "person.3")
+                    }
+
+                    Divider()
+
+                    Button {
+                        onSettings()
+                        HapticManager.impact(style: .light)
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.systemScaled(19, weight: .medium))
+                        .foregroundStyle(AMENInboxTokens.primaryText)
+                        .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("More options")
+
                 // Compose new message
                 Button(action: onCompose) {
                     Image(systemName: "square.and.pencil")
-                        .font(.system(size: 19, weight: .medium))
+                        .font(.systemScaled(19, weight: .medium))
                         .foregroundStyle(AMENInboxTokens.primaryText)
                         .frame(width: 40, height: 40)
                         .contentShape(Rectangle())
@@ -621,7 +661,7 @@ struct InboxHeroHeader: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(AMENInboxTokens.secondaryText)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -650,7 +690,7 @@ struct InboxHeroHeader: View {
                 .frame(width: AMENInboxTokens.headerAvatarSize,
                        height: AMENInboxTokens.headerAvatarSize)
             Text(userInitial)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(AMENInboxTokens.secondaryText)
         }
     }
@@ -689,7 +729,7 @@ struct OdometerBadgeView: View {
                         let digits = digitsFor(count)
                         ForEach(Array(digits.enumerated()), id: \.offset) { idx, digit in
                             Text(digit)
-                                .font(.system(size: count > 9 ? 10 : 11, weight: .bold))
+                                .font(.systemScaled(count > 9 ? 10 : 11, weight: .bold))
                                 .foregroundStyle(.white)
                                 .frame(width: 8, height: 14)
                                 .clipped()

@@ -72,12 +72,12 @@ final class VoiceMessageViewModel: NSObject, ObservableObject, AVAudioRecorderDe
 
             // Duration counter (1Hz)
             durationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-                Task { @MainActor in self?.recordingDuration += 1 }
+                Task { @MainActor [weak self] in self?.recordingDuration += 1 }
             }
 
             // Amplitude sampler (10Hz for smooth waveform)
             amplitudeTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                Task { @MainActor in self?.sampleAmplitude() }
+                Task { @MainActor [weak self] in self?.sampleAmplitude() }
             }
             RunLoop.main.add(durationTimer!, forMode: .common)
             RunLoop.main.add(amplitudeTimer!, forMode: .common)
@@ -255,17 +255,17 @@ struct VoiceMessageRecorderButton: View {
             .frame(width: 36, height: 36)
             .overlay(
                 Image(systemName: "waveform")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundColor(.white)
             )
             .scaleEffect(holdScale)
             .gesture(
                 LongPressGesture(minimumDuration: 0.3)
                     .onChanged { _ in
-                        withAnimation(.spring(response: 0.2)) { holdScale = 1.15 }
+                        withAnimation(Motion.adaptive(.spring(response: 0.2))) { holdScale = 1.15 }
                     }
                     .onEnded { _ in
-                        withAnimation(.spring(response: 0.2)) { holdScale = 1.0 }
+                        withAnimation(Motion.adaptive(.spring(response: 0.2))) { holdScale = 1.0 }
                         HapticManager.impact(style: .medium)
                         vm.startRecording()
                     }
@@ -282,7 +282,7 @@ struct VoiceMessageRecorderButton: View {
 
             // Duration
             Text(formattedDuration(vm.recordingDuration))
-                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                .font(.systemScaled(13, weight: .semibold).monospacedDigit())
                 .foregroundStyle(.primary)
                 .frame(minWidth: 38, alignment: .leading)
 
@@ -294,7 +294,7 @@ struct VoiceMessageRecorderButton: View {
                 vm.cancelRecording()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.secondary)
             }
 
@@ -308,7 +308,7 @@ struct VoiceMessageRecorderButton: View {
                     .frame(width: 36, height: 36)
                     .overlay(
                         Image(systemName: "arrow.up")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.systemScaled(15, weight: .bold))
                             .foregroundColor(.white)
                     )
                     .shadow(color: .purple.opacity(0.4), radius: 8)
@@ -352,7 +352,7 @@ struct VoiceMessageBubble: View {
                     .frame(width: 34, height: 34)
                     .overlay(
                         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundColor(isFromCurrentUser ? .white : .primary)
                     )
             }
@@ -365,7 +365,7 @@ struct VoiceMessageBubble: View {
 
                 // Duration
                 Text(player.displayDuration)
-                    .font(.system(size: 11, weight: .medium).monospacedDigit())
+                    .font(.systemScaled(11, weight: .medium).monospacedDigit())
                     .foregroundStyle(.secondary)
             }
         }
@@ -417,7 +417,7 @@ final class VoicePlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     private func startTimer() {
         progressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.updateDisplay() }
+            Task { @MainActor [weak self] in self?.updateDisplay() }
         }
     }
 

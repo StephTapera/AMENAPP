@@ -10,6 +10,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Design Tokens
 
@@ -29,6 +30,12 @@ private enum SD {
 // MARK: - SettingsView
 
 struct SettingsView: View {
+    var body: some View {
+        AMENSettingsView()
+    }
+}
+
+struct LegacySettingsView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject private var authViewModel: AuthenticationViewModel
 
@@ -36,6 +43,10 @@ struct SettingsView: View {
     @State private var showDeleteAccountConfirmation = false
     @State private var navigateToAccountSettings = false
     @State private var groupsVisible = false     // drives stagger entrance
+    @ObservedObject private var prefsService = AMENUserPreferencesService.shared
+    @StateObject private var searchEngine = SettingsSearchEngine.shared
+    @State private var settingsSearchText = ""
+    @FocusState private var isSettingsSearchFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -51,6 +62,32 @@ struct SettingsView: View {
                             .offset(y: groupsVisible ? 0 : 14)
                             .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.04), value: groupsVisible)
 
+                        // ── Settings Search Capsule ────────────────────────
+                        AmenSmartCapsule(
+                            text: $settingsSearchText,
+                            placeholder: "Search settings...",
+                            style: .settings,
+                            isFocused: $isSettingsSearchFocused,
+                            onSubmit: { searchEngine.search(settingsSearchText) },
+                            onClear: {
+                                settingsSearchText = ""
+                                searchEngine.search("")
+                                isSettingsSearchFocused = false
+                            }
+                        )
+                        .onChange(of: settingsSearchText) { _, newValue in
+                            searchEngine.search(newValue)
+                        }
+                        .opacity(groupsVisible ? 1 : 0)
+                        .offset(y: groupsVisible ? 0 : 14)
+                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.06), value: groupsVisible)
+
+                        // ── Search Results Overlay ─────────────────────────
+                        if !searchEngine.results.isEmpty {
+                            settingsSearchResults
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        } else if settingsSearchText.isEmpty {
+
                         // ── Group 1: Account ────────────────────────────────
                         SDGroup {
                             SDNavRow(icon: "person", label: "Edit Profile", subtitle: "Name, bio, links", iconBg: .blue) { EditProfileFromSettingsView() }
@@ -59,9 +96,15 @@ struct SettingsView: View {
                             SDDivider()
                             SDNavRow(icon: "bell", label: "Notifications", subtitle: "Push, email, in-app", iconBg: .red) { NotificationSettingsView() }
                             SDDivider()
+                            SDNavRow(icon: "message", label: "Messaging", subtitle: "Schedule Reply, Edit Message", iconBg: Color(red: 0.2, green: 0.6, blue: 0.9)) { MessagingSettingsView() }
+                            SDDivider()
                             SDNavRow(icon: "square.grid.2x2", label: "Integrations", subtitle: "Widgets, Live Activities, Siri", iconBg: .indigo) { IntegrationSettingsView() }
                             SDDivider()
                             SDNavRow(icon: "lock", label: "Privacy & Safety", subtitle: "Who can see your content", iconBg: .green) { PrivacySettingsView() }
+                            SDDivider()
+                            SDNavRow(icon: "person.badge.clock", label: "Account Recovery", subtitle: "Data export, appeals, deletion", iconBg: Color(red: 0.55, green: 0.35, blue: 0.85)) { AccountRecoveryView() }
+                            SDDivider()
+                            AmenGenerationalPresetSettingsRow()
                             SDDivider()
                             SDNavRow(icon: "shield", label: "Security", subtitle: "2FA, active sessions", iconBg: .yellow) { SecurityGroupView() }
                         }
@@ -73,11 +116,25 @@ struct SettingsView: View {
                         SDGroup {
                             SDNavRow(icon: "sparkles", label: "Berean AI", subtitle: "AI settings, Scripture sources", iconBg: .purple) { BereanAISettingsView() }
                             SDDivider()
+                            // Trust & Transparency hub — AI receipts, moderation timeline,
+                            // memory ledger, flourishing/focus, safety, red team (all flag-gated).
+                            SDNavRow(icon: "checkmark.shield", label: "Trust & Transparency", subtitle: "AI receipts, moderation, your data", iconBg: .blue) { TrustCenterView() }
+                            SDDivider()
                             SDNavRow(icon: "slider.horizontal.3", label: "Feed & Content", subtitle: "What you see and when", iconBg: .orange) { ContentFeedGroupView() }
+                            SDDivider()
+                            SDToggleRow(
+                                icon: "book.closed",
+                                label: "Daily Verse Banner",
+                                subtitle: "Show today's scripture in your feed",
+                                isOn: Binding(
+                                    get: { prefsService.preferences.dailyVerseWidgetEnabled },
+                                    set: { v in prefsService.update { $0.dailyVerseWidgetEnabled = v } }
+                                )
+                            )
                             SDDivider()
                             SDNavRow(icon: "heart.text.square", label: "Wellbeing", subtitle: "Screen time, daily limits", iconBg: .teal) { WellbeingGroupView() }
                             SDDivider()
-                            SDNavRow(icon: "character.bubble", label: "Language", subtitle: "Translation preferences", iconBg: .indigo) { TranslationSettingsView() }
+                            SDNavRow(icon: "character.bubble", label: "Language", subtitle: "Language & Translation", iconBg: .indigo) { TranslationSettingsView() }
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
@@ -128,7 +185,7 @@ struct SettingsView: View {
                         // ── App Version ─────────────────────────────────────
                         HStack {
                             Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(SD.secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -136,6 +193,8 @@ struct SettingsView: View {
                         .padding(.bottom, 32)
                         .opacity(groupsVisible ? 1 : 0)
                         .animation(.easeIn(duration: 0.2).delay(0.28), value: groupsVisible)
+
+                        } // end else if settingsSearchText.isEmpty
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -145,7 +204,7 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Settings")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(SD.label)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -153,16 +212,15 @@ struct SettingsView: View {
                         HapticManager.impact(style: .light)
                         dismiss()
                     } label: {
-                        Text("Done")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(SD.label)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 5)
-                            .background(
-                                Capsule()
-                                    .fill(SD.panel)
-                                    .overlay(Capsule().stroke(SD.panelEdge, lineWidth: 1))
-                            )
+                        ZStack {
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+                                .frame(width: 30, height: 30)
+                            Image(systemName: "xmark")
+                                .font(.systemScaled(11, weight: .bold))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     .buttonStyle(.plain)
                 }
@@ -192,6 +250,101 @@ struct SettingsView: View {
             .onAppear {
                 withAnimation { groupsVisible = true }
             }
+        }
+    }
+
+    // MARK: - Settings Search Results
+
+    private var settingsSearchResults: some View {
+        AmenCapsuleSuggestionPanel(style: .settings) {
+            ForEach(Array(searchEngine.results.prefix(8).enumerated()), id: \.element.id) { index, entry in
+                if index > 0 {
+                    SD.divider.frame(height: 0.5).padding(.leading, 51)
+                }
+                NavigationLink(destination: destinationView(for: entry.destination)) {
+                    HStack(spacing: 13) {
+                        if let bg = entry.iconBg {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(bg)
+                                .frame(width: 30, height: 30)
+                                .overlay(
+                                    Image(systemName: entry.icon)
+                                        .font(.systemScaled(14, weight: .medium))
+                                        .foregroundStyle(.white)
+                                )
+                        } else {
+                            Image(systemName: entry.icon)
+                                .font(.systemScaled(16, weight: .regular))
+                                .foregroundStyle(SD.label)
+                                .frame(width: 22, alignment: .center)
+                        }
+
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(entry.label)
+                                .font(.systemScaled(15, weight: .regular))
+                                .foregroundStyle(SD.label)
+                            Text(entry.subtitle)
+                                .font(.systemScaled(12))
+                                .foregroundStyle(SD.label.opacity(0.45))
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.systemScaled(11, weight: .medium))
+                            .foregroundStyle(SD.chevron)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(SDPressStyle())
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func destinationView(for destination: SettingsDestination) -> some View {
+        switch destination {
+        case .editProfile:        EditProfileFromSettingsView()
+        case .account:            AccountSettingsView()
+        case .notifications:      NotificationSettingsView()
+        case .messaging:          MessagingSettingsView()
+        case .integrations:       IntegrationSettingsView()
+        case .privacy:            PrivacySettingsView()
+        case .security:           SecurityGroupView()
+        case .bereanAI:           BereanAISettingsView()
+        case .feedContent:        ContentFeedGroupView()
+        case .dailyVerse:         ContentFeedGroupView()
+        case .wellbeing:          WellbeingGroupView()
+        case .language:           TranslationSettingsView()
+        case .creatorInsights:    CreatorGroupView()
+        case .importContent:      ImportLauncherView()
+        case .helpSupport:        HelpSupportView()
+        case .reportProblem:      ReportProblemView()
+        case .aboutAmen:          AboutAmenView()
+        case .signOut:            EmptyView() // handled by action
+        case .deleteAccount:      DeleteAccountView()
+        case .changePassword:     ChangePasswordView()
+        case .twoFactor:          TwoFactorAuthView()
+        case .loginActivity:      ActiveSessionsView()
+        case .downloadData:       DownloadDataView()
+        case .accountStatus:      AccountStatusView()
+        case .appPermissions:     EmptyView() // handled by action
+        case .mutedWords:         HiddenWordsSettingsView()
+        case .feedPreferences:    YourFeedView()
+        case .defaultPostSettings: DefaultPostSettingsView()
+        case .motionAnimations:   AccessibilitySettingsView()
+        case .textSize:           TextSizeSettingsView()
+        case .captionsAltText:    CaptionsAltTextSettingsView()
+        case .screenTime:         ScrollBudgetSettingsView()
+        case .sundayFocus:        SundayFocusModeSettingsView()
+        case .takeABreak:         TakeABreakSettingsView()
+        case .prayerReminders:    PrayerReminderSettingsView()
+        case .quietMode:          QuietModeSettingsView()
+        case .drafts:             DraftsSettingsView()
+        case .scheduleReply:      MessagingSettingsView()
+        case .editMessages:       MessagingSettingsView()
         }
     }
 
@@ -231,18 +384,18 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     if let user = Auth.auth().currentUser {
                         Text(user.displayName ?? "Your Account")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(SD.label)
                         Text(user.email ?? "")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(SD.secondary)
                             .lineLimit(1)
                     } else {
                         Text("Your Account")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(SD.label)
                         Text("Manage profile & preferences")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(SD.secondary)
                     }
                 }
@@ -252,7 +405,7 @@ struct SettingsView: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(SD.chevron)
         }
         .padding(.horizontal, 16)
@@ -284,7 +437,7 @@ struct SettingsView: View {
                 .frame(width: 52, height: 52)
                 .overlay(Circle().stroke(SD.panelEdge, lineWidth: 1))
             Text(initials)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(SD.label)
         }
     }
@@ -293,12 +446,20 @@ struct SettingsView: View {
 
     private func signOut() {
         HapticManager.notification(type: .success)
-        // P1 FIX: Delegate to AuthenticationViewModel.signOut() which performs full
-        // teardown including 2FA state, phone auth, FCM deregistration, and all
-        // listener cleanup via AppLifecycleManager. Previously this path did its own
-        // partial teardown, leaving stale is2FAInProgress/pending2FACredential state.
-        authViewModel.signOut()
-        dismiss()
+        // A8-003 FIX: Wrap in a Task so dismiss() runs only after authViewModel.signOut()
+        // completes its full async teardown (FCM token deactivation, listener cleanup,
+        // 2FA state wipe). Previously dismiss() raced ahead of the internal FCM Task,
+        // leaving stale push tokens registered for the signed-out user.
+        Task { @MainActor in
+            // B-007: Clear Berean conversation history before sign-out so the
+            // static singleton doesn't leak one user's chat into the next session.
+            BereanConstitutionalPipeline.shared.clearHistory()
+            authViewModel.signOut()
+            // authViewModel.signOut() fires its own internal Task for FCM; yield so
+            // the runtime can schedule it before we dismiss the sheet.
+            await Task.yield()
+            dismiss()
+        }
     }
 }
 
@@ -349,23 +510,23 @@ struct SDNavRow<Destination: View>: View {
                     .frame(width: 30, height: 30)
                     .overlay(
                         Image(systemName: icon)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.white)
                     )
             } else {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(SD.label)
                     .frame(width: 22, alignment: .center)
             }
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(SD.label)
                 if let sub = subtitle {
                     Text(sub)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(SD.label.opacity(0.45))
                 }
             }
@@ -374,7 +535,7 @@ struct SDNavRow<Destination: View>: View {
 
             if showChevron {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(SD.chevron)
             }
         }
@@ -398,12 +559,12 @@ struct SDActionRow: View {
         Button(action: action) {
             HStack(spacing: 13) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(style == .danger ? SD.danger : SD.label)
                     .frame(width: 22, alignment: .center)
 
                 Text(label)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundStyle(style == .danger ? SD.danger : SD.label)
 
                 Spacer()
@@ -413,6 +574,45 @@ struct SDActionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(SDPressStyle())
+    }
+}
+
+// MARK: - Toggle Row
+
+struct SDToggleRow: View {
+    let icon: String
+    let label: String
+    var subtitle: String? = nil
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(spacing: 13) {
+            Image(systemName: icon)
+                .font(.systemScaled(16, weight: .regular))
+                .foregroundStyle(SD.label)
+                .frame(width: 22, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.systemScaled(15, weight: .regular))
+                    .foregroundStyle(SD.label)
+                if let sub = subtitle {
+                    Text(sub)
+                        .font(.systemScaled(12))
+                        .foregroundStyle(SD.label.opacity(0.45))
+                }
+            }
+
+            Spacer()
+
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .accessibilityLabel(label)  // A11Y-LABELS: bind hidden toggle to its row label
+                .tint(.white)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, subtitle != nil ? 10 : 13)
+        .contentShape(Rectangle())
     }
 }
 
@@ -426,19 +626,19 @@ struct SDDisabledRow: View {
     var body: some View {
         HStack(spacing: 13) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundStyle(SD.label.opacity(0.3))
                 .frame(width: 22, alignment: .center)
 
             Text(label)
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(SD.label.opacity(0.3))
 
             Spacer()
 
             if let badge {
                 Text(badge)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(SD.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -506,16 +706,63 @@ struct SecurityGroupView: View {
     }
 }
 
+// Messaging features settings
+struct MessagingSettingsView: View {
+    @ObservedObject private var prefsService = AMENUserPreferencesService.shared
+
+    var body: some View {
+        SDDetailScaffold(title: "Messaging") {
+            // Schedule Reply
+            SDGroup {
+                SDToggleRow(
+                    icon: "clock.arrow.2.circlepath",
+                    label: "Schedule Reply",
+                    subtitle: "Long-press send to schedule a message",
+                    isOn: Binding(
+                        get: { prefsService.preferences.scheduleReplyEnabled },
+                        set: { v in prefsService.update { $0.scheduleReplyEnabled = v } }
+                    )
+                )
+            }
+
+            // Edit Message
+            SDGroup {
+                SDToggleRow(
+                    icon: "pencil",
+                    label: "Edit Messages",
+                    subtitle: "Edit sent messages within 15 minutes",
+                    isOn: Binding(
+                        get: { prefsService.preferences.editMessageEnabled },
+                        set: { v in prefsService.update { $0.editMessageEnabled = v } }
+                    )
+                )
+            }
+        }
+    }
+}
+
 // Content & Feed + Accessibility (merged under Preferences)
 struct ContentFeedGroupView: View {
+    @ObservedObject private var prefsService = AMENUserPreferencesService.shared
+
     var body: some View {
         SDDetailScaffold(title: "Feed & Content") {
             SDGroup {
                 SDNavRow(icon: "text.word.spacing",    label: "Muted Words & Topics")  { HiddenWordsSettingsView() }
                 SDDivider()
-                SDNavRow(icon: "slider.horizontal.3",  label: "Feed Preferences")      { HeyFeedControlsSheet() }
+                SDNavRow(icon: "slider.horizontal.3",  label: "Your Feed")             { YourFeedView() }
                 SDDivider()
                 SDNavRow(icon: "gear.badge",            label: "Default Post Settings") { DefaultPostSettingsView() }
+                SDDivider()
+                SDToggleRow(
+                    icon: "book.closed",
+                    label: "Daily Verse Banner",
+                    subtitle: "Show today's scripture in your feed",
+                    isOn: Binding(
+                        get: { prefsService.preferences.dailyVerseWidgetEnabled },
+                        set: { v in prefsService.update { $0.dailyVerseWidgetEnabled = v } }
+                    )
+                )
             }
 
             SDGroup {
@@ -543,6 +790,8 @@ struct WellbeingGroupView: View {
                 SDNavRow(icon: "alarm",                  label: "Prayer Reminders")         { PrayerReminderSettingsView() }
                 SDDivider()
                 SDNavRow(icon: "moon",                   label: "Quiet Mode")               { QuietModeSettingsView() }
+                SDDivider()
+                SDNavRow(icon: "sparkles",               label: "Contextual Selah")         { SelahContextualSettingsView() }
             }
         }
     }
@@ -650,9 +899,34 @@ private struct EditProfileFromSettingsView: View {
                     initials:        UserDefaults.standard.string(forKey: "cached_initials") ?? String((user?.displayName ?? "?").prefix(1)),
                     profileImageURL: UserDefaults.standard.string(forKey: "cached_profileImageURL") ?? user?.photoURL?.absoluteString,
                     interests:       [String](),
-                    socialLinks:     [SocialLinkUI]()
+                    socialLinks:     [SocialLinkUI](),
+                    profileTopics:   [String]()
                 )
-                _ = uid // suppress unused warning
+                
+                // Load interests, topics, and social links from Firestore
+                do {
+                    let doc = try await Firestore.firestore().document("users/\(uid)").getDocument()
+                    if let data = doc.data() {
+                        if let interests = data["interests"] as? [String] {
+                            profileData.interests = interests
+                        }
+                        if let topics = data["profileTopics"] as? [String] {
+                            profileData.profileTopics = topics
+                        }
+                        if let socialLinksData = data["socialLinks"] as? [[String: Any]] {
+                            profileData.socialLinks = socialLinksData.compactMap { linkData in
+                                guard let platform = linkData["platform"] as? String,
+                                      let username = linkData["username"] as? String,
+                                      let socialPlatform = SocialLinkUI.SocialPlatform(rawValue: platform) else {
+                                    return nil
+                                }
+                                return SocialLinkUI(platform: socialPlatform, username: username)
+                            }
+                        }
+                    }
+                } catch {
+                    print("Error loading profile data: \(error)")
+                }
             }
     }
 }

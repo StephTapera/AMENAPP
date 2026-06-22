@@ -78,11 +78,11 @@ struct ContactSearchView: View {
         HStack(spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.secondary)
                 
                 TextField("Search by name, username, or interests", text: $searchText)
-                    .font(.custom("OpenSans-Regular", size: 16))
+                    .font(AMENFont.regular(16))
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.search)
@@ -98,7 +98,7 @@ struct ContactSearchView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -130,7 +130,7 @@ struct ContactSearchView: View {
     private var searchResultsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Search Results")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .padding(.horizontal)
             
             if isSearching {
@@ -165,15 +165,15 @@ struct ContactSearchView: View {
     private var emptySearchResults: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.crop.circle.badge.questionmark")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             
             Text("No users found")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .foregroundStyle(.primary)
             
             Text("Try searching by name or username")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -185,7 +185,7 @@ struct ContactSearchView: View {
     private var recentContactsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recent")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .padding(.horizontal)
             
             ScrollView(.horizontal, showsIndicators: false) {
@@ -207,7 +207,7 @@ struct ContactSearchView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Suggested for You")
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                 
                 Spacer()
                 
@@ -217,7 +217,7 @@ struct ContactSearchView: View {
                     }
                 } label: {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
             }
@@ -249,7 +249,7 @@ struct ContactSearchView: View {
     private var browseByCategorySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Browse by Interest")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .padding(.horizontal)
             
             LazyVGrid(columns: [
@@ -311,18 +311,76 @@ struct ContactSearchView: View {
     }
     
     private func loadSuggestedUsers() async {
-        // In production, this would fetch users based on:
-        // - Mutual connections
-        // - Similar interests
-        // - Same church/group
-        // - Activity patterns
-        
-        suggestedUsers = SearchableUser.sampleUsers.shuffled().prefix(5).map { $0 }
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        do {
+            lazy var db = Firestore.firestore()
+            // Fetch users the current user follows as suggestions
+            let snapshot = try await db.collection("follows")
+                .whereField("followerId", isEqualTo: currentUserId)
+                .limit(to: 5)
+                .getDocuments()
+            let followingIds = snapshot.documents.compactMap { $0.data()["followingId"] as? String }
+            guard !followingIds.isEmpty else { return }
+            let userDocs = try await db.collection("users")
+                .whereField(FieldPath.documentID(), in: followingIds)
+                .getDocuments()
+            await MainActor.run {
+                suggestedUsers = userDocs.documents.compactMap { doc -> SearchableUser? in
+                    let d = doc.data()
+                    guard let name = d["displayName"] as? String else { return nil }
+                    return SearchableUser(
+                        id: doc.documentID,
+                        name: name,
+                        username: d["username"] as? String,
+                        bio: d["bio"] as? String,
+                        avatarUrl: d["profileImageURL"] as? String
+                    )
+                }
+            }
+        } catch {
+            dlog("Error loading suggested users: \(error)")
+        }
     }
-    
+
     private func loadRecentContacts() async {
-        // Load users you've recently messaged
-        recentContacts = SearchableUser.sampleUsers.shuffled().prefix(4).map { $0 }
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        do {
+            lazy var db = Firestore.firestore()
+            // Fetch recent 1:1 conversation partners
+            let snapshot = try await db.collection("conversations")
+                .whereField("participantIds", arrayContains: currentUserId)
+                .whereField("isGroup", isEqualTo: false)
+                .order(by: "lastMessageTimestamp", descending: true)
+                .limit(to: 4)
+                .getDocuments()
+            var partnerIds: [String] = []
+            for doc in snapshot.documents {
+                if let ids = doc.data()["participantIds"] as? [String] {
+                    if let partnerId = ids.first(where: { $0 != currentUserId }) {
+                        partnerIds.append(partnerId)
+                    }
+                }
+            }
+            guard !partnerIds.isEmpty else { return }
+            let userDocs = try await db.collection("users")
+                .whereField(FieldPath.documentID(), in: partnerIds)
+                .getDocuments()
+            await MainActor.run {
+                recentContacts = userDocs.documents.compactMap { doc -> SearchableUser? in
+                    let d = doc.data()
+                    guard let name = d["displayName"] as? String else { return nil }
+                    return SearchableUser(
+                        id: doc.documentID,
+                        name: name,
+                        username: d["username"] as? String,
+                        bio: d["bio"] as? String,
+                        avatarUrl: d["profileImageURL"] as? String
+                    )
+                }
+            }
+        } catch {
+            dlog("Error loading recent contacts: \(error)")
+        }
     }
     
     private func startConversation(with user: SearchableUser) {
@@ -375,12 +433,12 @@ struct ContactUserSearchRow: View {
                                 .clipShape(Circle())
                         } placeholder: {
                             Text(user.initials)
-                                .font(.custom("OpenSans-Bold", size: 18))
+                                .font(AMENFont.bold(18))
                                 .foregroundStyle(user.avatarColor)
                         }
                     } else {
                         Text(user.initials)
-                            .font(.custom("OpenSans-Bold", size: 18))
+                            .font(AMENFont.bold(18))
                             .foregroundStyle(user.avatarColor)
                     }
                 }
@@ -388,18 +446,18 @@ struct ContactUserSearchRow: View {
                 // User Info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(user.name)
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
                         .foregroundStyle(.primary)
                     
                     if let username = user.username {
                         Text("@\(username)")
-                            .font(.custom("OpenSans-Regular", size: 13))
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary)
                     }
                     
                     if !user.interests.isEmpty {
                         Text(user.interests.prefix(3).joined(separator: " • "))
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -410,7 +468,7 @@ struct ContactUserSearchRow: View {
                 // Message Button
                 Button(action: onMessage) {
                     Image(systemName: "message.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 40, height: 40)
                         .background(
@@ -443,13 +501,13 @@ struct RecentContactCard: View {
                         .frame(width: 64, height: 64)
                     
                     Text(user.initials)
-                        .font(.custom("OpenSans-Bold", size: 20))
+                        .font(AMENFont.bold(20))
                         .foregroundStyle(user.avatarColor)
                 }
                 
                 // Name
                 Text(user.name.split(separator: " ").first ?? "")
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
             }
@@ -488,24 +546,24 @@ struct CategoryBrowseCard: View {
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundStyle(color)
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                         .foregroundStyle(.primary)
                     
                     Text(count + " members")
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(16)
@@ -518,7 +576,7 @@ struct CategoryBrowseCard: View {
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.7))) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -533,7 +591,8 @@ struct UserProfileSheet: View {
     let onMessage: () -> Void
     
     @State private var isFollowing = false
-    
+    @State private var showReportConfirm = false
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -547,19 +606,19 @@ struct UserProfileSheet: View {
                                 .frame(width: 100, height: 100)
                             
                             Text(user.initials)
-                                .font(.custom("OpenSans-Bold", size: 36))
+                                .font(AMENFont.bold(36))
                                 .foregroundStyle(user.avatarColor)
                         }
                         
                         // Name and Username
                         VStack(spacing: 4) {
                             Text(user.name)
-                                .font(.custom("OpenSans-Bold", size: 24))
+                                .font(AMENFont.bold(24))
                                 .foregroundStyle(.primary)
                             
                             if let username = user.username {
                                 Text("@\(username)")
-                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .font(AMENFont.regular(15))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -567,7 +626,7 @@ struct UserProfileSheet: View {
                         // Bio
                         if let bio = user.bio {
                             Text(bio)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .foregroundStyle(.primary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal)
@@ -579,7 +638,7 @@ struct UserProfileSheet: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: "message.fill")
                                     Text("Message")
-                                        .font(.custom("OpenSans-Bold", size: 16))
+                                        .font(AMENFont.bold(16))
                                 }
                                 .foregroundStyle(Color.white)
                                 .frame(maxWidth: .infinity)
@@ -596,7 +655,7 @@ struct UserProfileSheet: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: isFollowing ? "checkmark" : "plus")
                                     Text(isFollowing ? "Following" : "Follow")
-                                        .font(.custom("OpenSans-Bold", size: 16))
+                                        .font(AMENFont.bold(16))
                                 }
                                 .foregroundStyle(isFollowing ? .primary : Color.white)
                                 .frame(maxWidth: .infinity)
@@ -613,13 +672,13 @@ struct UserProfileSheet: View {
                     if !user.interests.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Interests")
-                                .font(.custom("OpenSans-Bold", size: 18))
+                                .font(AMENFont.bold(18))
                                 .padding(.horizontal)
                             
-                            FlowLayout(spacing: 8) {
+                            AMENFlowLayout(spacing: 8) {
                                 ForEach(user.interests, id: \.self) { interest in
                                     Text(interest)
-                                        .font(.custom("OpenSans-SemiBold", size: 13))
+                                        .font(AMENFont.semiBold(13))
                                         .foregroundStyle(.primary)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 8)
@@ -660,7 +719,8 @@ struct UserProfileSheet: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
-                            // Report user
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            showReportConfirm = true
                         } label: {
                             Label("Report", systemImage: "exclamationmark.triangle")
                         }
@@ -672,10 +732,29 @@ struct UserProfileSheet: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                     }
                 }
             }
+        }
+        .confirmationDialog("Report this user?", isPresented: $showReportConfirm, titleVisibility: .visible) {
+            Button("Report", role: .destructive) {
+                Task {
+                    // SECURITY FIX (HIGH 2026-06-11): Replace try? with do-catch.
+                    // Silent failure of a report write means harmful content goes unreported.
+                    do {
+                        try await ModerationService.shared.reportUser(
+                            userId: user.id,
+                            reason: .inappropriateContent,
+                            additionalDetails: nil
+                        )
+                    } catch {
+                        print("[ContactSearchView] Report user failed: \(error)")
+                        // NOTE: No toast available here — caller should add error state if needed
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
 }

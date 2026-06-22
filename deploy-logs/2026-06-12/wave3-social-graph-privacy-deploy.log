@@ -1,0 +1,120 @@
+AMEN Deploy Log — Wave 3: Social Graph Privacy (2026-06-12)
+Branch: safety-hardening
+Commit range: 84783647..4493995a
+Operator: automated (claude-sonnet-4-6)
+Project: amen-5e359
+
+═══════════════════════════════════════════════════════
+STEP 1: Pre-deploy gate — tests
+═══════════════════════════════════════════════════════
+Jest: 101/101 tests passing (socialGraph.privacyGaps: 33 new, all pass)
+TypeScript (non-berean): 0 errors
+Log hygiene grep: CLEAN — no PII in CF logs
+
+═══════════════════════════════════════════════════════
+STEP 2: Backfill migrations
+═══════════════════════════════════════════════════════
+[D-2] backfillPrivacyLevel.ts
+  Status: ✅ NOTHING TO MIGRATE — 4 posts scanned, all 4 already had privacyLevel
+  Verification: PASSED
+
+[W2-C3] backfillBlockedParticipantUids.ts
+  Status: ✅ NOTHING TO MIGRATE — 68 conversations scanned, 0 had blockedBetween set
+  Verification: PASSED
+
+Note: dev/test project has minimal data. Production run will scan full dataset.
+Production deploy must run both backfills before rules deploy.
+
+═══════════════════════════════════════════════════════
+STEP 3: Firestore + Storage Rules deploy
+═══════════════════════════════════════════════════════
+Command: firebase deploy --only firestore:rules --project amen-5e359
+Result: ✅ DEPLOYED SUCCESSFULLY
+Compile warnings (pre-existing, non-blocking):
+  - Unused function: isValidAttachment (line 353)
+  - Unused function: isChurchOnlyAttachmentType (line 362)
+  - Unused variable: attachments (line 367)
+  - Unused function: anonymousPrayerIsSafe (line 373)
+
+Changes deployed:
+  + callerIsBlockedInConversation() helper function
+  + Conversation read rule: !callerIsBlockedInConversation(resource.data)
+  + Messages read rule: !callerIsBlockedInConversation(conversation.data)
+  + Messages create rule: !callerIsBlockedInConversation(conversation.data)
+
+═══════════════════════════════════════════════════════
+STEP 4: Cloud Functions deploy
+═══════════════════════════════════════════════════════
+Codebase: creator (Backend/functions/)
+
+DEPLOYED SUCCESSFULLY (us-east1):
+  ✅ creator:onAccountPrivacyChange      NEW  Firestore trigger (users/{uid} update)
+  ✅ creator:revokeNotificationsOnCommentDelete  UPDATE  Firestore trigger
+  ✅ creator:revokeNotificationsOnPostDelete     UPDATE  Firestore trigger
+  ✅ creator:reconcileFollowCounts       UPDATE  Scheduled (Monday 03:00 ET)
+  ✅ creator:acceptFollowRequest         NEW  Callable
+  ✅ creator:rejectFollowRequest         NEW  Callable
+  ✅ creator:cancelFollowRequest         NEW  Callable
+  ✅ creator:removeFollower              NEW  Callable
+  ✅ creator:createFollow                UPDATE  Callable (private account gate added)
+  ✅ creator:createUnfollow              UPDATE  Callable (region set)
+  ✅ creator:blockRelationshipCleanup    UPDATE  Firestore trigger (blockedParticipantUids added)
+
+STALE (us-central1 — quota exhaustion on first attempt, superseded by us-east1 deploys):
+  ⚠️  us-central1/rejectFollowRequest — creation FAILED on first pass (quota). Redeployed at us-east1 ✅
+  ⚠️  us-central1/cancelFollowRequest — creation FAILED on first pass (quota). Redeployed at us-east1 ✅
+  ⚠️  us-central1/removeFollower — creation FAILED on first pass (quota). Redeployed at us-east1 ✅
+
+ACTION REQUIRED: Delete the 3 failed us-central1 stubs from Firebase Console to clean up.
+  firebase functions:delete rejectFollowRequest cancelFollowRequest removeFollower --region us-central1 --project amen-5e359
+
+═══════════════════════════════════════════════════════
+STEP 5: Algolia privacy purge
+═══════════════════════════════════════════════════════
+Status: BLOCKED — ALGOLIA_ADMIN_KEY not available in local env (stored in Secret Manager)
+
+MANUAL ACTION REQUIRED:
+  1. Retrieve ALGOLIA_ADMIN_KEY from Firebase Secret Manager
+  2. Run:
+     ALGOLIA_APP_ID=182SCN7O9S \
+     ALGOLIA_ADMIN_KEY=<key> \
+     ALGOLIA_INDEX_NAME=posts \
+     FIREBASE_PROJECT_ID=amen-5e359 \
+     node Backend/functions/lib/scripts/algoliaPrivacyPurge.js --dry-run
+  3. Review dry-run output, then run live (add --override-sanity if >50% flagged and confirmed)
+
+═══════════════════════════════════════════════════════
+STEP 6: Smoke tests
+═══════════════════════════════════════════════════════
+(To be run with test Firebase accounts against amen-5e359)
+
+[ ] Private account: attempt follow via createFollow → must return requestSent:true, NOT follow edge
+[ ] Block: after block, verify blocked participant cannot read conversation doc (rules reject)
+[ ] Comment permission: direct Firestore write to followers-only post comments → must deny
+[ ] Notification revocation: delete a comment → notification removed from post author's inbox
+[ ] buildPushText: comment on private post push payload must NOT contain comment text
+
+═══════════════════════════════════════════════════════
+STEP 7: Rollback plan
+═══════════════════════════════════════════════════════
+Rules rollback:
+  git show HEAD~3:firestore.rules > firestore.rules.rollback
+  firebase deploy --only firestore:rules --project amen-5e359
+
+Functions rollback (new CFs — delete them):
+  firebase functions:delete acceptFollowRequest rejectFollowRequest cancelFollowRequest removeFollower onAccountPrivacyChange --project amen-5e359
+
+Functions rollback (updated CFs — prior version auto-retained by Cloud Run):
+  firebase functions:delete createFollow createUnfollow blockRelationshipCleanup --project amen-5e359
+  # Then redeploy previous commit:
+  git stash && firebase deploy --only "functions:creator:createFollow,functions:creator:createUnfollow,functions:creator:blockRelationshipCleanup" --project amen-5e359
+
+═══════════════════════════════════════════════════════
+SUMMARY
+═══════════════════════════════════════════════════════
+Firestore Rules: ✅ DEPLOYED
+Cloud Functions: ✅ 11/11 deployed (us-east1)
+  + 3 stale us-central1 stubs need manual cleanup
+Backfills: ✅ NO-OP (dev environment — production backfills required before prod deploy)
+Algolia purge: ⏳ PENDING MANUAL (needs ALGOLIA_ADMIN_KEY from Secret Manager)
+Smoke tests: ⏳ PENDING MANUAL

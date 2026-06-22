@@ -24,7 +24,7 @@ final class RestrictService {
 
     private(set) var restrictedUserIds: Set<String> = []
     private var isLoaded = false
-    private let db = Firestore.firestore()
+    private var db: Firestore { Firestore.firestore() }
 
     // MARK: - Load
 

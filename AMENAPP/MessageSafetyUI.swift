@@ -58,7 +58,7 @@ struct MessageSafetyWarningBanner: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.shield.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.orange)
 
                 Text(primaryDescription)
@@ -69,12 +69,12 @@ struct MessageSafetyWarningBanner: View {
                 Spacer()
 
                 Button {
-                    withAnimation(.spring(response: 0.3)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                         isExpanded.toggle()
                     }
                 } label: {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -147,7 +147,7 @@ struct HeldMessageIndicator: View {
                     .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
 
                 Image(systemName: "clock.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.yellow)
             }
 
@@ -243,7 +243,7 @@ struct StrikeNoticeView: View {
             // ── Main row ─────────────────────────────────────────────────────
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(severity)
                     .padding(.top, 1)
 
@@ -298,10 +298,10 @@ struct StrikeNoticeView: View {
 
                 Button(action: {
                     cancelAutoDismiss()
-                    withAnimation(.spring(response: 0.3)) { onDismiss() }
+                    withAnimation(Motion.adaptive(.spring(response: 0.3))) { onDismiss() }
                 }) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .padding(6)
                 }
@@ -336,7 +336,7 @@ struct StrikeNoticeView: View {
         .opacity(appeared ? 1 : 0)
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .onAppear {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.72))) {
                 appeared = true
             }
             startAutoDismiss()
@@ -357,7 +357,7 @@ struct StrikeNoticeView: View {
             try? await Task.sleep(nanoseconds: UInt64(autoDismissAfter * 1_000_000_000))
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                withAnimation(.spring(response: 0.3)) { onDismiss() }
+                withAnimation(Motion.adaptive(.spring(response: 0.3))) { onDismiss() }
             }
         }
     }
@@ -378,7 +378,7 @@ struct AccountFrozenNoticeView: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "lock.shield.fill")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.red)
 
             Text("Messaging restricted")
@@ -421,7 +421,7 @@ struct SelfHarmCrisisInterstitial: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "heart.text.clipboard.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(Color.accentColor)
 
             Text("We're here for you")
@@ -500,7 +500,7 @@ private struct CrisisResourceButton: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(color)
                 .frame(width: 36, height: 36)
                 .background(
@@ -520,7 +520,7 @@ private struct CrisisResourceButton: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(12)

@@ -12,17 +12,29 @@
  *   stripeCreatePaymentIntent — Create payment intent for studio purchase
  *   stripeRequestPayout — Request payout to creator's bank
  */
-
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {defineSecret, defineString} = require("firebase-functions/params");
+
+// ─── Secrets and params ───────────────────────────────────────────────────────
+// Provision once: firebase functions:secrets:set STRIPE_SECRET_KEY --project amen-5e359
+const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
+
+// SECURITY FIX (HIGH 2026-06-11): Use defineString() for redirect base URL so
+// staging deployments cannot silently point at the production Stripe redirect URL.
+// Set via: firebase functions:config:set stripe.return_base_url="https://amenapp.com"
+const STRIPE_RETURN_BASE_URL = defineString("STRIPE_RETURN_BASE_URL", {
+  default: "https://amenapp.com",
+  description: "Base URL for Stripe Connect redirect URLs. Override in staging.",
+});
 
 const db = () => admin.firestore();
 
-// Lazy-init Stripe client
+// Lazy-init Stripe client — key read via .value() after Firebase injects the secret.
 let stripeClient = null;
 function getStripe() {
   if (!stripeClient) {
-    const secretKey = process.env.STRIPE_SECRET_KEY;
+    const secretKey = STRIPE_SECRET_KEY.value();
     if (!secretKey) {
       throw new HttpsError("failed-precondition", "Stripe not configured");
     }
@@ -37,7 +49,7 @@ const PLATFORM_FEE_PERCENT = 5;
 // ─── Create Connected Account ────────────────────────────────────────────────
 
 const stripeCreateConnectedAccount = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {region: "us-central1", secrets: [STRIPE_SECRET_KEY]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");
@@ -52,8 +64,8 @@ const stripeCreateConnectedAccount = onCall(
         // Generate new onboarding link for existing account
         const accountLink = await stripe.accountLinks.create({
           account: existingAccountId,
-          refresh_url: `https://amenapp.com/studio/stripe-refresh?uid=${uid}`,
-          return_url: `https://amenapp.com/studio/stripe-complete?uid=${uid}`,
+          refresh_url: `${STRIPE_RETURN_BASE_URL.value()}/studio/stripe-refresh?uid=${uid}`,
+          return_url: `${STRIPE_RETURN_BASE_URL.value()}/studio/stripe-complete?uid=${uid}`,
           type: "account_onboarding",
         });
         return {onboardingUrl: accountLink.url, accountId: existingAccountId};
@@ -94,7 +106,7 @@ const stripeCreateConnectedAccount = onCall(
 // ─── Get Account Status ──────────────────────────────────────────────────────
 
 const stripeGetAccountStatus = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {region: "us-central1", secrets: [STRIPE_SECRET_KEY]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");
@@ -137,7 +149,7 @@ const stripeGetAccountStatus = onCall(
 // ─── Create Payment Intent ───────────────────────────────────────────────────
 
 const stripeCreatePaymentIntent = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {region: "us-central1", secrets: [STRIPE_SECRET_KEY]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");
@@ -193,7 +205,7 @@ const stripeCreatePaymentIntent = onCall(
 // ─── Request Payout ──────────────────────────────────────────────────────────
 
 const stripeRequestPayout = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {region: "us-central1", secrets: [STRIPE_SECRET_KEY]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");

@@ -1,0 +1,29 @@
+# gitleaks config for AMEN — secret scanning
+# Extends the upstream default ruleset (Anthropic, Google OAuth, Algolia,
+# AWS, GitHub, Stripe, generic high-entropy, etc.) and adds the three
+# credential classes that have already leaked into this repo.
+title = "AMEN gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API key"
+regex = '''sk-ant-(api|admin)[0-9]{2}-[A-Za-z0-9_-]{80,}'''
+keywords = ["sk-ant-"]
+
+[[rules]]
+id = "algolia-admin-key"
+description = "Algolia admin/API key (32 hex)"
+regex = '''(?i)(algolia)[a-z0-9_ .\-,]{0,25}['"=:\s]+[a-f0-9]{32}'''
+keywords = ["algolia"]
+
+# Allowlist: documentation that intentionally shows a *masked/example* key.
+# Real keys never match these because the body is redacted.
+[allowlist]
+description = "Masked/example placeholders only"
+regexes = [
+  '''sk-ant-(api|admin)[0-9]{2}-(your|xxx|REDACTED|example|\.\.\.)''',
+  '''sk-ant-\.\.\.''',
+]

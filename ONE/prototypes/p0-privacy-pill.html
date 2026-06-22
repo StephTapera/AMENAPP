@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ONE — Privacy Contract Pill</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --gold:       #D4AE38;
+    --gold-dim:   rgba(212,174,56,0.12);
+    --indigo:     #4B5EC6;
+    --red:        #D95B4A;
+    --green:      #42B172;
+    --glass-bg:   rgba(255,255,255,0.07);
+    --glass-blur: 24px;
+    --bg:         #100F12;
+    --text:       #F5F0E8;
+    --text2:      rgba(245,240,232,0.55);
+    --text3:      rgba(245,240,232,0.30);
+    --separator:  rgba(255,255,255,0.10);
+  }
+  body {
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 48px 20px 48px;
+    gap: 32px;
+  }
+  h2 { font-size: 18px; font-weight: 700; color: var(--text2); letter-spacing: -0.3px; }
+
+  /* ── Privacy Pill (collapsed) ──────────────────────────────── */
+  .privacy-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    border-radius: 50px;
+    border: 0.5px solid rgba(255,255,255,0.18);
+    box-shadow:
+      0 1px 0 0 rgba(255,255,255,0.22) inset,
+      0 8px 24px -4px rgba(0,0,0,0.50);
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    user-select: none;
+    max-width: 380px;
+    width: 100%;
+  }
+  .privacy-pill:hover { transform: scale(1.01); }
+  .privacy-pill:active { transform: scale(0.97); }
+
+  .pill-segment {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .pill-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .pill-divider {
+    width: 1px; height: 16px;
+    background: var(--separator);
+    flex-shrink: 0;
+  }
+  .pill-expand { font-size: 11px; color: var(--text3); margin-left: auto; }
+
+  /* ── Expanded Panel ─────────────────────────────────────────── */
+  .privacy-panel {
+    width: 100%;
+    max-width: 380px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    border-radius: 24px;
+    border: 0.5px solid rgba(255,255,255,0.14);
+    box-shadow:
+      0 1px 0 0 rgba(255,255,255,0.18) inset,
+      0 24px 60px -12px rgba(0,0,0,0.70);
+    overflow: hidden;
+    display: none;
+  }
+  .privacy-panel.open { display: block; }
+
+  .panel-section {
+    padding: 16px 20px;
+    border-bottom: 0.5px solid var(--separator);
+  }
+  .panel-section:last-child { border-bottom: none; }
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 12px;
+  }
+
+  /* ── Segment Selector ───────────────────────────────────────── */
+  .seg-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .seg-btn {
+    padding: 7px 14px;
+    border-radius: 50px;
+    border: 0.5px solid var(--separator);
+    background: transparent;
+    color: var(--text2);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .seg-btn:hover { background: rgba(255,255,255,0.07); }
+  .seg-btn.active {
+    background: var(--gold-dim);
+    border-color: rgba(212,174,56,0.4);
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  /* ── Toggle Row ─────────────────────────────────────────────── */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 0;
+  }
+  .toggle-row + .toggle-row { border-top: 0.5px solid var(--separator); }
+  .toggle-info { display: flex; flex-direction: column; gap: 2px; }
+  .toggle-name { font-size: 14px; font-weight: 500; }
+  .toggle-desc { font-size: 11px; color: var(--text3); }
+
+  /* toggle switch */
+  .toggle { position: relative; width: 44px; height: 26px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.15);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 20px; height: 20px;
+    left: 3px; top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .toggle input:checked + .toggle-slider { background: var(--green); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+  /* ── Lifetime slider ────────────────────────────────────────── */
+  .lifetime-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 0;
+  }
+  .lifetime-label { font-size: 13px; color: var(--text2); min-width: 64px; }
+  input[type=range] {
+    flex: 1;
+    height: 4px;
+    accent-color: var(--gold);
+    cursor: pointer;
+  }
+  .lifetime-value { font-size: 13px; font-weight: 600; color: var(--gold); min-width: 48px; text-align: right; }
+
+  /* ── Status bar answers ──────────────────────────────────────── */
+  .answers-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 380px;
+  }
+  .answer-chip {
+    padding: 6px 14px;
+    border-radius: 50px;
+    border: 0.5px solid var(--separator);
+    background: rgba(255,255,255,0.04);
+    font-size: 12px;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .answer-chip .q { color: var(--text3); font-size: 11px; }
+
+  /* ── Safety warning ─────────────────────────────────────────── */
+  .safety-note {
+    font-size: 11px;
+    color: var(--text3);
+    text-align: center;
+    line-height: 1.5;
+    max-width: 320px;
+    padding: 0 8px;
+  }
+  .safety-note a { color: var(--gold); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<h2>Privacy Contract Pill</h2>
+
+<!-- The Three Questions (always answered in the UI) -->
+<div class="answers-bar" aria-label="Privacy status summary">
+  <div class="answer-chip"><span class="q">Who sees this?</span> <span id="ans-who">Close Friends</span></div>
+  <div class="answer-chip"><span class="q">How long?</span> <span id="ans-when">Fades in 30d</span></div>
+  <div class="answer-chip"><span class="q">Shareable?</span> <span id="ans-share">No</span></div>
+</div>
+
+<!-- Collapsed Pill -->
+<button class="privacy-pill" onclick="togglePanel()" aria-expanded="false" aria-controls="privacy-panel" aria-label="Privacy contract — tap to edit">
+  <span class="pill-segment">
+    <span class="pill-dot" style="background:#4B5EC6"></span>
+    <span>Close Friends</span>
+  </span>
+  <span class="pill-divider"></span>
+  <span class="pill-segment" style="color:rgba(212,174,56,0.8)">
+    <span class="pill-dot" style="background:rgba(212,174,56,0.6)"></span>
+    <span>Fades 30d</span>
+  </span>
+  <span class="pill-divider"></span>
+  <span class="pill-segment" style="color:#42B172">
+    <span class="pill-dot" style="background:#42B172"></span>
+    <span>Private</span>
+  </span>
+  <span class="pill-expand">Edit ›</span>
+</button>
+
+<!-- Expanded Panel -->
+<div class="privacy-panel" id="privacy-panel" role="region" aria-label="Privacy contract editor">
+
+  <!-- Audience -->
+  <div class="panel-section">
+    <div class="section-label">Audience</div>
+    <div class="seg-row" role="group" aria-label="Select audience">
+      <button class="seg-btn" onclick="setAudience(this,'Only Me')">Only Me</button>
+      <button class="seg-btn active" onclick="setAudience(this,'Close Friends')">Close Friends</button>
+      <button class="seg-btn" onclick="setAudience(this,'Witnesses')">Witnesses</button>
+      <button class="seg-btn" onclick="setAudience(this,'Everyone')">Everyone</button>
+    </div>
+  </div>
+
+  <!-- Lifetime -->
+  <div class="panel-section">
+    <div class="section-label">Lifetime</div>
+    <div class="lifetime-row">
+      <span class="lifetime-label">Duration</span>
+      <input type="range" min="0" max="4" value="2" step="1"
+             oninput="setLifetime(this.value)" aria-label="Content lifetime">
+      <span class="lifetime-value" id="lifetime-val">30 days</span>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button class="seg-btn" onclick="setLifetimeLabel(this,'After View')">After View</button>
+      <button class="seg-btn" onclick="setLifetimeLabel(this,'24h')">24h</button>
+      <button class="seg-btn active" onclick="setLifetimeLabel(this,'30 days')">30 days</button>
+      <button class="seg-btn" onclick="setLifetimeLabel(this,'Permanent')">Permanent</button>
+    </div>
+  </div>
+
+  <!-- Permissions -->
+  <div class="panel-section">
+    <div class="section-label">Permissions</div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <span class="toggle-name">Forward</span>
+        <span class="toggle-desc">Allow others to send this to anyone</span>
+      </div>
+      <label class="toggle"><input type="checkbox" onchange="updateAnswers()"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <span class="toggle-name">Save</span>
+        <span class="toggle-desc">Allow saving to device or library</span>
+      </div>
+      <label class="toggle"><input type="checkbox" onchange="updateAnswers()"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <span class="toggle-name">AI Training</span>
+        <span class="toggle-desc">Allow use in model training</span>
+      </div>
+      <label class="toggle"><input type="checkbox" onchange="updateAnswers()"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <span class="toggle-name">React</span>
+        <span class="toggle-desc">Allow emoji reactions</span>
+      </div>
+      <label class="toggle"><input type="checkbox" checked onchange="updateAnswers()"><span class="toggle-slider"></span></label>
+    </div>
+  </div>
+
+  <!-- Safety -->
+  <div class="panel-section">
+    <div class="section-label">Safety</div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <span class="toggle-name">Strip Location</span>
+        <span class="toggle-desc">Remove EXIF location data</span>
+      </div>
+      <label class="toggle"><input type="checkbox" checked onchange="updateAnswers()"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <span class="toggle-name">Screenshot Notify</span>
+        <span class="toggle-desc">We'll try to alert you — can't block</span>
+      </div>
+      <label class="toggle"><input type="checkbox" checked onchange="updateAnswers()"><span class="toggle-slider"></span></label>
+    </div>
+  </div>
+
+</div>
+
+<p class="safety-note">Screenshot detection is best-effort — iOS cannot block screenshots without system permission. We'll notify you if one is detected. <a href="#">Learn more</a></p>
+
+<script>
+  let panelOpen = false;
+
+  function togglePanel() {
+    panelOpen = !panelOpen;
+    const panel = document.getElementById('privacy-panel');
+    const pill  = document.querySelector('.privacy-pill');
+    panel.classList.toggle('open', panelOpen);
+    pill.setAttribute('aria-expanded', panelOpen);
+  }
+
+  function setAudience(btn, label) {
+    document.querySelectorAll('.panel-section:first-child .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('ans-who').textContent = label;
+  }
+
+  const lifetimeLabels = ['After View','24h','7 days','30 days','Permanent'];
+  function setLifetime(v) {
+    document.getElementById('lifetime-val').textContent = lifetimeLabels[v];
+    document.getElementById('ans-when').textContent = lifetimeLabels[v];
+  }
+  function setLifetimeLabel(btn, label) {
+    document.querySelectorAll('.panel-section:nth-child(2) .seg-row .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('lifetime-val').textContent = label;
+    document.getElementById('ans-when').textContent = label;
+  }
+
+  function updateAnswers() {
+    const forwards = document.querySelectorAll('.toggle input')[0].checked;
+    document.getElementById('ans-share').textContent = forwards ? 'Yes' : 'No';
+  }
+</script>
+</body>
+</html>

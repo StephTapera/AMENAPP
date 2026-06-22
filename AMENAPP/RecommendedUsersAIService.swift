@@ -18,7 +18,7 @@ class RecommendedUsersAIService: ObservableObject {
     @Published var recommendations: [UserRecommendation] = []
     @Published var isLoading = false
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var lastFetchDate: Date?
 
     private init() {}

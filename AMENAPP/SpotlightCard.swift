@@ -13,9 +13,11 @@ struct SpotlightCard: View {
     let post: Post
     let explanation: String?
     
+    @StateObject private var successChips = SuccessChipCenter()
     @State private var isPressed = false
     @State private var showPostDetail = false
     @State private var hasReacted = false
+    @State private var hasBookmarked = false
     @State private var showShareSheet = false
     
     var body: some View {
@@ -34,7 +36,7 @@ struct SpotlightCard: View {
                 
                 // Content
                 Text(post.content)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundColor(.white)
                     .lineLimit(8)
                     .multilineTextAlignment(.leading)
@@ -76,6 +78,10 @@ struct SpotlightCard: View {
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: [generateShareText()])
         }
+        .successChips(successChips)
+        .onAppear {
+            hasBookmarked = loadBookmarkedPostIDs().contains(bookmarkID)
+        }
     }
     
     // MARK: - Author Header
@@ -99,11 +105,11 @@ struct SpotlightCard: View {
             
             VStack(alignment: .leading, spacing: 3) {
                 Text(post.authorName)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundColor(.white)
                 
                 Text(post.timeAgo)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundColor(.white.opacity(0.6))
             }
             
@@ -114,7 +120,7 @@ struct SpotlightCard: View {
                 // Show action menu
             }) {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(.white.opacity(0.6))
                     .frame(width: 32, height: 32)
             }
@@ -125,7 +131,7 @@ struct SpotlightCard: View {
         Circle()
             .fill(
                 LinearGradient(
-                    colors: [Color.amenGold.opacity(0.5), Color.amenBronze.opacity(0.5)],
+                    colors: [Color.accentColor.opacity(0.5), Color.accentColor.opacity(0.3)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -133,7 +139,7 @@ struct SpotlightCard: View {
             .frame(width: 40, height: 40)
             .overlay(
                 Text(post.authorInitials)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundColor(.white)
             )
     }
@@ -143,10 +149,10 @@ struct SpotlightCard: View {
     private var categoryBadge: some View {
         HStack(spacing: 6) {
             Image(systemName: categoryIcon)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
             
             Text(categoryName)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
         }
         .foregroundColor(categoryColor)
         .padding(.horizontal, 12)
@@ -214,12 +220,12 @@ struct SpotlightCard: View {
         HStack(spacing: 8) {
             // White lightbulb icon
             Image(systemName: "lightbulb.fill")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.white)
             
             // Orange text
             Text(text)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.orange)
                 .lineLimit(1)
         }
@@ -260,7 +266,7 @@ struct SpotlightCard: View {
             InteractionButton(
                 icon: hasReacted ? "lightbulb.fill" : "lightbulb",
                 count: post.lightbulbCount,
-                color: hasReacted ? .amenGold : .white.opacity(0.6),
+                color: hasReacted ? .accentColor : .white.opacity(0.6),
                 action: {
                     withAnimation(LiquidSpring.elastic) {
                         hasReacted.toggle()
@@ -292,10 +298,12 @@ struct SpotlightCard: View {
             Spacer()
             
             // Bookmark
-            Button(action: {}) {
-                Image(systemName: "bookmark")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
+            Button {
+                toggleBookmark()
+            } label: {
+                Image(systemName: hasBookmarked ? "bookmark.fill" : "bookmark")
+                    .font(.systemScaled(16, weight: .medium))
+                    .foregroundColor(hasBookmarked ? .accentColor : .white.opacity(0.6))
             }
         }
         .padding(.top, 4)
@@ -343,6 +351,36 @@ struct SpotlightCard: View {
     private func generateShareText() -> String {
         "\(post.content)\n\n- \(post.authorName) on AMEN"
     }
+
+    private var bookmarkID: String {
+        post.firestoreId
+    }
+
+    private func toggleBookmark() {
+        withAnimation(LiquidSpring.elastic) {
+            hasBookmarked.toggle()
+        }
+        saveBookmarkState(hasBookmarked)
+        successChips.show(hasBookmarked ? "Saved" : "Removed", icon: hasBookmarked ? "bookmark.fill" : "bookmark.slash")
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func loadBookmarkedPostIDs() -> Set<String> {
+        let ids = UserDefaults.standard.stringArray(forKey: Self.bookmarkStorageKey) ?? []
+        return Set(ids)
+    }
+
+    private func saveBookmarkState(_ isBookmarked: Bool) {
+        var ids = loadBookmarkedPostIDs()
+        if isBookmarked {
+            ids.insert(bookmarkID)
+        } else {
+            ids.remove(bookmarkID)
+        }
+        UserDefaults.standard.set(Array(ids), forKey: Self.bookmarkStorageKey)
+    }
+
+    private static let bookmarkStorageKey = "spotlightBookmarkedPostIDs"
 }
 
 // MARK: - Interaction Button
@@ -362,12 +400,12 @@ struct InteractionButton: View {
         }) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(color)
                 
                 if count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(color)
                 }
             }
@@ -385,4 +423,3 @@ struct InteractionButton: View {
 
 // MARK: - Preview
 // Preview removed - use app simulator to test Spotlight feature
-

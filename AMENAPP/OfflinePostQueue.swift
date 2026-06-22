@@ -57,24 +57,14 @@ class OfflinePostQueue: ObservableObject {
         var published: [String] = []
 
         for post in pendingPosts {
-            do {
-                try await PostsManager.shared.createPost(
-                    content: post.content,
-                    category: Post.PostCategory(rawValue: post.category) ?? .openTable,
-                    topicTag: post.topicTag,
-                    visibility: .everyone,
-                    allowComments: true
-                )
-                published.append(post.id)
-            } catch {
-                // Increment retry count; drop after 5 failures
-                if let index = pendingPosts.firstIndex(where: { $0.id == post.id }) {
-                    pendingPosts[index].retryCount += 1
-                    if pendingPosts[index].retryCount >= 5 {
-                        published.append(post.id) // Remove failed post
-                    }
-                }
-            }
+            PostsManager.shared.createPost(
+                content: post.content,
+                category: Post.PostCategory(rawValue: post.category) ?? .openTable,
+                topicTag: post.topicTag,
+                visibility: .everyone,
+                allowComments: true
+            )
+            published.append(post.id)
         }
 
         pendingPosts.removeAll { published.contains($0.id) }

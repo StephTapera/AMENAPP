@@ -39,7 +39,7 @@ final class DataImportService: ObservableObject {
 
     // MARK: - Private
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let importers: [ArchiveImporter] = [
         InstagramArchiveImporter(),
         TwitterArchiveImporter(),
@@ -131,9 +131,13 @@ final class DataImportService: ObservableObject {
         }
 
         // Mark batch complete
-        try? await db.collection("importBatches")
-            .document(batchId)
-            .updateData(["status": "completed"])
+        do {
+            try await db.collection("importBatches")
+                .document(batchId)
+                .updateData(["status": "completed"])
+        } catch {
+            print("DataImportService: failed to mark import batch completed — \(error.localizedDescription)")
+        }
 
         progress.phase = .completed(importedCount: importedCount, skippedCount: skippedCount)
         cleanup()

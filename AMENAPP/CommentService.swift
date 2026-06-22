@@ -53,7 +53,27 @@ class CommentService: ObservableObject {
     // Using clientRequestId instead of content.hashValue avoids false matches
     // when two comments have identical content.
     private var optimisticComments: [String: String] = [:]  // clientRequestId -> tempId
-    
+
+    // ── Comment quality gate state ─────────────────────────────────────────
+    // When checkCommentQuality returns "nudge", we store the pending submission
+    // here so the UI can resume it after the user dismisses the nudge sheet.
+    struct PendingCommentSubmission {
+        let postId: String
+        let content: String
+        let clientCommentId: String
+        let mentionedUserIds: [String]?
+        let post: Post?
+        let nudges: [String]
+        let safetyDecision: CommentQualityResponse.SafetyDecision
+    }
+    @Published var pendingNudge: PendingCommentSubmission?
+
+    /// Error thrown when the server quality check returns "nudge".
+    /// The caller (PostDetailView) catches this and presents the nudge sheet.
+    struct CommentNudgeRequired: Error {
+        let pending: PendingCommentSubmission
+    }
+
     private init() {}
 
     // MARK: - Content Normalization
@@ -72,16 +92,18 @@ class CommentService: ObservableObject {
     }
 
     deinit {
-        // Guard: if listenerPaths is empty or _rootRef was never cached,
-        // the lazy `database` was never accessed, so skip to avoid triggering
-        // lazy init from a nonisolated context during teardown.
-        guard !listenerPaths.isEmpty, let dbRef = _rootRef else { return }
-
-        // Remove all Realtime DB handles synchronously.
-        // Firebase DatabaseReference.removeObserver(withHandle:) is thread-safe.
-        for (postId, handle) in listenerPaths {
-            dbRef.child("postInteractions").child(postId).child("comments").removeObserver(withHandle: handle)
+        // ✅ FIX CR-14: Don't call Firebase methods from deinit - causes crashes
+        // Listeners should be cleaned up explicitly via stopListening() before deallocation
+        // This safety check just logs if cleanup was missed
+        #if DEBUG
+        if !listenerPaths.isEmpty {
+            print("⚠️ [CommentService] Deallocating with \(listenerPaths.count) active listeners. Call stopListening() before release.")
         }
+        #endif
+        
+        // Note: Can't clear @MainActor-isolated dictionaries from deinit (not async)
+        // Memory will be released automatically when the object deallocates
+        // Explicit cleanup should happen via stopListening() before deallocation
     }
     
     // MARK: - Helper Types
@@ -103,30 +125,45 @@ class CommentService: ObservableObject {
             return true
         }
         
-        // Check comment permissions
+        // Check comment permissions (legacy field — kept for backward compat)
         let permissions = post.commentPermissions ?? .everyone
-        
         switch permissions {
         case .everyone:
-            return true
-            
+            break  // fall through to replyPermission check
         case .following:
-            // "Following only": current user must follow the post author to comment.
-            // isFollowing(userId:) returns true when current user is following that userId.
-            return await FollowService.shared.isFollowing(userId: post.authorId)
-
+            guard await FollowService.shared.isFollowing(userId: post.authorId) else { return false }
         case .mentioned:
-            // "Mentioned only": current user must be mentioned in the post by @username.
-            // We compare @username (not UID) because post text uses handles, not auth UIDs.
             guard let profile = try? await userService.fetchUserProfile(userId: currentUserId),
-                  !profile.username.isEmpty else {
+                  !profile.username.isEmpty else { return false }
+            let mentions = extractMentions(from: post.content)
+            guard mentions.contains(where: { $0.lowercased() == "@\(profile.username.lowercased())" }) else {
                 return false
             }
-            let mentions = extractMentions(from: post.content)
-            return mentions.contains { $0.lowercased() == "@\(profile.username.lowercased())" }
-            
         case .off:
             return false
+        }
+
+        // Check reply permission (Feature 1 — finer-grained than commentPermissions)
+        let replyPerm = post.replyPermission ?? .everyone
+        switch replyPerm {
+        case .everyone:
+            return true
+
+        case .followers:
+            // Current user must be followed by the author, OR must follow the author.
+            // Interpretation: "followers" = people who follow the post author.
+            return await FollowService.shared.isFollowing(userId: post.authorId)
+
+        case .mutuals:
+            // Both users must follow each other (mutual follow).
+            let state = await FollowStateManager.shared.getState(for: post.authorId)
+            return state == .mutualFollow
+
+        case .mentioned:
+            guard let profile = try? await userService.fetchUserProfile(userId: currentUserId),
+                  !profile.username.isEmpty else { return false }
+            let mentions = extractMentions(from: post.content)
+            return mentions.contains { $0.lowercased() == "@\(profile.username.lowercased())" }
         }
     }
     
@@ -221,7 +258,7 @@ class CommentService: ObservableObject {
             postData = providedPost
         } else {
             // Fetch post from Firestore
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let postDoc = try await db.collection("posts").document(postId).getDocument()
             guard let post = try? postDoc.data(as: Post.self) else {
                 throw NSError(domain: "CommentService", code: -3,
@@ -289,6 +326,68 @@ class CommentService: ObservableObject {
         // eliminating concurrent-mutation crashes.
         let tempId = UUID().uuidString
         let clientRequestId = UUID().uuidString
+        optimisticComments[clientRequestId] = tempId
+
+        // ── SERVER QUALITY + SAFETY GATE ─────────────────────────────────────
+        // Call checkCommentQuality BEFORE writing to the database.
+        // The server stores a decision record keyed on uid+clientRequestId.
+        // addComment (CF) will reject writes that lack a valid decision record.
+        //
+        // fail-closed: .serverError → do not publish.
+        dlog("🛡️ [CommentGateway] Checking quality for comment on post: \(postId)")
+        let gatewayOutcome = await CommentQualityGateway.shared.check(
+            text: content,
+            postId: postId,
+            clientCommentId: clientRequestId
+        )
+        switch gatewayOutcome {
+        case .serverError(let message):
+            optimisticComments.removeValue(forKey: clientRequestId)
+            dlog("❌ [CommentGateway] Server error: \(message)")
+            throw NSError(
+                domain: "CommentService",
+                code: -20,
+                userInfo: [NSLocalizedDescriptionKey: message]
+            )
+
+        case .decided(let response):
+            switch response.decision {
+            case .block:
+                optimisticComments.removeValue(forKey: clientRequestId)
+                dlog("⛔ [CommentGateway] BLOCKED by safety check")
+                throw NSError(
+                    domain: "CommentService",
+                    code: -21,
+                    userInfo: [NSLocalizedDescriptionKey: "This comment was blocked by our safety system. Please review and revise before posting."]
+                )
+
+            case .nudge:
+                // Surface nudges to the UI. Throw CommentNudgeRequired so
+                // PostDetailView can show the nudge sheet. If the user chooses
+                // "post anyway", they call resumeAfterNudge(_:) which skips this check.
+                optimisticComments.removeValue(forKey: clientRequestId)
+                dlog("💡 [CommentGateway] Nudge required: \(response.nudges.count) suggestion(s)")
+                let pending = PendingCommentSubmission(
+                    postId: postId,
+                    content: content,
+                    clientCommentId: clientRequestId,
+                    mentionedUserIds: mentionedUserIds,
+                    post: post,
+                    nudges: response.nudges,
+                    safetyDecision: response.safetyDecision
+                )
+                pendingNudge = pending
+                throw CommentNudgeRequired(pending: pending)
+
+            case .publish:
+                dlog("✅ [CommentGateway] Quality check passed — proceeding to write")
+                // Continue to write path below
+            }
+        }
+        // ── END GATE ────────────────────────────────────────────────────────
+
+        // Re-add clientRequestId to optimisticComments (was removed on nudge/error)
+        // For the publish path, it was never removed so this is a no-op.
         optimisticComments[clientRequestId] = tempId
 
         // P1-3 FIX: Write to database with retry logic and timeout
@@ -414,13 +513,30 @@ class CommentService: ObservableObject {
                     return .moderation(result)
                 }
                 group.addTask {
-                    let result = try? await CommentSafetySystem.shared.checkCommentSafety(
-                        content: capturedContent,
-                        postId: capturedPostId,
-                        postAuthorId: capturedPostAuthorId,
-                        commenterId: capturedUserId
-                    )
-                    return .safety(result)
+                    // SECURITY FIX (MEDIUM 2026-06-11): Use do/catch instead of try? so
+                    // a network failure or CF error does not silently bypass the safety check.
+                    // On error return a blocking safety result to fail closed.
+                    do {
+                        let result = try await CommentSafetySystem.shared.checkCommentSafety(
+                            content: capturedContent,
+                            postId: capturedPostId,
+                            postAuthorId: capturedPostAuthorId,
+                            commenterId: capturedUserId
+                        )
+                        return .safety(result)
+                    } catch {
+                        dlog("[CommentService] Safety check failed — failing closed: \(error)")
+                        let blockedResult = CommentSafetySystem.SafetyCheckResult(
+                            action: .blockAndReview,
+                            violations: [],
+                            confidence: 1.0,
+                            userMessage: nil,
+                            suggestedRevisions: nil,
+                            cooldownSeconds: nil,
+                            requiresRevision: false
+                        )
+                        return .safety(blockedResult)
+                    }
                 }
                 group.addTask {
                     let result = await AIContentDetectionService.shared.detectAIContent(capturedContent)
@@ -543,7 +659,103 @@ class CommentService: ObservableObject {
 
         return finalComment
     }
-    
+
+    // MARK: - Resume after nudge (user chose "Post anyway")
+
+    /// Called when the user acknowledges the nudge sheet and chooses to post anyway.
+    /// The decision record already exists on the server (written by checkCommentQuality),
+    /// so we call the write path directly using the original clientCommentId.
+    ///
+    /// Returns the posted Comment (same contract as addComment).
+    func resumeAfterNudge(_ pending: PendingCommentSubmission) async throws -> Comment {
+        pendingNudge = nil
+        dlog("➡️ [CommentGateway] User chose to post anyway after nudge")
+
+        guard let userId = firebaseManager.currentUser?.uid else {
+            throw NSError(domain: "CommentService", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+
+        // Fetch user profile for author metadata
+        let userProfile: UserModel? = try? await userService.fetchUserProfile(userId: userId)
+        let authorUsername: String
+        let authorProfileImageURL: String?
+        if let profile = userProfile {
+            authorUsername = profile.username
+            authorProfileImageURL = profile.profileImageURL
+        } else {
+            authorUsername = "user\(userId.prefix(8))"
+            authorProfileImageURL = nil
+        }
+
+        // Haptic
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+
+        // Re-register the clientRequestId in the optimistic map
+        let tempId = UUID().uuidString
+        optimisticComments[pending.clientCommentId] = tempId
+
+        // Write directly — skips the quality gate (record already exists)
+        let interactionsService = PostInteractionsService.shared
+        var commentId: String?
+        var retryCount = 0
+        let maxRetries = 3
+        var lastError: Error?
+
+        while retryCount < maxRetries {
+            do {
+                commentId = try await withTimeout(seconds: 10) {
+                    try await interactionsService.addComment(
+                        postId: pending.postId,
+                        content: pending.content,
+                        authorInitials: self.firebaseManager.currentUser?.displayName?
+                            .prefix(2).uppercased() ?? "??",
+                        authorUsername: authorUsername,
+                        authorProfileImageURL: authorProfileImageURL,
+                        clientRequestId: pending.clientCommentId
+                    )
+                }
+                break
+            } catch {
+                lastError = error
+                retryCount += 1
+                if retryCount < maxRetries {
+                    try await Task.sleep(nanoseconds: UInt64(Double(retryCount) * 1_000_000_000))
+                }
+            }
+        }
+
+        guard let finalCommentId = commentId else {
+            optimisticComments.removeValue(forKey: pending.clientCommentId)
+            throw lastError ?? NSError(domain: "CommentService", code: -1,
+                                       userInfo: [NSLocalizedDescriptionKey: "Comment submission failed"])
+        }
+
+        optimisticComments.removeValue(forKey: pending.clientCommentId)
+        await NewAccountRestrictionService.shared.recordAction(.comment, userId: userId)
+
+        dlog("✅ [resumeAfterNudge] Comment written: \(finalCommentId)")
+
+        return Comment(
+            id: finalCommentId,
+            postId: pending.postId,
+            authorId: userId,
+            authorName: firebaseManager.currentUser?.displayName ?? "Unknown User",
+            authorUsername: authorUsername,
+            authorInitials: firebaseManager.currentUser?.displayName?.prefix(2).uppercased() ?? "??",
+            authorProfileImageURL: authorProfileImageURL,
+            content: pending.content,
+            createdAt: Date(),
+            updatedAt: Date(),
+            amenCount: 0,
+            replyCount: 0,
+            amenUserIds: [],
+            parentCommentId: nil,
+            mentionedUserIds: pending.mentionedUserIds
+        )
+    }
+
     // MARK: - Helper: Extract Mentions
     
     private func extractMentionUsernames(from text: String) -> [String] {
@@ -766,12 +978,25 @@ class CommentService: ObservableObject {
         return replies
     }
     
-    /// Fetch all comments by a specific user
+    /// Fetch all comments by a specific user across all posts.
+    /// Requires a Firestore composite index on collectionGroup "comments":
+    ///   userId ASC, createdAt DESC
     func fetchUserComments(userId: String, limit: Int = 50) async throws -> [Comment] {
         dlog("📥 Fetching comments for user: \(userId)")
         
-        // Would need to query across all posts - not implemented yet
-        return []
+        lazy var db = Firestore.firestore()
+        let snap = try await db
+            .collectionGroup("comments")
+            .whereField("userId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .limit(to: limit)
+            .getDocuments()
+
+        let fetched: [Comment] = snap.documents.compactMap { doc in
+            try? doc.data(as: Comment.self)
+        }
+        dlog("✅ Fetched \(fetched.count) comments for user: \(userId)")
+        return fetched
     }
     
     /// Fetch comments with nested replies
@@ -954,29 +1179,39 @@ class CommentService: ObservableObject {
             throw NSError(domain: "CommentService", code: -4, userInfo: [NSLocalizedDescriptionKey: "You can only delete your own comments"])
         }
         
-        // P2-2 FIX: Check for replies directly in RTDB — never rely on the local cache,
-        // which may be stale or not yet populated.
-        let allCommentsSnapshot = try await ref
-            .child("postInteractions").child(postId).child("comments")
-            .getData()
-        var replyCount = 0
-        if allCommentsSnapshot.exists() {
-            for child in allCommentsSnapshot.children.allObjects as? [DataSnapshot] ?? [] {
-                if let data = child.value as? [String: Any],
+        // ✅ FIX CR-5: Use transaction to atomically check replies and delete
+        // This prevents race condition where reply is added between check and delete
+        let commentsRef = ref.child("postInteractions").child(postId).child("comments")
+        
+        try await commentsRef.runTransactionBlock { currentData in
+            guard let commentsDict = currentData.value as? [String: Any] else {
+                // No comments exist, nothing to delete
+                return TransactionResult.abort()
+            }
+            
+            // Check if any comment has this as parent
+            var replyCount = 0
+            for (_, commentData) in commentsDict {
+                if let data = commentData as? [String: Any],
                    let parentId = data["parentCommentId"] as? String,
                    parentId == commentId {
                     replyCount += 1
                 }
             }
-        }
-        if replyCount > 0 {
-            dlog("⚠️ [P2-2] Cannot delete comment with \(replyCount) replies (from DB)")
-            throw NSError(domain: "CommentService", code: -5,
-                         userInfo: [NSLocalizedDescriptionKey: "Cannot delete a comment that has replies. Delete the replies first."])
+            
+            if replyCount > 0 {
+                dlog("⚠️ [CR-5] Cannot delete comment with \(replyCount) replies")
+                return TransactionResult.abort()
+            }
+            
+            // No replies found - safe to delete
+            var updatedComments = commentsDict
+            updatedComments.removeValue(forKey: commentId)
+            currentData.value = updatedComments
+            return TransactionResult.success(withValue: currentData)
         }
         
-        // Remove the comment
-        try await commentRef.removeValue()
+        dlog("✅ Comment deleted atomically (no replies)")
         
         // Decrement comment count on the post
         let countRef = ref.child("postInteractions").child(postId).child("commentCount")
@@ -1018,45 +1253,35 @@ class CommentService: ObservableObject {
         
         // Reference to the comment's like status
         let commentRef = ref.child("postInteractions").child(postId).child("comments").child(commentId)
-        let userLikeRef = commentRef.child("likedBy").child(userId)
-        let likesCountRef = commentRef.child("likes")
-        
-        // Use the caller-supplied state (derived from amenUserIds populated by the RTDB listener)
-        // instead of calling getData() which can return stale offline-cached values.
-        let hasLiked = currentlyAmened
-        
-        // Toggle like status
-        if hasLiked {
-            // Remove like
-            try await userLikeRef.removeValue()
-            
-            // Decrement count (use transaction for accuracy)
-            try await likesCountRef.runTransactionBlock { currentData in
-                if let currentCount = currentData.value as? Int {
-                    currentData.value = max(0, currentCount - 1)
-                } else {
-                    currentData.value = 0
-                }
-                return TransactionResult.success(withValue: currentData)
+
+        // ✅ FIX CR-10: Use single transaction to atomically update both likedBy and count
+        // This prevents race condition where two simultaneous likes can cause desync
+        try await commentRef.runTransactionBlock { currentData in
+            guard var commentDict = currentData.value as? [String: Any] else {
+                return TransactionResult.abort()
             }
             
-            dlog("✅ Removed amen from comment")
-        } else {
-            // Add like
-            try await userLikeRef.setValue(true)
+            var likedByDict = commentDict["likedBy"] as? [String: Any] ?? [:]
+            var currentCount = commentDict["likes"] as? Int ?? 0
             
-            // Increment count (use transaction for accuracy)
-            try await likesCountRef.runTransactionBlock { currentData in
-                if let currentCount = currentData.value as? Int {
-                    currentData.value = currentCount + 1
-                } else {
-                    currentData.value = 1
-                }
-                return TransactionResult.success(withValue: currentData)
+            if currentlyAmened {
+                // Remove like
+                likedByDict.removeValue(forKey: userId)
+                currentCount = max(0, currentCount - 1)
+            } else {
+                // Add like
+                likedByDict[userId] = true
+                currentCount += 1
             }
             
-            dlog("✅ Added amen to comment")
+            commentDict["likedBy"] = likedByDict
+            commentDict["likes"] = currentCount
+            currentData.value = commentDict
+            
+            return TransactionResult.success(withValue: currentData)
         }
+        
+        dlog("✅ Toggled amen atomically (liked: \(!currentlyAmened))")
         
         // Haptic feedback
         await MainActor.run {
@@ -1130,6 +1355,11 @@ class CommentService: ObservableObject {
                           let authorInitials = commentData["authorInitials"] as? String,
                           let content = commentData["content"] as? String,
                           let timestamp = commentData["timestamp"] as? Int64 else {
+                        continue
+                    }
+                    
+                    // ✅ FIX CR-6: Filter out blocked users
+                    if BlockService.shared.blockedUsers.contains(authorId) {
                         continue
                     }
 
@@ -1343,7 +1573,7 @@ class CommentService: ObservableObject {
         guard let commenterId = firebaseManager.currentUser?.uid,
               commenterId != postAuthorId else { return }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         // Grouped comment notification — deterministic ID so multiple comments on same post
         // accumulate into a single notification row (Threads-style grouping)
         let deterministicId = "comment_group_\(postId)"
@@ -1406,7 +1636,7 @@ class CommentService: ObservableObject {
         guard let replierId = firebaseManager.currentUser?.uid,
               replierId != parentAuthorId else { return }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let notification: [String: Any] = [
             "toUserId": parentAuthorId,
             "type": "reply",
@@ -1419,9 +1649,13 @@ class CommentService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp(),
             "isRead": false
         ]
-        _ = try? await db.collection("users").document(parentAuthorId)
-            .collection("notifications").addDocument(data: notification)
-        dlog("📬 Reply notification sent to comment author: \(parentAuthorId)")
+        do {
+            try await db.collection("users").document(parentAuthorId)
+                .collection("notifications").addDocument(data: notification)
+            dlog("📬 Reply notification sent to comment author: \(parentAuthorId)")
+        } catch {
+            dlog("⚠️ CommentService: failed to send reply notification to \(parentAuthorId) — \(error.localizedDescription)")
+        }
     }
     
     private func createMentionNotification(
@@ -1433,7 +1667,7 @@ class CommentService: ObservableObject {
         guard let mentionerId = firebaseManager.currentUser?.uid,
               mentionerId != mentionedUserId else { return }
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let notification: [String: Any] = [
             "toUserId": mentionedUserId,
             "type": "mention",
@@ -1445,8 +1679,12 @@ class CommentService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp(),
             "isRead": false
         ]
-        _ = try? await db.collection("users").document(mentionedUserId)
-            .collection("notifications").addDocument(data: notification)
-        dlog("📬 Mention notification sent to: \(mentionedUserId)")
+        do {
+            try await db.collection("users").document(mentionedUserId)
+                .collection("notifications").addDocument(data: notification)
+            dlog("📬 Mention notification sent to: \(mentionedUserId)")
+        } catch {
+            dlog("⚠️ CommentService: failed to send mention notification to \(mentionedUserId) — \(error.localizedDescription)")
+        }
     }
 }

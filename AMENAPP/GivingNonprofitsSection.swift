@@ -134,7 +134,7 @@ struct GivingFeaturedCard: View {
                             )
                         
                         Image(systemName: icon)
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.systemScaled(22, weight: .semibold))
                             .foregroundStyle(iconColor)
                     }
                     
@@ -162,7 +162,7 @@ struct GivingFeaturedCard: View {
                         Text(actionTitle)
                             .font(.custom("OpenSans-Bold", size: 14))
                         Image(systemName: "arrow.right")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.systemScaled(12, weight: .bold))
                     }
                     .foregroundStyle(.white)
                     Spacer()
@@ -261,7 +261,7 @@ private struct FeaturedNonprofitCard: View {
                         .frame(width: 52, height: 52)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(iconColor)
                 }
                 
@@ -290,7 +290,7 @@ private struct FeaturedNonprofitCard: View {
                 Spacer()
                 
                 Image(systemName: "arrow.up.right.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(iconColor)
             }
             .padding(14)
@@ -330,7 +330,7 @@ struct BrowseNonprofitsCard: View {
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.purple)
                 }
                 
@@ -360,7 +360,7 @@ struct BrowseNonprofitsCard: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(16)
@@ -393,7 +393,7 @@ struct MonthlyGivingInfoCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: "calendar.badge.clock")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.blue)
                 
                 Text("Why Monthly Giving?")
@@ -437,7 +437,7 @@ struct GivingBenefitRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.blue)
                 .frame(width: 20)
             

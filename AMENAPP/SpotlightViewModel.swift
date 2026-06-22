@@ -18,7 +18,7 @@ class SpotlightViewModel: ObservableObject {
     @Published var hasMoreContent: Bool = true
     
     private let rankingEngine = SpotlightRankingEngine()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var currentUserId: String?
     private var cancellables = Set<AnyCancellable>()
     
@@ -180,6 +180,7 @@ class SpotlightViewModel: ObservableObject {
             let snapshot = try await db.collection("posts")
                 .whereField("authorId", in: chunk)
                 .whereField("createdAt", isGreaterThan: Timestamp(date: sevenDaysAgo))
+                .whereField("visibility", isEqualTo: "everyone")
                 .order(by: "createdAt", descending: true)
                 .limit(to: 20)
                 .getDocuments()
@@ -209,6 +210,7 @@ class SpotlightViewModel: ObservableObject {
             let snapshot = try await db.collection("posts")
                 .whereField("churchId", isEqualTo: churchId)
                 .whereField("createdAt", isGreaterThan: Timestamp(date: sevenDaysAgo))
+                .whereField("visibility", isEqualTo: "everyone")
                 .order(by: "createdAt", descending: true)
                 .limit(to: 15)
                 .getDocuments()
@@ -231,6 +233,7 @@ class SpotlightViewModel: ObservableObject {
         
         let snapshot = try await db.collection("posts")
             .whereField("createdAt", isGreaterThan: Timestamp(date: sevenDaysAgo))
+            .whereField("visibility", isEqualTo: "everyone")
             .order(by: "createdAt", descending: true)
             .limit(to: 30)
             .getDocuments()

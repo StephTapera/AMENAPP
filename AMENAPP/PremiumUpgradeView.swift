@@ -110,7 +110,7 @@ struct PremiumUpgradeView: View {
                                     )
 
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 42, weight: .light))
+                                    .font(.systemScaled(42, weight: .light))
                                     .foregroundStyle(
                                         LinearGradient(
                                             colors: [Color.white, Color.white.opacity(0.8)],
@@ -128,7 +128,7 @@ struct PremiumUpgradeView: View {
                                 .tracking(1)
 
                             Text("Unlimited AI Bible Study")
-                                .font(.system(size: 16, weight: .regular))
+                                .font(.systemScaled(16, weight: .regular))
                                 .foregroundStyle(.white.opacity(0.6))
                                 .tracking(0.5)
                                 .multilineTextAlignment(.center)
@@ -228,12 +228,12 @@ struct PremiumUpgradeView: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 16, weight: .medium))
+                                    .font(.systemScaled(16, weight: .medium))
                                 Text(premiumManager.isLoading ? "Loading..." : "Upgrade to Pro")
-                                    .font(.system(size: 17, weight: .semibold))
+                                    .font(.systemScaled(17, weight: .semibold))
                                     .tracking(0.3)
                             }
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 18)
                             .background(
@@ -278,14 +278,14 @@ struct PremiumUpgradeView: View {
                             }
                         } label: {
                             Text("Restore Purchases")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(.white.opacity(0.5))
                         }
                         .padding(.top, 8)
 
                         // Legal text
                         Text("7-day free trial, then \(selectedProduct?.displayPrice ?? "$4.99")/month. Cancel anytime.")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                             .foregroundStyle(.white.opacity(0.4))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
@@ -314,7 +314,7 @@ struct PremiumUpgradeView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(.white.opacity(0.5))
                             .frame(width: 32, height: 32)
                             .background(
@@ -367,18 +367,18 @@ struct LiquidGlassFeatureRow: View {
                     )
 
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundStyle(.white.opacity(0.9))
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(.white)
                     .tracking(0.2)
 
                 Text(description)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(.white.opacity(0.5))
             }
 
@@ -386,7 +386,7 @@ struct LiquidGlassFeatureRow: View {
             
             // Checkmark
             Image(systemName: "checkmark")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.6))
         }
         .padding(.horizontal, 16)
@@ -427,13 +427,13 @@ struct PricingCard: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(product.displayName)
-                            .font(.system(size: 19, weight: .semibold))
+                            .font(.systemScaled(19, weight: .semibold))
                             .foregroundStyle(.white)
                             .tracking(0.3)
 
                         if let badge = badge {
                             Text(badge)
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.systemScaled(10, weight: .bold))
                                 .foregroundStyle(.white)
                                 .tracking(0.5)
                                 .padding(.horizontal, 10)
@@ -453,23 +453,23 @@ struct PricingCard: View {
 
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(product.displayPrice)
-                            .font(.system(size: 26, weight: .bold))
+                            .font(.systemScaled(26, weight: .bold))
                             .foregroundStyle(.white)
                         
                         if product.id.contains("monthly") {
                             Text("/month")
-                                .font(.system(size: 12, weight: .regular))
+                                .font(.systemScaled(12, weight: .regular))
                                 .foregroundStyle(.white.opacity(0.5))
                         } else if product.id.contains("yearly") {
                             Text("/year")
-                                .font(.system(size: 12, weight: .regular))
+                                .font(.systemScaled(12, weight: .regular))
                                 .foregroundStyle(.white.opacity(0.5))
                         }
                     }
                 }
 
                 Text(product.description)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(2)
             }
@@ -523,7 +523,7 @@ struct SuccessOverlay: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.green)
 
             Text(message)

@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>AMEN — Pre-Post Threshold Prototype</title>
+<style>
+  :root {
+    --gold:      #D4AE38;
+    --gold-dim:  rgba(212,174,56,0.15);
+    --glass-bg:  rgba(255,255,255,0.07);
+    --glass-bg2: rgba(255,255,255,0.04);
+    --glass-blur: 20px;
+    --bg:        #0F0F12;
+    --bg2:       #1A1A1D;
+    --text:      #F5F0E8;
+    --text2:     rgba(245,240,232,0.55);
+    --text3:     rgba(245,240,232,0.28);
+    --sep:       rgba(255,255,255,0.09);
+    --spring:    cubic-bezier(0.34,1.56,0.64,1);
+    --green:     #42B172;
+    --purple:    #7C5CBF;
+    --teal:      #2AADA4;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 200px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- OUTER PAGE LAYOUT ---------- */
+  .page-wrapper {
+    width: 100%;
+    max-width: 480px;
+    position: relative;
+  }
+
+  .page-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  /* ---------- VIDEO POST CARD ---------- */
+  .post-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 0.5px solid var(--sep);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .video-thumb {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .play-icon {
+    width: 52px;
+    height: 52px;
+    background: rgba(255,255,255,0.12);
+    border: 1.5px solid rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+  }
+
+  .play-icon svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--text);
+    margin-left: 3px;
+  }
+
+  .video-duration {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(0,0,0,0.6);
+    border-radius: 6px;
+    padding: 2px 7px;
+    color: var(--text);
+  }
+
+  .post-meta {
+    padding: 14px 16px 16px;
+  }
+
+  .post-author-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--purple), var(--teal));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .post-author-info {
+    flex: 1;
+  }
+
+  .post-author-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .post-author-handle {
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  .post-title {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+
+  .video-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+
+  .progress-label {
+    font-size: 11px;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+
+  .post-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn-reply {
+    flex: 1;
+    padding: 11px;
+    background: var(--gold);
+    color: #1a1200;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+    letter-spacing: 0.01em;
+  }
+
+  .btn-reply:active {
+    opacity: 0.85;
+    transform: scale(0.97);
+  }
+
+  /* ---------- SAMPLE COMMENTS ---------- */
+  .thread-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text3);
+    margin-bottom: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .comment-card {
+    background: var(--glass-bg2);
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+
+  .comment-author {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .comment-body {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.5;
+  }
+
+  /* ---------- OVERLAY BACKDROP ---------- */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 50;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .overlay.visible {
+    display: block;
+  }
+
+  .overlay.faded-in {
+    opacity: 1;
+  }
+
+  /* ---------- THRESHOLD SHEET ---------- */
+  .threshold-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    width: 100%;
+    max-width: 480px;
+    max-height: 85dvh;
+    background: #18181C;
+    border: 0.5px solid var(--sep);
+    border-bottom: none;
+    border-radius: 24px 24px 0 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.35s var(--spring);
+    will-change: transform;
+  }
+
+  .threshold-sheet.open {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .sheet-drag-handle {
+    width: 36px;
+    height: 4px;
+    background: var(--sep);
+    border-radius: 2px;
+    margin: 12px auto 0;
+    flex-shrink: 0;
+  }
+
+  .sheet-header {
+    display: flex;
+    align-items: center;
+    padding: 14px 18px 10px;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .btn-back {
+    width: 34px;
+    height: 34px;
+    background: var(--glass-bg);
+    border: 0.5px solid var(--sep);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+    flex-shrink: 0;
+  }
+
+  .btn-back:active {
+    background: rgba(255,255,255,0.12);
+    transform: scale(0.93);
+  }
+
+  .btn-back svg {
+    width: 16px;
+    height: 16px;
+    stroke: var(--text2);
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .step-dots {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text3);
+    transition: background 0.25s, width 0.25s var(--spring);
+  }
+
+  .dot.active {
+    background: var(--gold);
+    width: 18px;
+    border-radius: 3px;
+  }
+
+  .sheet-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 18px 32px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sheet-content::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ---------- STEP PANELS ---------- */
+  .step-panel {
+    display: none;
+    animation: stepIn 0.28s var(--spring) both;
+  }
+
+  .step-panel.active {
+    display: block;
+  }
+
+  @keyframes stepIn {
+    from { opacity: 0; transform: translateX(24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes stepInBack {
+    from { opacity: 0; transform: translateX(-24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .step-panel.back-anim {
+    animation: stepInBack 0.28s var(--spring) both;
+  }
+
+  /* ---------- STEP 1 STYLES ---------- */
+  .step-heading {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+
+  .step-sub {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.55;
+    margin-bottom: 20px;
+  }
+
+  .consume-progress-wrap {
+    margin-bottom: 22px;
+  }
+
+  .consume-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .consume-progress-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .consume-progress-pct {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  .consume-track {
+    height: 6px;
+    background: var(--glass-bg);
+    border: 0.5px solid var(--sep);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .consume-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), #f0c84a);
+    border-radius: 4px;
+    transition: width 0.6s var(--spring);
+  }
+
+  .btn-primary {
+    width: 100%;
+    padding: 15px;
+    background: var(--gold);
+    color: #1a1200;
+    font-size: 15px;
+    font-weight: 700;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+    margin-bottom: 10px;
+    letter-spacing: 0.01em;
+  }
+
+  .btn-primary:active {
+    opacity: 0.85;
+    transform: scale(0.97);
+  }
+
+  .btn-glass {
+    width: 100%;
+    padding: 14px;
+    background: var(--glass-bg);
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 600;
+    border: 0.5px solid rgba(212,174,56,0.35);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+    margin-bottom: 10px;
+    letter-spacing: 0.01em;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .btn-glass:active {
+    background: rgba(255,255,255,0.12);
+    transform: scale(0.97);
+  }
+
+  .btn-text-link {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    transition: color 0.15s;
+  }
+
+  .btn-text-link:hover {
+    color: var(--text2);
+  }
+
+  /* ---------- STEP 2 STYLES ---------- */
+  .spinner-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 0 36px;
+    gap: 14px;
+  }
+
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 2.5px solid var(--sep);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .spinner-label {
+    font-size: 14px;
+    color: var(--text2);
+    text-align: center;
+  }
+
+  .check-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 0 20px;
+    gap: 12px;
+  }
+
+  .check-circle {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(66,177,114,0.15);
+    border: 1.5px solid var(--green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: scaleIn 0.4s var(--spring) both;
+  }
+
+  @keyframes scaleIn {
+    from { transform: scale(0.3); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+
+  .check-circle svg {
+    width: 22px;
+    height: 22px;
+    stroke: var(--green);
+    stroke-width: 2.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .check-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    text-align: center;
+  }
+
+  .check-sub {
+    font-size: 13px;
+    color: var(--text2);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  .duplicate-card {
+    background: var(--glass-bg2);
+    border: 0.5px solid var(--sep);
+    border-left: 3px solid var(--gold);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 18px;
+  }
+
+  .dup-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .dup-badge-dot {
+    width: 5px;
+    height: 5px;
+    background: var(--gold);
+    border-radius: 50%;
+  }
+
+  .dup-author {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .dup-body {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.5;
+  }
+
+  .dup-score-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .dup-score-label {
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  .dup-score-bar-wrap {
+    flex: 1;
+    height: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .dup-score-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), #f0c84a);
+    border-radius: 2px;
+  }
+
+  .dup-score-pct {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  .scenario-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  .btn-scenario {
+    padding: 7px 14px;
+    background: var(--glass-bg);
+    border: 0.5px solid var(--sep);
+    border-radius: 20px;
+    color: var(--text2);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .btn-scenario:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+  }
+
+  .scenario-label {
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+
+  .btn-dimmed-text {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+    transition: color 0.15s;
+  }
+
+  .btn-dimmed-text:hover {
+    color: var(--text2);
+  }
+
+  /* ---------- STEP 3 STYLES ---------- */
+  .destination-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .dest-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 15px 16px;
+    background: var(--glass-bg2);
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .dest-card:active {
+    transform: scale(0.98);
+  }
+
+  .dest-card.selected {
+    background: var(--gold-dim);
+    border-color: rgba(212,174,56,0.45);
+  }
+
+  .dest-icon {
+    font-size: 22px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--glass-bg);
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  .dest-info {
+    flex: 1;
+  }
+
+  .dest-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .dest-desc {
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.4;
+  }
+
+  .dest-radio {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid var(--sep);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.18s;
+  }
+
+  .dest-card.selected .dest-radio {
+    border-color: var(--gold);
+  }
+
+  .dest-radio-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--gold);
+    transform: scale(0);
+    transition: transform 0.2s var(--spring);
+  }
+
+  .dest-card.selected .dest-radio-dot {
+    transform: scale(1);
+  }
+
+  .composer-wrap {
+    position: relative;
+    margin-bottom: 16px;
+  }
+
+  .composer-textarea {
+    width: 100%;
+    min-height: 100px;
+    max-height: 200px;
+    background: var(--glass-bg);
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    padding: 14px 14px 32px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 15px;
+    line-height: 1.55;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+
+  .composer-textarea::placeholder {
+    color: var(--text3);
+  }
+
+  .composer-textarea:focus {
+    border-color: rgba(212,174,56,0.4);
+  }
+
+  .char-count {
+    position: absolute;
+    bottom: 10px;
+    right: 12px;
+    font-size: 11px;
+    color: var(--text3);
+    pointer-events: none;
+    transition: color 0.2s;
+  }
+
+  .char-count.warn {
+    color: #e8995a;
+  }
+
+  .char-count.over {
+    color: #e85a5a;
+  }
+
+  .btn-post {
+    width: 100%;
+    padding: 16px;
+    background: var(--gold);
+    color: #1a1200;
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.2s var(--spring);
+    letter-spacing: 0.01em;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-post:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .btn-post.success {
+    animation: postPulse 0.5s ease both;
+  }
+
+  @keyframes postPulse {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(1.04); }
+    60%  { transform: scale(0.97); }
+    100% { transform: scale(1); }
+  }
+
+  /* ---------- VALIDATION ERROR ---------- */
+  .field-error {
+    font-size: 12px;
+    color: #e85a5a;
+    margin-top: 6px;
+    margin-bottom: 2px;
+    display: none;
+  }
+
+  .field-error.visible {
+    display: block;
+    animation: fadeSlide 0.2s ease both;
+  }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---------- DIVIDER ---------- */
+  .divider {
+    height: 0.5px;
+    background: var(--sep);
+    margin: 16px 0;
+  }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 480px) {
+    body { padding: 16px 0 200px; }
+    .page-wrapper { padding: 0 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-wrapper">
+  <div class="page-label">Pre-Post Threshold — Interactive Prototype</div>
+
+  <!-- VIDEO POST CARD -->
+  <div class="post-card">
+    <div class="video-thumb">
+      <div class="play-icon">
+        <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+      </div>
+      <div class="video-duration">24:07</div>
+    </div>
+    <div class="post-meta">
+      <div class="post-author-row">
+        <div class="avatar">PT</div>
+        <div class="post-author-info">
+          <div class="post-author-name">Pastor Thomas Webb</div>
+          <div class="post-author-handle">@thomaswebb · Bethel Church</div>
+        </div>
+      </div>
+      <div class="post-title">Why silence in prayer is more powerful than words — a deeper look at Psalm 46:10</div>
+      <div class="video-progress-row">
+        <div class="progress-track">
+          <div class="progress-fill" style="width:45%"></div>
+        </div>
+        <div class="progress-label">45% watched</div>
+      </div>
+      <div class="post-actions">
+        <button class="btn-reply" onclick="openSheet()">💬 Reply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAMPLE COMMENTS THREAD -->
+  <div class="thread-label">2 comments</div>
+
+  <div class="comment-card">
+    <div class="comment-author">Grace M.</div>
+    <div class="comment-body">This really resonates — I've found my most powerful prayer moments are in complete stillness. No words, just presence. God meets us there.</div>
+  </div>
+
+  <div class="comment-card">
+    <div class="comment-author">David K.</div>
+    <div class="comment-body">Stillness in prayer changed everything for me. Exactly what you said — presence over performance. Beautiful teaching, Pastor Thomas.</div>
+  </div>
+</div>
+
+<!-- OVERLAY -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+
+<!-- THRESHOLD SHEET -->
+<div class="threshold-sheet" id="thresholdSheet" role="dialog" aria-modal="true" aria-label="Pre-Post Threshold">
+  <div class="sheet-drag-handle"></div>
+
+  <div class="sheet-header">
+    <button class="btn-back" id="btnBack" onclick="goBack()" aria-label="Go back">
+      <svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>
+    </button>
+    <div class="step-dots" role="tablist" aria-label="Step indicator">
+      <div class="dot" id="dot1" role="tab" aria-label="Step 1"></div>
+      <div class="dot" id="dot2" role="tab" aria-label="Step 2"></div>
+      <div class="dot" id="dot3" role="tab" aria-label="Step 3"></div>
+    </div>
+  </div>
+
+  <div class="sheet-content">
+
+    <!-- STEP 1: Consume Nudge -->
+    <div class="step-panel" id="step1">
+      <div class="step-heading">Want to finish first?</div>
+      <div class="step-sub">You've watched <strong>45%</strong> of this video. Engaging with the full context helps the conversation stay grounded and meaningful.</div>
+
+      <div class="consume-progress-wrap">
+        <div class="consume-progress-header">
+          <span class="consume-progress-label">Watch progress</span>
+          <span class="consume-progress-pct">45%</span>
+        </div>
+        <div class="consume-track">
+          <div class="consume-fill" style="width:45%"></div>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="finishWatching()">Finish Watching</button>
+      <button class="btn-glass" onclick="readTranscript()">Read Transcript Instead</button>
+      <button class="btn-text-link" onclick="postAnyway()">Post anyway</button>
+    </div>
+
+    <!-- STEP 2: Duplicate Check -->
+    <div class="step-panel" id="step2">
+
+      <!-- Spinner state (shown first) -->
+      <div class="spinner-state" id="step2Spinner">
+        <div class="spinner"></div>
+        <div class="spinner-label">Checking if this angle is already covered…</div>
+      </div>
+
+      <!-- Results state (shown after delay) -->
+      <div id="step2Results" style="display:none">
+
+        <!-- Scenario toggle -->
+        <div class="scenario-toggle">
+          <span class="scenario-label">Demo:</span>
+          <button class="btn-scenario" onclick="toggleScenario()" id="scenarioBtn">Switch to No Duplicate</button>
+        </div>
+
+        <!-- Scenario A: Duplicate found -->
+        <div id="scenarioA">
+          <div class="step-heading" style="margin-bottom:6px">Similar perspective found</div>
+          <div class="step-sub" style="margin-bottom:16px">Your comment closely matches one already in the thread. Consider supporting it or adding a new angle.</div>
+
+          <div class="duplicate-card">
+            <div class="dup-badge"><div class="dup-badge-dot"></div>Similar comment</div>
+            <div class="dup-author">David K.</div>
+            <div class="dup-body">"Stillness in prayer changed everything for me. Exactly what you said — presence over performance. Beautiful teaching, Pastor Thomas."</div>
+            <div class="dup-score-row">
+              <span class="dup-score-label">Similarity</span>
+              <div class="dup-score-bar-wrap">
+                <div class="dup-score-bar" style="width:87%"></div>
+              </div>
+              <span class="dup-score-pct">87%</span>
+            </div>
+          </div>
+
+          <button class="btn-primary" onclick="supportComment()">Support this comment ✓</button>
+          <button class="btn-glass" onclick="goToStep3()">Add a new angle</button>
+          <button class="btn-dimmed-text" onclick="goToStep3()">Post my version anyway</button>
+        </div>
+
+        <!-- Scenario B: No duplicate -->
+        <div id="scenarioB" style="display:none">
+          <div class="check-state">
+            <div class="check-circle">
+              <svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>
+            </div>
+            <div class="check-label">Your perspective adds something new</div>
+            <div class="check-sub">No similar comments found in this thread. Your voice adds to the conversation.</div>
+          </div>
+          <button class="btn-primary" onclick="goToStep3()">Continue →</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- STEP 3: Destination Choice + Composer -->
+    <div class="step-panel" id="step3">
+      <div class="step-heading" style="margin-bottom:4px">Where should this go?</div>
+      <div class="step-sub" style="margin-bottom:16px">Choose how your reply is shared.</div>
+
+      <div class="destination-cards" role="radiogroup" aria-label="Destination">
+
+        <div class="dest-card selected" id="dest-public" onclick="selectDest('public')" role="radio" aria-checked="true" tabindex="0">
+          <div class="dest-icon">💬</div>
+          <div class="dest-info">
+            <div class="dest-name">Public Reply</div>
+            <div class="dest-desc">Visible to everyone in this thread</div>
+          </div>
+          <div class="dest-radio"><div class="dest-radio-dot"></div></div>
+        </div>
+
+        <div class="dest-card" id="dest-reflection" onclick="selectDest('reflection')" role="radio" aria-checked="false" tabindex="0">
+          <div class="dest-icon">📔</div>
+          <div class="dest-info">
+            <div class="dest-name">Private Reflection</div>
+            <div class="dest-desc">Saved only for you — not visible to others</div>
+          </div>
+          <div class="dest-radio"><div class="dest-radio-dot"></div></div>
+        </div>
+
+        <div class="dest-card" id="dest-church" onclick="selectDest('church')" role="radio" aria-checked="false" tabindex="0">
+          <div class="dest-icon">⛪</div>
+          <div class="dest-info">
+            <div class="dest-name">Save to Church Notes</div>
+            <div class="dest-desc">Added to your personal Church Notes</div>
+          </div>
+          <div class="dest-radio"><div class="dest-radio-dot"></div></div>
+        </div>
+
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="composer-wrap">
+        <textarea
+          class="composer-textarea"
+          id="composerTextarea"
+          placeholder="Write your reply…"
+          maxlength="2000"
+          oninput="updateCharCount()"
+          aria-label="Reply text"
+        ></textarea>
+        <div class="char-count" id="charCount">0 / 2000</div>
+      </div>
+      <div class="field-error" id="composerError">Please write your reply before posting.</div>
+
+      <button class="btn-post" id="btnPost" onclick="submitPost()">Post Reply</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ---------- STATE ----------
+  const state = {
+    currentStep: 0,           // 0 = closed, 1 = step1, 2 = step2, 3 = step3
+    step1Shown: false,        // was step 1 shown this session?
+    transcriptRead: false,
+    watchProgressFraction: 0.45,
+    hasMedia: true,
+    scenario: 'A',            // 'A' duplicate | 'B' no duplicate
+    selectedDest: 'public',
+    step2Loaded: false,       // have we run the spinner yet
+    animBack: false,
+  };
+
+  // ---------- SHEET OPEN / CLOSE ----------
+  function openSheet() {
+    const overlay = document.getElementById('overlay');
+    const sheet   = document.getElementById('thresholdSheet');
+
+    overlay.classList.add('visible');
+    requestAnimationFrame(() => {
+      overlay.classList.add('faded-in');
+      sheet.classList.add('open');
+    });
+
+    // Decide starting step
+    const needsConsume = state.watchProgressFraction < 0.8
+                      && state.hasMedia
+                      && !state.transcriptRead;
+
+    if (needsConsume) {
+      state.step1Shown = true;
+      showStep(1, false);
+    } else {
+      state.step1Shown = false;
+      showStep(2, false);
+    }
+  }
+
+  function closeSheet() {
+    const overlay = document.getElementById('overlay');
+    const sheet   = document.getElementById('thresholdSheet');
+
+    sheet.classList.remove('open');
+    overlay.classList.remove('faded-in');
+    setTimeout(() => {
+      overlay.classList.remove('visible');
+      state.currentStep = 0;
+      state.step2Loaded = false;
+      // Reset composer
+      document.getElementById('composerTextarea').value = '';
+      updateCharCount();
+      document.getElementById('composerError').classList.remove('visible');
+      document.getElementById('btnPost').textContent = 'Post Reply';
+      document.getElementById('btnPost').disabled = false;
+    }, 380);
+  }
+
+  // ---------- STEP NAVIGATION ----------
+  function showStep(n, isBack) {
+    const panels = document.querySelectorAll('.step-panel');
+    panels.forEach(p => {
+      p.classList.remove('active', 'back-anim');
+    });
+
+    const target = document.getElementById('step' + n);
+    target.classList.add('active');
+    if (isBack) target.classList.add('back-anim');
+
+    state.currentStep = n;
+    updateDots(n);
+    updateBackBtn(n);
+
+    if (n === 2) loadStep2();
+  }
+
+  function updateDots(n) {
+    [1, 2, 3].forEach(i => {
+      const dot = document.getElementById('dot' + i);
+      dot.classList.toggle('active', i === n);
+    });
+  }
+
+  function updateBackBtn(n) {
+    const btn = document.getElementById('btnBack');
+    // Back button always visible; its behavior changes by step
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = 'auto';
+  }
+
+  function goBack() {
+    if (state.currentStep === 1) {
+      closeSheet();
+    } else if (state.currentStep === 2) {
+      if (state.step1Shown) {
+        showStep(1, true);
+      } else {
+        closeSheet();
+      }
+    } else if (state.currentStep === 3) {
+      state.step2Loaded = false; // re-run spinner on re-entry
+      showStep(2, true);
+    }
+  }
+
+  // ---------- STEP 1 ACTIONS ----------
+  function finishWatching() {
+    closeSheet();
+    // In real app: hand control back to player
+  }
+
+  function readTranscript() {
+    state.transcriptRead = true;
+    showStep(2, false);
+  }
+
+  function postAnyway() {
+    // Skip directly to step 3
+    state.step1Shown = true; // so back from 3 goes to 2, not 1
+    showStep(3, false);
+  }
+
+  // ---------- STEP 2 LOADING ----------
+  function loadStep2() {
+    if (state.step2Loaded) return;
+    state.step2Loaded = true;
+
+    const spinner = document.getElementById('step2Spinner');
+    const results = document.getElementById('step2Results');
+
+    spinner.style.display = 'flex';
+    results.style.display = 'none';
+
+    setTimeout(() => {
+      spinner.style.display = 'none';
+      results.style.display = 'block';
+      applyScenario();
+    }, 1200);
+  }
+
+  function applyScenario() {
+    const a = document.getElementById('scenarioA');
+    const b = document.getElementById('scenarioB');
+    const btn = document.getElementById('scenarioBtn');
+
+    if (state.scenario === 'A') {
+      a.style.display = 'block';
+      b.style.display = 'none';
+      btn.textContent = 'Switch to No Duplicate';
+    } else {
+      a.style.display = 'none';
+      b.style.display = 'block';
+      btn.textContent = 'Switch to Duplicate Found';
+      // Re-trigger check circle animation
+      const circle = b.querySelector('.check-circle');
+      circle.style.animation = 'none';
+      void circle.offsetWidth;
+      circle.style.animation = '';
+    }
+  }
+
+  function toggleScenario() {
+    state.scenario = state.scenario === 'A' ? 'B' : 'A';
+    applyScenario();
+  }
+
+  // ---------- STEP 2 ACTIONS ----------
+  function supportComment() {
+    // Mark helpful and close
+    const btn = document.querySelector('#scenarioA .btn-primary');
+    btn.textContent = '✓ Supported!';
+    btn.style.background = 'var(--green)';
+    setTimeout(() => closeSheet(), 900);
+  }
+
+  function goToStep3() {
+    showStep(3, false);
+  }
+
+  // ---------- STEP 3: DESTINATION ----------
+  const destIds = ['public', 'reflection', 'church'];
+
+  function selectDest(id) {
+    destIds.forEach(d => {
+      const card = document.getElementById('dest-' + d);
+      card.classList.toggle('selected', d === id);
+      card.setAttribute('aria-checked', d === id ? 'true' : 'false');
+    });
+    state.selectedDest = id;
+  }
+
+  // Keyboard support for destination cards
+  document.querySelectorAll('.dest-card').forEach(card => {
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        card.click();
+      }
+    });
+  });
+
+  // ---------- STEP 3: COMPOSER ----------
+  function updateCharCount() {
+    const ta    = document.getElementById('composerTextarea');
+    const count = document.getElementById('charCount');
+    const n     = ta.value.length;
+    const max   = 2000;
+
+    count.textContent = n + ' / ' + max;
+    count.classList.remove('warn', 'over');
+    if (n > max * 0.9) count.classList.add('warn');
+    if (n >= max)      count.classList.add('over');
+
+    // Auto-grow
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+  }
+
+  // ---------- STEP 3: POST ----------
+  function submitPost() {
+    const ta    = document.getElementById('composerTextarea');
+    const error = document.getElementById('composerError');
+    const btn   = document.getElementById('btnPost');
+
+    if (!ta.value.trim()) {
+      error.classList.add('visible');
+      ta.focus();
+      return;
+    }
+
+    error.classList.remove('visible');
+    btn.disabled = true;
+    btn.classList.add('success');
+    btn.textContent = '✓ Posted';
+
+    // Sheet dismisses after 1.2s
+    setTimeout(() => closeSheet(), 1200);
+  }
+</script>
+
+</body>
+</html>

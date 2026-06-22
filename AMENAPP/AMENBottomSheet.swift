@@ -131,7 +131,7 @@ final class AMENSheetController: ObservableObject {
         self.topSafeArea = topSafeArea
         let target = configuration.initialSnap.resolvedOffset(in: totalHeight, topSafeArea: topSafeArea)
         currentOffset = totalHeight   // start off-screen
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.82))) {
             isPresented = true
             currentOffset = target
         }
@@ -139,7 +139,7 @@ final class AMENSheetController: ObservableObject {
     }
 
     func dismiss() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.88))) {
             currentOffset = totalHeight
             isPresented = false
         }
@@ -157,6 +157,12 @@ final class AMENSheetController: ObservableObject {
         if velocityTracker.count > 8 { velocityTracker.removeFirst() }
 
         let raw = value.translation.height
+        if keyboardHeight > 0 && raw > 0 {
+            // Resist sheet-dismiss drags while the keyboard is active so the
+            // focused input remains anchored above the keyboard.
+            dragOffset = raw * 0.18
+            return
+        }
         // Add rubber-band resistance when dragging beyond the topmost snap point
         let topLimit = topSnap
         let liveOffset = currentOffset + raw
@@ -218,7 +224,7 @@ final class AMENSheetController: ObservableObject {
 
     private func snap(to point: AMENSnapPoint, offset: CGFloat) {
         currentSnap = point
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.80)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.80))) {
             currentOffset = offset
             dragOffset = 0
         }
@@ -336,7 +342,7 @@ struct AMENBottomSheetContainer<Content: View>: View {
                 if !newValue { controller.dismiss() }
             }
             .onReceive(keyboardPublisher) { height in
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.80))) {
                     keyboardHeight = height
                 }
             }

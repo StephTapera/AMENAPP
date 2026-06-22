@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AMEN Passport — Context System Demo</title>
+<style>
+  /* Self-contained, no external deps. Glass-like, calm, human. */
+  :root {
+    --bg: #0e1116;
+    --bg2: #141a22;
+    --ink: #f4f6fa;
+    --ink-soft: rgba(244,246,250,0.66);
+    --ink-faint: rgba(244,246,250,0.42);
+    --glass: rgba(255,255,255,0.06);
+    --glass-strong: rgba(255,255,255,0.10);
+    --stroke: rgba(255,255,255,0.16);
+    --stroke-soft: rgba(255,255,255,0.10);
+    --accent: #c9a86a;          /* amen gold, used sparingly */
+    --accent-ink: #20160a;
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+    --safe: 22px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1100px 700px at 12% -8%, rgba(120,150,210,0.18), transparent 60%),
+      radial-gradient(900px 600px at 96% 8%, rgba(201,168,106,0.14), transparent 60%),
+      linear-gradient(180deg, var(--bg), var(--bg2));
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    padding: var(--safe);
+  }
+  .shell { max-width: 460px; margin: 0 auto; }
+
+  /* Glass surface primitive — single layer only (no glass-on-glass). */
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--stroke-soft);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+  }
+
+  h1 { font-size: 28px; line-height: 1.15; font-weight: 700; margin: 4px 0 6px; letter-spacing: -0.02em; }
+  .sub { color: var(--ink-soft); font-size: 15px; line-height: 1.45; margin: 0 0 22px; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 10px; }
+  .section-title { font-size: 13px; font-weight: 600; color: var(--ink-soft); margin: 22px 4px 10px; letter-spacing: 0.02em; }
+
+  /* Entry choice cards (flat content on a glass card — NOT nested glass). */
+  .choices { display: flex; flex-direction: column; gap: 12px; }
+  .choice {
+    display: flex; align-items: center; gap: 14px;
+    width: 100%; text-align: left;
+    padding: 16px 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--stroke-soft);
+    background: rgba(255,255,255,0.04);
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform .18s ease, background .18s ease, border-color .18s ease;
+  }
+  .choice:hover { background: rgba(255,255,255,0.08); border-color: var(--stroke); transform: translateY(-1px); }
+  .choice:active { transform: scale(0.985); }
+  .choice .icn {
+    width: 40px; height: 40px; flex: 0 0 40px;
+    display: grid; place-items: center;
+    border-radius: 12px; font-size: 19px;
+    background: rgba(201,168,106,0.16); border: 1px solid rgba(201,168,106,0.28);
+  }
+  .choice .txt { display: flex; flex-direction: column; gap: 2px; }
+  .choice .txt b { font-size: 16px; font-weight: 600; }
+  .choice .txt span { font-size: 13px; color: var(--ink-soft); }
+  .choice .tag {
+    margin-left: auto; font-size: 11px; color: var(--ink-faint);
+    border: 1px solid var(--stroke-soft); border-radius: 999px; padding: 3px 9px;
+  }
+
+  .pad { padding: 24px; }
+
+  /* Chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-size: 14px; padding: 8px 14px; border-radius: 999px;
+    border: 1px solid var(--stroke-soft); background: rgba(255,255,255,0.04);
+    color: var(--ink-soft); cursor: pointer; user-select: none;
+    transition: all .15s ease;
+  }
+  .chip:hover { border-color: var(--stroke); color: var(--ink); }
+  .chip.on {
+    background: rgba(201,168,106,0.18); border-color: rgba(201,168,106,0.5);
+    color: #f3e6cf; font-weight: 600;
+  }
+
+  /* Free text */
+  textarea, input[type=text] {
+    width: 100%; resize: vertical; min-height: 64px;
+    background: rgba(0,0,0,0.22); color: var(--ink);
+    border: 1px solid var(--stroke-soft); border-radius: var(--radius-sm);
+    padding: 12px 14px; font: inherit; font-size: 15px;
+  }
+  textarea:focus, input:focus { outline: none; border-color: rgba(201,168,106,0.5); }
+  .field { margin-bottom: 18px; }
+  .field > label { display:block; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+  .field > .hint { font-size: 12px; color: var(--ink-faint); margin: 6px 2px 0; }
+
+  /* Per-facet visibility control */
+  .vis-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .vis-row .vis-label { font-size: 12px; color: var(--ink-faint); margin-right: 2px; }
+  .vis {
+    font-size: 12px; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--stroke-soft); background: transparent; color: var(--ink-soft);
+  }
+  .vis.on { background: rgba(255,255,255,0.12); border-color: var(--stroke); color: var(--ink); font-weight: 600; }
+
+  /* Communication style selector */
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button {
+    flex: 1 1 auto; min-width: 88px;
+    padding: 10px 12px; border-radius: var(--radius-sm);
+    border: 1px solid var(--stroke-soft); background: rgba(255,255,255,0.04);
+    color: var(--ink-soft); font: inherit; font-size: 14px; cursor: pointer;
+  }
+  .seg button.on { background: rgba(201,168,106,0.18); border-color: rgba(201,168,106,0.5); color: #f3e6cf; font-weight: 600; }
+
+  /* Primary action */
+  .primary {
+    width: 100%; margin-top: 8px; padding: 15px;
+    border-radius: var(--radius-md); border: 1px solid rgba(201,168,106,0.55);
+    background: linear-gradient(180deg, #d9bd84, #c9a86a);
+    color: var(--accent-ink); font-size: 16px; font-weight: 700; cursor: pointer;
+  }
+  .primary:active { transform: scale(0.99); }
+
+  /* Identity Blueprint */
+  .cat-group { margin-bottom: 16px; }
+  .cat-head { display:flex; align-items:center; gap: 8px; margin: 0 2px 8px; }
+  .cat-head h3 { font-size: 14px; margin: 0; font-weight: 700; }
+  .cat-head .tier {
+    font-size: 10px; letter-spacing: .08em; padding: 2px 7px; border-radius: 6px;
+    border: 1px solid var(--stroke-soft); color: var(--ink-faint);
+  }
+  .tier.P { color: #e8b4b4; border-color: rgba(232,180,180,0.4); background: rgba(232,180,180,0.08); }
+  .tier.C { color: #b4d2e8; border-color: rgba(180,210,232,0.4); background: rgba(180,210,232,0.08); }
+  .facet {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-radius: var(--radius-sm);
+    border: 1px solid var(--stroke-soft); background: rgba(255,255,255,0.03);
+    margin-bottom: 8px;
+  }
+  .facet .fmeta { display:flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .facet .fmeta b { font-size: 14px; font-weight: 600; }
+  .facet .fmeta span { font-size: 13px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; }
+  .badge {
+    margin-left: auto; flex: 0 0 auto; font-size: 11px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--stroke-soft); color: var(--ink-soft);
+  }
+  .badge.private { background: rgba(255,255,255,0.04); }
+  .badge.friends { background: rgba(120,180,140,0.12); border-color: rgba(120,180,140,0.35); color:#bfe3c8; }
+  .badge.public  { background: rgba(120,150,210,0.14); border-color: rgba(120,150,210,0.4); color:#c2d0f0; }
+
+  /* Nav */
+  .tabs { display:flex; gap: 8px; margin: 18px 0 6px; }
+  .tab {
+    flex:1; text-align:center; padding: 9px; font-size: 13px; cursor: pointer;
+    border-radius: 999px; border: 1px solid var(--stroke-soft); color: var(--ink-soft);
+    background: rgba(255,255,255,0.03);
+  }
+  .tab.on { background: rgba(255,255,255,0.12); color: var(--ink); font-weight: 600; }
+  .screen { display: none; }
+  .screen.on { display: block; }
+  .footnote { text-align:center; color: var(--ink-faint); font-size:11px; margin-top: 18px; line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="tabs">
+    <div class="tab on" onclick="show('s-shell', this)">Passport</div>
+    <div class="tab" onclick="show('s-manual', this)">Manual entry</div>
+    <div class="tab" onclick="show('s-blueprint', this)">Blueprint</div>
+  </div>
+
+  <!-- ============ PASSPORT SHELL ============ -->
+  <section id="s-shell" class="screen on">
+    <div class="glass pad">
+      <p class="eyebrow">AMEN Passport</p>
+      <h1>Let's get to know you.</h1>
+      <p class="sub">Your context lives only where you allow it. Everything you add starts <b>private</b> — you choose what to share, one thing at a time.</p>
+
+      <div class="choices">
+        <button class="choice" onclick="show('s-manual', tabs[1])">
+          <span class="icn">✍️</span>
+          <span class="txt"><b>Tell us about yourself</b><span>Add a few things by hand. Calm and unhurried.</span></span>
+        </button>
+        <button class="choice">
+          <span class="icn">🕊️</span>
+          <span class="txt"><b>Talk with Berean</b><span>A gentle conversation that fills your Passport.</span></span>
+          <span class="tag">Soon</span>
+        </button>
+        <button class="choice">
+          <span class="icn">📦</span>
+          <span class="txt"><b>Bring context from another app</b><span>Paste or import — you approve every detail first.</span></span>
+          <span class="tag">Soon</span>
+        </button>
+      </div>
+    </div>
+    <p class="footnote">No content is ever imported automatically. Nothing is ranked.<br/>Private facets never leave your device.</p>
+  </section>
+
+  <!-- ============ MANUAL FACET ENTRY ============ -->
+  <section id="s-manual" class="screen">
+    <div class="glass pad">
+      <p class="eyebrow">Manual entry</p>
+      <h1>A little about you.</h1>
+      <p class="sub">Pick what fits. Skip anything. Each item has its own visibility — default is private.</p>
+
+      <p class="section-title">Interests</p>
+      <div class="chips" id="interests">
+        <span class="chip" onclick="t(this)">Theology</span><span class="chip" onclick="t(this)">Music</span>
+        <span class="chip" onclick="t(this)">Reading</span><span class="chip" onclick="t(this)">Fitness</span>
+        <span class="chip" onclick="t(this)">Cooking</span><span class="chip" onclick="t(this)">Coding</span>
+        <span class="chip" onclick="t(this)">Art</span><span class="chip" onclick="t(this)">Outdoors</span>
+      </div>
+      <div class="vis-row"><span class="vis-label">Who can see this:</span>
+        <span class="vis on" onclick="v(this)">Private</span><span class="vis" onclick="v(this)">Friends</span><span class="vis" onclick="v(this)">Public</span>
+      </div>
+
+      <p class="section-title">Values</p>
+      <div class="chips" id="values">
+        <span class="chip" onclick="t(this)">Honesty</span><span class="chip" onclick="t(this)">Service</span>
+        <span class="chip" onclick="t(this)">Family</span><span class="chip" onclick="t(this)">Patience</span>
+        <span class="chip" onclick="t(this)">Generosity</span><span class="chip" onclick="t(this)">Humility</span>
+      </div>
+      <div class="vis-row"><span class="vis-label">Who can see this:</span>
+        <span class="vis on" onclick="v(this)">Private</span><span class="vis" onclick="v(this)">Friends</span><span class="vis" onclick="v(this)">Public</span>
+      </div>
+
+      <p class="section-title">Communities</p>
+      <div class="chips" id="communities">
+        <span class="chip" onclick="t(this)">Local church</span><span class="chip" onclick="t(this)">Small group</span>
+        <span class="chip" onclick="t(this)">Volunteers</span><span class="chip" onclick="t(this)">Students</span>
+        <span class="chip" onclick="t(this)">Parents</span><span class="chip" onclick="t(this)">Creators</span>
+      </div>
+      <div class="vis-row"><span class="vis-label">Who can see this:</span>
+        <span class="vis on" onclick="v(this)">Private</span><span class="vis" onclick="v(this)">Friends</span><span class="vis" onclick="v(this)">Public</span>
+      </div>
+
+      <div class="field" style="margin-top:18px">
+        <label>Goals</label>
+        <textarea placeholder="What are you working toward?"></textarea>
+        <div class="vis-row"><span class="vis-label">Who can see this:</span>
+          <span class="vis on" onclick="v(this)">Private</span><span class="vis" onclick="v(this)">Friends</span><span class="vis" onclick="v(this)">Public</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Current focus</label>
+        <textarea placeholder="What's on your mind these days?"></textarea>
+        <div class="vis-row"><span class="vis-label">Who can see this:</span>
+          <span class="vis on" onclick="v(this)">Private</span><span class="vis" onclick="v(this)">Friends</span><span class="vis" onclick="v(this)">Public</span>
+        </div>
+      </div>
+
+      <p class="section-title">Communication style</p>
+      <div class="field">
+        <label style="font-weight:500;color:var(--ink-soft)">Preferred tone</label>
+        <div class="seg">
+          <button onclick="seg(this)">Direct</button><button class="on" onclick="seg(this)">Warm</button>
+          <button onclick="seg(this)">Reflective</button><button onclick="seg(this)">Playful</button>
+        </div>
+        <div class="vis-row"><span class="vis-label">Who can see this:</span>
+          <span class="vis on" onclick="v(this)">Private</span><span class="vis" onclick="v(this)">Friends</span><span class="vis" onclick="v(this)">Public</span>
+        </div>
+      </div>
+
+      <button class="primary" onclick="show('s-blueprint', tabs[2])">Save to my Passport</button>
+    </div>
+  </section>
+
+  <!-- ============ IDENTITY BLUEPRINT ============ -->
+  <section id="s-blueprint" class="screen">
+    <div class="glass pad">
+      <p class="eyebrow">Identity Blueprint</p>
+      <h1>Your Passport, so far.</h1>
+      <p class="sub">A projection of your facets, grouped by category. Tap a badge to change who sees it. Edit anything in place.</p>
+
+      <div class="cat-group">
+        <div class="cat-head"><h3>Interests</h3><span class="tier C">TIER C</span></div>
+        <div class="facet"><div class="fmeta"><b>Interests</b><span>Theology, Music, Coding</span></div><span class="badge friends">Friends</span></div>
+      </div>
+
+      <div class="cat-group">
+        <div class="cat-head"><h3>Values</h3><span class="tier C">TIER C</span></div>
+        <div class="facet"><div class="fmeta"><b>Values</b><span>Honesty, Service, Humility</span></div><span class="badge private">Private</span></div>
+      </div>
+
+      <div class="cat-group">
+        <div class="cat-head"><h3>Communities</h3><span class="tier C">TIER C</span></div>
+        <div class="facet"><div class="fmeta"><b>Communities</b><span>Local church, Small group</span></div><span class="badge public">Public</span></div>
+      </div>
+
+      <div class="cat-group">
+        <div class="cat-head"><h3>Goals</h3><span class="tier C">TIER C</span></div>
+        <div class="facet"><div class="fmeta"><b>Goals</b><span>Finish discipleship course; mentor someone new</span></div><span class="badge private">Private</span></div>
+      </div>
+
+      <div class="cat-group">
+        <div class="cat-head"><h3>Current focus</h3><span class="tier C">TIER C</span></div>
+        <div class="facet"><div class="fmeta"><b>Current focus</b><span>Slowing down, listening more</span></div><span class="badge private">Private</span></div>
+      </div>
+
+      <div class="cat-group">
+        <div class="cat-head"><h3>Communication</h3><span class="tier C">TIER C</span></div>
+        <div class="facet"><div class="fmeta"><b>Communication style</b><span>Warm · async, long-form</span></div><span class="badge private">Private</span></div>
+      </div>
+
+      <p class="footnote">Relationships, family &amp; health facets are always Tier P — private, never server-readable.</p>
+    </div>
+  </section>
+
+  <p class="footnote">Static demo · AMEN Universal Migration &amp; Context System · Passport shell</p>
+</div>
+
+<script>
+  var tabs = document.querySelectorAll('.tab');
+  function show(id, tabEl) {
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); });
+    document.getElementById(id).classList.add('on');
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('on'); });
+    if (tabEl) tabEl.classList.add('on');
+    window.scrollTo(0,0);
+  }
+  function t(el){ el.classList.toggle('on'); }                       // chip toggle
+  function seg(el){                                                  // single-select segment
+    el.parentNode.querySelectorAll('button').forEach(function(b){ b.classList.remove('on'); });
+    el.classList.add('on');
+  }
+  function v(el){                                                    // per-facet visibility (single-select)
+    el.parentNode.querySelectorAll('.vis').forEach(function(b){ b.classList.remove('on'); });
+    el.classList.add('on');
+  }
+</script>
+</body>
+</html>

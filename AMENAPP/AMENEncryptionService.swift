@@ -20,6 +20,22 @@
 //    SPK = Signed Pre-Key     (rotated monthly, signed by IK)
 //    OPK = One-Time Pre-Key   (consumed once per session, never reused)
 //    EK  = Ephemeral Key      (generated fresh for each X3DH handshake)
+//
+//  EXPORT COMPLIANCE / ITSAppUsesNonExemptEncryption AUDIT (R1-A6)
+//  ---------------------------------------------------------------
+//  All cryptographic operations in this file use Apple's CryptoKit framework
+//  exclusively. No third-party or custom cipher implementations are present.
+//
+//  Algorithms used and their exemption basis (EAR §740.17 Note 1 / BIS):
+//    - AES-256-GCM    → Apple CryptoKit `AES.GCM`         — OS-provided, exempt
+//    - Curve25519 ECDH → Apple CryptoKit `Curve25519.KeyAgreement` — OS-provided, exempt
+//    - Ed25519 signing → Apple CryptoKit `Curve25519.Signing`      — OS-provided, exempt
+//    - HMAC-SHA256    → Apple CryptoKit `HMAC<SHA256>`     — OS-provided, exempt
+//    - HKDF           → Built from HMAC-SHA256 above       — OS-provided, exempt
+//
+//  Conclusion: INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO is correct.
+//  No ERN (Encryption Registration Number) is required.
+//  Reviewed: 2026-06-16. Re-audit required if any non-CryptoKit cipher is added.
 
 import Foundation
 import CryptoKit
@@ -434,6 +450,43 @@ final class AMENEncryptionService {
 
     func deleteRatchetState(sessionId: String) {
         deleteKeyFromKeychain(tag: ratchetBase + sessionId)
+    }
+
+    /// Audit C-02: wipe ALL E2EE key material from the Keychain.
+    ///
+    /// Must be called on explicit sign-out and on account deletion so that
+    /// (a) account B on a shared device never inherits account A's keys, and
+    /// (b) orphaned keys do not survive an app delete + reinstall (iOS Keychain
+    /// outlives the app sandbox). This is the *access* side of the
+    /// recognition-vs-access separation — the recognition hint lives under a
+    /// separate, deliberately-NOT-wiped namespace (see contracts/onboarding/IdentityHint.md).
+    ///
+    /// Scope is intentionally narrow: only this service's `com.amenapp.*` E2EE
+    /// items are removed. The Firebase session keychain (different class/account)
+    /// and any future identity hint (reserved `com.amenapp.hint.*` namespace) are
+    /// left untouched.
+    func wipeAllKeys() {
+        // 1. EC private keys (identity / signed-prekey / one-time-prekeys) are the
+        //    only kSecClassKey items this app stores — safe to clear the class.
+        SecItemDelete([kSecClass as String: kSecClassKey] as CFDictionary)
+
+        // 2. Generic-password items (ratchet state + any serialized bundles) under
+        //    the E2EE prefixes. Enumerate + filter by account prefix, since
+        //    SecItemDelete has no prefix match and we must not touch the hint.
+        let e2eePrefixes = [ikTag, spkTagBase, opkTagBase, ratchetBase]
+        let query: [String: Any] = [
+            kSecClass as String:            kSecClassGenericPassword,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String:       kSecMatchLimitAll
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let items = result as? [[String: Any]] else { return }
+        for item in items {
+            guard let account = item[kSecAttrAccount as String] as? String,
+                  e2eePrefixes.contains(where: { account.hasPrefix($0) }) else { continue }
+            deleteKeyFromKeychain(tag: account)
+        }
     }
 
     // MARK: - Keychain Helpers

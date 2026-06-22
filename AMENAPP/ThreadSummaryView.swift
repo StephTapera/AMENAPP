@@ -15,22 +15,22 @@ struct ThreadSummaryView: View {
             // Header with sentiment emoji
             HStack(spacing: 8) {
                 Text(summary.sentimentEmoji)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                 
                 Text("Thread Summary")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                 
                 Spacer()
                 
                 Text("\(summary.totalReplies) replies")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             
             // Summary text
             Text(summary.summary)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.primary)
                 .lineSpacing(2)
             
@@ -40,11 +40,11 @@ struct ThreadSummaryView: View {
                     ForEach(summary.keyPoints, id: \.self) { point in
                         HStack(alignment: .top, spacing: 8) {
                             Text("•")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.secondary)
                             
                             Text(point)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.secondary)
                                 .lineSpacing(2)
                         }
@@ -56,11 +56,11 @@ struct ThreadSummaryView: View {
             if !summary.keyParticipants.isEmpty {
                 HStack(spacing: 4) {
                     Text("Key voices:")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.tertiary)
                     
                     Text(summary.keyParticipants.joined(separator: ", "))
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
             }

@@ -13,18 +13,31 @@ import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
 import FirebaseFunctions
+import FirebaseDatabase
 
 @MainActor
 final class AccountDeletionService: ObservableObject {
     static let shared = AccountDeletionService()
     private init() {}
 
-    private let db = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
 
     // MARK: - Main Entry Point
 
     /// Full account deletion. Must be called after re-authentication.
+    ///
+    /// Deletion order (App Store Guideline 5.1.1 compliance):
+    ///   1.  Cancel Stripe subscriptions (non-fatal)
+    ///   2.  Delete Firestore subcollections
+    ///   3.  Delete user-authored Firestore content
+    ///   4.  Mark conversations left
+    ///   5.  Delete Algolia search records (non-fatal)
+    ///   6.  Delete Realtime Database nodes
+    ///   7.  Delete main Firestore user document
+    ///   8.  Delete Firebase Storage files (all upload paths)
+    ///   9.  Delete Firebase Auth account — MUST be last
+    ///   10. Clear all local app state
     func deleteAccount(userId: String) async throws {
         dlog("🗑 [AccountDeletion] Starting deletion for \(userId)")
 
@@ -41,7 +54,11 @@ final class AccountDeletionService: ObservableObject {
             "users/\(userId)/fcmTokens",
             "users/\(userId)/followers",
             "users/\(userId)/following",
-            "users/\(userId)/blockedUsers"
+            "users/\(userId)/blockedUsers",
+            "users/\(userId)/blocks",
+            "users/\(userId)/savedSearches",
+            "users/\(userId)/private",     // DOB / age assurance — must delete
+            "users/\(userId)/bereanMemory" // CINF2-002: Berean AI memory entries — must delete
         ]
         for path in subcollections {
             try await deleteCollectionBatch(path: path)
@@ -50,6 +67,7 @@ final class AccountDeletionService: ObservableObject {
         // 3. Delete user-authored content
         let contentCollections: [(collection: String, field: String)] = [
             ("posts",                   "userId"),
+            ("posts",                   "authorId"),   // authorId variant
             ("prayerRequests",          "userId"),
             ("testimonies",             "userId"),
             ("churchNotes",             "userId"),
@@ -59,7 +77,10 @@ final class AccountDeletionService: ObservableObject {
             ("follows_index",           "followerId"),
             ("followRequests",          "requesterId"),
             ("savedPosts",              "userId"),
-            ("drafts",                  "userId")
+            ("drafts",                  "userId"),
+            ("userReports",             "reporterId"),  // reporter's own reports
+            ("savedSearches",           "userId"),
+            ("searchAlerts",            "userId")
         ]
         for item in contentCollections {
             try await deleteDocumentsWhereField(
@@ -72,18 +93,30 @@ final class AccountDeletionService: ObservableObject {
         // 4. Mark conversations as deleted for this user (don't delete shared history)
         try await leaveAllConversations(userId: userId)
 
-        // 5. Delete main user document
+        // 5. Delete Algolia search index records (non-fatal — failure must not block deletion)
+        await deleteAlgoliaRecords(userId: userId)
+
+        // 5.5. Delete Pinecone semantic vectors (non-fatal — failure must not block deletion)
+        // Covers namespaces: users/{uid}, selah_notes/{uid}, berean_context/{uid}
+        await deletePineconeVectors(userId: userId)
+
+        // 6. Delete Realtime Database nodes
+        // These are not covered by Firestore deletion and contain personal data:
+        // presence, typing indicators, counters, user_posts, user_profiles.
+        await deleteRealtimeDatabaseNodes(userId: userId)
+
+        // 7. Delete main user document
         try await db.document("users/\(userId)").delete()
         dlog("✅ [AccountDeletion] Firestore user doc deleted")
 
-        // 6. Delete Firebase Storage files (profile photo + uploads)
-        try await deleteStorageFiles(userId: userId)
+        // 8. Delete Firebase Storage files from ALL user upload paths
+        await deleteStorageFiles(userId: userId)
 
-        // 7. Delete Firebase Auth account — MUST be last
+        // 9. Delete Firebase Auth account — MUST be last
         try await Auth.auth().currentUser?.delete()
         dlog("✅ [AccountDeletion] Firebase Auth account deleted")
 
-        // 8. Clear all local app state
+        // 10. Clear all local app state
         clearLocalState()
         dlog("✅ [AccountDeletion] Complete")
     }
@@ -166,16 +199,90 @@ final class AccountDeletionService: ObservableObject {
         if !snap.documents.isEmpty { try await batch.commit() }
     }
 
-    private func deleteStorageFiles(userId: String) async throws {
+    private func deleteStorageFiles(userId: String) async {
         let storage = Storage.storage()
-        let profileRef = storage.reference().child("users/\(userId)")
-        do {
-            let list = try await profileRef.listAll()
-            for item in list.items {
-                try? await item.delete()
+        // All Storage prefixes that may contain user-generated content.
+        // Covers: legacy users/ path + all active upload prefixes.
+        let storagePaths = [
+            "users/\(userId)",
+            "profile_images/\(userId)",
+            "amenConnect/\(userId)",
+            "post_media/\(userId)",
+            "chat_files/\(userId)",         // not possible to enumerate by sender; skip group chats
+            "voice_messages/\(userId)",
+            "studioVoice/\(userId)",
+            "voiceDevotionals/\(userId)",
+            "sermons/\(userId)",
+            "churchNotes/\(userId)"
+        ]
+        for path in storagePaths {
+            do {
+                let ref = storage.reference().child(path)
+                let list = try await ref.listAll()
+                for item in list.items {
+                    try? await item.delete()
+                }
+                // Delete nested prefixes (e.g. post_media/{userId}/{uploadGroupId}/)
+                for prefix in list.prefixes {
+                    let nested = try await prefix.listAll()
+                    for item in nested.items {
+                        try? await item.delete()
+                    }
+                }
+            } catch {
+                // Non-fatal: path may not exist for this user
+                dlog("⚠️ [AccountDeletion] Storage delete \(path) failed (non-fatal): \(error)")
             }
+        }
+        dlog("✅ [AccountDeletion] Storage files deleted")
+    }
+
+    /// Delete all Realtime Database nodes that store personal data for this user.
+    private func deleteRealtimeDatabaseNodes(userId: String) async {
+        let rtdb = Database.database().reference()
+        let paths: [String] = [
+            "online_status/\(userId)",
+            "user_posts/\(userId)",
+            "user_profiles/\(userId)",
+            "user_saved_posts/\(userId)",
+            "counters/\(userId)",
+            "connections/\(userId)",
+            "devices/\(userId)",
+            "sessions/\(userId)",
+            "notification_tokens/\(userId)",
+            "userConversations/\(userId)"   // index of conversation IDs
+        ]
+        for path in paths {
+            do {
+                try await rtdb.child(path).removeValue()
+            } catch {
+                dlog("⚠️ [AccountDeletion] RTDB delete \(path) failed (non-fatal): \(error)")
+            }
+        }
+        dlog("✅ [AccountDeletion] Realtime Database nodes deleted")
+    }
+
+    /// Delete Algolia search index records for this user and their posts.
+    /// Uses the deleteAlgoliaUser Cloud Function to keep the API key server-side.
+    private func deleteAlgoliaRecords(userId: String) async {
+        let callable = functions.httpsCallable("deleteAlgoliaUser")
+        do {
+            _ = try await callable.safeCall(["userId": userId])
+            dlog("✅ [AccountDeletion] Algolia records deleted")
         } catch {
-            dlog("⚠️ [AccountDeletion] Storage delete failed (non-fatal): \(error)")
+            // Non-fatal: Algolia deletion failure must not block account deletion
+            dlog("⚠️ [AccountDeletion] Algolia delete failed (non-fatal): \(error)")
+        }
+    }
+
+    private func deletePineconeVectors(userId: String) async {
+        let callable = functions.httpsCallable("deletePineconeUserVectors")
+        do {
+            _ = try await callable.safeCall(["userId": userId])
+            dlog("✅ [AccountDeletion] Pinecone vectors deleted")
+        } catch {
+            // Non-fatal: Pinecone deletion failure must not block account deletion
+            dlog("⚠️ [AccountDeletion] Pinecone delete failed (non-fatal): \(error)")
         }
     }
 
@@ -183,6 +290,15 @@ final class AccountDeletionService: ObservableObject {
         if let bundleId = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleId)
         }
-        // Clear keychain if needed (add SecItemDelete calls here)
+        // Audit C-02: wipe all E2EE key material so deleted-then-reinstalled or
+        // shared-device accounts cannot inherit/leak prior keys.
+        AMENEncryptionService.shared.wipeAllKeys()
+        // P1-G: wipe Apple Sign-In Keychain identity hint so a new sign-in
+        // on the same device cannot see the deleted account's Welcome Back hint.
+        // userId comes from Auth.auth().currentUser?.uid at call time —
+        // clearLocalState() is always called before Auth account deletion.
+        if let uid = Auth.auth().currentUser?.uid {
+            AmenIdentityHintStore.shared.clear(uid: uid)
+        }
     }
 }

@@ -18,7 +18,7 @@ struct UnreadMessageDivider: View {
             
             Text("Unread Messages")
                 .font(.custom("OpenSans-SemiBold", size: 11))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)
                 .background(
@@ -49,7 +49,7 @@ struct JumpToUnreadButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.down")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 
                 Text("\(unreadCount) new message\(unreadCount == 1 ? "" : "s")")
                     .font(.custom("OpenSans-SemiBold", size: 13))
@@ -84,7 +84,7 @@ struct MessageReactionBar: View {
                     haptic.impactOccurred()
                 } label: {
                     Text(emoji)
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .frame(width: 44, height: 44)
                         .background(
                             Circle()
@@ -146,12 +146,12 @@ struct MessageReactionsDisplay: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(group.emoji)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                         
                         if group.count > 1 {
                             Text("\(group.count)")
                                 .font(.custom("OpenSans-SemiBold", size: 11))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.primary)
                         }
                     }
                     .padding(.horizontal, 8)
@@ -245,7 +245,7 @@ struct EnhancedMessageBubble: View {
         }
         .contentShape(Rectangle())
         .onLongPressGesture(minimumDuration: 0.3) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 showReactionBar.toggle()
             }
             let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -474,7 +474,7 @@ struct WhoReactedSheet: View {
                         Spacer()
                         
                         Text(emoji)
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                     }
                     .padding(.vertical, 4)
                 }
@@ -488,7 +488,7 @@ struct WhoReactedSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.black.opacity(0.3))
                     }
                 }

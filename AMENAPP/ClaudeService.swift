@@ -19,6 +19,7 @@ import Foundation
 import SwiftUI
 import Combine
 import FirebaseFunctions
+import FirebaseAuth
 
 // MARK: - Service
 
@@ -32,7 +33,7 @@ final class ClaudeService: ObservableObject {
 
     // MARK: - Configuration
 
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
     private var currentTask: Task<Void, Never>?
 
     // 15-minute TTL, 50-entry LRU (history-free queries only).
@@ -68,7 +69,7 @@ final class ClaudeService: ObservableObject {
         conversationHistory: [OpenAIChatMessage] = [],
         maxTokens: Int = 2000,
         temperature: Double = 0.7,
-        mode: BereanMode = .shepherd,
+        mode: BereanPersonalityMode = .shepherd,
         systemPromptSuffix: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
 
@@ -99,14 +100,13 @@ final class ClaudeService: ObservableObject {
                         self.lastError = nil
                     }
 
-                    let systemPrompt = buildSystemPrompt(mode: mode, suffix: systemPromptSuffix)
                     let userMessage = buildUserMessage(
                         userMessage: message,
                         history: trimmedHistory(conversationHistory)
                     )
 
                     let result = try await self.callProxy(
-                        systemPrompt: systemPrompt,
+                        mode: mode,
                         userMessage: userMessage,
                         maxTokens: min(maxTokens, 2000)
                     )
@@ -146,7 +146,7 @@ final class ClaudeService: ObservableObject {
         selectedText: String,
         source: BereanSource,
         action: BereanSelectionAction,
-        mode: BereanMode = .scholar
+        mode: BereanPersonalityMode = .scholar
     ) -> AsyncThrowingStream<String, Error> {
         let prompt = buildSelectionPrompt(selectedText: selectedText, source: source, action: action)
         return sendMessage(prompt, conversationHistory: [], mode: mode)
@@ -157,14 +157,13 @@ final class ClaudeService: ObservableObject {
     func sendMessageSync(
         _ message: String,
         conversationHistory: [OpenAIChatMessage] = [],
-        mode: BereanMode = .shepherd
+        mode: BereanPersonalityMode = .shepherd
     ) async throws -> String {
         try validateOutgoingMessage(message)
 
         isProcessing = true
         defer { isProcessing = false }
 
-        let systemPrompt = buildSystemPrompt(mode: mode, suffix: nil)
         let userMessage = buildUserMessage(
             userMessage: message,
             history: trimmedHistory(conversationHistory)
@@ -172,7 +171,7 @@ final class ClaudeService: ObservableObject {
 
         return try await withRetry {
             try await self.callProxy(
-                systemPrompt: systemPrompt,
+                mode: mode,
                 userMessage: userMessage,
                 maxTokens: 2000
             )
@@ -182,22 +181,72 @@ final class ClaudeService: ObservableObject {
     // MARK: - Cloud Function Call
 
     private func callProxy(
-        systemPrompt: String,
+        mode: BereanPersonalityMode,
         userMessage: String,
         maxTokens: Int
     ) async throws -> String {
+        // ✅ Verify user is authenticated before calling the function
+        guard let currentUser = Auth.auth().currentUser else {
+            dlog("❌ bereanChatProxy: No authenticated user")
+            throw OpenAIServiceError.unauthorized
+        }
+
+        // ✅ Force refresh the ID token to ensure it's valid and will be sent with the request
+        // This is critical because expired tokens cause auth failures (error code 16)
+        do {
+            _ = try await currentUser.getIDToken(forcingRefresh: true)
+            dlog("✅ Auth token refreshed for Berean request")
+        } catch {
+            dlog("❌ Failed to refresh auth token: \(error.localizedDescription)")
+            throw OpenAIServiceError.unauthorized
+        }
+
         let callable = functions.httpsCallable("bereanChatProxy")
+        // Send mode ID only — server owns the full system prompt. Never send
+        // systemPromptSuffix from the client; doing so allows post-guardrail injection.
         let params: [String: Any] = [
-            "systemPrompt": systemPrompt,
-            "userMessage": userMessage,
+            "message": userMessage,
+            "mode": mode.rawValue.lowercased(),
             "maxTokens": maxTokens,
         ]
-        let result = try await callable.call(params)
-        guard let data = result.data as? [String: Any],
-              let text = data["text"] as? String else {
-            throw OpenAIServiceError.invalidResponse
+        do {
+            let result = try await callable.call(params)
+            guard let data = result.data as? [String: Any],
+                  let text = (data["response"] as? String) ?? (data["text"] as? String) else {
+                throw OpenAIServiceError.invalidResponse
+            }
+            return text
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == "com.firebase.functions" {
+                let currentUser = Auth.auth().currentUser
+                if nsError.code == 7 || nsError.code == 16 {
+                    dlog("❌ bereanChatProxy rejected (code: \(nsError.code))")
+                    dlog("   Current user: \(currentUser?.uid ?? "NONE")")
+                    dlog("   User email: \(currentUser?.email ?? "none")")
+                    dlog("   Email verified: \(currentUser?.isEmailVerified ?? false)")
+                    #if targetEnvironment(simulator)
+                    dlog("   → Running on SIMULATOR: code 16 is almost certainly App Check failure.")
+                    dlog("   → Fix: Go to Firebase Console → App Check → Apps → iOS → Debug Tokens")
+                    dlog("   →      Add the debug token printed at launch (look for 'AppCheckDebugToken' in logs)")
+                    dlog("   →      Until registered, bereanChatProxy (enforceAppCheck: true) rejects all simulator calls.")
+                    #else
+                    dlog("   → code 7 = unauthenticated (no Firebase Auth session).")
+                    dlog("   → code 16 = App Check or auth token invalid. Try signing out and back in.")
+                    dlog("   → Check Firebase Console → Functions → Logs for server-side details.")
+                    #endif
+                    
+                    // Return a more specific error for auth failures
+                    throw OpenAIServiceError.unauthorized
+                } else if nsError.code == 8 {
+                    dlog("❌ bereanChatProxy rate limited (10 messages/hour limit)")
+                    throw OpenAIServiceError.rateLimited
+                } else {
+                    dlog("❌ bereanChatProxy failed (Functions code: \(nsError.code)): \(nsError.localizedDescription)")
+                }
+            }
+            throw error
         }
-        return text
     }
 
     // MARK: - Typewriter stream helper
@@ -230,7 +279,7 @@ final class ClaudeService: ObservableObject {
         return "\(historyText)\nUser: \(userMessage)"
     }
 
-    private func buildSystemPrompt(mode: BereanMode, suffix: String?) -> String {
+    private func buildSystemPrompt(mode: BereanPersonalityMode, suffix: String?) -> String {
         var prompt = """
             You are Berean, the AI assistant inside the AMEN app. You are an elite, helpful assistant for Bible study, life decisions, tech, business, and creativity — while staying Christ-centered, safe, and wise. Be practical, intelligent, and calm.
 
@@ -378,7 +427,7 @@ final class ClaudeService: ObservableObject {
 
     // MARK: - Cache Management
 
-    private func makeCacheKey(message: String, mode: BereanMode, suffix: String?) -> String {
+    private func makeCacheKey(message: String, mode: BereanPersonalityMode, suffix: String?) -> String {
         "\(mode.rawValue)|\(suffix ?? "")|\(message.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())"
     }
 

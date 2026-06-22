@@ -17,7 +17,7 @@ class AIThreadSummarizationService: ObservableObject {
     @Published var isGeneratingSummary = false
     @Published var cachedSummaries: [String: ThreadSummary] = [:]
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let openAI = OpenAIService.shared
 
     private init() {

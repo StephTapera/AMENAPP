@@ -17,7 +17,7 @@ import Combine
 class UserSearchService: ObservableObject {
     static let shared = UserSearchService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let searchResultsLimit = 50
     
     @Published var searchResults: [FirebaseSearchUser] = []
@@ -342,7 +342,7 @@ struct UserSearchView: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             Text("Search for Users")
@@ -370,7 +370,7 @@ struct UserSearchView: View {
     private func errorView(_ error: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.red)
             
             Text("Search Error")
@@ -394,7 +394,7 @@ struct UserSearchView: View {
     private var noResultsView: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.crop.circle.badge.questionmark")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             Text("No Users Found")
@@ -463,7 +463,7 @@ struct UserSearchResultRow: View {
                     
                     if user.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -483,7 +483,7 @@ struct UserSearchResultRow: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 8)
@@ -546,7 +546,7 @@ struct MessagingUserSearchView: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             Text("Start a Conversation")
@@ -564,7 +564,7 @@ struct MessagingUserSearchView: View {
     private var noResultsView: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.crop.circle.badge.questionmark")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             Text("No Users Found")

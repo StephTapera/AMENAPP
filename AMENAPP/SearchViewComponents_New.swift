@@ -97,7 +97,7 @@ struct DiscoverPeopleView: View {
                         .frame(width: 40, height: 40)
                     
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
                 .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
@@ -123,7 +123,7 @@ struct DiscoverPeopleView: View {
     private var searchBarView: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.secondary)
             
             TextField("Search people...", text: $searchText)
@@ -146,7 +146,7 @@ struct DiscoverPeopleView: View {
                     }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -175,7 +175,7 @@ struct DiscoverPeopleView: View {
                         filter: filter,
                         isSelected: selectedFilter == filter
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedFilter = filter
                         }
                         Task {
@@ -290,7 +290,7 @@ struct DiscoverPeopleView: View {
     private var noResultsView: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.crop.circle.badge.questionmark")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             
             Text("No users found")
@@ -430,7 +430,7 @@ struct DiscoveryFilterChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: filter.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 
                 Text(filter.rawValue)
                     .font(.custom("OpenSans-Bold", size: 14))
@@ -503,7 +503,7 @@ struct ThreadsStyleUserCard: View {
                         HStack {
                             Spacer()
                             Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.blue)
                                 .background(
                                     Circle()
@@ -617,7 +617,7 @@ struct ThreadsFollowButton: View {
                 }
                 
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         isFollowing.toggle()
                     }
                     
@@ -721,7 +721,7 @@ struct DiscoverPeopleSection: View {
                         Text("View All")
                             .font(.custom("OpenSans-Bold", size: 13))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.systemScaled(12, weight: .bold))
                     }
                     .foregroundStyle(.primary)
                 }
@@ -813,7 +813,7 @@ struct CompactUserCard: View {
                             HStack {
                                 Spacer()
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(.blue)
                                     .background(
                                         Circle()
@@ -895,7 +895,7 @@ struct CompactUserCard: View {
                 }
                 
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         isFollowing.toggle()
                     }
                     

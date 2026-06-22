@@ -41,7 +41,7 @@ struct QuickFollowButton: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: isFollowing ? "person.fill.checkmark" : "person.fill.badge.plus")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 
                 Text(isFollowing ? "Following" : "Follow")
                     .font(.custom("OpenSans-Bold", size: 14))
@@ -149,7 +149,7 @@ struct FollowRequestsBadgeModifier: ViewModifier {
 @MainActor
 class FollowRequestsBadgeViewModel: ObservableObject {
     @Published var pendingCount = 0
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     func loadPendingCount() async {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
@@ -187,7 +187,7 @@ struct FollowerSettingsSection: View {
             } label: {
                 HStack {
                     Image(systemName: "person.2.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.blue)
                         .frame(width: 32)
                     
@@ -198,7 +198,7 @@ struct FollowerSettingsSection: View {
                     Spacer()
                     
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -209,7 +209,7 @@ struct FollowerSettingsSection: View {
             } label: {
                 HStack {
                     Image(systemName: "person.badge.clock")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.purple)
                         .frame(width: 32)
                     
@@ -220,7 +220,7 @@ struct FollowerSettingsSection: View {
                     Spacer()
                     
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -232,7 +232,7 @@ struct FollowerSettingsSection: View {
             } label: {
                 HStack {
                     Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.green)
                         .frame(width: 32)
                     
@@ -243,7 +243,7 @@ struct FollowerSettingsSection: View {
                     Spacer()
                     
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -286,7 +286,7 @@ struct FollowerStatsWidget: View {
                 VStack(spacing: 4) {
                     Text("\(formatCount(stats.followers))")
                         .font(.custom("OpenSans-Bold", size: 20))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Text("Followers")
                         .font(.custom("OpenSans-Regular", size: 13))
@@ -304,7 +304,7 @@ struct FollowerStatsWidget: View {
                 VStack(spacing: 4) {
                     Text("\(formatCount(stats.following))")
                         .font(.custom("OpenSans-Bold", size: 20))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Text("Following")
                         .font(.custom("OpenSans-Regular", size: 13))
@@ -398,7 +398,7 @@ class PeopleSearchViewModel: ObservableObject {
     @Published var users: [UserModel] = []
     @Published var isLoading = false
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     func search(query: String) async {
         guard !query.isEmpty else {
@@ -500,10 +500,9 @@ extension Notification.Name {
 struct FollowerSystemSetup {
     /// Initialize follower system on app launch
     static func initialize() {
-        let followService = FollowService.shared
-        
         // Start real-time listeners for current user
         Task { @MainActor in
+            let followService = FollowService.shared
             await followService.loadCurrentUserFollowing()
             await followService.loadCurrentUserFollowers()
             followService.startListening()
@@ -514,10 +513,11 @@ struct FollowerSystemSetup {
     
     /// Clean up on app termination
     static func cleanup() {
-        let followService = FollowService.shared
-        followService.stopListening()
-        
-        dlog("🔇 Follower system listeners stopped")
+        Task { @MainActor in
+            let followService = FollowService.shared
+            followService.stopListening()
+            dlog("🔇 Follower system listeners stopped")
+        }
     }
 }
 
@@ -565,7 +565,7 @@ extension UserModel {
 struct FollowerQuickActions {
     /// Quick follow a user
     static func followUser(userId: String) async throws {
-        let service = FollowService.shared
+        let service = await FollowService.shared
         try await service.followUser(userId: userId)
         
         // Post notification
@@ -574,7 +574,7 @@ struct FollowerQuickActions {
     
     /// Quick unfollow a user
     static func unfollowUser(userId: String) async throws {
-        let service = FollowService.shared
+        let service = await FollowService.shared
         try await service.unfollowUser(userId: userId)
         
         // Post notification
@@ -583,7 +583,7 @@ struct FollowerQuickActions {
     
     /// Check if following
     static func isFollowing(userId: String) async -> Bool {
-        let service = FollowService.shared
+        let service = await FollowService.shared
         return await service.isFollowing(userId: userId)
     }
 }
@@ -630,7 +630,7 @@ struct SimpleUserCard: View {
                                 .clipShape(Circle())
                         case .failure, .empty:
                             Image(systemName: "person.circle.fill")
-                                .font(.system(size: 48))
+                                .font(.systemScaled(48))
                                 .foregroundStyle(.secondary)
                         @unknown default:
                             EmptyView()
@@ -638,7 +638,7 @@ struct SimpleUserCard: View {
                     }
                 } else {
                     Image(systemName: "person.circle.fill")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundStyle(.secondary)
                 }
             }

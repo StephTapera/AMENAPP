@@ -81,9 +81,9 @@ struct RSVPFlowView: View {
 
                 if event.requiresApproval {
                     HStack(spacing: 6) {
-                        Image(systemName: "info.circle.fill").font(.system(size: 12)).foregroundStyle(.secondary)
+                        Image(systemName: "info.circle.fill").font(.systemScaled(12)).foregroundStyle(.secondary)
                         Text("This event requires organizer approval.")
-                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                            .font(.systemScaled(12)).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -91,7 +91,7 @@ struct RSVPFlowView: View {
             // Optional note
             VStack(alignment: .leading, spacing: 6) {
                 Text("Note to organizer (optional)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.secondary)
                 TextField("e.g. \"Bringing a guest\"", text: $note)
                     .textFieldStyle(.plain)
@@ -103,7 +103,7 @@ struct RSVPFlowView: View {
             // Continue
             Button {
                 if selectedStatus == .going || selectedStatus == .maybe {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { step = .calendarOptions }
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) { step = .calendarOptions }
                 } else {
                     submitRSVP()
                 }
@@ -152,7 +152,7 @@ struct RSVPFlowView: View {
                             Text("Reminders")
                                 .font(.custom("OpenSans-Bold", size: 16))
                             Text("We suggest these based on the event type.")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
 
@@ -165,7 +165,7 @@ struct RSVPFlowView: View {
 
                         if event.eventType == .jobInterview {
                             Toggle("Add follow-up reminder after event", isOn: $addFollowUp)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .tint(event.eventType.color)
                         }
                     }
@@ -178,7 +178,7 @@ struct RSVPFlowView: View {
                     submitRSVP()
                 } label: {
                     Text("Save RSVP without adding to calendar")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -224,7 +224,7 @@ struct RSVPFlowView: View {
                     .fill(selectedStatus.color.opacity(0.12))
                     .frame(width: 100, height: 100)
                 Image(systemName: selectedStatus.icon)
-                    .font(.system(size: 44))
+                    .font(.systemScaled(44))
                     .foregroundStyle(selectedStatus.color)
             }
 
@@ -243,7 +243,7 @@ struct RSVPFlowView: View {
             if addToCalendar {
                 HStack(spacing: 10) {
                     Image(systemName: "calendar.badge.checkmark")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
                     Text("Added to your calendar")
                         .font(.custom("OpenSans-SemiBold", size: 14))
@@ -276,7 +276,7 @@ struct RSVPFlowView: View {
                     .fill(event.eventType.color.opacity(0.15))
                     .frame(width: 48, height: 48)
                 Image(systemName: event.eventType.icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(event.eventType.color)
             }
             VStack(alignment: .leading, spacing: 3) {
@@ -284,7 +284,7 @@ struct RSVPFlowView: View {
                     .font(.custom("OpenSans-Bold", size: 15))
                     .lineLimit(1)
                 Text(shortDate)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             }
         }
@@ -296,7 +296,7 @@ struct RSVPFlowView: View {
     @ViewBuilder
     private func rsvpOption(_ status: RSVPStatus) -> some View {
         Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                 selectedStatus = status
             }
         } label: {
@@ -306,11 +306,11 @@ struct RSVPFlowView: View {
                         .fill(selectedStatus == status ? status.color : Color(.systemGray5))
                         .frame(width: 52, height: 52)
                     Image(systemName: status.icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(selectedStatus == status ? .white : .secondary)
                 }
                 Text(status.label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(selectedStatus == status ? status.color : .secondary)
             }
             .frame(maxWidth: .infinity)
@@ -324,11 +324,11 @@ struct RSVPFlowView: View {
             Text("Event Details")
                 .font(.custom("OpenSans-Bold", size: 16))
             Text(shortDate)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
             if let location = event.location {
                 Text(location)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
             }
         }
@@ -341,7 +341,7 @@ struct RSVPFlowView: View {
                 Text("Add to Calendar")
                     .font(.custom("OpenSans-SemiBold", size: 15))
                 Text("Creates an event in your calendar app")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -355,10 +355,10 @@ struct RSVPFlowView: View {
     private var calendarPrivacyNote: some View {
         HStack(spacing: 6) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(.secondary)
             Text("AMEN only writes this event — it never reads your existing calendar data.")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
         }
     }
@@ -440,7 +440,7 @@ struct RSVPFlowView: View {
 
             isSubmitting = false
             onRSVPComplete?(selectedStatus)
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                 step = .confirmation
             }
         }
@@ -460,14 +460,14 @@ struct SmartReminderSuggestionBanner: View {
         if !dismissed && !scheduled && event.isUpcoming && !reminderService.notificationPermissionGranted {
             HStack(spacing: 12) {
                 Image(systemName: "bell.badge.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(event.eventType.color)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Set a reminder?")
                         .font(.custom("OpenSans-SemiBold", size: 14))
                     Text(suggestedReminderText)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
 
@@ -478,7 +478,7 @@ struct SmartReminderSuggestionBanner: View {
                         withAnimation { dismissed = true }
                     } label: {
                         Text("Not now")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                     }
 
@@ -489,7 +489,7 @@ struct SmartReminderSuggestionBanner: View {
                             ProgressView().scaleEffect(0.8)
                         } else {
                             Text("Yes")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
@@ -583,14 +583,14 @@ struct AddToCalendarButton: View {
     @ViewBuilder
     private var compactLabel: some View {
         Image(systemName: addState == .added ? "checkmark.circle.fill" : "calendar.badge.plus")
-            .font(.system(size: 16))
+            .font(.systemScaled(16))
             .foregroundStyle(addState == .added ? Color(red: 0.18, green: 0.62, blue: 0.36) : event.eventType.color)
     }
 
     @ViewBuilder
     private var iconLabel: some View {
         Image(systemName: addState == .added ? "checkmark" : "calendar.badge.plus")
-            .font(.system(size: 15))
+            .font(.systemScaled(15))
             .foregroundStyle(addState == .added ? Color(red: 0.18, green: 0.62, blue: 0.36) : .primary)
     }
 
@@ -600,7 +600,7 @@ struct AddToCalendarButton: View {
             let granted = await calendarService.requestCalendarPermission()
             guard granted else { addState = .failed; return }
             let id = await calendarService.addEventToCalendar(event)
-            withAnimation(.spring(response: 0.3)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                 addState = id != nil ? .added : .failed
             }
         }

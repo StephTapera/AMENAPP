@@ -197,6 +197,64 @@ final class ModerationAuditLogService {
         )
     }
 
+    // MARK: - True Source compatibility contracts
+
+    enum TrueSourceEventType: String, Codable, CaseIterable {
+        case postCreated = "post_created"
+        case mediaUploaded = "media_uploaded"
+        case aiGenerated = "ai_generated"
+        case aiAssisted = "ai_assisted"
+        case safetyScanned = "safety_scanned"
+        case sourceChecked = "source_checked"
+        case rankingScored = "ranking_scored"
+        case labelApplied = "label_applied"
+        case reachReduced = "reach_reduced"
+        case humanReviewRequested = "human_review_requested"
+        case contentRemoved = "content_removed"
+        case appealSubmitted = "appeal_submitted"
+        case appealResolved = "appeal_resolved"
+        case userTunedFeed = "user_tuned_feed"
+        case healthyModeEnabled = "healthy_mode_enabled"
+    }
+
+    struct TrueSourceEventEntry: Codable, Equatable {
+        let eventId: String
+        let eventType: TrueSourceEventType
+        let actor: String
+        let contentId: String?
+        let mediaId: String?
+        let action: String
+        let modelProvider: String?
+        let promptVersion: String?
+        let policyVersion: String
+        let riskScores: [String: Double]
+        let labelsApplied: [String]
+        let decision: String
+        let confidence: Double
+        let reasonCodes: [String]
+        let createdAt: Timestamp
+        let requestId: String
+        let appCheckVerified: Bool
+        let rateLimitStatus: String
+        let appealEligible: Bool
+    }
+
+    static func logPostCreated() {}
+    static func logMediaUploaded() {}
+    static func logAIGenerated() {}
+    static func logAIAssisted() {}
+    static func logSafetyScanned() {}
+    static func logSourceChecked() {}
+    static func logRankingScored() {}
+    static func logLabelApplied() {}
+    static func logReachReduced() {}
+    static func logHumanReviewRequested() {}
+    static func logContentRemoved() {}
+    static func logAppealSubmitted() {}
+    static func logAppealResolved() {}
+    static func logUserTunedFeed() {}
+    static func logHealthyModeChanged() {}
+
     // MARK: - Helpers
 
     private func gatewayDecisionComponents(_ decision: GatewayDecision)

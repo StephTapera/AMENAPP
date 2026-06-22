@@ -28,7 +28,7 @@ struct CrisisSupportCard: View {
             // Header - calm, supportive
             VStack(spacing: 16) {
                 Image(systemName: "heart.circle.fill")
-                    .font(.system(size: 56))
+                    .font(.systemScaled(56))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.blue, .cyan],
@@ -166,7 +166,7 @@ struct SupportOptionButton: View {
                         .frame(width: 56, height: 56)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(color)
                 }
                 
@@ -183,7 +183,7 @@ struct SupportOptionButton: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(16)
@@ -213,7 +213,7 @@ struct SubtleSupportLink: View {
         Button(action: onTap) {
             HStack(spacing: 6) {
                 Image(systemName: "heart.circle.fill")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.blue)
                 
                 Text("Need support?")
@@ -240,7 +240,7 @@ struct CrisisGroundingExerciseView: View {
     @State private var isComplete = false
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 // Calm gradient background
                 LinearGradient(
@@ -258,7 +258,7 @@ struct CrisisGroundingExerciseView: View {
                         // Exercise in progress
                         VStack(spacing: 24) {
                             Image(systemName: exercise.type.icon)
-                                .font(.system(size: 64))
+                                .font(.systemScaled(64))
                                 .foregroundStyle(.white.opacity(0.9))
                             
                             Text(exercise.name)
@@ -314,7 +314,7 @@ struct CrisisGroundingExerciseView: View {
                         // Complete
                         VStack(spacing: 24) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 72))
+                                .font(.systemScaled(72))
                                 .foregroundStyle(.white)
                             
                             Text("Well done")
@@ -352,7 +352,7 @@ struct CrisisGroundingExerciseView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.white.opacity(0.6))
                     }
                 }

@@ -66,7 +66,7 @@ struct PerformanceHUD: View {
             label("FPS", value: Double(monitor.fps), unit: "",
                   bad: monitor.fps < 50)
         }
-        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+        .font(.systemScaled(10, weight: .semibold, design: .monospaced))
         .padding(6)
         .background(.black.opacity(0.65))
         .foregroundStyle(.white)

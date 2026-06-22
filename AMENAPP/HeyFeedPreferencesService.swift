@@ -19,7 +19,7 @@ class HeyFeedPreferencesService: ObservableObject {
     @Published var isLoading = false
     @Published var lastRefreshTime: Date?
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
     
     private init() {
@@ -91,7 +91,7 @@ class HeyFeedPreferencesService: ObservableObject {
     
     // MARK: - Mode Control
     
-    func setMode(_ mode: FeedMode) async {
+    func setMode(_ mode: HeyFeedMode) async {
         preferences.mode = mode
         await savePreferences()
     }

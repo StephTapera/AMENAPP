@@ -42,8 +42,14 @@ struct WorshipNowPlayingView: View {
         GeometryReader { geo in
             ZStack {
                 // ── Animated mesh background ─────────────────────────────────
-                MeshBackground(colors: service.meshColors)
-                    .ignoresSafeArea()
+                Group {
+                    if #available(iOS 18, *) {
+                        MeshBackground(colors: service.meshColors)
+                    } else {
+                        LinearGradient(colors: [Color.black, Color(white: 0.12)], startPoint: .top, endPoint: .bottom)
+                    }
+                }
+                .ignoresSafeArea()
 
                 // ── Subtle vignette so controls stay readable ─────────────────
                 LinearGradient(
@@ -92,7 +98,7 @@ struct WorshipNowPlayingView: View {
                     VStack {
                         Spacer()
                         Text(toastMessage)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
@@ -176,10 +182,10 @@ struct WorshipNowPlayingView: View {
             )
             VStack(spacing: 8) {
                 Image(systemName: "music.note")
-                    .font(.system(size: 56, weight: .light))
+                    .font(.systemScaled(56, weight: .light))
                     .foregroundStyle(.white.opacity(0.8))
                 Text("Worship")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.white.opacity(0.6))
             }
         }
@@ -191,13 +197,13 @@ struct WorshipNowPlayingView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(service.currentSong?.title ?? "No Song Playing")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.systemScaled(22, weight: .bold))
                         .foregroundStyle(.white)
                         .lineLimit(2)
                         .shadow(color: .black.opacity(0.3), radius: 4)
 
                     Text(service.currentSong?.artist ?? "")
-                        .font(.system(size: 16, weight: .regular))
+                        .font(.systemScaled(16, weight: .regular))
                         .foregroundStyle(.white.opacity(0.75))
                         .lineLimit(1)
                 }
@@ -206,7 +212,7 @@ struct WorshipNowPlayingView: View {
 
                 // Heart (placeholder — Apple Music style)
                 Image(systemName: "heart")
-                    .font(.system(size: 22, weight: .regular))
+                    .font(.systemScaled(22, weight: .regular))
                     .foregroundStyle(.white.opacity(0.7))
                     .padding(.top, 2)
             }
@@ -248,11 +254,11 @@ struct WorshipNowPlayingView: View {
             // Time labels
             HStack {
                 Text(formatTime(service.elapsed))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(.systemScaled(12, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.6))
                 Spacer()
                 Text(formatTime(service.duration))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(.systemScaled(12, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.6))
             }
         }
@@ -336,10 +342,10 @@ struct WorshipNowPlayingView: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.white.opacity(0.85))
                 Text(label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.65))
             }
         }
@@ -348,7 +354,7 @@ struct WorshipNowPlayingView: View {
 
     private func showToast(_ message: String) {
         toastMessage = message
-        withAnimation(.spring(response: 0.35)) { showingAddedToast = true }
+        withAnimation(Motion.adaptive(.spring(response: 0.35))) { showingAddedToast = true }
         Task {
             try? await Task.sleep(nanoseconds: 2_500_000_000)
             withAnimation(.easeOut) { showingAddedToast = false }
@@ -369,6 +375,7 @@ struct WorshipNowPlayingView: View {
 /// A 4×4 MeshGradient with 16 control points.
 /// Two independent oscillators — slow drift + faster micro-shimmer — create
 /// the organic, "breathing lava-lamp" effect seen in Apple Music on iOS 18.
+@available(iOS 18.0, *)
 private struct MeshBackground: View {
     let colors: [Color]
 
@@ -450,7 +457,7 @@ private struct QualityBadge: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 9, weight: .bold))
+            .font(.systemScaled(9, weight: .bold))
             .foregroundStyle(color)
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
@@ -471,9 +478,9 @@ private struct FaithBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
             Text(label)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
         }
         .foregroundStyle(.white.opacity(0.85))
         .padding(.horizontal, 9)
@@ -498,7 +505,7 @@ private struct ControlButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: size, weight: .medium))
+                .font(.systemScaled(size, weight: .medium))
                 .foregroundStyle(.white)
                 .frame(width: size + 24, height: size + 24)
                 .contentShape(Circle())
@@ -671,7 +678,7 @@ struct WorshipSongCardExpanding: View {
                    WorshipNowPlayingViewModel.shared.currentSong?.title == title {
                     Button { showNowPlaying = true } label: {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(.white)
                             .padding(5)
                             .background(Circle().fill(.ultraThinMaterial))
@@ -703,19 +710,44 @@ struct NoteWorshipSection: View {
 
     var body: some View {
         if let song = matchingSong {
-            VStack(alignment: .leading, spacing: 16) {
-                Label("Now Playing", systemImage: "music.note")
-                    .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(.white.opacity(0.9))
+            HStack(spacing: 10) {
+                // Waveform pulse
+                Image(systemName: "waveform")
+                    .font(.systemScaled(13, weight: .medium))
+                    .foregroundStyle(Color.purple.opacity(0.8))
+                    .symbolEffect(.variableColor.iterative, isActive: vm.isPlaying)
 
-                WorshipSongCardExpanding(
-                    title: song.title,
-                    artist: song.artist,
-                    churchNoteId: noteId
-                )
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(song.title)
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(song.artist)
+                        .font(.systemScaled(11))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    WorshipMusicService.shared.pauseResume()
+                } label: {
+                    Image(systemName: vm.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.systemScaled(11, weight: .semibold))
+                        .foregroundStyle(Color.purple)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color.purple.opacity(0.18)))
+                }
+                .buttonStyle(.plain)
             }
-            .padding(24)
-            .glassEffect(GlassEffectStyle.regular.tint(.purple), in: RoundedRectangle(cornerRadius: 24))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.purple.opacity(0.35), lineWidth: 0.5)
+            )
             .transition(.scale(scale: 0.95).combined(with: .opacity))
         }
     }
@@ -743,6 +775,8 @@ struct NoteWorshipSection: View {
 }
 
 #Preview("Mesh Background — Faith") {
-    MeshBackground(colors: MeshPalette.faith)
-        .ignoresSafeArea()
+    if #available(iOS 18, *) {
+        MeshBackground(colors: MeshPalette.faith)
+            .ignoresSafeArea()
+    }
 }

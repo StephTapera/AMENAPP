@@ -48,7 +48,7 @@ struct UsernameSelectionView: View {
                 
                 // Icon
                 Image(systemName: "person.crop.circle.badge.checkmark")
-                    .font(.system(size: 80))
+                    .font(.systemScaled(80))
                     .foregroundStyle(.blue.opacity(0.9))
                     .symbolEffect(.pulse, options: .repeating)
                 
@@ -127,7 +127,7 @@ struct UsernameSelectionView: View {
                                 } else if let available = usernameAvailable {
                                     Image(systemName: available ? "checkmark.circle.fill" : "xmark.circle.fill")
                                         .foregroundStyle(available ? .green : .red)
-                                        .font(.system(size: 24))
+                                        .font(.systemScaled(24))
                                 }
                             }
                             .frame(width: 24, height: 24)
@@ -176,7 +176,7 @@ struct UsernameSelectionView: View {
                                 .font(.custom("OpenSans-SemiBold", size: 16))
                         }
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
                     .background(
@@ -250,7 +250,7 @@ struct UsernameSelectionView: View {
             }
             
             // Check Firestore
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let usernameLower = username.lowercased()
             
             do {
@@ -285,7 +285,7 @@ struct UsernameSelectionView: View {
         
         Task {
             do {
-                let db = Firestore.firestore()
+                lazy var db = Firestore.firestore()
                 let usernameLower = username.lowercased()
                 let displayNameLower = displayName.lowercased()
                 

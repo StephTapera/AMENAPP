@@ -53,7 +53,7 @@ final class ChurchMatcherService: ObservableObject {
     @Published var isRanking = false
 
     private let db        = Firestore.firestore()
-    private let functions = Functions.functions()
+    private lazy var functions = Functions.functions()
 
     // MARK: - Public API
 
@@ -113,6 +113,10 @@ final class ChurchMatcherService: ObservableObject {
 
         let sorted = ranked.sorted { $0.totalScore > $1.totalScore }
         matches = sorted
+
+        // Generate and persist explainable recommendation reasons for all matches
+        ChurchRecommendationReasonService.shared.generateAndStoreAll(matches: sorted)
+
         return sorted
     }
 
@@ -210,9 +214,9 @@ struct ChurchMatchBadge: View {
         if score > 0 {
             HStack(spacing: 3) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 9))
+                    .font(.systemScaled(9))
                 Text("\(Int(score))% match")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
             }
             .foregroundStyle(color)
             .padding(.horizontal, 7)
@@ -230,11 +234,11 @@ struct ChurchMatchExplainerSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Why this match?")
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
                 .padding(.top, 20)
 
             Text(match.explanation)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(.secondaryLabel))
 
             // Score breakdown
@@ -257,11 +261,11 @@ struct ChurchMatchExplainerSheet: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(label)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(.label))
                 Spacer()
                 Text("\(Int(score * 100))%")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(.secondaryLabel))
             }
             GeometryReader { geo in

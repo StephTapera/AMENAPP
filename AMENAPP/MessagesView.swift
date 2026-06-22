@@ -16,6 +16,10 @@ enum MessageSheetType: Identifiable, Equatable {
     case chat(ChatConversation)
     case newMessage
     case createGroup
+    case createGroupLink
+    case createGroupLinkWithPurpose(GroupPurpose)
+    case joinGroupViaLink(token: String)
+    case generatedGroupLink(link: GroupLink, groupName: String)
     case settings
     
     var id: String {
@@ -26,6 +30,14 @@ enum MessageSheetType: Identifiable, Equatable {
             return "newMessage"
         case .createGroup:
             return "createGroup"
+        case .createGroupLink:
+            return "createGroupLink"
+        case .createGroupLinkWithPurpose(let purpose):
+            return "createGroupLinkPurpose_\(purpose.rawValue)"
+        case .joinGroupViaLink(let token):
+            return "joinGroupViaLink_\(token)"
+        case .generatedGroupLink(let link, _):
+            return "generatedGroupLink_\(link.token)"
         case .settings:
             return "settings"
         }
@@ -53,7 +65,9 @@ struct MessagesView: View {
     @ObservedObject private var messagingCoordinator = MessagingCoordinator.shared
     @ObservedObject private var userService = UserService.shared
     @ObservedObject private var blockService = BlockService.shared
+    @StateObject private var hubViewModel = AmenHubViewModel()
     @State private var searchText = ""
+    @FocusState private var isMessageSearchFocused: Bool
     @State private var activeSheet: MessageSheetType?
     @State private var selectedTab: MessageTab = .messages
     @State private var rowsVisible = false
@@ -85,12 +99,8 @@ struct MessagesView: View {
     @Environment(\.tabBarVisible) private var tabBarVisible
     @Environment(\.mainTabSelection) private var mainTabSelection
     
-    enum MessageTab {
-        case messages
-        case requests
-        case archived
-    }
-    
+    // MessageTab is now top-level in AdaptiveGlassInboxView.swift
+
     // Real conversations from Firebase — deduplicated by participant so pin/unpin
     // doesn't produce a second copy of the same person in any list.
     private var conversations: [ChatConversation] {
@@ -271,21 +281,8 @@ struct MessagesView: View {
                     tabBarVisible.wrappedValue = true
                 }
                 .sheet(item: $activeSheet) { sheetType in
-                    Group {
-                        switch sheetType {
-                        case .chat(let conversation):
-                            UnifiedChatView(conversation: conversation)
-                        case .newMessage:
-                            ProductionMessagingUserSearchView { selectedUser in
-                                Task { await startConversation(with: selectedUser) }
-                            }
-                        case .createGroup:
-                            CreateGroupView()
-                        case .settings:
-                            MessageSettingsView()
-                        }
-                    }
-                    .presentationDragIndicator(.visible)
+                    sheetContent(for: sheetType)
+                        .presentationDragIndicator(.visible)
                 }
                 .onAppear { recomputeConversationCache() }
                 .onChange(of: messagingService.conversations) { _, _ in recomputeConversationCache() }
@@ -318,102 +315,69 @@ struct MessagesView: View {
         }
     }
 
-    // MARK: — AMEN Inbox (new skin)
+    // MARK: — Sheet Content
 
-    private var amenInboxBody: some View {
-        ZStack(alignment: .top) {
-            AMENInboxTokens.background.ignoresSafeArea()
-
-            ScrollView(showsIndicators: false) {
-                LazyVStack(spacing: 0, pinnedViews: []) {
-
-                    // ── HERO HEADER ──────────────────────────────────────────
-                    InboxHeroHeader(
-                        greetingName: firstName,
-                        onCompose: { activeSheet = .newMessage },
-                        onBack: { mainTabSelection.wrappedValue = 0 },
-                        searchText: $searchText
-                    )
-
-                    // ── TAB SELECTOR ─────────────────────────────────────────
-                    amenTabSelector
-                        .padding(.horizontal, AMENInboxTokens.hPad)
-                        .padding(.bottom, 8)
-
-                    // ── QUICK ACCESS STRIP (Messages tab only) ───────────────
-                    if selectedTab == .messages && searchText.isEmpty {
-                        let recentAccepted = conversations.filter { $0.status == "accepted" }
-                        if !recentAccepted.isEmpty {
-                            InboxSectionLabel(text: "Recent")
-                            QuickAccessRow(conversations: recentAccepted) { conv in
-                                openChat(conv)
-                            }
-                            .padding(.bottom, 8)
-                            Divider()
-                                .padding(.horizontal, AMENInboxTokens.hPad)
-                                .padding(.bottom, 4)
-                        }
-                    }
-
-                    // ── PINNED CONVERSATIONS ─────────────────────────────────
-                    if selectedTab == .messages && !pinnedConversations.isEmpty && searchText.isEmpty {
-                        InboxSectionLabel(text: "Pinned")
-                        ForEach(pinnedConversations) { conv in
-                            amenThreadRow(conv)
-                                .contextMenu { conversationContextMenu(for: conv) }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    trailingSwipeActions(for: conv)
-                                }
-                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                                    Button {
-                                        unpinConversation(conv)
-                                    } label: { Label("Unpin", systemImage: "pin.slash.fill") }
-                                        .tint(.gray)
-                                }
-                            InboxSeparator()
-                        }
-                        InboxSectionLabel(text: "All Messages")
-                    }
-
-                    // ── MAIN LIST ────────────────────────────────────────────
-                    if filteredConversations.isEmpty {
-                        if searchText.isEmpty {
-                            InboxEmptyState(mode: .noMessages)
-                                .padding(.top, 60)
-                        } else {
-                            InboxEmptyState(mode: .noResults(searchText))
-                                .padding(.top, 60)
-                        }
-                    } else {
-                        ForEach(Array(filteredConversations.enumerated()), id: \.element.id) { index, conv in
-                            amenThreadRow(conv)
-                                .contextMenu { conversationContextMenu(for: conv) }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    trailingSwipeActions(for: conv)
-                                }
-                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                                    leadingSwipeActions(for: conv)
-                                }
-                                // Request AI summary when row appears
-                                .onAppear { aiSummaryService.requestSummary(for: conv) }
-                                // Staggered entrance animation
-                                .opacity(rowsVisible ? 1 : 0)
-                                .offset(x: rowsVisible ? 0 : 20)
-                                .animation(
-                                    .spring(response: 0.45, dampingFraction: 0.78)
-                                    .delay(Double(index) * 0.065),
-                                    value: rowsVisible
-                                )
-                            InboxSeparator()
-                        }
-                    }
-
-                    // Bottom padding for home indicator
-                    Spacer().frame(height: 32)
+    @ViewBuilder
+    private func sheetContent(for sheetType: MessageSheetType) -> some View {
+        switch sheetType {
+        case .chat(let conversation):
+            UnifiedChatView(conversation: conversation)
+        case .newMessage:
+            ProductionMessagingUserSearchView { selectedUser in
+                Task { await startConversation(with: selectedUser) }
+            }
+        case .createGroup:
+            CreateGroupView()
+        case .createGroupLink:
+            CreateGroupLinkSheet { link in
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    activeSheet = .generatedGroupLink(link: link, groupName: "Group")
                 }
             }
-            .refreshable { await refreshConversations() }
+        case .createGroupLinkWithPurpose(let purpose):
+            CreateGroupLinkSheet(onCreated: { link in
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    activeSheet = .generatedGroupLink(link: link, groupName: "Group")
+                }
+            }, presetPurpose: purpose)
+        case .joinGroupViaLink(let token):
+            JoinGroupViaLinkView(token: token) { conversationId in
+                MessagingCoordinator.shared.openConversation(conversationId)
+            }
+        case .generatedGroupLink(let link, let groupName):
+            GeneratedGroupLinkSheet(link: link, groupName: groupName)
+        case .settings:
+            MessageSettingsView()
         }
+    }
+
+    // MARK: — Adaptive Glass Inbox
+
+    private var amenInboxBody: some View {
+        AdaptiveGlassInboxView(
+            conversations:       filteredConversations,
+            pinnedConversations: pinnedConversations,
+            aiSummaryService:    aiSummaryService,
+            requestCount:        unreadRequestsCount,
+            firstName:           firstName,
+            searchText:          $searchText,
+            selectedTab:         $selectedTab,
+            isRefreshing:        $isRefreshing,
+            onOpenChat:          openChat,
+            onCompose:           { activeSheet = .newMessage },
+            onSettings:          { activeSheet = .settings },
+            onRequests:          { selectedTab = .requests },
+            onBack:              { mainTabSelection.wrappedValue = 0 },
+            onArchive:           archiveConversation,
+            onDelete:            { conv in conversationToDelete = conv; showDeleteConfirmation = true },
+            onPin:               pinConversation,
+            onUnpin:             unpinConversation,
+            onMarkRead:          markConversationRead,
+            onMarkUnread:        markConversationUnread,
+            onRefresh:           refreshConversations
+        )
     }
 
     // Single thread row using the new AMENThreadRow component
@@ -503,7 +467,7 @@ struct MessagesView: View {
         Button {
             // haptic
             HapticManager.impact(style: .light)
-            withAnimation(.spring(response: 0.26, dampingFraction: 0.78)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.26, dampingFraction: 0.78))) {
                 selectedTab = tab
             }
         } label: {
@@ -518,7 +482,7 @@ struct MessagesView: View {
                 // Inline badge count (requests only) with scale animation on first appearance
                 if let count = badge, count > 0 {
                     Text("\(min(count, 99))")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundStyle(isActive ? AMENInboxTokens.accent : .white)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -576,7 +540,7 @@ struct MessagesView: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 40, height: 40)
                         .background(
@@ -600,7 +564,7 @@ struct MessagesView: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "square.and.pencil")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 44, height: 44)
                         .background(
@@ -620,7 +584,22 @@ struct MessagesView: View {
             // ✅ Search bar (liquid glass, like reference)
             modernSearchBar
                 .padding(.horizontal, 20)
-                .padding(.bottom, 12)
+                .padding(.bottom, messagingService.isOffline ? 4 : 12)
+
+            // OFFLINE FIX: Stale-data freshness indicator — shown when device is offline
+            // and we have a timestamp from the last successful conversation sync.
+            if messagingService.isOffline, let loadedAt = messagingService.conversationsLastLoadedAt {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.systemScaled(11, weight: .medium))
+                    Text("Showing messages from \(loadedAt.relativeTimeString())")
+                        .font(.systemScaled(11, weight: .regular))
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 10)
+                .transition(.opacity)
+            }
         }
         .background(Color(.systemBackground))
     }
@@ -636,7 +615,7 @@ struct MessagesView: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 32, height: 32)
             }
@@ -655,7 +634,7 @@ struct MessagesView: View {
                 HapticManager.impact(style: .light)
             } label: {
                 Image(systemName: "square.and.pencil")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 32, height: 32)
             }
@@ -681,7 +660,7 @@ struct MessagesView: View {
         HStack(spacing: 8) {
             ForEach([MessageTab.messages, MessageTab.requests, MessageTab.archived], id: \.self) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                         selectedTab = tab
                     }
                     // haptic
@@ -727,7 +706,7 @@ struct MessagesView: View {
         VStack(spacing: 8) {
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(.secondary)
 
                 TextField("Search conversations", text: $searchText)
@@ -741,7 +720,7 @@ struct MessagesView: View {
                         searchText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -762,7 +741,7 @@ struct MessagesView: View {
                     HStack(spacing: 8) {
                         ForEach(["Photos", "Links", "People"], id: \.self) { filter in
                             Text(filter)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
@@ -807,7 +786,7 @@ struct MessagesView: View {
                         if selectedTab == .messages && !pinnedConversations.isEmpty && searchText.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("PINNED")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                                     .tracking(1)
                                     .foregroundStyle(.secondary.opacity(0.6))
                                     .padding(.horizontal, 20)
@@ -828,7 +807,7 @@ struct MessagesView: View {
                                     .padding(.vertical, 10)
 
                                 Text("ALL MESSAGES")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                                     .tracking(1)
                                     .foregroundStyle(.secondary.opacity(0.6))
                                     .padding(.horizontal, 20)
@@ -841,7 +820,7 @@ struct MessagesView: View {
                         // Search results header
                         if !searchText.isEmpty {
                             Text("RESULTS")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .tracking(1)
                                 .foregroundStyle(.secondary.opacity(0.6))
                                 .padding(.horizontal, 20)
@@ -878,7 +857,7 @@ struct MessagesView: View {
             .onAppear {
                 if !hasSeenSwipeHint && !filteredConversations.isEmpty {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                             showSwipeHint = true
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
@@ -894,7 +873,7 @@ struct MessagesView: View {
                 // Swipe hint tooltip
                 if showSwipeHint {
                     Text("Tip: swipe conversations for more options")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
@@ -910,7 +889,7 @@ struct MessagesView: View {
                     HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "square.and.pencil")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 52, height: 52)
                         .background(
@@ -931,8 +910,18 @@ struct MessagesView: View {
             openChat(conversation)
         } label: {
             HStack(spacing: 12) {
-                // ✅ Avatar (circular, 52pt like reference)
-                modernAvatarView(for: conversation)
+                // ✅ Avatar (circular, 52pt like reference) with presence indicator
+                ZStack(alignment: .bottomTrailing) {
+                    modernAvatarView(for: conversation)
+
+                    // Presence indicator (System 14)
+                    if AMENFeatureFlags.shared.presenceIntelligenceEnabled,
+                       let otherUserId = conversation.otherParticipantId,
+                       !conversation.isGroup {
+                        PresenceIndicatorView(userId: otherUserId, mode: .dot)
+                            .offset(x: 2, y: 2)
+                    }
+                }
                 
                 // ✅ Content (name + preview)
                 VStack(alignment: .leading, spacing: 4) {
@@ -944,7 +933,7 @@ struct MessagesView: View {
                         
                         if conversation.isGroup {
                             Image(systemName: "person.2.fill")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(.secondary)
                         }
                         
@@ -980,7 +969,7 @@ struct MessagesView: View {
 
                                 if conversation.unreadCount > 9 {
                                     Text("\(conversation.unreadCount)")
-                                        .font(.system(size: 11, weight: .bold))
+                                        .font(.systemScaled(11, weight: .bold))
                                         .foregroundStyle(.white)
                                         .padding(.horizontal, 5)
                                         .padding(.vertical, 1)
@@ -1054,7 +1043,7 @@ struct MessagesView: View {
             if !searchText.isEmpty {
                 // Search empty state
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(.secondary.opacity(0.4))
 
                 Text("No results for \"\(searchText)\"")
@@ -1070,7 +1059,7 @@ struct MessagesView: View {
                 }
             } else {
                 Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 64))
+                    .font(.systemScaled(64))
                     .foregroundStyle(.secondary.opacity(0.5))
 
                 Text("No messages yet")
@@ -1113,7 +1102,7 @@ struct MessagesView: View {
         // Compact header appears when scrolled down significantly
         if offset < -150 {
             if showHeader {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                     showHeader = false
                 }
             }
@@ -1121,7 +1110,7 @@ struct MessagesView: View {
         // Full header when at top or scrolling up
         else if offset >= -50 {
             if !showHeader {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
                     showHeader = true
                 }
             }
@@ -1144,7 +1133,13 @@ struct MessagesView: View {
         VStack(spacing: 16) {
             titleAndButtonsRow
             tabSelector
-            NeumorphicMessagesSearchBar(text: $searchText)
+            AmenSmartCapsule(
+                text: $searchText,
+                placeholder: "Search conversations",
+                style: .messages,
+                isFocused: $isMessageSearchFocused,
+                onClear: { searchText = "" }
+            )
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
@@ -1188,6 +1183,33 @@ struct MessagesView: View {
                     Label("New Group", systemImage: "person.3")
                 }
                 
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        activeSheet = .createGroupLink
+                    }
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Label("Create with Link", systemImage: "link.badge.plus")
+                }
+                
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        activeSheet = .createGroupLinkWithPurpose(.prayer)
+                    }
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Label("Prayer Group", systemImage: "hands.sparkles.fill")
+                }
+                
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        activeSheet = .createGroupLinkWithPurpose(.church)
+                    }
+                    HapticManager.impact(style: .light)
+                } label: {
+                    Label("Church Group", systemImage: "building.columns.fill")
+                }
+                
                 Divider()
                 
                 Button {
@@ -1216,7 +1238,7 @@ struct MessagesView: View {
         HStack(spacing: 0) {
             ForEach([MessageTab.messages, MessageTab.requests, MessageTab.archived], id: \.self) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.85))) {
                         selectedTab = tab
                     }
                     // haptic
@@ -1327,7 +1349,7 @@ struct MessagesView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Text("Pinned")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.systemScaled(13, weight: .semibold))
                                         .foregroundStyle(.secondary)
                                         .textCase(.uppercase)
                                         .tracking(0.5)
@@ -1335,7 +1357,7 @@ struct MessagesView: View {
                                     Spacer()
 
                                     Text("\(pinnedConversations.count)/3")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.systemScaled(12, weight: .medium))
                                         .foregroundStyle(.secondary.opacity(0.7))
                                 }
                                 .padding(.horizontal, 20)
@@ -1434,7 +1456,7 @@ struct MessagesView: View {
                         if !filteredConversations.isEmpty && !pinnedConversations.isEmpty {
                             HStack {
                                 Text("Messages")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                     .foregroundStyle(.secondary)
                                     .textCase(.uppercase)
                                     .tracking(0.5)
@@ -2040,7 +2062,7 @@ struct MessagesView: View {
                     .shadow(color: .white.opacity(0.7), radius: 20, x: -10, y: -10)
                 
                 Image(systemName: "archivebox.fill")
-                    .font(.system(size: 50))
+                    .font(.systemScaled(50))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.gray, .gray.opacity(0.6)],
@@ -2186,12 +2208,12 @@ struct MessagesView: View {
             HapticManager.notification(type: .success)
             
             // Smoothly transition to messages tab with animation
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                 selectedTab = .messages
             }
             
             if let acceptedConversation = messagingService.conversations.first(where: { $0.id == request.conversationId }) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
                     activeSheet = .chat(acceptedConversation)
                 }
             } else {
@@ -2204,7 +2226,7 @@ struct MessagesView: View {
                     unreadCount: 0,
                     avatarColor: .blue
                 )
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85))) {
                     activeSheet = .chat(placeholderConversation)
                 }
             }
@@ -2325,7 +2347,7 @@ struct MessagesView: View {
                     .shadow(color: .white.opacity(0.7), radius: 20, x: -10, y: -10)
                 
                 Image(systemName: "envelope.open.fill")
-                    .font(.system(size: 50))
+                    .font(.systemScaled(50))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.green, .green.opacity(0.7)],
@@ -2412,7 +2434,7 @@ struct MessagesView: View {
                     .shadow(color: .white.opacity(0.7), radius: 20, x: -10, y: -10)
                 
                 Image(systemName: "message.fill")
-                    .font(.system(size: 50))
+                    .font(.systemScaled(50))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.blue, .blue.opacity(0.7)],
@@ -2611,7 +2633,7 @@ struct SmartGlassmorphicButton: View {
                 .frame(width: size, height: size)
             
             Image(systemName: icon)
-                .font(.system(size: iconSize, weight: .semibold))
+                .font(.systemScaled(iconSize, weight: .semibold))
                 .foregroundStyle(isActive ? .blue : .primary)
                 .symbolEffect(.bounce, value: isPressed)
         }
@@ -2694,7 +2716,7 @@ struct NeumorphicConversationRow: View {
                 
                 if conversation.isGroup {
                     Image(systemName: "person.3.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(conversation.avatarColor)
                         .symbolEffect(.bounce, value: isPressed)
                 } else {
@@ -2839,7 +2861,7 @@ struct ModernConversationRow: View {
                 
                 if conversation.isGroup {
                     Image(systemName: "person.3.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(conversation.avatarColor)
                 } else {
                     Text(conversation.initials)
@@ -2853,14 +2875,14 @@ struct ModernConversationRow: View {
                 HStack {
                     Text(conversation.name)
                         .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                     
                     Spacer()
                     
                     Text(conversation.timestamp)
                         .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(.secondary)
                 }
                 
                 HStack {
@@ -2952,7 +2974,7 @@ struct ConversationRow: View {
                 
                 if conversation.isGroup {
                     Image(systemName: "person.3.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(conversation.avatarColor)
                 } else if let profilePhotoURL = conversation.profilePhotoURL, !profilePhotoURL.isEmpty {
                     // Show profile photo with caching for persistence
@@ -3200,7 +3222,7 @@ struct CreateGroupView: View {
             // Group preview line
             HStack(spacing: 6) {
                 Text("Members: \(selectedUsers.count)")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
 
@@ -3227,7 +3249,7 @@ struct CreateGroupView: View {
     private func checklistItem(text: String, satisfied: Bool) -> some View {
         HStack(spacing: 6) {
             Image(systemName: satisfied ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundColor(satisfied ? .green : Color.secondary.opacity(0.5))
             Text(text)
                 .font(.custom("OpenSans-Regular", size: 12))
@@ -3357,7 +3379,7 @@ struct CreateGroupView: View {
             } else if hasSearched && searchResults.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "person.crop.circle.badge.questionmark")
-                        .font(.system(size: 50))
+                        .font(.systemScaled(50))
                         .foregroundStyle(.secondary)
                     
                     Text("No users found")
@@ -3437,20 +3459,20 @@ struct CreateGroupView: View {
             
             if isUserSelected(user) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.blue)
             } else if selectedUsers.count >= maxMembers {
                 VStack(spacing: 2) {
                     Image(systemName: "exclamationmark.circle")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.orange)
                     Text("Limit")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.systemScaled(9, weight: .medium))
                         .foregroundStyle(.orange)
                 }
             } else {
                 Image(systemName: "circle")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.secondary.opacity(0.3))
             }
         }
@@ -3463,7 +3485,7 @@ struct CreateGroupView: View {
             
             VStack(spacing: 12) {
                 Image(systemName: "person.3")
-                    .font(.system(size: 50))
+                    .font(.systemScaled(50))
                     .foregroundStyle(.secondary)
                 
                 Text("Search to add members")
@@ -3646,7 +3668,7 @@ struct SelectedUserChip: View {
             
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
             }
         }
@@ -3659,7 +3681,7 @@ struct SelectedUserChip: View {
     }
 }
 
-struct MessageSettingsView: View {
+struct LegacyMessageSettingsViewPlaceholder: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("muteUnknownSenders") private var muteUnknownSenders = false
     @AppStorage("allowReadReceipts") private var allowReadReceipts = true
@@ -3777,7 +3799,7 @@ struct ProductionMessagingUserSearchView: View {
                     .shadow(color: .white.opacity(0.8), radius: 8, x: -4, y: -4)
                 
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             
@@ -3850,7 +3872,7 @@ struct ProductionMessagingUserSearchView: View {
                     .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
                 
                 Image(systemName: "person.2.fill")
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(.blue)
             }
             
@@ -3875,7 +3897,7 @@ struct ProductionMessagingUserSearchView: View {
             Spacer()
             
             Image(systemName: "person.crop.circle.badge.questionmark")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.gray)
             
             VStack(spacing: 8) {
@@ -3898,7 +3920,7 @@ struct ProductionMessagingUserSearchView: View {
             Spacer()
             
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 50))
+                .font(.systemScaled(50))
                 .foregroundStyle(.orange)
             
             Text(message)
@@ -4051,7 +4073,7 @@ struct ProductionUserRow: View {
             
             // Message indicator
             Image(systemName: "paperplane.fill")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.blue)
         }
         .padding(.horizontal, 20)
@@ -4188,7 +4210,7 @@ struct GlobalMessageSearchView: View {
             Spacer()
             
             Image(systemName: "text.magnifyingglass")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             VStack(spacing: 8) {
@@ -4211,7 +4233,7 @@ struct GlobalMessageSearchView: View {
             Spacer()
             
             Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(.secondary)
             
             VStack(spacing: 8) {
@@ -4398,7 +4420,7 @@ struct MessageSearchResultRow: View {
                 
                 if result.hasAttachment {
                     Image(systemName: "paperclip")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -4476,7 +4498,7 @@ struct SmartConversationRow: View {
                         HStack {
                             Spacer()
                             Image(systemName: "pin.fill")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.systemScaled(10, weight: .bold))
                                 .foregroundStyle(.orange)
                                 .padding(4)
                                 .background(
@@ -4504,7 +4526,7 @@ struct SmartConversationRow: View {
                         
                         if conversation.isMuted {
                             Image(systemName: "bell.slash.fill")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(.secondary.opacity(0.6))
                         }
                     }
@@ -4558,7 +4580,7 @@ struct SmartConversationRow: View {
                         // Delivery status for last message
                         if conversation.lastMessage.hasPrefix("You: ") {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(.blue.opacity(0.6))
                         }
                     }
@@ -4647,7 +4669,7 @@ struct SmartConversationRow: View {
             
             if conversation.isGroup {
                 Image(systemName: "person.3.fill")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(conversation.avatarColor)
                     .symbolEffect(.bounce, value: isPressed)
             } else {
@@ -4664,19 +4686,19 @@ struct SmartConversationRow: View {
             // Icon based on message type
             if conversation.lastMessage.contains("📷") || conversation.lastMessage.contains("Photo") {
                 Image(systemName: "photo.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             } else if conversation.lastMessage.contains("🎤") || conversation.lastMessage.contains("Voice") {
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             } else if conversation.lastMessage.contains("📎") || conversation.lastMessage.contains("Attachment") {
                 Image(systemName: "paperclip")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             } else if conversation.lastMessage.contains("❤️") || conversation.lastMessage.contains("Liked") {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.red.opacity(0.8))
             }
             
@@ -4808,7 +4830,7 @@ struct CoordinatorModifier: ViewModifier {
     let messagingService: FirebaseMessagingService
     let conversations: [ChatConversation]
     @Binding var activeSheet: MessageSheetType?
-    @Binding var selectedTab: MessagesView.MessageTab
+    @Binding var selectedTab: MessageTab
     
     func body(content: Content) -> some View {
         content
@@ -4835,6 +4857,11 @@ struct CoordinatorModifier: ViewModifier {
                     }
                 }
             }
+            .onReceive(messagingCoordinator.$groupJoinToken) { token in
+                // Handle group join link deep links
+                guard let token = token, !token.isEmpty else { return }
+                activeSheet = .joinGroupViaLink(token: token)
+            }
     }
 }
 
@@ -4844,6 +4871,8 @@ struct ModernConversationDetailView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.mainTabSelection) private var mainTabSelection
     let conversation: ChatConversation
+    @ObservedObject private var supportDetectionService = SupportDetectionService.shared
+    @ObservedObject private var supportActionExecutor = SupportActionExecutor.shared
     @State private var messageText = ""
     @State private var messages: [AppMessage] = []
     @FocusState private var isInputFocused: Bool
@@ -4859,6 +4888,10 @@ struct ModernConversationDetailView: View {
     @State private var errorMessage = ""
     
     @State private var typingTask: Task<Void, Never>?
+    @State private var supportDraftTask: Task<Void, Never>?
+    @State private var supportDraftPayload: SupportInterventionPayload?
+    @State private var showSupportDraftSheet = false
+    @State private var bypassSupportGate = false
     
     var body: some View {
         ZStack {
@@ -4923,7 +4956,31 @@ struct ModernConversationDetailView: View {
             // Floating input bar with liquid glass
             VStack {
                 Spacer()
-                
+
+                if let payload = supportDraftPayload {
+                    switch payload.presentationMode {
+                    case .chips(let chips):
+                        SupportChipsRowView(
+                            chips: chips,
+                            onTap: handleSupportAction(_:),
+                            onDismiss: dismissSupportPrompt
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                    case .inlineCard(let model):
+                        SupportInlineCardView(
+                            model: model,
+                            actions: payload.actions,
+                            onTap: handleSupportAction(_:),
+                            onDismiss: dismissSupportPrompt
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                    case .none, .sheet:
+                        EmptyView()
+                    }
+                }
+
                 ModernChatInputBar(
                     messageText: $messageText,
                     isInputFocused: _isInputFocused,
@@ -4936,6 +4993,18 @@ struct ModernConversationDetailView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showingPhotoPicker) {
             MessagingPhotoPickerView(selectedImages: $selectedImages)
+        }
+        .sheet(isPresented: $showSupportDraftSheet) {
+            if let payload = supportDraftPayload,
+               case .sheet(let model) = payload.presentationMode {
+                SupportInterventionSheetView(
+                    model: model,
+                    actions: payload.actions,
+                    onAction: handleSupportAction(_:),
+                    onDismiss: dismissSupportPrompt,
+                    onContinue: continueSendAfterSupportPrompt
+                )
+            }
         }
         .alert("Message Failed", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) {}
@@ -4953,6 +5022,8 @@ struct ModernConversationDetailView: View {
             // Cancel typing task
             typingTask?.cancel()
             typingTask = nil
+            supportDraftTask?.cancel()
+            supportDraftTask = nil
             
             // Send typing stopped status
             Task { @MainActor in
@@ -4964,7 +5035,9 @@ struct ModernConversationDetailView: View {
         }
         .onReceive(Just(messageText)) { newValue in
             handleTypingIndicator(isTyping: !newValue.isEmpty)
+            scheduleSupportDraftAnalysis(for: newValue)
         }
+        .supportDestinationSheet()
     }
     
     // MARK: - Modern Header (Liquid Glass Design)
@@ -5011,14 +5084,14 @@ struct ModernConversationDetailView: View {
     
     private var backButton: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                 mainTabSelection.wrappedValue = 0  // Navigate to home tab
             }
             // haptic
             HapticManager.impact(style: .light)
         } label: {
             Image(systemName: "chevron.left")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(liquidGlassCircleSmall)
@@ -5046,7 +5119,7 @@ struct ModernConversationDetailView: View {
             
             if conversation.isGroup {
                 Image(systemName: "person.3.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.white.opacity(0.9))
             } else {
                 Text(conversation.initials)
@@ -5081,7 +5154,7 @@ struct ModernConversationDetailView: View {
             // More options
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(liquidGlassCircleSmall)
@@ -5152,6 +5225,12 @@ struct ModernConversationDetailView: View {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImages.isEmpty else { return }
         
         let textToSend = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if shouldPresentSupportGate(for: textToSend) {
+            showSupportDraftSheet = true
+            return
+        }
+
         let imagesToSend = selectedImages
         let replyToId = replyingTo?.id
         
@@ -5198,6 +5277,72 @@ struct ModernConversationDetailView: View {
     
     private func simulateResponse() {
         // Remove this function - responses will come from real users via Firebase
+    }
+
+    private func scheduleSupportDraftAnalysis(for text: String) {
+        supportDraftTask?.cancel()
+        bypassSupportGate = false
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            supportDraftPayload = nil
+            return
+        }
+
+        supportDraftTask = Task {
+            try? await Task.sleep(nanoseconds: 550_000_000)
+            guard !Task.isCancelled else { return }
+
+            let payload = await supportDetectionService.analyzeSupport(
+                surface: .dmDraft,
+                text: trimmed,
+                sourceId: conversation.id,
+                metadata: [
+                    "conversationId": conversation.id,
+                    "isGroup": conversation.isGroup ? "true" : "false"
+                ]
+            )
+
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                supportDraftPayload = payload
+                if let payload {
+                    supportDetectionService.record(payload: payload, outcome: .shown)
+                }
+            }
+        }
+    }
+
+    private func handleSupportAction(_ action: SupportAction) {
+        guard let payload = supportDraftPayload else { return }
+        supportActionExecutor.execute(action, from: .dmDraft)
+        supportDetectionService.record(payload: payload, outcome: .engaged)
+        showSupportDraftSheet = false
+    }
+
+    private func dismissSupportPrompt() {
+        if let payload = supportDraftPayload {
+            supportDetectionService.record(payload: payload, outcome: .dismissed)
+        }
+        supportDraftPayload = nil
+        showSupportDraftSheet = false
+    }
+
+    private func continueSendAfterSupportPrompt() {
+        bypassSupportGate = true
+        showSupportDraftSheet = false
+        sendMessage()
+    }
+
+    private func shouldPresentSupportGate(for text: String) -> Bool {
+        guard !bypassSupportGate,
+              let payload = supportDraftPayload,
+              payload.analyzedText == text,
+              case .sheet = payload.presentationMode else {
+            return false
+        }
+
+        return true
     }
     
     private func simulateTyping() {
@@ -5273,4 +5418,3 @@ struct ModernConversationDetailView: View {
         }
     }
 }
-

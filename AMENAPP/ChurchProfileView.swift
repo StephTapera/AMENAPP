@@ -29,6 +29,12 @@ struct ChurchProfileView: View {
     // Feature 05: Plan My Visit
     @State private var showPlanVisit = false
 
+    // Smart Features
+    @State private var showExperienceComposer = false
+    @State private var showSpiritualNeeds = false
+    @State private var showVisitTogether = false
+    @State private var spiritualNeedsSelection: Set<SpiritualNeed> = []
+
     // Feature 03: Calendar cross-ref
     @StateObject private var calendarCrossRef = ServiceCalendarManager()
     
@@ -38,7 +44,7 @@ struct ChurchProfileView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack(alignment: .topTrailing) {
                 if let profileData = viewModel.profileData {
                     // ── Scroll-driven expanding sheet layout ──────────────
@@ -60,12 +66,19 @@ struct ChurchProfileView: View {
                 } else if let error = viewModel.error {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.secondary)
                         Text(error)
-                            .font(.custom("OpenSans-Regular", size: 15))
+                            .font(AMENFont.regular(15))
                             .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(40)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
+                    .padding(.horizontal, 32)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
 
@@ -74,7 +87,7 @@ struct ChurchProfileView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
                 }
@@ -91,6 +104,38 @@ struct ChurchProfileView: View {
             .sheet(isPresented: $showPlanVisit) {
                 if let church = viewModel.profileData?.church {
                     PlanMyVisitView(churchId: church.id, churchName: church.name, churchAddress: church.address)
+                }
+            }
+            .sheet(isPresented: $showExperienceComposer) {
+                if let church = viewModel.profileData?.church {
+                    let uid = Auth.auth().currentUser?.uid ?? ""
+                    let name = Auth.auth().currentUser?.displayName ?? "Anonymous"
+                    ChurchExperienceComposer(churchId: church.id, churchName: church.name, authorId: uid, authorName: name)
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
+                }
+            }
+            .sheet(isPresented: $showSpiritualNeeds) {
+                NavigationStack {
+                    SpiritualNeedsRouterView(
+                        selectedNeeds: $spiritualNeedsSelection,
+                        onFind: { _ in showSpiritualNeeds = false }
+                    )
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showVisitTogether) {
+                if let church = viewModel.profileData?.church {
+                    VisitTogetherView(church: .init(
+                        id: church.id,
+                        name: church.name,
+                        serviceTime: "Sunday Service",
+                        distanceMiles: nil,
+                        address: church.address
+                    ))
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
                 }
             }
         }
@@ -133,14 +178,14 @@ struct ChurchProfileView: View {
             // Name + denomination visible in hero
             VStack(spacing: 4) {
                 Text(church.name)
-                    .font(.custom("OpenSans-Bold", size: 26))
+                    .font(AMENFont.bold(26))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
 
                 if let denomination = church.denomination {
                     Text(denomination)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.white.opacity(0.85))
                         .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
                 }
@@ -225,7 +270,7 @@ struct ChurchProfileView: View {
                 showPlanVisit = true
             } label: {
                 Label("Plan My Visit", systemImage: "calendar.badge.plus")
-                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .font(AMENFont.semiBold(15))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Color.orange)
@@ -239,7 +284,81 @@ struct ChurchProfileView: View {
             // First visit guide button
             FirstVisitGuideButton(church: profileData.church)
                 .padding(.top, 8)
-                .padding(.bottom, 16)
+
+            // Your Journey timeline (conditionally shown when interaction exists)
+            if AMENFeatureFlags.shared.churchJourneyTimelineEnabled,
+               ChurchInteractionService.shared.interaction(for: profileData.church.id) != nil {
+                Divider()
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 20)
+
+                ChurchJourneyTimelineView(
+                    churchId: profileData.church.id,
+                    churchName: profileData.church.name
+                )
+                .padding(.horizontal, 4)
+            }
+
+            // Live Church Intelligence — service countdown, parking, events
+            LiveChurchIntelligenceView(signals: LiveChurchSignalFactory.signals(
+                nextServiceIn: nil,
+                parkingTip: nil,
+                eventTonight: nil,
+                hasChildcareAt: nil,
+                hasLivestream: false,
+                specialEvent: nil,
+                sermonSeries: nil,
+                spanishServiceTime: nil,
+                hasASL: false
+            ))
+            .padding(.top, 12)
+            .padding(.horizontal, 20)
+
+            // Community reputation from verified visitors
+            ChurchReputationCard(entries: [], onShareExperience: { showExperienceComposer = true })
+                .padding(.top, 12)
+                .padding(.horizontal, 20)
+
+            // Smart feature quick-access row
+            HStack(spacing: 10) {
+                Button { showSpiritualNeeds = true } label: {
+                    Label("Find Your Fit", systemImage: "sparkles")
+                        .font(AMENFont.semiBold(13))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Capsule().fill(.ultraThinMaterial).overlay(Capsule().fill(Color.white.opacity(0.55))))
+                        .overlay(Capsule().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                        .foregroundStyle(Color.primary)
+                }
+                .buttonStyle(.plain)
+
+                Button { showVisitTogether = true } label: {
+                    Label("Visit Together", systemImage: "person.2.fill")
+                        .font(AMENFont.semiBold(13))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Capsule().fill(.ultraThinMaterial).overlay(Capsule().fill(Color.white.opacity(0.55))))
+                        .overlay(Capsule().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                        .foregroundStyle(Color.primary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+
+            Button { showExperienceComposer = true } label: {
+                Label("Share Your Experience", systemImage: "star.bubble")
+                    .font(AMENFont.semiBold(15))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(Color.black)
+                    .foregroundStyle(.white)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 20)
         }
     }
     
@@ -253,7 +372,7 @@ struct ChurchProfileView: View {
             )
             
             Image(systemName: "building.columns.fill")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(.white.opacity(0.8))
         }
     }
@@ -343,11 +462,11 @@ struct ChurchProfileView: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.blue)
                 
                 Text(label)
-                    .font(.custom("OpenSans-Regular", size: 11))
+                    .font(AMENFont.regular(11))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
@@ -399,17 +518,17 @@ struct ChurchProfileView: View {
     private func infoRow(icon: String, label: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(.blue)
                 .frame(width: 24)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(label)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                     .foregroundStyle(.secondary)
                 
                 Text(value)
-                    .font(.custom("OpenSans-Regular", size: 15))
+                    .font(AMENFont.regular(15))
                     .foregroundStyle(.primary)
             }
         }
@@ -418,17 +537,18 @@ struct ChurchProfileView: View {
     private func statBadge(value: Int, label: String) -> some View {
         VStack(spacing: 4) {
             Text("\(value)")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .foregroundStyle(.primary)
-            
+
             Text(label)
-                .font(.custom("OpenSans-Regular", size: 12))
+                .font(AMENFont.regular(12))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
     }
     
     // MARK: - Service Times Section
@@ -438,7 +558,7 @@ struct ChurchProfileView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Service Times")
-                    .font(.custom("OpenSans-Bold", size: 18))
+                    .font(AMENFont.bold(18))
                 Spacer()
                 Button {
                     calendarCrossRef.checkAvailability(for: services)
@@ -447,7 +567,7 @@ struct ChurchProfileView: View {
                         ProgressView().scaleEffect(0.75)
                     } else {
                         Label("My Calendar", systemImage: "calendar")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -460,12 +580,12 @@ struct ChurchProfileView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(dayName(service.dayOfWeek))
-                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .font(AMENFont.semiBold(15))
                                 .foregroundStyle(.primary)
 
                             if let serviceType = service.serviceType {
                                 Text(serviceType)
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .font(AMENFont.regular(13))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -474,7 +594,7 @@ struct ChurchProfileView: View {
 
                         HStack(spacing: 10) {
                             Text(service.time)
-                                .font(.custom("OpenSans-Bold", size: 15))
+                                .font(AMENFont.bold(15))
                                 .foregroundStyle(.blue)
 
                             // Calendar conflict indicator (Feature 03)
@@ -496,10 +616,10 @@ struct ChurchProfileView: View {
                                     HStack(spacing: 4) {
                                         Image(systemName: serviceModeActive && selectedServiceForMode == service
                                               ? "stop.circle.fill" : "play.circle")
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                         Text(serviceModeActive && selectedServiceForMode == service
                                              ? "End" : "Start")
-                                            .font(.custom("OpenSans-SemiBold", size: 12))
+                                            .font(AMENFont.semiBold(12))
                                     }
                                     .foregroundStyle(serviceModeActive && selectedServiceForMode == service
                                                     ? Color.red : Color.primary)
@@ -519,8 +639,9 @@ struct ChurchProfileView: View {
                         }
                     }
                     .padding(16)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(12)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
                 }
                 .padding(.horizontal, 20)
             }
@@ -605,7 +726,7 @@ struct ChurchProfileView: View {
     private func tipsSection(_ tips: [ChurchTip]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Visitor Tips")
-                .font(.custom("OpenSans-Bold", size: 18))
+                .font(AMENFont.bold(18))
                 .padding(.horizontal, 20)
             
             ForEach(tips) { tip in
@@ -643,7 +764,7 @@ struct ChurchTipCard: View {
                 }
                 
                 Text(tip.authorName)
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                     .foregroundStyle(.primary)
                 
                 Spacer()
@@ -651,10 +772,10 @@ struct ChurchTipCard: View {
                 // Category badge
                 HStack(spacing: 4) {
                     Image(systemName: tip.category.icon)
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     
                     Text(tip.category.displayName)
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                 }
                 .foregroundStyle(.blue)
                 .padding(.horizontal, 8)
@@ -665,7 +786,7 @@ struct ChurchTipCard: View {
             
             // Tip content
             Text(tip.content)
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
             
@@ -673,17 +794,18 @@ struct ChurchTipCard: View {
             Button(action: onHelpful) {
                 HStack(spacing: 4) {
                     Image(systemName: tip.isHelpful ? "hand.thumbsup.fill" : "hand.thumbsup")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     
                     Text("Helpful (\(tip.helpfulCount))")
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                 }
                 .foregroundStyle(tip.isHelpful ? .blue : .secondary)
             }
         }
         .padding(16)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
         .padding(.horizontal, 20)
     }
 }
@@ -767,10 +889,11 @@ class ChurchProfileViewModel: ObservableObject {
         guard let church = profileData?.church else { return }
         
         let coordinate = church.coordinate
-        let mapItem = MKMapItem(location: CLLocation(
+        let placemark = MKPlacemark(coordinate: CLLocationCoordinate2D(
             latitude: coordinate.latitude,
             longitude: coordinate.longitude
-        ), address: nil)
+        ))
+        let mapItem = MKMapItem(placemark: placemark)
         mapItem.name = church.name
         mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
     }
@@ -914,7 +1037,7 @@ struct ChurchVibeView: View {
             } else if mgr.hasData {
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Community Vibe", systemImage: "heart.text.square")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                        .font(AMENFont.bold(16))
 
                     VStack(spacing: 8) {
                         vibeMeter(label: "Warmth", value: mgr.warmth)
@@ -944,14 +1067,14 @@ struct ChurchVibeView: View {
     private func vibeMeter(label: String, value: Int) -> some View {
         HStack(spacing: 10) {
             Text(label)
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .foregroundStyle(.secondary)
                 .frame(width: 100, alignment: .leading)
             ProgressView(value: Double(value), total: 100)
                 .tint(.orange)
                 .frame(maxWidth: .infinity)
             Text("\(value)%")
-                .font(.system(size: 11, design: .monospaced))
+                .font(.systemScaled(11, design: .monospaced))
                 .foregroundStyle(.orange)
                 .frame(width: 36, alignment: .trailing)
         }
@@ -959,7 +1082,7 @@ struct ChurchVibeView: View {
 
     private func vibeTag(label: String, icon: String) -> some View {
         Label(label, systemImage: icon)
-            .font(.system(size: 10, design: .monospaced))
+            .font(.systemScaled(10, design: .monospaced))
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(Color.orange.opacity(0.1))
             .foregroundStyle(.orange)
@@ -983,7 +1106,7 @@ class PlanVisitManager: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else { errorMessage = "Not signed in"; return }
         step = .booking
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let visitorRef = db.collection("churchVisitors").document()
         let fmt = ISO8601DateFormatter(); fmt.formatOptions = [.withFullDate]
 
@@ -1044,15 +1167,15 @@ struct PlanMyVisitView: View {
     let services = ["Sunday Morning", "Sunday Evening", "Wednesday Night", "First Service", "Second Service"]
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
                     // Church header
                     VStack(spacing: 4) {
                         Text(churchName)
-                            .font(.custom("OpenSans-Bold", size: 22))
+                            .font(AMENFont.bold(22))
                         Text(churchAddress)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
@@ -1078,7 +1201,7 @@ struct PlanMyVisitView: View {
                                               serviceLabel: selectedService, serviceDate: selectedDate)
                             } label: {
                                 Label("Plan My Visit", systemImage: "calendar.badge.plus")
-                                    .font(.custom("OpenSans-SemiBold", size: 16))
+                                    .font(AMENFont.semiBold(16))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
                                     .background(Color.orange)
@@ -1132,15 +1255,15 @@ struct PlanMyVisitView: View {
                     .stroke(done ? Color.green : active ? Color.orange : Color.gray.opacity(0.3), lineWidth: 1.5)
                     .frame(width: 24, height: 24)
                 if done {
-                    Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.green)
+                    Image(systemName: "checkmark").font(.systemScaled(10, weight: .bold)).foregroundStyle(.green)
                 } else if active {
                     ProgressView().scaleEffect(0.5)
                 }
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(label).font(.custom("OpenSans-SemiBold", size: 14))
+                Text(label).font(AMENFont.semiBold(14))
                     .foregroundStyle(done ? .primary : .secondary)
-                Text(sub).font(.custom("OpenSans-Regular", size: 12)).foregroundStyle(.secondary)
+                Text(sub).font(AMENFont.regular(12)).foregroundStyle(.secondary)
             }
         }
         .animation(.easeInOut(duration: 0.4), value: done)

@@ -7,7 +7,7 @@ import FirebaseAuth
 
 class DataMigrationService {
     static let shared = DataMigrationService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // MARK: - Migration Functions
     
@@ -330,7 +330,7 @@ struct DataMigrationView: View {
     @State private var alertMessage = ""
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 // Warning banner
                 VStack(alignment: .leading, spacing: 8) {

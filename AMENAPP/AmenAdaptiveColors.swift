@@ -16,87 +16,47 @@ extension Color {
     
     /// Primary background - Main app background
     /// Light: white (#FFFFFF), Dark: deep charcoal (#1A1A1A)
-    static let adaptiveBackground = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)  // #1A1A1A
-            : UIColor.white
-    })
+    static let adaptiveBackground = AmenTheme.Colors.backgroundBase
     
     /// Secondary background - Elevated surfaces, cards
     /// Light: very light gray (#F5F5F5), Dark: lighter charcoal (#252525)
-    static let adaptiveSecondaryBackground = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 1.0)  // #252525
-            : UIColor(red: 0.96, green: 0.96, blue: 0.96, alpha: 1.0)  // #F5F5F5
-    })
+    static let adaptiveSecondaryBackground = AmenTheme.Colors.backgroundElevated
     
     /// Surface - Cards, cells, post cards
     /// Light: white, Dark: medium gray (#2E2E2E)
-    static let adaptiveSurface = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor(red: 0.18, green: 0.18, blue: 0.18, alpha: 1.0)  // #2E2E2E
-            : UIColor.white
-    })
+    static let adaptiveSurface = AmenTheme.Colors.surfaceCard
     
     /// Grouped background - For grouped lists
     /// Light: iOS default systemGroupedBackground, Dark: very dark (#121212)
-    static let adaptiveGroupedBackground = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor(red: 0.07, green: 0.07, blue: 0.07, alpha: 1.0)  // #121212
-            : UIColor.systemGroupedBackground
-    })
+    static let adaptiveGroupedBackground = AmenTheme.Colors.backgroundGrouped
     
     // MARK: - Adaptive Text
     
     /// Primary text - Highest emphasis, main content
     /// Light: black, Dark: white
-    static let adaptiveTextPrimary = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white
-            : UIColor.black
-    })
+    static let adaptiveTextPrimary = AmenTheme.Colors.textPrimary
     
     /// Secondary text - Medium emphasis, supporting content
     /// Light: black 70% opacity, Dark: white 70% opacity
-    static let adaptiveTextSecondary = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.7)
-            : UIColor.black.withAlphaComponent(0.7)
-    })
+    static let adaptiveTextSecondary = AmenTheme.Colors.textSecondary
     
     /// Tertiary text - Low emphasis, captions, timestamps
     /// Light: black 50% opacity, Dark: white 50% opacity
-    static let adaptiveTextTertiary = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.5)
-            : UIColor.black.withAlphaComponent(0.5)
-    })
+    static let adaptiveTextTertiary = AmenTheme.Colors.textTertiary
     
     /// Placeholder text - Text field placeholders
     /// Light: black 30% opacity, Dark: white 30% opacity
-    static let adaptivePlaceholder = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.3)
-            : UIColor.black.withAlphaComponent(0.3)
-    })
+    static let adaptivePlaceholder = AmenTheme.Colors.textPlaceholder
     
     // MARK: - Adaptive UI Elements
     
     /// Divider - Separator lines between content
     /// Light: black 10% opacity, Dark: white 15% opacity
-    static let adaptiveDivider = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.15)
-            : UIColor.black.withAlphaComponent(0.1)
-    })
+    static let adaptiveDivider = AmenTheme.Colors.separatorSubtle
     
     /// Border - Stroke borders around elements
     /// Light: black 10% opacity, Dark: white 20% opacity
-    static let adaptiveBorder = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.2)
-            : UIColor.black.withAlphaComponent(0.1)
-    })
+    static let adaptiveBorder = AmenTheme.Colors.borderSoft
     
     /// Shadow - Color for shadow overlays (used with opacity)
     /// Light: black, Dark: black (but with higher opacity in dark mode)
@@ -107,85 +67,45 @@ extension Color {
     
     /// Glass overlay - For glassmorphic effects
     /// Light: white 30% opacity, Dark: white 10% opacity
-    static let adaptiveGlassOverlay = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.1)
-            : UIColor.white.withAlphaComponent(0.3)
-    })
+    static let adaptiveGlassOverlay = AmenTheme.Colors.glassFill
     
     /// Glass secondary overlay - Subtle highlight
     /// Light: white 12% opacity, Dark: white 5% opacity
-    static let adaptiveGlassSecondary = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.05)
-            : UIColor.white.withAlphaComponent(0.12)
-    })
+    static let adaptiveGlassSecondary = AmenTheme.Colors.glassHighlightBottom
     
     /// Glass border - For glassmorphic borders
     /// Light: white 50% opacity, Dark: white 30% opacity
-    static let adaptiveGlassBorder = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.3)
-            : UIColor.white.withAlphaComponent(0.5)
-    })
+    static let adaptiveGlassBorder = AmenTheme.Colors.glassStroke
     
     // MARK: - Adaptive Button Colors
     
     /// Primary button background - High emphasis actions (Follow, Post, Send)
     /// Light: black, Dark: white
-    static let adaptiveButtonPrimaryBackground = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white
-            : UIColor.black
-    })
+    static let adaptiveButtonPrimaryBackground = AmenTheme.Colors.buttonPrimary
     
     /// Primary button text - Text on primary buttons
     /// Light: white, Dark: black
-    static let adaptiveButtonPrimaryText = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.black
-            : UIColor.white
-    })
+    static let adaptiveButtonPrimaryText = AmenTheme.Colors.buttonPrimaryText
     
     /// Secondary button background - Medium emphasis actions
     /// Light: white with border, Dark: gray with border
-    static let adaptiveButtonSecondaryBackground = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor(red: 0.25, green: 0.25, blue: 0.25, alpha: 1.0)  // Medium gray
-            : UIColor.white
-    })
+    static let adaptiveButtonSecondaryBackground = AmenTheme.Colors.buttonSecondary
     
     /// Secondary button text - Text on secondary buttons
     /// Light: black, Dark: white
-    static let adaptiveButtonSecondaryText = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white
-            : UIColor.black
-    })
+    static let adaptiveButtonSecondaryText = AmenTheme.Colors.textPrimary
     
     /// Tertiary button background - Low emphasis, transparent
     /// Light: black 5% opacity, Dark: white 10% opacity
-    static let adaptiveButtonTertiaryBackground = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.1)
-            : UIColor.black.withAlphaComponent(0.05)
-    })
+    static let adaptiveButtonTertiaryBackground = AmenTheme.Colors.surfaceChip
     
     /// Tertiary button text - Text on tertiary/ghost buttons
     /// Light: black, Dark: white
-    static let adaptiveButtonTertiaryText = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white
-            : UIColor.black
-    })
+    static let adaptiveButtonTertiaryText = AmenTheme.Colors.textPrimary
     
     /// Destructive button background - Delete, Remove actions
     /// Light: red, Dark: lighter red
-    static let adaptiveButtonDestructiveBackground = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor(red: 0.95, green: 0.4, blue: 0.4, alpha: 1.0)
-            : UIColor(red: 0.9, green: 0.3, blue: 0.3, alpha: 1.0)
-    })
+    static let adaptiveButtonDestructiveBackground = AmenTheme.Colors.buttonDestructive
     
     /// Destructive button text - Text on destructive buttons
     /// Always white for contrast
@@ -193,41 +113,28 @@ extension Color {
     
     /// Disabled button background - Non-interactive state
     /// Light: black 10% opacity, Dark: white 10% opacity
-    static let adaptiveButtonDisabledBackground = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.1)
-            : UIColor.black.withAlphaComponent(0.1)
-    })
+    static let adaptiveButtonDisabledBackground = AmenTheme.Colors.surfaceChip
     
     /// Disabled button text - Text on disabled buttons
     /// Light: black 30% opacity, Dark: white 30% opacity
-    static let adaptiveButtonDisabledText = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.3)
-            : UIColor.black.withAlphaComponent(0.3)
-    })
+    static let adaptiveButtonDisabledText = AmenTheme.Colors.textPlaceholder
     
     /// Icon button background - Small icon-only buttons
     /// Light: black 5% opacity, Dark: white 8% opacity
-    static let adaptiveIconButtonBackground = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.08)
-            : UIColor.black.withAlphaComponent(0.05)
-    })
+    static let adaptiveIconButtonBackground = AmenTheme.Colors.surfaceChip
     
     /// Icon button foreground - Icon color in icon buttons
     /// Light: black 70%, Dark: white 70%
-    static let adaptiveIconButtonForeground = Color(uiColor: UIColor { traitCollection in
-        traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.7)
-            : UIColor.black.withAlphaComponent(0.7)
-    })
+    static let adaptiveIconButtonForeground = AmenTheme.Colors.iconSecondary
     
     // MARK: - Accent Colors (Remain Constant Across Modes)
-    
-    /// Gold accent - Premium, elegant (stays the same in both modes)
-    static let amenGold = Color(red: 0.83, green: 0.69, blue: 0.22)
-    
+
+    // C3: was gold — mapped to system accent
+    static let amenGold = Color.accentColor
+
+    // C3: was gold — mapped to system accent
+    static let amenGoldText = Color.accentColor
+
     /// Bronze accent - Warm, sophisticated (stays the same)
     static let amenBronze = Color(red: 0.80, green: 0.50, blue: 0.20)
     

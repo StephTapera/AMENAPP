@@ -99,6 +99,30 @@ struct PostMediaContainer: Codable, Equatable {
     }
 }
 
+// MARK: - Frame Caption Metadata
+
+struct FrameCaptionMetadata: Codable, Equatable, Hashable {
+    let verseReference: String?
+    let frameIndex: Int?
+    let captionText: String?
+}
+
+// MARK: - PostMediaItem moment extensions
+
+extension PostMediaItem {
+    var frameCaptionMetadata: FrameCaptionMetadata? { nil }
+    var verseLinkedMoments: [VerseLinkedMoment]? { nil }
+    var featuredFrameTime: Double? { nil }
+    var resolvedKeyMoments: [MediaKeyMoment] { [] }
+    var effectiveFrameCaption: String? { nil }
+    var captionTrack: MediaCaptionTrack? { nil }
+    var previewURL: String? { thumbnailURL }
+    var originalURL: String? { url }
+    var generationStatus: MediaGenerationStatus { .idle }
+    var audioBed: MediaAudioBed? { nil }
+    var userEditedMetadata: Bool? { nil }
+}
+
 // MARK: - Convenience Initializers
 
 extension PostMediaContainer {

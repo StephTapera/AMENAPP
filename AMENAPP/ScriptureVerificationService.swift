@@ -195,7 +195,7 @@ struct ScriptureVerifiedBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: isVerified ? "checkmark.seal.fill" : "exclamationmark.triangle")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundColor(isVerified ? .green : .orange)
             
             Text(isVerified ? "Scripture Verified" : "Check Context")

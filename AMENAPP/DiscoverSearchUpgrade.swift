@@ -29,13 +29,13 @@ struct SearchScopeTabBar: View {
             HStack(spacing: 4) {
                 ForEach(SearchScope.allCases, id: \.self) { scope in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.72))) {
                             selected = scope
                         }
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     } label: {
                         Text(scope.rawValue)
-                            .font(.system(size: 14, weight: selected == scope ? .semibold : .regular))
+                            .font(.systemScaled(14, weight: selected == scope ? .semibold : .regular))
                             .foregroundStyle(selected == scope ? Color(.label) : Color(.secondaryLabel))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
@@ -95,7 +95,7 @@ struct SearchTopProfileCard: View {
                             }
                         } else {
                             Circle().fill(Color(.systemGray5))
-                                .overlay(Text(String(person.displayName.prefix(1))).font(.system(size: 18, weight: .semibold)).foregroundStyle(.secondary))
+                                .overlay(Text(String(person.displayName.prefix(1))).font(.systemScaled(18, weight: .semibold)).foregroundStyle(.secondary))
                         }
                     }
                     .frame(width: 52, height: 52)
@@ -105,16 +105,16 @@ struct SearchTopProfileCard: View {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 4) {
                             Text(person.username)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                                 .foregroundStyle(Color(.label))
                             if person.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.blue)
                             }
                         }
                         Text(person.displayName + " · " + formatFollowers(person.followerCount))
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color(.secondaryLabel))
                     }
 
@@ -122,14 +122,14 @@ struct SearchTopProfileCard: View {
 
                     // Follow button
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.65))) {
                             isFollowing.toggle()
                         }
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         onFollow()
                     } label: {
                         Text(isFollowing ? "Following" : "Follow")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(isFollowing ? Color(.label) : .white)
                             .padding(.horizontal, 18)
                             .padding(.vertical, 8)
@@ -171,7 +171,7 @@ struct SearchTopProfileCard: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 10)
         .onAppear {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.78).delay(0.05)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.78)).delay(0.05)) {
                 appeared = true
             }
         }
@@ -204,16 +204,16 @@ struct BereanSearchAnswerCard: View {
                     .frame(width: 26, height: 26)
                     .overlay(
                         Image(systemName: "sparkles")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(Color(.systemBackground))
                     )
                 Text("Berean AI")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(.label))
                 Spacer()
                 Image(systemName: "ellipsis")
                     .foregroundStyle(Color(.tertiaryLabel))
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
             }
 
             if isLoading {
@@ -235,7 +235,7 @@ struct BereanSearchAnswerCard: View {
                 .padding(.vertical, 4)
             } else if !answer.isEmpty {
                 Text(answer)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color(.secondaryLabel))
                     .lineSpacing(3)
                     .lineLimit(4)
@@ -244,9 +244,9 @@ struct BereanSearchAnswerCard: View {
                 Button(action: onAskMore) {
                     HStack(spacing: 5) {
                         Text("Ask Berean more about this")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                     }
                     .foregroundStyle(Color(.label))
                 }
@@ -264,7 +264,7 @@ struct BereanSearchAnswerCard: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 8)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75).delay(0.1)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75)).delay(0.1)) {
                 appeared = true
             }
         }

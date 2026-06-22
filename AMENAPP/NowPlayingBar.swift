@@ -45,11 +45,11 @@ struct NowPlayingBar: View {
                     // Title + Author
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.title)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                         Text(item.author)
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -60,19 +60,19 @@ struct NowPlayingBar: View {
                     HStack(spacing: 20) {
                         Button(action: vm.previousItem) {
                             Image(systemName: "chevron.backward.2")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .foregroundStyle(.primary)
                         }
 
                         Button(action: vm.togglePlayback) {
                             Image(systemName: vm.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 22, weight: .medium))
+                                .font(.systemScaled(22, weight: .medium))
                                 .foregroundStyle(.primary)
                         }
 
                         Button(action: vm.nextItem) {
                             Image(systemName: "chevron.forward.2")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .foregroundStyle(.primary)
                         }
                     }

@@ -79,7 +79,7 @@ struct JobDetailView: View {
         VStack(spacing: 16) {
             ProgressView()
             Text("Loading opportunity...")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -88,10 +88,10 @@ struct JobDetailView: View {
     private var errorView: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary.opacity(0.5))
             Text("Opportunity not found")
-                .font(.custom("OpenSans-SemiBold", size: 16))
+                .font(AMENFont.semiBold(16))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -99,113 +99,169 @@ struct JobDetailView: View {
     // MARK: - Main Content
 
     private func jobContent(_ job: JobListing) -> some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Employer header
-                employerHeader(job)
-
-                Divider().padding(.horizontal, 16)
-
-                // Job title block
-                jobTitleBlock(job)
+        ZStack {
+            Color(.systemGroupedBackground).ignoresSafeArea()
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Employer header + title block in a glass card
+                    VStack(alignment: .leading, spacing: 0) {
+                        employerHeader(job)
+                        Divider().padding(.horizontal, 16)
+                        jobTitleBlock(job)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 16)
+                    .padding(.top, 16)
 
-                // Why matched (if from recommendations)
-                if let match = matchResult, !match.matchReasons.isEmpty {
-                    whyMatchedBanner(match)
+                    // Why matched (if from recommendations)
+                    if let match = matchResult, !match.matchReasons.isEmpty {
+                        whyMatchedBanner(match)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                    }
+
+                    // Job details grid
+                    Text("DETAILS")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+                    jobDetailsGrid(job)
                         .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
-                }
 
-                Divider().padding(.horizontal, 16)
-
-                // Job details grid
-                jobDetailsGrid(job)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 16)
-
-                Divider().padding(.horizontal, 16)
-
-                // Description
-                if !job.description.isEmpty {
-                    jobSection(title: "About the Role") {
-                        Text(job.description)
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.primary)
-                            .lineSpacing(4)
+                    // Description
+                    if !job.description.isEmpty {
+                        Text("ABOUT THE ROLE")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                        VStack(alignment: .leading, spacing: 0) {
+                            jobSection(title: "About the Role") {
+                                Text(job.description)
+                                    .font(AMENFont.regular(14))
+                                    .foregroundStyle(.primary)
+                                    .lineSpacing(4)
+                            }
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
                     }
-                }
 
-                // Requirements
-                if !job.requirements.isEmpty {
-                    jobSection(title: "Requirements") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(job.requirements, id: \.self) { req in
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(Color(red: 0.20, green: 0.70, blue: 0.45))
-                                        .padding(.top, 1)
-                                    Text(req)
-                                        .font(.custom("OpenSans-Regular", size: 14))
-                                        .foregroundStyle(.primary)
+                    // Requirements
+                    if !job.requirements.isEmpty {
+                        Text("REQUIREMENTS")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                        VStack(alignment: .leading, spacing: 0) {
+                            jobSection(title: "Requirements") {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ForEach(job.requirements, id: \.self) { req in
+                                        HStack(alignment: .top, spacing: 8) {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.systemScaled(13))
+                                                .foregroundStyle(Color(red: 0.20, green: 0.70, blue: 0.45))
+                                                .padding(.top, 1)
+                                            Text(req)
+                                                .font(AMENFont.regular(14))
+                                                .foregroundStyle(.primary)
+                                        }
+                                    }
                                 }
                             }
                         }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
                     }
-                }
 
-                // Responsibilities
-                if !job.responsibilities.isEmpty {
-                    jobSection(title: "Responsibilities") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(job.responsibilities, id: \.self) { resp in
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: "arrow.right.circle.fill")
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
-                                        .padding(.top, 1)
-                                    Text(resp)
-                                        .font(.custom("OpenSans-Regular", size: 14))
-                                        .foregroundStyle(.primary)
+                    // Responsibilities
+                    if !job.responsibilities.isEmpty {
+                        Text("RESPONSIBILITIES")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                        VStack(alignment: .leading, spacing: 0) {
+                            jobSection(title: "Responsibilities") {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ForEach(job.responsibilities, id: \.self) { resp in
+                                        HStack(alignment: .top, spacing: 8) {
+                                            Image(systemName: "arrow.right.circle.fill")
+                                                .font(.systemScaled(13))
+                                                .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
+                                                .padding(.top, 1)
+                                            Text(resp)
+                                                .font(AMENFont.regular(14))
+                                                .foregroundStyle(.primary)
+                                        }
+                                    }
                                 }
                             }
                         }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
                     }
-                }
 
-                // Benefits
-                if !job.benefits.isEmpty {
-                    jobSection(title: "Benefits") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(job.benefits, id: \.self) { benefit in
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: "star.fill")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(Color(red: 0.90, green: 0.65, blue: 0.20))
-                                        .padding(.top, 2)
-                                    Text(benefit)
-                                        .font(.custom("OpenSans-Regular", size: 14))
-                                        .foregroundStyle(.primary)
+                    // Benefits
+                    if !job.benefits.isEmpty {
+                        Text("BENEFITS")
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+                        VStack(alignment: .leading, spacing: 0) {
+                            jobSection(title: "Benefits") {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ForEach(job.benefits, id: \.self) { benefit in
+                                        HStack(alignment: .top, spacing: 8) {
+                                            Image(systemName: "star.fill")
+                                                .font(.systemScaled(11))
+                                                .foregroundStyle(Color(red: 0.90, green: 0.65, blue: 0.20))
+                                                .padding(.top, 2)
+                                            Text(benefit)
+                                                .font(AMENFont.regular(14))
+                                                .foregroundStyle(.primary)
+                                        }
+                                    }
                                 }
                             }
                         }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                        .padding(.horizontal, 16)
                     }
+
+                    // About the employer
+                    if let emp = employer {
+                        employerAboutSection(emp)
+                    }
+
+                    // Safety disclaimer
+                    safetyDisclaimer(job)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 16)
+
+                    // Bottom spacer for sticky bar
+                    Color.clear.frame(height: 100)
                 }
-
-                // About the employer
-                if let emp = employer {
-                    employerAboutSection(emp)
-                }
-
-                // Safety disclaimer
-                safetyDisclaimer(job)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 16)
-
-                // Bottom spacer for sticky bar
-                Color.clear.frame(height: 100)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -222,26 +278,26 @@ struct JobDetailView: View {
                     .fill(job.category.color.opacity(0.15))
                     .frame(width: 56, height: 56)
                 Image(systemName: job.category.icon)
-                    .font(.system(size: 26))
+                    .font(.systemScaled(26))
                     .foregroundStyle(job.category.color)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(job.employerName)
-                    .font(.custom("OpenSans-Bold", size: 15))
+                    .font(AMENFont.bold(15))
                     .foregroundStyle(.primary)
                 if job.employerVerified {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text("Verified Employer")
-                            .font(.custom("OpenSans-Regular", size: 11))
+                            .font(AMENFont.regular(11))
                     }
                     .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                 }
                 if let emp = employer {
                     Text(emp.responseTimeLabel)
-                        .font(.custom("OpenSans-Regular", size: 11))
+                        .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -255,7 +311,7 @@ struct JobDetailView: View {
     private func jobTitleBlock(_ job: JobListing) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(job.title)
-                .font(.custom("OpenSans-Bold", size: 22))
+                .font(AMENFont.bold(22))
                 .foregroundStyle(.primary)
 
             // Type + arrangement + classification pills
@@ -271,10 +327,10 @@ struct JobDetailView: View {
             if job.compensationType != .undisclosed {
                 HStack(spacing: 6) {
                     Image(systemName: "dollarsign.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(red: 0.25, green: 0.70, blue: 0.45))
                     Text(job.formattedSalary)
-                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .font(AMENFont.semiBold(14))
                         .foregroundStyle(.primary)
                 }
             }
@@ -287,14 +343,14 @@ struct JobDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                 Text("Why this matched")
-                    .font(.custom("OpenSans-Bold", size: 13))
+                    .font(AMENFont.bold(13))
                     .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                 Spacer()
                 Text("\(Int(match.overallScore * 100))% match")
-                    .font(.custom("OpenSans-Bold", size: 12))
+                    .font(AMENFont.bold(12))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -306,11 +362,11 @@ struct JobDetailView: View {
             ForEach(match.matchReasons.prefix(3)) { reason in
                 HStack(spacing: 8) {
                     Image(systemName: reason.icon)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color(red: 0.35, green: 0.80, blue: 0.35))
                         .frame(width: 16)
                     Text(reason.text)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -350,7 +406,7 @@ struct JobDetailView: View {
     private func jobSection<Content: View>(title: String, @ViewBuilder content: @escaping () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.custom("OpenSans-Bold", size: 16))
+                .font(AMENFont.bold(16))
                 .foregroundStyle(.primary)
             content()
         }
@@ -362,16 +418,21 @@ struct JobDetailView: View {
     // MARK: - Employer About
 
     private func employerAboutSection(_ emp: EmployerProfile) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Divider().padding(.horizontal, 16)
+        VStack(alignment: .leading, spacing: 0) {
+            Text("ABOUT THE EMPLOYER")
+                .font(AMENFont.bold(11))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("About \(emp.organizationName)")
-                    .font(.custom("OpenSans-Bold", size: 16))
+                    .font(AMENFont.bold(16))
 
                 if !emp.description.isEmpty {
                     Text(emp.description)
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                         .lineSpacing(3)
                         .lineLimit(4)
@@ -380,24 +441,29 @@ struct JobDetailView: View {
                 HStack(spacing: 16) {
                     if let count = emp.employeeCount {
                         Label(count.label, systemImage: "person.2.fill")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                            .font(AMENFont.regular(12))
                             .foregroundStyle(.secondary)
                     }
                     Label(emp.organizationType.label, systemImage: emp.organizationType.icon)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                 }
 
                 if let url = emp.websiteURL, !url.isEmpty {
                     Link(destination: URL(string: url) ?? URL(string: "https://amen.app")!) {
                         Label("Visit website", systemImage: "arrow.up.right.square")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                             .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                     }
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+            .padding(.horizontal, 16)
         }
     }
 
@@ -405,34 +471,30 @@ struct JobDetailView: View {
 
     private func safetyDisclaimer(_ job: JobListing) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Divider()
-
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Image(systemName: "info.circle.fill")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                     Text("Important Notice")
-                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .font(AMENFont.semiBold(12))
                         .foregroundStyle(.secondary)
                 }
 
                 Text("AMEN is not the employer for this role. Applying will share your profile, resume, and application answers with \(job.employerName). AMEN reviews listings but cannot guarantee every posting is legitimate. Report suspicious activity below.")
-                    .font(.custom("OpenSans-Regular", size: 11))
+                    .font(AMENFont.regular(11))
                     .foregroundStyle(.secondary.opacity(0.8))
                     .lineSpacing(3)
 
                 Button("Report this listing") {
                     showReportSheet = true
                 }
-                .font(.custom("OpenSans-SemiBold", size: 11))
+                .font(AMENFont.semiBold(11))
                 .foregroundStyle(Color(red: 0.80, green: 0.35, blue: 0.35))
             }
             .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.secondary.opacity(0.06))
-            )
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
         }
     }
 
@@ -448,10 +510,10 @@ struct JobDetailView: View {
                 }
             } label: {
                 Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(isSaved ? Color(red: 0.20, green: 0.55, blue: 0.95) : .secondary)
                     .frame(width: 44, height: 44)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
             // Apply CTA
@@ -460,9 +522,9 @@ struct JobDetailView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: job.applyModel.icon)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     Text(hasApplied ? "Applied" : job.applyModel.ctaLabel)
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
@@ -576,16 +638,18 @@ struct JobDetailCell: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Label(label, systemImage: icon)
-                .font(.custom("OpenSans-Regular", size: 11))
+                .font(AMENFont.regular(11))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.custom("OpenSans-SemiBold", size: 13))
+                .font(AMENFont.semiBold(13))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
     }
 }
 
@@ -630,16 +694,16 @@ struct AMENEasyApplyForm: View {
     private var successView: some View {
         VStack(spacing: 20) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(Color(red: 0.20, green: 0.70, blue: 0.45))
             Text("Application Submitted!")
-                .font(.custom("OpenSans-Bold", size: 20))
+                .font(AMENFont.bold(20))
             Text("Your application has been sent to \(job.employerName). You can track its status in Saved & Applied.")
-                .font(.custom("OpenSans-Regular", size: 14))
+                .font(AMENFont.regular(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Done") { onSubmit() }
-                .font(.custom("OpenSans-Bold", size: 15))
+                .font(AMENFont.bold(15))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
@@ -657,14 +721,14 @@ struct AMENEasyApplyForm: View {
                         .fill(job.category.color.opacity(0.15))
                         .frame(width: 40, height: 40)
                     Image(systemName: job.category.icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(job.category.color)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(job.title)
-                        .font(.custom("OpenSans-Bold", size: 14))
+                        .font(AMENFont.bold(14))
                     Text(job.employerName)
-                        .font(.custom("OpenSans-Regular", size: 12))
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -674,12 +738,12 @@ struct AMENEasyApplyForm: View {
             // Cover note
             VStack(alignment: .leading, spacing: 8) {
                 Text("Cover Note (optional)")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                 TextEditor(text: $coverNote)
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .frame(height: 120)
                     .padding(10)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(.secondary.opacity(0.2), lineWidth: 0.5)
@@ -689,11 +753,11 @@ struct AMENEasyApplyForm: View {
             // Portfolio / work samples
             VStack(alignment: .leading, spacing: 8) {
                 Text("Portfolio or Work Samples (optional)")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(AMENFont.semiBold(14))
                 TextField("https://yourportfolio.com", text: $portfolioURL)
-                    .font(.custom("OpenSans-Regular", size: 14))
+                    .font(AMENFont.regular(14))
                     .padding(12)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .keyboardType(.URL)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
@@ -703,7 +767,7 @@ struct AMENEasyApplyForm: View {
             if !job.screeningQuestions.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Screening Questions")
-                        .font(.custom("OpenSans-Bold", size: 15))
+                        .font(AMENFont.bold(15))
                     ForEach(job.screeningQuestions) { q in
                         screeningQuestionField(q)
                     }
@@ -713,7 +777,7 @@ struct AMENEasyApplyForm: View {
             // Consent
             Toggle(isOn: $hasConsented) {
                 Text("I consent to share my AMEN profile, resume, and this application with \(job.employerName). AMEN is not the employer.")
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(.secondary)
             }
             .toggleStyle(.switch)
@@ -721,7 +785,7 @@ struct AMENEasyApplyForm: View {
             // Error
             if let err = errorMessage {
                 Text(err)
-                    .font(.custom("OpenSans-Regular", size: 12))
+                    .font(AMENFont.regular(12))
                     .foregroundStyle(Color(red: 0.80, green: 0.35, blue: 0.35))
             }
 
@@ -734,7 +798,7 @@ struct AMENEasyApplyForm: View {
                         ProgressView().tint(.white)
                     } else {
                         Text("Submit Application")
-                            .font(.custom("OpenSans-Bold", size: 15))
+                            .font(AMENFont.bold(15))
                     }
                 }
                 .foregroundStyle(.white)
@@ -754,7 +818,7 @@ struct AMENEasyApplyForm: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(q.question)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                 if q.isRequired {
                     Text("*")
                         .foregroundStyle(Color(red: 0.80, green: 0.35, blue: 0.35))
@@ -766,9 +830,9 @@ struct AMENEasyApplyForm: View {
                     get: { screeningAnswers[q.id] ?? "" },
                     set: { screeningAnswers[q.id] = $0 }
                 ))
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .padding(10)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             case .yesNo:
                 HStack(spacing: 12) {
                     ForEach(["Yes", "No"], id: \.self) { option in
@@ -776,7 +840,7 @@ struct AMENEasyApplyForm: View {
                             screeningAnswers[q.id] = option
                         } label: {
                             Text(option)
-                                .font(.custom("OpenSans-SemiBold", size: 13))
+                                .font(AMENFont.semiBold(13))
                                 .foregroundStyle(screeningAnswers[q.id] == option ? .white : .primary)
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 8)
@@ -798,10 +862,10 @@ struct AMENEasyApplyForm: View {
                         } label: {
                             HStack {
                                 Image(systemName: screeningAnswers[q.id] == opt ? "circle.fill" : "circle")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                                 Text(opt)
-                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .font(AMENFont.regular(13))
                                     .foregroundStyle(.primary)
                             }
                         }
@@ -812,10 +876,10 @@ struct AMENEasyApplyForm: View {
                     get: { screeningAnswers[q.id] ?? "" },
                     set: { screeningAnswers[q.id] = $0 }
                 ))
-                .font(.custom("OpenSans-Regular", size: 13))
+                .font(AMENFont.regular(13))
                 .keyboardType(.numberPad)
                 .padding(10)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
     }
@@ -878,16 +942,16 @@ struct ExpressInterestForm: View {
                 if didSubmit {
                     VStack(spacing: 16) {
                         Image(systemName: "hand.raised.fill")
-                            .font(.system(size: 52))
+                            .font(.systemScaled(52))
                             .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                         Text("Interest Sent!")
-                            .font(.custom("OpenSans-Bold", size: 20))
+                            .font(AMENFont.bold(20))
                         Text("\(job.employerName) can now see your profile and reach out.")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                         Button("Done") { onSubmit() }
-                            .font(.custom("OpenSans-Bold", size: 15))
+                            .font(AMENFont.bold(15))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
@@ -897,16 +961,16 @@ struct ExpressInterestForm: View {
                 } else {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("A brief note (optional)")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .font(AMENFont.semiBold(14))
                         TextEditor(text: $message)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .frame(height: 100)
                             .padding(10)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                         Toggle(isOn: $hasConsented) {
                             Text("Share my AMEN profile with \(job.employerName).")
-                                .font(.custom("OpenSans-Regular", size: 12))
+                                .font(AMENFont.regular(12))
                                 .foregroundStyle(.secondary)
                         }
                         .toggleStyle(.switch)
@@ -915,7 +979,7 @@ struct ExpressInterestForm: View {
                             Task { await submit() }
                         } label: {
                             Text(isSubmitting ? "Sending..." : "Express Interest")
-                                .font(.custom("OpenSans-Bold", size: 15))
+                                .font(AMENFont.bold(15))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 48)
@@ -982,14 +1046,14 @@ struct ExternalApplyConfirmation: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "arrow.up.right.square.fill")
-                    .font(.system(size: 52))
+                    .font(.systemScaled(52))
                     .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
 
                 VStack(spacing: 8) {
                     Text("Leaving AMEN")
-                        .font(.custom("OpenSans-Bold", size: 20))
+                        .font(AMENFont.bold(20))
                     Text("You're about to apply for \(jobTitle) on \(employerName)'s site. \(employerName)'s privacy policy governs their application process. AMEN is not the employer.")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
@@ -1002,7 +1066,7 @@ struct ExternalApplyConfirmation: View {
                         onDismiss()
                     } label: {
                         Label("Continue to \(employerName)", systemImage: "arrow.up.right.square")
-                            .font(.custom("OpenSans-Bold", size: 15))
+                            .font(AMENFont.bold(15))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
@@ -1010,7 +1074,7 @@ struct ExternalApplyConfirmation: View {
                     }
 
                     Button("Cancel") { onDismiss() }
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -1034,21 +1098,22 @@ struct JobReportSheet: View {
     @State private var description = ""
     @State private var isSubmitting = false
     @State private var didSubmit = false
+    @State private var reportErrorMessage: String?
 
     var body: some View {
         NavigationStack {
             if didSubmit {
                 VStack(spacing: 16) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundStyle(Color(red: 0.35, green: 0.75, blue: 0.45))
                     Text("Report Submitted")
-                        .font(.custom("OpenSans-Bold", size: 18))
+                        .font(AMENFont.bold(18))
                     Text("Thank you. Our team will review this listing.")
-                        .font(.custom("OpenSans-Regular", size: 14))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                     Button("Done") { dismiss() }
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                 }
                 .padding(24)
             } else {
@@ -1060,12 +1125,12 @@ struct JobReportSheet: View {
                             } label: {
                                 HStack {
                                     Text(reason.label)
-                                        .font(.custom("OpenSans-Regular", size: 14))
+                                        .font(AMENFont.regular(14))
                                         .foregroundStyle(.primary)
                                     Spacer()
                                     if selectedReason == reason {
                                         Image(systemName: "checkmark")
-                                            .font(.system(size: 13, weight: .bold))
+                                            .font(.systemScaled(13, weight: .bold))
                                             .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 0.95))
                                     }
                                 }
@@ -1075,7 +1140,7 @@ struct JobReportSheet: View {
 
                     Section("Additional Details (optional)") {
                         TextEditor(text: $description)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .frame(height: 80)
                     }
                 }
@@ -1087,24 +1152,35 @@ struct JobReportSheet: View {
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Submit") {
+                            // SECURITY FIX (HIGH 2026-06-11): Use explicit do-catch so the
+                            // reporter learns of failure. Set didSubmit only on success.
                             Task {
                                 isSubmitting = true
-                                try? await service.reportJob(
-                                    jobId: targetId,
-                                    reason: selectedReason,
-                                    description: description.isEmpty ? nil : description
-                                )
-                                didSubmit = true
+                                do {
+                                    try await service.reportJob(
+                                        jobId: targetId,
+                                        reason: selectedReason,
+                                        description: description.isEmpty ? nil : description
+                                    )
+                                    didSubmit = true
+                                } catch {
+                                    reportErrorMessage = error.localizedDescription
+                                }
                                 isSubmitting = false
                             }
                         }
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .disabled(isSubmitting)
                     }
                 }
             }
         }
         .presentationDetents([.large])
+        .alert("Report Failed", isPresented: Binding(get: { reportErrorMessage != nil }, set: { if !$0 { reportErrorMessage = nil } })) {
+            Button("OK", role: .cancel) { reportErrorMessage = nil }
+        } message: {
+            Text(reportErrorMessage ?? "An error occurred. Please try again.")
+        }
     }
 }
 

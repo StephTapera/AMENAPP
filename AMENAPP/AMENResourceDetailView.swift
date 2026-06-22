@@ -8,13 +8,26 @@
 
 import SwiftUI
 import WebKit
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Entry point (type-erased)
 
-enum AMENMediaEntry: Hashable {
+enum AMENMediaEntry: Hashable, Identifiable {
     case sermon(AMENSermon)
     case podcast(AMENPodcastEpisode)
     case worship(AMENWorshipTrack)
+
+    var id: String {
+        switch self {
+        case .sermon(let s):
+            return "sermon_\(s.id)"
+        case .podcast(let p):
+            return "podcast_\(p.id)"
+        case .worship(let w):
+            return "worship_\(w.id)"
+        }
+    }
 }
 
 // MARK: - Main view
@@ -23,11 +36,16 @@ struct AMENResourceDetailView: View {
     let entry: AMENMediaEntry
     @Environment(\.dismiss) private var dismiss
     @State private var isSaved = false
+    @State private var isSavePending = false
+    @State private var saveErrorShown = false
     @State private var showPlayer = false
     @State private var activeTab: MediaTab = .overview
     @State private var heroOffset: CGFloat = 0
     @State private var tabBarVisible = false
     @State private var sectionAppeared: Set<String> = []
+    @State private var relatedSermons: [AMENSermon] = []
+    @State private var isLoadingRelated = false
+    @State private var selectedRelated: AMENMediaEntry?
 
     // MARK: Derived metadata
 
@@ -141,6 +159,84 @@ struct AMENResourceDetailView: View {
             floatingBar
         }
         .navigationBarHidden(true)
+        .sheet(item: $selectedRelated) { related in
+            AMENResourceDetailView(entry: related)
+        }
+        .onChange(of: activeTab) { _, tab in
+            if tab == .related && relatedSermons.isEmpty && !isLoadingRelated {
+                Task { await loadRelated() }
+            }
+        }
+        .task { await loadSavedState() }
+        .alert("Couldn’t update your saved items", isPresented: $saveErrorShown) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Please check your connection and try again.")
+        }
+    }
+
+    // MARK: - Saved persistence
+    // Mirrors AMENResourcesHubView: users/{uid}/savedResources/{entry.id}.
+    // Replaces the previous ephemeral @State toggle that silently lost every save.
+
+    private func savedDocument() -> DocumentReference? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        return Firestore.firestore()
+            .collection("users").document(uid)
+            .collection("savedResources").document(entry.id)
+    }
+
+    private func loadSavedState() async {
+        guard let doc = savedDocument() else { return }
+        let snapshot = try? await doc.getDocument()
+        let saved = (snapshot?.data()?["isSaved"] as? Bool) ?? false
+        await MainActor.run { isSaved = saved }
+    }
+
+    private func toggleSaved() async {
+        guard !isSavePending else { return }
+        guard let doc = savedDocument() else {
+            // Not signed in — can't persist, so don't pretend it saved.
+            await MainActor.run { saveErrorShown = true }
+            return
+        }
+        let target = !isSaved
+        await MainActor.run {
+            isSavePending = true
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) { isSaved = target }
+        }
+        do {
+            if target {
+                let kind = entry.id.split(separator: "_").first.map(String.init) ?? "resource"
+                try await doc.setData([
+                    "isSaved": true,
+                    "title":   title,
+                    "kind":    kind,
+                    "savedAt": FieldValue.serverTimestamp(),
+                ])
+            } else {
+                try await doc.delete()
+            }
+        } catch {
+            // Roll back to the truthful state and surface the failure.
+            await MainActor.run {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) { isSaved = !target }
+                saveErrorShown = true
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            }
+        }
+        await MainActor.run { isSavePending = false }
+    }
+
+    private func loadRelated() async {
+        isLoadingRelated = true
+        let query = speakerLine.isEmpty ? "Christian sermon" : speakerLine
+        relatedSermons = await AMENMediaService.shared.searchSermons(query: query, maxResults: 4)
+        // Exclude the current entry itself
+        if case .sermon(let s) = entry {
+            relatedSermons = relatedSermons.filter { $0.id != s.id }
+        }
+        isLoadingRelated = false
     }
 
     // MARK: - Hero (reference-style: full-bleed + large headline over gradient scrim)
@@ -195,9 +291,9 @@ struct AMENResourceDetailView: View {
                 // Type pill
                 HStack(spacing: 5) {
                     Image(systemName: mediaTypeIcon)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                     Text(typeLabel.uppercased())
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .tracking(1.2)
                 }
                 .foregroundStyle(accentColor)
@@ -208,7 +304,7 @@ struct AMENResourceDetailView: View {
 
                 // Large display headline
                 Text(title)
-                    .font(.system(size: 28, weight: .bold, design: .default))
+                    .font(.systemScaled(28, weight: .bold, design: .default))
                     .foregroundStyle(.white)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -217,13 +313,13 @@ struct AMENResourceDetailView: View {
                 // Speaker / source line
                 HStack(spacing: 6) {
                     Text(speakerLine)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.92))
                     if !sourceLine.isEmpty && sourceLine != speakerLine {
                         Text("·")
                             .foregroundStyle(.white.opacity(0.5))
                         Text(sourceLine)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.white.opacity(0.75))
                     }
                 }
@@ -232,9 +328,9 @@ struct AMENResourceDetailView: View {
                 if let dur = duration {
                     HStack(spacing: 4) {
                         Image(systemName: "clock")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text(dur)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundStyle(.white.opacity(0.70))
                 }
@@ -251,7 +347,7 @@ struct AMENResourceDetailView: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
             Image(systemName: mediaTypeIcon)
-                .font(.system(size: 72, weight: .ultraLight))
+                .font(.systemScaled(72, weight: .ultraLight))
                 .foregroundStyle(.white.opacity(0.25))
         }
     }
@@ -263,7 +359,7 @@ struct AMENResourceDetailView: View {
             // Primary play button
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.78))) {
                     showPlayer.toggle()
                 }
             } label: {
@@ -273,12 +369,12 @@ struct AMENResourceDetailView: View {
                             .fill(accentColor)
                             .frame(width: 34, height: 34)
                         Image(systemName: showPlayer ? "stop.fill" : "play.fill")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(.white)
                             .offset(x: showPlayer ? 0 : 1.5)
                     }
                     Text(showPlayer ? "Stop" : playLabel)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
                 .padding(.vertical, 10)
@@ -298,10 +394,10 @@ struct AMENResourceDetailView: View {
             // Save
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { isSaved.toggle() }
+                Task { await toggleSaved() }
             } label: {
                 Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(isSaved ? accentColor : .secondary)
                     .frame(width: 46, height: 46)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -311,12 +407,15 @@ struct AMENResourceDetailView: View {
                     )
             }
             .buttonStyle(.plain)
+            .disabled(isSavePending)
+            .accessibilityLabel(isSaved ? "Saved" : "Save")
+            .accessibilityHint("Saves this to your library")
 
             // Share
             if let url = deepLinkURL {
                 ShareLink(item: url) {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 46, height: 46)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -385,13 +484,13 @@ struct AMENResourceDetailView: View {
 
     private func tabPill(_ tab: MediaTab) -> some View {
         Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.76))) {
                 activeTab = tab
             }
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } label: {
             Text(tab.rawValue)
-                .font(.system(size: 14, weight: activeTab == tab ? .semibold : .regular))
+                .font(.systemScaled(14, weight: activeTab == tab ? .semibold : .regular))
                 .foregroundStyle(activeTab == tab ? accentColor : .secondary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 7)
@@ -435,7 +534,7 @@ struct AMENResourceDetailView: View {
             if let desc = description, !desc.isEmpty {
                 editorialSection(label: "About") {
                     Text(desc)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.primary)
                         .lineSpacing(6)
                         .fixedSize(horizontal: false, vertical: true)
@@ -480,7 +579,7 @@ struct AMENResourceDetailView: View {
             }
 
             Text(AffiliateConfig.disclosure)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 32)
@@ -493,14 +592,14 @@ struct AMENResourceDetailView: View {
         editorialSection(label: "My Notes") {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Your personal notes for this message will appear here.")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.secondary)
                     .lineSpacing(5)
                 Button {
                     // Future: open notes editor
                 } label: {
                     Label("Add a Note", systemImage: "pencil")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(accentColor)
                         .padding(.top, 4)
                 }
@@ -520,7 +619,7 @@ struct AMENResourceDetailView: View {
             } else {
                 editorialSection(label: "Scripture") {
                     Text("No scripture references tagged for this content.")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -531,10 +630,35 @@ struct AMENResourceDetailView: View {
 
     private var relatedContent: some View {
         editorialSection(label: "Related Content") {
-            VStack(spacing: 12) {
-                relatedPlaceholderRow(icon: "video.fill", label: "More from \(speakerLine)", color: accentColor)
-                relatedPlaceholderRow(icon: "headphones", label: "Recommended Podcasts", color: .teal)
-                relatedPlaceholderRow(icon: "book.fill", label: "Study Series", color: .orange)
+            if isLoadingRelated {
+                HStack(spacing: 10) {
+                    ProgressView().tint(accentColor)
+                    Text("Finding more from \(speakerLine)…")
+                        .font(.systemScaled(14))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 8)
+            } else if relatedSermons.isEmpty {
+                Text("No related content found.")
+                    .font(.systemScaled(14))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(relatedSermons.prefix(3)) { sermon in
+                        Button {
+                            selectedRelated = .sermon(sermon)
+                        } label: {
+                            relatedPlaceholderRow(
+                                icon: "video.fill",
+                                label: sermon.title,
+                                sublabel: sermon.speaker,
+                                color: accentColor
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
         }
     }
@@ -548,7 +672,7 @@ struct AMENResourceDetailView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(label.uppercased())
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .tracking(0.8)
                 .padding(.horizontal, 20)
@@ -564,11 +688,11 @@ struct AMENResourceDetailView: View {
     private func infoRow(label: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             Text(label)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.secondary)
                 .frame(width: 100, alignment: .leading)
             Text(value)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -588,17 +712,17 @@ struct AMENResourceDetailView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Scripture")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .tracking(0.6)
                 Text(reference)
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.systemScaled(17, weight: .medium))
                     .foregroundStyle(.primary)
             }
             Spacer()
             Image(systemName: "book.closed.fill")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(accentColor.opacity(0.7))
         }
         .padding(16)
@@ -623,18 +747,18 @@ struct AMENResourceDetailView: View {
                 .frame(width: 50, height: 68)
                 .overlay(
                     Image(systemName: "book.closed.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.white.opacity(0.7))
                 )
                 .shadow(color: accentColor.opacity(0.25), radius: 6, y: 3)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(bookTitle)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                 Text(bookAuthor)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 8) {
@@ -666,7 +790,7 @@ struct AMENResourceDetailView: View {
     private func affiliatePill(label: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
@@ -675,23 +799,31 @@ struct AMENResourceDetailView: View {
         .buttonStyle(.plain)
     }
 
-    /// Related content placeholder row
-    private func relatedPlaceholderRow(icon: String, label: String, color: Color) -> some View {
+    /// Related content row — supports an optional subtitle line
+    private func relatedPlaceholderRow(icon: String, label: String, sublabel: String? = nil, color: Color) -> some View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(color.opacity(0.15))
                     .frame(width: 44, height: 44)
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(color)
             }
-            Text(label)
-                .font(.system(size: 15))
-                .foregroundStyle(.primary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.systemScaled(15))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                if let sub = sublabel {
+                    Text(sub)
+                        .font(.systemScaled(12))
+                        .foregroundStyle(.secondary)
+                }
+            }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color(.tertiaryLabel))
         }
         .padding(12)
@@ -703,9 +835,9 @@ struct AMENResourceDetailView: View {
         Button { UIApplication.shared.open(url) } label: {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.up.right.square")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text(openExternalLabel)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
             }
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity)
@@ -746,7 +878,7 @@ struct AMENResourceDetailView: View {
         HStack {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 34, height: 34)
                     .background(.regularMaterial, in: Circle())

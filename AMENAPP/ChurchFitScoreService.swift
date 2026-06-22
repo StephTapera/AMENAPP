@@ -53,6 +53,7 @@ struct ChurchProfileVector {
 
 // MARK: - Service
 
+@MainActor
 class ChurchFitScoreService {
     static let shared = ChurchFitScoreService()
     private init() {}

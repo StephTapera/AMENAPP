@@ -65,12 +65,12 @@ struct ToastNotificationView: View {
         HStack(spacing: 12) {
             // Icon
             Image(systemName: toast.style.icon)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundColor(toast.style.color)
             
             // Message
             Text(toast.message)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundColor(.primary)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -82,7 +82,7 @@ struct ToastNotificationView: View {
                     onDismiss()
                 }) {
                     Text(actionLabel)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(toast.style.color)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -96,7 +96,7 @@ struct ToastNotificationView: View {
             // Dismiss button
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(.secondary)
             }
         }
@@ -126,7 +126,7 @@ struct ToastNotificationView: View {
                     if value.translation.height < -50 {
                         onDismiss()
                     } else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             dragOffset = 0
                         }
                     }
@@ -149,7 +149,7 @@ class ToastManager: ObservableObject {
         // Dismiss any existing toast
         dismissTimer?.invalidate()
         
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
             currentToast = toast
         }
         
@@ -161,7 +161,7 @@ class ToastManager: ObservableObject {
     
     func dismiss() {
         dismissTimer?.invalidate()
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             currentToast = nil
         }
     }

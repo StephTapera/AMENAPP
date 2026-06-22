@@ -14,7 +14,7 @@ import FirebaseAuth
 class SafeConversationService {
     static let shared = SafeConversationService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private init() {}
     
     // MARK: - Safe Mode Management

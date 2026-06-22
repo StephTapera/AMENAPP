@@ -41,20 +41,20 @@ struct ReusableCleanTextField: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(isFocused ? Color.purple : Color.gray.opacity(0.6))
                 .frame(width: 24)
             
             if isSecure && !showPassword {
                 SecureField(placeholder, text: $text)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .keyboardType(keyboardType)
                     .focused($isFocused)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             } else {
                 TextField(placeholder, text: $text)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .keyboardType(keyboardType)
                     .focused($isFocused)
                     .textInputAutocapitalization(isSecure ? .never : .words)
@@ -66,7 +66,7 @@ struct ReusableCleanTextField: View {
                     showPassword.toggle()
                 } label: {
                     Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(Color.gray.opacity(0.6))
                 }
             }
@@ -74,7 +74,7 @@ struct ReusableCleanTextField: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white)
+                .fill(Color(.secondarySystemBackground))
                 .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
         .overlay(
@@ -100,12 +100,12 @@ struct SimpleCleanTextField: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(isFocused ? Color.purple : Color.gray.opacity(0.6))
                 .frame(width: 24)
             
             TextField(placeholder, text: $text)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .keyboardType(keyboardType)
                 .focused($isFocused)
                 .autocorrectionDisabled()
@@ -113,7 +113,7 @@ struct SimpleCleanTextField: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white)
+                .fill(Color(.secondarySystemBackground))
                 .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
         .overlay(

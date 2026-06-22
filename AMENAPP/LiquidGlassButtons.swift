@@ -29,7 +29,7 @@ struct GlassActionPill: View {
                     haptic.impactOccurred()
                 } label: {
                     Image(systemName: icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(isDisabled ? .black.opacity(0.3) : .black.opacity(0.7))
                         .frame(width: 24, height: 24)
                 }
@@ -82,7 +82,7 @@ struct GlassCircularButton: View {
             haptic.notificationOccurred(.success)
         } label: {
             Image(systemName: icon)
-                .font(.system(size: size * 0.45, weight: .semibold))
+                .font(.systemScaled(size * 0.45, weight: .semibold))
                 .foregroundStyle(isDisabled ? .black.opacity(0.3) : .black)
                 .frame(width: size, height: size)
                 .background(

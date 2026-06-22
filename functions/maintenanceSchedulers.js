@@ -139,14 +139,22 @@ exports.firestoreBackup = onSchedule(
 exports.backfillUserCommentIndex = onCall(
   {
     region: 'us-central1',
-    enforceAppCheck: false,
+    enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
     timeoutSeconds: 540,
   },
   async (req) => {
     const callerUid = req.auth?.uid;
     if (!callerUid) throw new HttpsError('unauthenticated', 'Must be authenticated');
 
-    const adminUids = (process.env.ADMIN_UIDS || '').split(',').map(s => s.trim()).filter(Boolean);
+    // SECURITY FIX (MEDIUM 2026-06-11): Fail closed if ADMIN_UIDS is unset or empty.
+    const adminUidsRaw = process.env.ADMIN_UIDS;
+    if (!adminUidsRaw || !adminUidsRaw.trim()) {
+      throw new HttpsError(
+        'failed-precondition',
+        'ADMIN_UIDS environment variable is not configured.'
+      );
+    }
+    const adminUids = adminUidsRaw.split(',').map(s => s.trim()).filter(Boolean);
     if (!adminUids.includes(callerUid)) {
       throw new HttpsError('permission-denied', 'Admin only');
     }

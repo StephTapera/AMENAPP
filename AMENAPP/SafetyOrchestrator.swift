@@ -63,7 +63,7 @@ struct SafetyContentDecision {
     }
 
     let action: Action
-    let riskCategory: ContentRiskCategory
+    let riskCategory: LocalRiskCategory
     let riskScore: Double          // 0.0 – 1.0
     let authorSupportState: SafetySupportState
     let moderatorReason: String    // internal, not user-facing
@@ -90,7 +90,7 @@ final class SafetyOrchestrator: ObservableObject {
     @Published var supportState: SafetySupportState = .normal
 
     /// The highest-priority support surface currently warranted
-    @Published var pendingSupportSurface: SupportSurface?
+    @Published var pendingSupportSurface: SafetySupportSurface?
 
     /// True while a content safety decision is being computed asynchronously
     @Published var isEvaluatingContent = false
@@ -99,6 +99,7 @@ final class SafetyOrchestrator: ObservableObject {
     private var evaluationTask: Task<Void, Never>?
 
     private var cancellables = Set<AnyCancellable>()
+    private var notificationTokens: [NSObjectProtocol] = []
 
     private init() {
         // Roll up behavioral state changes into support state
@@ -108,6 +109,26 @@ final class SafetyOrchestrator: ObservableObject {
                 self?.integrateSessionSignal(signal)
             }
             .store(in: &cancellables)
+
+        let token = NotificationCenter.default.addObserver(
+            forName: .amenOSFormationStreakActive,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            // Active spiritual engagement is a positive signal — lower urgency if scrolling distress
+            Task { @MainActor [weak self] in
+                if self?.supportState == .gentleCheckIn {
+                    self?.supportState = .awarenessActive
+                } else if self?.supportState == .awarenessActive {
+                    self?.supportState = .normal
+                }
+            }
+        }
+        notificationTokens.append(token)
+    }
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     // MARK: - Pre-submission safety gate
@@ -229,6 +250,14 @@ final class SafetyOrchestrator: ObservableObject {
 
         // Derive the appropriate support surface
         pendingSupportSurface = AdaptiveSupportCoordinator.surface(for: newState)
+
+        // Emit bridge signals for cross-OS coordination
+        if let uid = FirebaseAuth.Auth.auth().currentUser?.uid {
+            AmenOSBridge.shared.supportStateChanged(uid: uid, stateRawValue: newState.rawValue)
+            if newState >= .crisisUrgent {
+                AmenOSBridge.shared.crisisDetected(uid: uid, sessionSignal: reason)
+            }
+        }
     }
 
     func clearSupportState() {
@@ -526,7 +555,7 @@ final class SafetyOrchestrator: ObservableObject {
 
 // MARK: - Support Surface
 
-enum SupportSurface: Equatable {
+enum SafetySupportSurface: Equatable {
     case gentleCheckIn
     case pauseAndBreathe
     case prayerAndSupport
@@ -549,7 +578,7 @@ enum SupportSurface: Equatable {
 // MARK: - Adaptive Support Coordinator
 
 enum AdaptiveSupportCoordinator {
-    static func surface(for state: SafetySupportState) -> SupportSurface? {
+    static func surface(for state: SafetySupportState) -> SafetySupportSurface? {
         switch state {
         case .normal, .awarenessActive:   return nil
         case .gentleCheckIn:              return .gentleCheckIn

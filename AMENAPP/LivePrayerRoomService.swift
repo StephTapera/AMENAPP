@@ -82,13 +82,13 @@ class LivePrayerRoomService: ObservableObject {
         let user = UserService.shared.currentUser
 
         // Add self as participant
-        try? await rtdb.child("prayerRooms").child(roomId).child("participants").child(uid).setValue([
+        _ = try? await rtdb.child("prayerRooms").child(roomId).child("participants").child(uid).setValue([
             "name": user?.displayName ?? "Unknown",
             "joinedAt": ServerValue.timestamp(),
         ])
 
         // Increment count atomically
-        try? await rtdb.child("prayerRooms").child(roomId).child("participantCount")
+        _ = try? await rtdb.child("prayerRooms").child(roomId).child("participantCount")
             .runTransactionBlock { data in
                 let count = data.value as? Int ?? 0
                 data.value = count + 1
@@ -124,9 +124,9 @@ class LivePrayerRoomService: ObservableObject {
     func leaveRoom(_ roomId: String) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
-        try? await rtdb.child("prayerRooms").child(roomId).child("participants").child(uid).removeValue()
+        _ = try? await rtdb.child("prayerRooms").child(roomId).child("participants").child(uid).removeValue()
 
-        try? await rtdb.child("prayerRooms").child(roomId).child("participantCount")
+        _ = try? await rtdb.child("prayerRooms").child(roomId).child("participantCount")
             .runTransactionBlock { data in
                 let count = data.value as? Int ?? 1
                 data.value = max(0, count - 1)
@@ -139,7 +139,7 @@ class LivePrayerRoomService: ObservableObject {
     // MARK: - End Room (host only)
 
     func endRoom(_ roomId: String) async {
-        try? await rtdb.child("prayerRooms").child(roomId).child("isLive").setValue(false)
+        _ = try? await rtdb.child("prayerRooms").child(roomId).child("isLive").setValue(false)
         stopListening()
     }
 

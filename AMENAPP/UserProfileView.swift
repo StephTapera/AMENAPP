@@ -8,6 +8,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseAnalytics
 import Combine
 
 // MARK: - Data Models
@@ -20,7 +21,32 @@ struct ProfilePost: Identifiable {
     var replies: Int
     let postType: PostType?  // Type of post
     let createdAt: Date  // ✅ NEW: For chronological sorting
-    
+    var imageURLs: [String]? = nil  // Media URLs for grid view
+    var verseReference: String? = nil  // Verse attachment for media tile badge
+    var authorName: String? = nil  // Author name for media detail
+    var authorProfileImageURL: String? = nil  // Avatar for media detail
+
+    /// Whether this post contains at least one media URL.
+    var hasMedia: Bool {
+        guard let urls = imageURLs else { return false }
+        return !urls.isEmpty
+    }
+
+    /// Number of media items.
+    var mediaCount: Int { imageURLs?.count ?? 0 }
+
+    /// Whether this is a carousel (multi-image) post.
+    var isCarousel: Bool { mediaCount > 1 }
+
+    /// Primary thumbnail URL.
+    var primaryThumbnailURL: String? { imageURLs?.first }
+
+    /// Build a PostMediaContainer for viewer use.
+    var mediaContainer: PostMediaContainer? {
+        guard hasMedia, let urls = imageURLs else { return nil }
+        return PostMediaContainer.fromImageURLs(urls)
+    }
+
     enum PostType: String {
         case prayer = "Prayer"
         case testimony = "Testimony"
@@ -87,6 +113,7 @@ struct UserProfile {
     var initials: String
     var profileImageURL: String?
     var interests: [String]
+    var profileTopics: [String] = []
     var socialLinks: [UserSocialLink]
     var followersCount: Int
     var followingCount: Int
@@ -154,43 +181,95 @@ enum UserReportReason: String, CaseIterable {
 enum UserProfileTab: String, CaseIterable {
     case posts = "Posts"
     case reposts = "Reposts"
+    case replies = "Replies"
     
     var icon: String {
         switch self {
         case .posts: return "square.grid.2x2"
         case .reposts: return "arrow.2.squarepath"
+        case .replies: return "bubble.left"
         }
     }
 }
 
+// MARK: - Profile Design Tokens
+
+/// Unified design tokens for the Liquid Glass profile experience.
+/// Shared across header, action rail, tabs, post cards, and all states.
+enum ProfileDesignTokens {
+    // Canvas & surfaces
+    static let canvasBackground = Color(red: 0.975, green: 0.970, blue: 0.965)          // Soft warm off-white
+    static let cardBackground = Color.white.opacity(0.82)                                 // Translucent white glass
+    static let elevatedSurface = Color.white.opacity(0.72)                                // Slightly more translucent
+    static let cardCornerRadius: CGFloat = 20
+    static let innerCornerRadius: CGFloat = 14
+
+    // Borders & shadows
+    static let hairlineBorder = Color.black.opacity(0.06)
+    static let hairlineWidth: CGFloat = 0.5
+    static let cardShadow = Color.black.opacity(0.04)
+    static let cardShadowRadius: CGFloat = 12.0
+    static let cardShadowY: CGFloat = 4.0
+
+    // Typography colors
+    static let textPrimary = Color(white: 0.10)       // Near-black
+    static let textSecondary = Color(white: 0.35)      // Softened charcoal
+    static let textTertiary = Color(white: 0.55)       // Lighter gray
+
+    // Spacing
+    static let sectionGap: CGFloat = 6                 // Gap between connected glass sections
+    static let horizontalPadding: CGFloat = 16
+    static let contentInset: CGFloat = 16
+
+    // Divider
+    static let dividerOpacity: Double = 0.08
+    static let dividerHeight: CGFloat = 0.5
+
+    /// Standard glass card background + border + shadow modifier
+    static func glassCard() -> some View {
+        RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                    .fill(cardBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                    .strokeBorder(hairlineBorder, lineWidth: hairlineWidth)
+            )
+            .shadow(color: cardShadow, radius: cardShadowRadius, y: cardShadowY)
+    }
+}
+
+/// View modifier that applies the Liquid Glass card styling.
+struct ProfileGlassCardModifier: ViewModifier {
+    var cornerRadius: CGFloat = ProfileDesignTokens.cardCornerRadius
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(ProfileDesignTokens.cardBackground)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                    )
+                    .shadow(color: ProfileDesignTokens.cardShadow, radius: ProfileDesignTokens.cardShadowRadius, y: ProfileDesignTokens.cardShadowY)
+            )
+    }
+}
+
+extension View {
+    func profileGlassCard(cornerRadius: CGFloat = ProfileDesignTokens.cardCornerRadius) -> some View {
+        modifier(ProfileGlassCardModifier(cornerRadius: cornerRadius))
+    }
+}
+
 /// User Profile View - For viewing other users' profiles
-/// Threads-inspired with Black & White Design
-///
-/// **🎯 PRODUCTION-READY ENHANCEMENTS RECOMMENDED:**
-///
-/// **1. Post Preview with Tap-to-Expand**
-///    - Currently: Posts are limited to 4 lines but have no expansion
-///    - Improvement: Add "See More" button for truncated posts
-///    - Benefit: Better content discovery while maintaining clean layout
-///    - Implementation: Add `@State var expandedPosts: Set<String>` and toggle logic
-///
-/// **2. Profile Action Analytics & Tracking**
-///    - Currently: No tracking of user interactions on profile
-///    - Improvement: Track follows, unfollows, message attempts, blocks, reports
-///    - Benefit: Understand user engagement patterns and improve UX
-///    - Implementation: Add `ProfileAnalyticsService.track(event:userId:)` calls
-///
-/// **3. Swipe Actions on Post Cards**
-///    - Currently: Must tap buttons for like/comment actions
-///    - Improvement: Add swipe-to-amen (right) and swipe-to-comment (left)
-///    - Benefit: Faster interactions, more mobile-native feel
-///    - Implementation: Wrap cards in SwiftUI `.swipeActions()` or custom gesture
-///
-/// **Additional Considerations:**
-/// - Post cards now use compact glassmorphic design (smaller, translucent)
-/// - Amen button has NO count display (minimalist approach)
-/// - Comment button shows badge count only when > 0
-/// - All designs use black and white color scheme exclusively
+/// Liquid Glass Design System
 ///
 struct UserProfileView: View {
     let userId: String // In a real app, this would be used to fetch the user's data
@@ -203,6 +282,8 @@ struct UserProfileView: View {
     
     @Environment(\.dismiss) var dismiss
     @State private var selectedTab: UserProfileTab = .posts
+    @State private var feedViewMode: FeedViewMode = .posts
+    @StateObject private var mediaFeedVM = MediaFeedViewModel()
     @State private var isLoading = true
     @State private var isRefreshing = false
     @State private var showFullScreenAvatar = false
@@ -232,9 +313,12 @@ struct UserProfileView: View {
     @State private var currentPage = 1
     @State private var hasMorePosts = true
     @State private var isLoadingMore = false
+    @State private var oldestPostDate: Date?   // P1-5: Cursor for pagination
     @State private var followerCountListener: ListenerRegistration?
     @State private var feedRebuildTask: Task<Void, Never>?   // Debounce feed rebuilds
     @State private var postsListener: ListenerRegistration?  // P0-2: Store posts listener
+    @State private var postsListenerHasFired = false          // P0-3: Skip redundant initial snapshot
+    @State private var bioExpanded = false                    // P2: Bio expand/truncate
     @State private var newPostObserver: NSObjectProtocol?  // P0-2: Store NotificationCenter observer
     @State private var repostObserver: NSObjectProtocol?  // P0-2: Store NotificationCenter observer
     @State private var selectedPostForComments: Post?
@@ -253,6 +337,12 @@ struct UserProfileView: View {
     // Mutuals
     @StateObject private var mutualsVM = MutualsViewModel()
     @State private var showMutualsSheet = false
+
+    // Suggested Follows (System 13)
+    @State private var showSuggestedFollows = false
+
+    // Mentor Channel
+    @State private var showMentorChannel = false
 
     // Additional production-ready states
     @State private var showShareSheet = false
@@ -299,6 +389,12 @@ struct UserProfileView: View {
     }
     
     var body: some View {
+        CreatorProfileGate(userId: userId, showsDismissButton: showsDismissButton) {
+            standardProfileBody
+        }
+    }
+
+    private var standardProfileBody: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: []) {
@@ -309,19 +405,25 @@ struct UserProfileView: View {
                     }
                     
                     // Profile Header
+                    // .task(id: userId) here ensures mutuals load kicks off as soon as the
+                    // profile renders, regardless of whether the strip is visible yet.
                     profileHeaderView
+                        .task(id: userId) {
+                            await mutualsVM.load(profileUID: userId)
+                        }
 
-                    // Mutuals strip — shown between header and tabs when mutuals exist
-                    // Privacy: hidden when viewing own profile (mutualsVM returns empty for self)
-                    if mutualsVM.isLoading || !mutualsVM.mutuals.isEmpty {
+                    // Mutual context: use richer MutualContextRow when enabled,
+                    // otherwise fall back to the original MutualsAvatarStrip.
+                    if AMENFeatureFlags.shared.mutualContextRowEnabled {
+                        MutualContextRow(userId: userId)
+                            .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+                            .padding(.top, ProfileDesignTokens.sectionGap)
+                    } else if mutualsVM.isLoading || !mutualsVM.mutuals.isEmpty {
                         MutualsAvatarStrip(
                             mutuals: mutualsVM.mutuals,
                             isLoading: mutualsVM.isLoading,
                             onTap: { showMutualsSheet = true }
                         )
-                        .task(id: userId) {
-                            await mutualsVM.load(profileUID: userId)
-                        }
                         .sheet(isPresented: $showMutualsSheet) {
                             MutualsListView(mutuals: mutualsVM.mutuals)
                         }
@@ -369,9 +471,13 @@ struct UserProfileView: View {
             .refreshable {
                 await refreshProfile()
             }
-            .background(Color(white: 0.98))
+            .background(ProfileDesignTokens.canvasBackground)
             .navigationTitle(profileData?.username ?? "")
             .navigationBarTitleDisplayMode(.inline)
+            // Suppress the dark hairline separator that appears when the view
+            // is presented as a sheet or pushed inside another NavigationStack.
+            .toolbarBackground(ProfileDesignTokens.canvasBackground, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     HStack(spacing: 12) {
@@ -381,8 +487,8 @@ struct UserProfileView: View {
                                 dismiss()
                             } label: {
                                 Image(systemName: "chevron.left")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(.black)
+                                    .font(.systemScaled(18, weight: .semibold))
+                                    .foregroundStyle(.primary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -400,6 +506,9 @@ struct UserProfileView: View {
                     toolbarButtonsView
                 }
             }
+            // Hide the system back button — we provide a custom one in the leading toolbar item.
+            // Without this, both appear simultaneously and cause a black separator artifact.
+            .navigationBarBackButtonHidden(true)
             .fullScreenCover(isPresented: $showFullScreenAvatar) {
                 if let profileData = profileData {
                     FullScreenAvatarView(name: profileData.name, initials: profileData.initials, profileImageURL: profileData.profileImageURL)
@@ -466,8 +575,18 @@ struct UserProfileView: View {
                     ActivityViewController(activityItems: shareItems)
                 }
             }
+            .sheet(isPresented: $showSuggestedFollows) {
+                SuggestedFollowsSheet(
+                    viewModel: SuggestedFollowsViewModel(profileUserId: userId)
+                )
+            }
+            .sheet(isPresented: $showMentorChannel) {
+                NavigationStack {
+                    AmenMentorChannelView(mentorId: userId)
+                }
+            }
             .alert("Error", isPresented: $showErrorAlert) {
-                Button("OK") { }
+                Button("OK") { errorMessage = "" }
                 Button("Retry") {
                     Task { await loadProfileData() }
                 }
@@ -531,7 +650,7 @@ struct UserProfileView: View {
                 handleErrorDismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.gray)
             }
             .padding(.trailing, 8)
@@ -560,6 +679,28 @@ struct UserProfileView: View {
         return "\(count)"
     }
     
+    /// Convert MutualConnection to MutualUser for the pill component
+    private func convertToMutualUsers(_ mutuals: [MutualConnection]) -> [MutualUser] {
+        return mutuals.map { mutual in
+            return MutualUser(
+                id: mutual.id,
+                name: mutual.displayName,
+                context: "@\(mutual.username)",
+                avatarURL: mutual.profilePhotoURL,
+                color: avatarPlaceholderColor(for: mutual.displayName),
+                relationshipLabel: "MUTUAL",
+                badgeColor: .orange
+            )
+        }
+    }
+    
+    /// Generate a consistent color for avatar placeholder based on name
+    private func avatarPlaceholderColor(for name: String) -> Color {
+        let colors: [Color] = [.blue, .purple, .pink, .orange, .green, .indigo, .teal]
+        let hash = abs(name.hashValue)
+        return colors[hash % colors.count]
+    }
+    
     // MARK: - Refresh Function
     
     /// Set up real-time listener for follower/following counts on viewed profile
@@ -575,7 +716,7 @@ struct UserProfileView: View {
         ListenerRegistry.shared.removeListener(key: listenerKey)
         
         // Listen to Firestore user document for count updates
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         followerCountListener = ListenerRegistry.shared.getOrCreateListener(key: listenerKey) {
             db.collection("users").document(userId)
                 .addSnapshotListener { snapshot, error in
@@ -664,7 +805,7 @@ struct UserProfileView: View {
         let postsKey = ListenerRegistry.shared.postsListenerKey(userId: userId)
         
         // ✅ Firestore snapshot listener for real-time posts
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         postsListener = ListenerRegistry.shared.getOrCreateListener(key: postsKey) {
             db.collection("posts")
                 .whereField("authorId", isEqualTo: userId)
@@ -703,12 +844,22 @@ struct UserProfileView: View {
                         likes: data["amenCount"] as? Int ?? 0,
                         replies: data["commentCount"] as? Int ?? 0,
                         postType: postType,
-                        createdAt: timestamp.dateValue()
+                        createdAt: timestamp.dateValue(),
+                        imageURLs: data["imageURLs"] as? [String],
+                        verseReference: data["verseReference"] as? String,
+                        authorName: data["authorName"] as? String ?? self.profileData?.name,
+                        authorProfileImageURL: data["authorProfileImageURL"] as? String ?? self.profileData?.profileImageURL
                     )
                 }
                 
-                // Update posts array — debounced to avoid thrashing on rapid updates
+                // Update posts array — debounced to avoid thrashing on rapid updates.
+                // P0-3: Skip the first snapshot if posts were already loaded by the explicit fetch
+                // (listener fires immediately on attach, which would duplicate work).
                 Task { @MainActor in
+                    if !self.postsListenerHasFired {
+                        self.postsListenerHasFired = true
+                        guard self.posts.isEmpty else { return }
+                    }
                     self.posts = updatedPosts
                     self.scheduleFeedRebuild()
                 }
@@ -767,7 +918,7 @@ struct UserProfileView: View {
         dlog("🔧 Attempting to fix follower counts for user: \(userId)")
         
         do {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             
             // Count actual followers
             let followersSnapshot = try await db.collection("follows")
@@ -847,7 +998,7 @@ struct UserProfileView: View {
             }
             
             // Fetch user profile directly from Firestore
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             
             dlog("📡 Attempting to fetch document from Firestore...")
             let userDoc = try await db.collection("users").document(userId).getDocument()
@@ -879,8 +1030,11 @@ struct UserProfileView: View {
             let username = data["username"] as? String ?? "unknown"
             let bio = data["bio"] as? String ?? ""
             let bioURL = data["bioURL"] as? String
-            let profileImageURL = data["profileImageURL"] as? String
+            // Fallback chain: Firestore field → legacy "photoURL" field
+            let profileImageURL: String? = (data["profileImageURL"] as? String)
+                ?? (data["photoURL"] as? String)
             let interests = data["interests"] as? [String] ?? []
+            let profileTopics = data["profileTopics"] as? [String] ?? []
             
             // ✅ FIX: Ensure counts are never negative
             var followersCount = data["followersCount"] as? Int ?? 0
@@ -936,7 +1090,20 @@ struct UserProfileView: View {
                 initials: String(initials),
                 profileImageURL: profileImageURL,
                 interests: interests,
-                socialLinks: [], // TODO: Add social links to UserModel if needed
+                profileTopics: profileTopics,
+                socialLinks: (data["socialLinks"] as? [[String: Any]] ?? []).compactMap { linkData -> UserSocialLink? in
+                    guard let platformStr = linkData["platform"] as? String,
+                          let username   = linkData["username"]  as? String,
+                          !platformStr.isEmpty, !username.isEmpty else { return nil }
+                    let platform: UserSocialLink.Platform
+                    switch platformStr.lowercased() {
+                    case "twitter", "x": platform = .twitter
+                    case "linkedin":     platform = .linkedin
+                    case "instagram":    platform = .instagram
+                    default:             platform = .website
+                    }
+                    return UserSocialLink(platform: platform, username: username)
+                },
                 followersCount: followersCount,
                 followingCount: followingCount,
                 isPrivateAccount: isPrivateAccount,
@@ -977,37 +1144,35 @@ struct UserProfileView: View {
             }
 
             // Fetch user's content — posts are gated by privacy, reposts run in parallel.
-            // P0-C FIX: Use withThrowingTaskGroup instead of async let tuple-await to avoid
-            // swift_task_dealloc crash when the parent .task {} is cancelled on view disappear.
+            // Reposts are stored in Realtime Database and may return Permission Denied if
+            // RTDB rules haven't been deployed yet. Isolate that failure so a denied repost
+            // fetch never aborts the Firestore post load.
             dlog("📥 Starting parallel fetch for posts and reposts...")
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask { [self, forceServerFetch] in
-                    let fetched = try await fetchUserPosts(page: 1, forceServerFetch: forceServerFetch)
-                    await MainActor.run { self.posts = fetched }
-                }
-                group.addTask { [self] in
-                    let fetched = try await fetchUserReposts()
-                    await MainActor.run { self.reposts = fetched }
-                }
-                try await group.waitForAll()
-            }
+            async let postsTask   = fetchUserPosts(page: 1, forceServerFetch: forceServerFetch)
+            async let repostsTask = fetchUserRepostsSafe()
+
+            let (fetchedPosts, fetchedReposts) = try await (postsTask, repostsTask)
+            posts   = fetchedPosts
+            reposts = fetchedReposts
             
             dlog("✅ Parallel fetch completed:")
             dlog("   - Posts: \(posts.count)")
             dlog("   - Reposts: \(reposts.count)")
             dlog("   - Following: \(isFollowing)")
-            
+
             // ✅ NEW: Build unified Threads-like feed
             buildUnifiedFeed()
-            
+
             // 🔊 SET UP REAL-TIME LISTENER for follower/following counts
             setupFollowerCountListener()
-            
+
             // ✅ NEW: Set up real-time listeners for posts and reposts
             setupRealtimeListeners()
-            
+
             currentPage = 1
             hasMorePosts = posts.count >= 20
+            // P1-5: Set pagination cursor to the oldest post in the first page
+            oldestPostDate = posts.map { $0.createdAt }.min()
             
         } catch {
             dlog("❌ Error in loadProfileData:")
@@ -1057,8 +1222,8 @@ struct UserProfileView: View {
     
     // MARK: - Network Calls
     
-    private func fetchUserPosts(page: Int, forceServerFetch: Bool = false) async throws -> [ProfilePost] {
-        dlog("📥 Fetching posts for user: \(userId) (page: \(page))")
+    private func fetchUserPosts(page: Int, before: Date? = nil, forceServerFetch: Bool = false) async throws -> [ProfilePost] {
+        dlog("📥 Fetching posts for user: \(userId) (page: \(page), before: \(String(describing: before)))")
 
         // Privacy gate: non-followers cannot see posts on private accounts
         if let profile = profileData, profile.isPrivateAccount {
@@ -1069,9 +1234,9 @@ struct UserProfileView: View {
             }
         }
 
-        // ✅ FIX: Use Firestore where posts are actually saved
+        // P1-5: Pass cursor so each page fetches older posts rather than re-fetching from the top
         let postService = FirebasePostService.shared
-        let userPosts = try await postService.fetchUserPosts(userId: userId, forceServerFetch: forceServerFetch)
+        let userPosts = try await postService.fetchUserPosts(userId: userId, limit: 20, before: before, forceServerFetch: forceServerFetch)
         
         dlog("✅ Fetched \(userPosts.count) posts from Firestore for user")
         
@@ -1097,7 +1262,11 @@ struct UserProfileView: View {
                 likes: post.amenCount,
                 replies: post.commentCount,
                 postType: postType,
-                createdAt: post.createdAt  // ✅ Include timestamp for sorting
+                createdAt: post.createdAt,  // ✅ Include timestamp for sorting
+                imageURLs: post.imageURLs,
+                verseReference: post.verseReference,
+                authorName: post.authorName,
+                authorProfileImageURL: post.authorProfileImageURL
             )
         }
     }
@@ -1141,7 +1310,7 @@ struct UserProfileView: View {
                 type: .repost,
                 content: repost.content,
                 timestamp: repost.timestamp,
-                createdAt: Date(),  // Use current date as fallback
+                createdAt: repost.createdAt,
                 likes: repost.likes,
                 replies: repost.replies,
                 postType: nil,
@@ -1161,6 +1330,12 @@ struct UserProfileView: View {
         return []
     }
     
+    /// Non-throwing wrapper — returns an empty array instead of propagating
+    /// Permission Denied or other RTDB errors that shouldn't abort the profile load.
+    private func fetchUserRepostsSafe() async -> [UserProfileRepost] {
+        do { return try await fetchUserReposts() } catch { return [] }
+    }
+
     private func fetchUserReposts() async throws -> [UserProfileRepost] {
         dlog("📥 Fetching reposts for user: \(userId)")
         
@@ -1177,7 +1352,8 @@ struct UserProfileView: View {
                 content: post.content,
                 timestamp: post.timeAgo,
                 likes: post.amenCount,
-                replies: post.commentCount
+                replies: post.commentCount,
+                createdAt: post.createdAt
             )
         }
     }
@@ -1189,17 +1365,9 @@ struct UserProfileView: View {
         
         dlog("✅ Follow status for \(userId): \(isFollowing ? "following" : "not following")")
         
-        // Check if this user follows the current user (for "Follow Back" button)
-        if let currentUserId = Auth.auth().currentUser?.uid {
-            let db = Firestore.firestore()
-            let theyFollowMeSnap = try? await db.collection("follows")
-                .whereField("followerId", isEqualTo: userId)
-                .whereField("followingId", isEqualTo: currentUserId)
-                .limit(to: 1)
-                .getDocuments()
-            let theyFollowMe = !(theyFollowMeSnap?.documents.isEmpty ?? true)
-            await MainActor.run { isFollowedByThisUser = theyFollowMe }
-        }
+        // Check if this user follows the current user (for "Follow Back" indicator)
+        let theyFollowMe = await checkIfTheyFollowMe()
+        await MainActor.run { isFollowedByThisUser = theyFollowMe }
         
         // P0-5: Check for pending follow request if not following and account is private
         if !isFollowing, let profile = profileData, profile.isPrivateAccount {
@@ -1224,6 +1392,20 @@ struct UserProfileView: View {
         }
     }
     
+    /// Returns true if `userId` follows the currently authenticated user.
+    /// Kept as a dedicated helper so the raw Firestore query isn't inlined inside
+    /// `checkFollowStatus` and can be updated in one place if the schema changes.
+    private func checkIfTheyFollowMe() async -> Bool {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return false }
+        let snap = try? await Firestore.firestore()
+            .collection("follows")
+            .whereField("followerId",  isEqualTo: userId)
+            .whereField("followingId", isEqualTo: currentUserId)
+            .limit(to: 1)
+            .getDocuments()
+        return !(snap?.documents.isEmpty ?? true)
+    }
+
     /// Check privacy status (mute, hide, block, blocked_by)
     @MainActor
     private func checkPrivacyStatus() async {
@@ -1236,8 +1418,8 @@ struct UserProfileView: View {
         // P0-4: Check if this user has blocked current user (BLOCKED_BY detection)
         isBlockedBy = await blockService.isBlockedBy(userId: userId)
         
-        // Check if user is muted
-        isMuted = await moderationService.isMuted(userId: userId)
+        // Check if user is muted — MuteService is the canonical store
+        isMuted = await MuteService.shared.isMutedAsync(mutedId: userId)
         
         // Check if profile is hidden from this user
         isHidden = await moderationService.isHiddenFrom(userId: userId)
@@ -1251,17 +1433,24 @@ struct UserProfileView: View {
     
     private func loadMorePosts() async {
         guard !isLoadingMore && hasMorePosts else { return }
-        
+
         isLoadingMore = true
         currentPage += 1
-        
+
         do {
-            let newPosts = try await fetchUserPosts(page: currentPage)
-            
+            // P1-5: Pass the oldest post's createdAt as the cursor so we fetch the
+            // NEXT page of posts rather than re-fetching the same top-20 again.
+            let newPosts = try await fetchUserPosts(page: currentPage, before: oldestPostDate)
+
             await MainActor.run {
                 posts.append(contentsOf: newPosts)
                 hasMorePosts = newPosts.count >= 20
+                // Advance cursor to the oldest post in this batch
+                if let oldest = newPosts.map({ $0.createdAt }).min() {
+                    oldestPostDate = oldest
+                }
                 isLoadingMore = false
+                buildUnifiedFeed()
             }
         } catch {
             await MainActor.run {
@@ -1406,7 +1595,7 @@ struct UserProfileView: View {
         let previousState = isFollowing
         
         // Only toggle the button state optimistically, not the count
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             isFollowing.toggle()
         }
         
@@ -1470,7 +1659,7 @@ struct UserProfileView: View {
         do {
             if followRequestPending {
                 // Cancel pending request
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     followRequestPending = false
                 }
                 
@@ -1479,7 +1668,7 @@ struct UserProfileView: View {
                 
             } else {
                 // Send new follow request
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                     followRequestPending = true
                 }
                 
@@ -1504,7 +1693,7 @@ struct UserProfileView: View {
     private func refreshFollowerCount() async {
         do {
             // Fetch updated counts from Firestore directly
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let userDoc = try await db.collection("users").document(userId).getDocument()
             
             guard let data = userDoc.data() else { return }
@@ -1621,8 +1810,10 @@ struct UserProfileView: View {
     @MainActor
     private func performBlockAction() async {
         let previousState = isBlocked
+        // P1-4: Capture mute state BEFORE clearing so we can persist the clear to the server
+        let wasMuted = isMuted
         isBlocked.toggle()
-        
+
         // If blocking, automatically unfollow, unmute, and dismiss open sheets
         if isBlocked {
             isFollowing = false
@@ -1632,21 +1823,25 @@ struct UserProfileView: View {
             selectedPostForComments = nil
             showCommentsSheet = false
         }
-        
+
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(isBlocked ? .warning : .success)
-        
+
         do {
-            // Real backend call using ModerationService
             let moderationService = ModerationService.shared
             if isBlocked {
                 try await moderationService.blockUser(userId: userId)
                 dlog("✅ Successfully blocked user: \(userId)")
+                // P1-4: Sync mute clear to server when blocking; local state was already set to false above
+                if wasMuted, let currentUserId = Auth.auth().currentUser?.uid {
+                    try? await MuteService.shared.unmuteUser(muterId: currentUserId, mutedId: userId)
+                    dlog("✅ Also unmuted user (via MuteService) during block")
+                }
             } else {
                 try await moderationService.unblockUser(userId: userId)
                 dlog("✅ Successfully unblocked user: \(userId)")
             }
-            
+
         } catch {
             // Rollback on error
             await MainActor.run {
@@ -1696,21 +1891,22 @@ struct UserProfileView: View {
     private func performMuteAction() async {
         let previousState = isMuted
         isMuted.toggle()
-        
+
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
-        
+
         do {
-            // Real backend call using ModerationService
-            let moderationService = ModerationService.shared
+            guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+            // MuteService is the canonical mute store — real-time listener keeps feed filter current.
+            // The muted user is NEVER notified.
             if isMuted {
-                try await moderationService.muteUser(userId: userId)
+                try await MuteService.shared.muteUser(muterId: currentUserId, mutedId: userId)
                 dlog("✅ Successfully muted user: \(userId)")
             } else {
-                try await moderationService.unmuteUser(userId: userId)
+                try await MuteService.shared.unmuteUser(muterId: currentUserId, mutedId: userId)
                 dlog("✅ Successfully unmuted user: \(userId)")
             }
-            
+
         } catch {
             // Rollback on error
             await MainActor.run {
@@ -1765,13 +1961,75 @@ struct UserProfileView: View {
     // MARK: - Deep Linking
     
     private func handleDeepLink(_ url: URL) {
-        // Handle deep links like amenapp://user/username or https://amenapp.com/user/username
         dlog("Handling deep link: \(url)")
-        
-        // TODO: Parse URL and navigate accordingly
-        // if url.pathComponents.contains("user") {
-        //     // Already on user profile, potentially reload with different user
-        // }
+
+        // Supported schemes:
+        //   amenapp://user/<username>
+        //   https://amenapp.com/user/<username>
+        //   https://amenapp.com/post/<postId>
+
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let pathParts = url.pathComponents.filter { $0 != "/" }
+
+        if url.scheme == "amenapp" {
+            switch url.host {
+            case "user":
+                if let username = pathParts.first, !username.isEmpty {
+                    navigateToUsername(username)
+                }
+            case "post":
+                if let postId = pathParts.first, !postId.isEmpty {
+                    navigateToPost(postId)
+                }
+            default:
+                break
+            }
+        } else if let host = components?.host, host.contains("amenapp.com") {
+            guard pathParts.count >= 2 else { return }
+            let section = pathParts[0]
+            let identifier = pathParts[1]
+            switch section {
+            case "user":  navigateToUsername(identifier)
+            case "post":  navigateToPost(identifier)
+            default:      break
+            }
+        }
+    }
+
+    private func navigateToUsername(_ username: String) {
+        Task {
+            do {
+                let snap = try await Firestore.firestore()
+                    .collection("users")
+                    .whereField("username", isEqualTo: username)
+                    .limit(to: 1)
+                    .getDocuments()
+                guard let doc = snap.documents.first else { return }
+                let uid = doc.documentID
+                // If this is the profile we are already viewing, no-op.
+                guard uid != userId else { return }
+                await MainActor.run {
+                    // Push a new UserProfileView for the resolved user.
+                    // NavigationPath is owned by the parent coordinator;
+                    // post a notification so the root navigator handles it.
+                    NotificationCenter.default.post(
+                        name: .navigateToUser,
+                        object: nil,
+                        userInfo: ["userId": uid]
+                    )
+                }
+            } catch {
+                dlog("❌ Deep link user lookup failed: \(error)")
+            }
+        }
+    }
+
+    private func navigateToPost(_ postId: String) {
+        NotificationCenter.default.post(
+            name: .navigateToPost,
+            object: nil,
+            userInfo: ["postId": postId]
+        )
     }
     
     // MARK: - Toolbar Buttons
@@ -1785,43 +2043,31 @@ struct UserProfileView: View {
                     toggleFollow()
                 } label: {
                     Image(systemName: isFollowing ? "person.fill.checkmark" : "person.fill.badge.plus")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(isFollowing ? .blue : .black)
+                        .font(.systemScaled(18, weight: .semibold))
+                        .foregroundStyle(isFollowing ? .blue : .primary)
                 }
                 .transition(.scale.combined(with: .opacity))
-                
+
                 Button {
                     sendMessage()
                 } label: {
                     Image(systemName: "message.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .font(.systemScaled(18, weight: .semibold))
+                        .foregroundStyle(.primary)
                 }
                 .transition(.scale.combined(with: .opacity))
             }
-            
+
             Button {
                 shareProfile()
             } label: {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(18, weight: .semibold))
+                    .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
-            
+
             Menu {
-                // Post Notifications
-                Section {
-                    Button {
-                        toggleNotifications()
-                    } label: {
-                        Label(
-                            notificationsEnabled ? "Turn Off Notifications" : "Turn On Notifications",
-                            systemImage: notificationsEnabled ? "bell.fill" : "bell"
-                        )
-                    }
-                }
-                
                 // ✅ Privacy Controls Section (Trust-by-Design)
                 Section("SAFETY ACTIONS") {
                     Button {
@@ -1849,6 +2095,24 @@ struct UserProfileView: View {
                         showAdvancedShareSheet()
                     } label: {
                         Label("Share with QR Code", systemImage: "qrcode")
+                    }
+                    Button {
+                        if let username = profileData?.username {
+                            UIPasteboard.general.string = "https://amenapp.com/\(username)"
+                            ToastManager.shared.success("Profile link copied")
+                        }
+                    } label: {
+                        Label("Copy Profile Link", systemImage: "link")
+                    }
+                    Button {
+                        if let name = profileData?.name {
+                            // Pre-seed create post with prayer for this person
+                            let prayerText = "Lifting up \(name) in prayer today 🙏"
+                            UIPasteboard.general.string = prayerText
+                            ToastManager.shared.success("Prayer text copied — paste in your post")
+                        }
+                    } label: {
+                        Label("Pray for This User", systemImage: "hands.sparkles")
                     }
                 }
                 
@@ -1886,8 +2150,8 @@ struct UserProfileView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .font(.systemScaled(18, weight: .semibold))
+                    .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
         }
@@ -1916,16 +2180,16 @@ struct UserProfileView: View {
                             // Name with private account badge
                             HStack(spacing: 8) {
                                 Text(profileData.name)
-                                    .font(.custom("OpenSans-Bold", size: 28))
-                                    .foregroundStyle(.black)
+                                    .font(AMENFont.bold(26))
+                                    .foregroundStyle(ProfileDesignTokens.textPrimary)
                                 
                                 // Private account indicator
                                 if profileData.isPrivateAccount {
                                     HStack(spacing: 4) {
                                         Image(systemName: "lock.fill")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .font(.systemScaled(12, weight: .semibold))
                                         Text("Private")
-                                            .font(.custom("OpenSans-SemiBold", size: 11))
+                                            .font(AMENFont.semiBold(11))
                                     }
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 8)
@@ -1940,76 +2204,46 @@ struct UserProfileView: View {
                             // "Follows you" indicator — shown when this user follows the viewer
                             if isFollowedByThisUser && !isBlocked && !isBlockedBy {
                                 Text("Follows you")
-                                    .font(.custom("OpenSans-Regular", size: 12))
-                                    .foregroundStyle(.secondary)
+                                    .font(AMENFont.regular(12))
+                                    .foregroundStyle(ProfileDesignTokens.textSecondary)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 3)
                                     .background(
                                         Capsule()
-                                            .fill(Color(UIColor.secondarySystemFill))
+                                            .fill(ProfileDesignTokens.elevatedSurface)
+                                            .overlay(
+                                                Capsule()
+                                                    .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                                            )
                                     )
                             }
+
+                            // NOTE: Presence indicator removed from profile per privacy spec.
+                            // Other users should not see if someone is active from the profile page.
                             
                             // Bio URL Link (moved to top)
                             if let bioURL = profileData.bioURL, !bioURL.isEmpty, let bioURLParsed = URL(string: bioURL) {
                                 Link(destination: bioURLParsed) {
                                     HStack(spacing: 6) {
                                         Image(systemName: "link.circle.fill")
-                                            .font(.system(size: 11, weight: .semibold))
-                                            .foregroundStyle(.black)
+                                            .font(.systemScaled(11, weight: .semibold))
+                                            .foregroundStyle(ProfileDesignTokens.textSecondary)
 
                                         Text(bioURL.replacingOccurrences(of: "https://", with: "")
                                                 .replacingOccurrences(of: "http://", with: ""))
-                                            .font(.custom("OpenSans-SemiBold", size: 11))
-                                            .foregroundStyle(.black)
+                                            .font(AMENFont.semiBold(11))
+                                            .foregroundStyle(ProfileDesignTokens.textSecondary)
                                             .lineLimit(1)
                                     }
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
                                     .background(
-                                        ZStack {
-                                            // Base frosted glass layer
-                                            Capsule()
-                                                .fill(.ultraThinMaterial)
-
-                                            // Inner glow effect (white from top)
-                                            Capsule()
-                                                .fill(
-                                                    LinearGradient(
-                                                        colors: [
-                                                            Color.white.opacity(0.5),
-                                                            Color.white.opacity(0.2),
-                                                            Color.clear
-                                                        ],
-                                                        startPoint: .top,
-                                                        endPoint: .bottom
-                                                    )
-                                                )
-
-                                            // Rim light (highlight on edges)
-                                            Capsule()
-                                                .strokeBorder(
-                                                    LinearGradient(
-                                                        colors: [
-                                                            Color.white.opacity(0.7),
-                                                            Color.white.opacity(0.4),
-                                                            Color.white.opacity(0.2)
-                                                        ],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing
-                                                    ),
-                                                    lineWidth: 1.5
-                                                )
-
-                                            // Outer border (black)
-                                            Capsule()
-                                                .strokeBorder(
-                                                    Color.black.opacity(0.25),
-                                                    lineWidth: 1
-                                                )
-                                                .padding(0.5)
-                                        }
-                                        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
+                                        Capsule()
+                                            .fill(ProfileDesignTokens.elevatedSurface)
+                                            .overlay(
+                                                Capsule()
+                                                    .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                                            )
                                     )
                                 }
                             }
@@ -2017,57 +2251,96 @@ struct UserProfileView: View {
                         
                         Spacer()
                         
-                        // Avatar (tappable for full screen)
+                        // Avatar (tappable for full screen) — Liquid Glass elevated ring
                         Button {
                             showFullScreenAvatar = true
                         } label: {
                             ZStack {
+                                // Outer glass ring
                                 Circle()
-                                    .fill(Color.black)
-                                    .frame(width: 80, height: 80)
-                                
+                                    .fill(ProfileDesignTokens.cardBackground)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                                    )
+                                    .shadow(color: ProfileDesignTokens.cardShadow, radius: 8, y: 3)
+                                    .frame(width: 86, height: 86)
+
+                                // Inner avatar
                                 if let profileImageURL = profileData.profileImageURL, !profileImageURL.isEmpty {
-                                    AsyncImage(url: URL(string: profileImageURL)) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(width: 80, height: 80)
-                                                .clipShape(Circle())
-                                        case .failure(_):
-                                            Text(profileData.initials)
-                                                .font(.custom("OpenSans-Bold", size: 28))
-                                                .foregroundStyle(.white)
-                                        case .empty:
-                                            ProgressView()
-                                                .tint(.white)
-                                        @unknown default:
-                                            Text(profileData.initials)
-                                                .font(.custom("OpenSans-Bold", size: 28))
-                                                .foregroundStyle(.white)
-                                        }
+                                    CachedAsyncImage(url: URL(string: profileImageURL)) { image in
+                                        image
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 78, height: 78)
+                                            .clipShape(Circle())
+                                    } placeholder: {
+                                        Circle()
+                                            .fill(Color(white: 0.90))
+                                            .frame(width: 78, height: 78)
+                                            .overlay(
+                                                ZStack {
+                                                    Text(profileData.initials)
+                                                        .font(AMENFont.bold(26))
+                                                        .foregroundStyle(ProfileDesignTokens.textSecondary)
+                                                    ProgressView()
+                                                        .tint(ProfileDesignTokens.textTertiary)
+                                                }
+                                            )
                                     }
                                 } else {
-                                    Text(profileData.initials)
-                                        .font(.custom("OpenSans-Bold", size: 28))
-                                        .foregroundStyle(.white)
+                                    Circle()
+                                        .fill(Color(white: 0.90))
+                                        .frame(width: 78, height: 78)
+                                        .overlay(
+                                            Text(profileData.initials)
+                                                .font(AMENFont.bold(26))
+                                                .foregroundStyle(ProfileDesignTokens.textSecondary)
+                                        )
                                 }
                             }
                         }
                         .buttonStyle(PlainButtonStyle())
                     }
                     
-                    // Bio
-                    Text(profileData.bio)
-                        .font(.custom("OpenSans-Regular", size: 15))
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineSpacing(4)
+                    // Bio (expandable)
+                    if !profileData.bio.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(profileData.bio)
+                                .font(AMENFont.regular(15))
+                                .foregroundStyle(ProfileDesignTokens.textPrimary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .lineSpacing(4)
+                                .lineLimit(bioExpanded ? nil : 3)
+
+                            // Show more/less only when bio overflows 3 lines
+                            if profileData.bio.count > 120 {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        bioExpanded.toggle()
+                                    }
+                                } label: {
+                                    Text(bioExpanded ? "less" : "more")
+                                        .font(AMENFont.semiBold(13))
+                                        .foregroundStyle(ProfileDesignTokens.textTertiary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
                     
-                    // Interests
-                    if !profileData.interests.isEmpty {
-                        InterestTagsView(interests: profileData.interests)
+                    // Topics & Interests — tappable, navigate to topic feed
+                    if !profileData.profileTopics.isEmpty || !profileData.interests.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(profileData.profileTopics, id: \.self) { topic in
+                                    TopicPillView(rawTopic: topic)
+                                }
+                                ForEach(profileData.interests, id: \.self) { interest in
+                                    TopicPillView(rawTopic: interest)
+                                }
+                            }
+                        }
                     }
                     
                     // Social Links
@@ -2079,13 +2352,16 @@ struct UserProfileView: View {
                     // The current user always sees their own stats; for other users, hide or
                     // disable based on their showFollowerCount / showFollowersList preferences.
                     let isOwnProfile = userId == Auth.auth().currentUser?.uid
-                    let canSeeFollowerCount  = isOwnProfile || profileData.showFollowerCount
-                    let canSeeFollowingCount = isOwnProfile || profileData.showFollowingCount
-                    let canTapFollowersList  = isOwnProfile || profileData.showFollowersList
+                    // P1-H: For private accounts, follower/following counts are only
+                    // visible to the account owner and users who follow them.
+                    let canAccessPrivateStats = isOwnProfile || !profileData.isPrivateAccount || isFollowing
+                    let canSeeFollowerCount  = canAccessPrivateStats && (isOwnProfile || profileData.showFollowerCount)
+                    let canSeeFollowingCount = canAccessPrivateStats && (isOwnProfile || profileData.showFollowingCount)
+                    let canTapFollowersList  = canAccessPrivateStats && (isOwnProfile || profileData.showFollowersList)
                     let canTapFollowingList  = isOwnProfile || profileData.showFollowingList
 
                     if canSeeFollowerCount || canSeeFollowingCount {
-                        HStack(spacing: 24) {
+                        HStack(spacing: 0) {
                             if canSeeFollowerCount {
                                 if canTapFollowersList {
                                     Button {
@@ -2100,9 +2376,9 @@ struct UserProfileView: View {
                             }
 
                             if canSeeFollowerCount && canSeeFollowingCount {
-                                Circle()
-                                    .fill(Color.black.opacity(0.3))
-                                    .frame(width: 2, height: 2)
+                                Divider()
+                                    .frame(height: 20)
+                                    .padding(.horizontal, 8)
                             }
 
                             if canSeeFollowingCount {
@@ -2117,51 +2393,22 @@ struct UserProfileView: View {
                                     StatView(count: formatCount(profileData.followingCount), label: "following")
                                 }
                             }
+                            
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    // Mutual followers row — "Followed by name1, name2 and N others"
-                    if !mutualsVM.mutuals.isEmpty {
-                        MutualFollowersView(mutuals: mutualsVM.mutuals)
                     }
 
                     // Action Buttons - P0-4: Hide when blocked or blockedBy
                     if !isBlocked && !isBlockedBy {
                         HStack(spacing: 12) {
                             // Follow/Following Button (hide when scrolled to toolbar)
-                            // P0-5: Show "Requested" state for private accounts
                             if !shouldShowToolbarButtons {
-                                Button {
-                                    guard !isFollowActionInProgress else {
-                                        dlog("⏳ Follow action already in progress")
-                                        return
-                                    }
+                                AnimatedFollowButton(
+                                    isFollowing: $isFollowing,
+                                    isInProgress: $isFollowActionInProgress
+                                ) {
                                     toggleFollow()
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        if isFollowActionInProgress {
-                                            ProgressView()
-                                                .scaleEffect(0.8)
-                                                .tint(followButtonTextColor)
-                                        }
-                                        Text(followButtonText)
-                                            .font(.custom("OpenSans-Bold", size: 15))
-                                            .foregroundStyle(followButtonTextColor)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 20)
-                                            .fill(followButtonBackground)
-                                            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
-                                    )
                                 }
-                                .disabled(isFollowActionInProgress)
-                                .opacity(isFollowActionInProgress ? 0.7 : 1.0)
-                                .buttonStyle(.liquidGlass)  // P0 FIX: Instant press feedback
-                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: followRequestPending)
                                 .transition(.scale.combined(with: .opacity))
                                 .accessibilityLabel(followButtonText)
                                 .accessibilityHint(isFollowing ? "Double tap to unfollow" : (followRequestPending ? "Follow request pending" : "Double tap to follow"))
@@ -2175,27 +2422,73 @@ struct UserProfileView: View {
                                         sendMessage()
                                     }
                                 } label: {
-                                    Text(messageBlocked ? "Follow to message" : "Message")
-                                        .font(.custom("OpenSans-Bold", size: 15))
-                                        .foregroundColor(messageBlocked ? Color.secondary : Color.black)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 12)
-                                        .background(
-                                            messageBlocked
-                                                ? Color(.systemGray5)
-                                                : Color(.systemGray6)
-                                        )
-                                        .cornerRadius(10)
+                                    ZStack {
+                                        // Surface - matches follow button style
+                                        Capsule()
+                                            .fill(.ultraThinMaterial)
+                                            .overlay(
+                                                LinearGradient(
+                                                    colors: [.white.opacity(0.5), .clear],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .center
+                                                )
+                                                .clipShape(Capsule())
+                                            )
+                                            .overlay(
+                                                Capsule().strokeBorder(.white.opacity(0.6), lineWidth: 0.5)
+                                            )
+                                        
+                                        Text(messageBlocked ? "Follow to message" : "Message")
+                                            .font(.systemScaled(14, weight: .bold))
+                                            .foregroundStyle(messageBlocked ? Color.secondary : Color.primary)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 44)
                                 }
                                 .disabled(messageBlocked)
                                 .accessibilityLabel(messageBlocked ? "Follow to send a message" : "Send message to \(profileData.name)")
                                 .accessibilityHint(messageBlocked ? "You must follow this person first" : "Double tap to open a conversation")
                                 .transition(.scale.combined(with: .opacity))
+
+                                // Suggested Follows (System 13)
+                                SuggestedFollowsButton(isPresented: $showSuggestedFollows)
+                                    .transition(.scale.combined(with: .opacity))
                             }
                         }
                         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
+
+                        // Mentor Channel CTA — visible for other users' profiles only
+                        if !isOwnProfile && !isBlocked && !isBlockedBy {
+                            Button {
+                                showMentorChannel = true
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "play.rectangle.on.rectangle.fill")
+                                        .font(.systemScaled(14, weight: .semibold))
+                                    Text("View Channel")
+                                        .font(.systemScaled(14, weight: .semibold))
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.systemScaled(12, weight: .semibold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(.ultraThinMaterial)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .strokeBorder(.white.opacity(0.4), lineWidth: 0.5)
+                                        )
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .transition(.scale.combined(with: .opacity))
+                        }
                     }
-                    
+
                     // Privacy Status Indicators - P0-4: Include BLOCKED_BY status
                     if isBlockedBy || isBlocked || isMuted || isHidden {
                         VStack(spacing: 8) {
@@ -2238,15 +2531,19 @@ struct UserProfileView: View {
                         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isHidden)
                     }
                 }
-                .padding(20)
-                .background(Color(white: 0.98))
+                .padding(ProfileDesignTokens.contentInset)
+                .profileGlassCard()
+                .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+                .padding(.top, 8)
             } else {
                 // Loading placeholder
-                LoadingStateView()
+                SkeletonProfileHeader()
+                    .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+                    .padding(.top, 8)
             }
         }
     }
-    
+
     // MARK: - Tab Selector
     
     private var tabSelectorView: some View {
@@ -2259,7 +2556,7 @@ struct UserProfileView: View {
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                     
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         selectedTab = tab
                     }
                 } label: {
@@ -2268,18 +2565,18 @@ struct UserProfileView: View {
                         HStack(spacing: 6) {
                             // Uncomment to show icons alongside text:
                             // Image(systemName: tab.icon)
-                            //     .font(.system(size: 14, weight: .semibold))
+                            //     .font(.systemScaled(14, weight: .semibold))
                             
                             Text(tab.rawValue)
-                                .font(.custom("OpenSans-Bold", size: 15))
+                                .font(AMENFont.bold(15))
                         }
-                        .foregroundStyle(selectedTab == tab ? .black : .black.opacity(0.4))
+                        .foregroundStyle(selectedTab == tab ? ProfileDesignTokens.textPrimary : ProfileDesignTokens.textTertiary)
                         
                         // Active indicator with smooth animation
                         if selectedTab == tab {
                             Capsule()
-                                .fill(Color.black)
-                                .frame(height: 3)
+                                .fill(ProfileDesignTokens.textPrimary)
+                                .frame(height: 2.5)
                                 .matchedGeometryEffect(id: "tab", in: tabNamespace)
                         } else {
                             Capsule()
@@ -2297,14 +2594,11 @@ struct UserProfileView: View {
                 .accessibilityAddTraits(selectedTab == tab ? [.isSelected] : [])
             }
         }
-        .padding(.horizontal, 20)
-        .background(Color(white: 0.98))
-        .overlay(
-            Rectangle()
-                .fill(Color.black.opacity(0.1))
-                .frame(height: 1),
-            alignment: .bottom
-        )
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .profileGlassCard()
+        .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+        .padding(.top, ProfileDesignTokens.sectionGap)
         .accessibilityElement(children: .contain)
     }
     
@@ -2342,6 +2636,10 @@ struct UserProfileView: View {
             case .reposts:
                 // Show user's reposts
                 repostsTabContent
+                
+            case .replies:
+                // Show user's replies
+                repliesTabContent
             }
         }
     }
@@ -2349,49 +2647,89 @@ struct UserProfileView: View {
     /// Locked profile state shown to non-followers of private accounts.
     private var lockedProfileView: some View {
         VStack(spacing: 20) {
-            Spacer().frame(height: 32)
-
             Image(systemName: "lock.fill")
-                .font(.system(size: 44, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .font(.systemScaled(44, weight: .semibold))
+                .foregroundStyle(ProfileDesignTokens.textTertiary)
 
             VStack(spacing: 8) {
                 Text("This account is private")
-                    .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(.primary)
+                    .font(AMENFont.bold(18))
+                    .foregroundStyle(ProfileDesignTokens.textPrimary)
 
                 if followRequestPending {
                     Text("Your follow request is pending approval.")
-                        .font(.custom("OpenSans-Regular", size: 15))
-                        .foregroundStyle(.secondary)
+                        .font(AMENFont.regular(15))
+                        .foregroundStyle(ProfileDesignTokens.textSecondary)
                         .multilineTextAlignment(.center)
                 } else {
                     Text("Follow this account to see their posts, prayer requests, and testimonies.")
-                        .font(.custom("OpenSans-Regular", size: 15))
-                        .foregroundStyle(.secondary)
+                        .font(AMENFont.regular(15))
+                        .foregroundStyle(ProfileDesignTokens.textSecondary)
                         .multilineTextAlignment(.center)
                 }
             }
-            .padding(.horizontal, 40)
-
-            Spacer()
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 16)
+        .padding(.vertical, 40)
+        .padding(.horizontal, ProfileDesignTokens.contentInset)
+        .profileGlassCard()
+        .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+        .padding(.top, ProfileDesignTokens.sectionGap)
     }
     
+    @ViewBuilder
     private var postsTabContent: some View {
-        UserPostsContentView(
-            posts: posts,
-            hasMorePosts: hasMorePosts,
-            isLoadingMore: isLoadingMore,
-            selectedPostForComments: $selectedPostForComments,
-            showCommentsSheet: $showCommentsSheet
-        )
+        VStack(spacing: 0) {
+            if AMENFeatureFlags.shared.feedViewModeSwitcherEnabled {
+                FeedViewModeSwitcher(selectedMode: $feedViewMode)
+                    .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+                    .onChange(of: feedViewMode) { _, newMode in
+                        AMENAnalyticsService.shared.track(.mediaModeSwitched(toMode: newMode.rawValue))
+                        mediaFeedVM.persistMode(newMode)
+                        if newMode == .media {
+                            mediaFeedVM.ingestProfilePosts(posts)
+                        }
+                    }
+            }
+
+            if feedViewMode == .media && AMENFeatureFlags.shared.feedViewModeSwitcherEnabled {
+                MediaOnlyFeedView(viewModel: mediaFeedVM) { postId in
+                    AMENAnalyticsService.shared.track(.mediaDetailJumpedToPost(postId: postId))
+                }
+                .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                .id("media")
+                .onAppear {
+                    mediaFeedVM.ingestProfilePosts(posts)
+                }
+                .onChange(of: posts.count) { _, _ in
+                    mediaFeedVM.ingestProfilePosts(posts)
+                }
+            } else {
+                UserPostsContentView(
+                    posts: posts,
+                    hasMorePosts: hasMorePosts,
+                    isLoadingMore: isLoadingMore,
+                    selectedPostForComments: $selectedPostForComments,
+                    showCommentsSheet: $showCommentsSheet
+                )
+                .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                .id("posts")
+            }
+        }
     }
     
     private var repostsTabContent: some View {
-        UserRepostsContentView(reposts: reposts)
+        UserRepostsContentView(
+            reposts: reposts,
+            reposterName: profileData?.name ?? "",
+            reposterAvatarURL: profileData?.profileImageURL
+        )
+    }
+    
+    private var repliesTabContent: some View {
+        RepliesView(userId: userId)
     }
 }
 
@@ -2435,7 +2773,16 @@ struct UserPostsContentView: View {
                             toggleExpanded(postId: posts[index].id)
                         }
                     )
-                    
+
+                    if AMENFeatureFlags.shared.postDividerEnabled {
+                        FeedPostDivider(
+                            leadingInset: ProfileDesignTokens.horizontalPadding + 16,
+                            trailingInset: ProfileDesignTokens.horizontalPadding + 16,
+                            opacity: ProfileDesignTokens.dividerOpacity + 0.04,
+                            verticalPadding: 0
+                        )
+                    }
+
                     // Smart prefetch trigger - loads 5 posts before reaching end
                     if scrollManager.shouldPrefetch(currentIndex: index, totalCount: posts.count, threshold: 5) && hasMorePosts {
                         Color.clear
@@ -2453,7 +2800,7 @@ struct UserPostsContentView: View {
                     HStack(spacing: 12) {
                         AMENLoadingIndicator(dotSize: 7, spacing: 6, bounceHeight: 8)
                         Text("Loading more posts...")
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -2461,7 +2808,7 @@ struct UserPostsContentView: View {
                 }
             }
         }
-        .background(Color(white: 0.98))
+        .background(ProfileDesignTokens.canvasBackground)
         .padding(.top, 12)
         .onDisappear {
             scrollManager.cancel()
@@ -2502,7 +2849,7 @@ struct UserPostsContentView: View {
     
     // ✅ NEW: Toggle post expansion
     private func toggleExpanded(postId: String) {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             if expandedPosts.contains(postId) {
                 expandedPosts.remove(postId)
             } else {
@@ -2557,17 +2904,17 @@ struct UserProfileReplyCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Image(systemName: "arrowshape.turn.up.left")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .font(.systemScaled(10))
+                        .foregroundStyle(.tertiary)
                     
                     Text("Replying to \(originalAuthor)")
-                        .font(.custom("OpenSans-SemiBold", size: 12))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .font(AMENFont.semiBold(12))
+                        .foregroundStyle(.secondary)
                 }
                 
                 Text(originalContent)
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .font(AMENFont.regular(14))
+                    .foregroundStyle(.secondary)
                     .lineSpacing(3)
             }
             .padding(12)
@@ -2578,14 +2925,14 @@ struct UserProfileReplyCard: View {
             
             // Reply Content
             Text(replyContent)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.black)
+                .font(AMENFont.regular(15))
+                .foregroundStyle(.primary)
                 .lineSpacing(4)
             
             // Timestamp
             Text(timestamp)
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.black.opacity(0.4))
+                .font(AMENFont.regular(13))
+                .foregroundStyle(.tertiary)
         }
         .padding(20)
     }
@@ -2593,6 +2940,8 @@ struct UserProfileReplyCard: View {
 
 struct UserRepostsContentView: View {
     let reposts: [UserProfileRepost]
+    var reposterName: String = ""
+    var reposterAvatarURL: String? = nil
     
     var body: some View {
         LazyVStack(spacing: 10) {  // ✅ 10pt spacing between cards
@@ -2605,17 +2954,89 @@ struct UserRepostsContentView: View {
                 .padding(.top, 20)
             } else {
                 ForEach(reposts.indices, id: \.self) { index in
-                    ProfileRepostCard(
-                        originalAuthor: reposts[index].originalAuthor,
-                        content: reposts[index].content,
-                        timestamp: reposts[index].timestamp,
-                        likes: reposts[index].likes,
-                        replies: reposts[index].replies
-                    )
+                    let repost = reposts[index]
+                    VStack(spacing: 4) {
+                        // Byline strip
+                        RepostBylineStrip(
+                            reposterName: reposterName,
+                            reposterAvatarURL: reposterAvatarURL,
+                            isNew: index == 0
+                        )
+                        // Original post content card — consistent liquid glass
+                        VStack(alignment: .leading, spacing: 0) {
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(Color(.secondarySystemBackground))
+                                    .frame(width: 30, height: 30)
+                                    .overlay(
+                                        Text(String(repost.originalAuthor.prefix(2)).uppercased())
+                                            .font(.systemScaled(11, weight: .bold))
+                                            .foregroundStyle(.secondary)
+                                    )
+                                VStack(alignment: .leading, spacing: 1) {
+                                    HStack(spacing: 5) {
+                                        Text(repost.originalAuthor)
+                                            .font(.systemScaled(12, weight: .semibold))
+                                        Spacer()
+                                        Text(repost.timestamp)
+                                            .font(.systemScaled(10))
+                                            .foregroundStyle(.quaternary)
+                                    }
+                                    Text(repost.content)
+                                        .font(.systemScaled(13))
+                                        .foregroundStyle(.primary.opacity(0.85))
+                                        .lineSpacing(3)
+                                        .lineLimit(4)
+                                        .padding(.top, 3)
+                                }
+                            }
+                            .padding(12)
+
+                            if repost.likes > 0 || repost.replies > 0 {
+                                HStack(spacing: 14) {
+                                    Spacer()
+                                    if repost.likes > 0 {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "hands.clap").font(.systemScaled(11))
+                                            Text("\(repost.likes)").font(.systemScaled(11, weight: .medium))
+                                        }
+                                        .foregroundStyle(.secondary)
+                                    }
+                                    if repost.replies > 0 {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "bubble.left").font(.systemScaled(11))
+                                            Text("\(repost.replies)").font(.systemScaled(11, weight: .medium))
+                                        }
+                                        .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.bottom, 10)
+                            }
+                        }
+                        .background {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(.ultraThinMaterial)
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(LinearGradient(
+                                            colors: [.white.opacity(0.45), .clear],
+                                            startPoint: .topLeading, endPoint: .center
+                                        ))
+                                }
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .strokeBorder(.white.opacity(0.75), lineWidth: 0.5)
+                                }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
                 }
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(ProfileDesignTokens.canvasBackground)
         .padding(.top, 12)
     }
 }
@@ -2648,12 +3069,12 @@ struct UnifiedFeedContentView: View {
                         if item.type == .repost {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrow.2.squarepath")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.black.opacity(0.4))
+                                    .font(.systemScaled(12, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
                                 
                                 Text("Reposted from \(item.originalAuthor ?? "Unknown")")
-                                    .font(.custom("OpenSans-SemiBold", size: 12))
-                                    .foregroundStyle(.black.opacity(0.5))
+                                    .font(AMENFont.semiBold(12))
+                                    .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 20)
                             .padding(.top, 16)
@@ -2674,7 +3095,7 @@ struct UnifiedFeedContentView: View {
                 }
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(ProfileDesignTokens.canvasBackground)
         .padding(.top, 12)
         .sheet(isPresented: $showCommentsSheet) {
             if let post = selectedPostForComments {
@@ -2746,8 +3167,8 @@ struct UnifiedFeedItemCard: View {
         VStack(alignment: .leading, spacing: 12) {
             // Post content
             Text(item.content)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.black)
+                .font(AMENFont.regular(15))
+                .foregroundStyle(.primary)
                 .lineSpacing(4)
                 .lineLimit(isExpanded ? nil : 4)
                 .animation(.easeInOut(duration: 0.3), value: isExpanded)
@@ -2759,19 +3180,19 @@ struct UnifiedFeedItemCard: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(isExpanded ? "See Less" : "See More")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(AMENFont.semiBold(13))
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                     }
-                    .foregroundStyle(.black.opacity(0.5))
+                    .foregroundStyle(.secondary)
                 }
             }
             
             // Timestamp and actions
             HStack {
                 Text(item.timestamp)
-                    .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.black.opacity(0.4))
+                    .font(AMENFont.regular(13))
+                    .foregroundStyle(.tertiary)
                 
                 Spacer()
                 
@@ -2781,13 +3202,13 @@ struct UnifiedFeedItemCard: View {
                     Button(action: onLike) {
                         HStack(spacing: 6) {
                             Image(systemName: isLiked ? "hands.sparkles.fill" : "hands.sparkles")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(isLiked ? .blue : .black.opacity(0.6))
                             
                             if item.likes > 0 {
                                 Text("\(item.likes)")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
-                                    .foregroundStyle(.black.opacity(0.6))
+                                    .font(AMENFont.semiBold(13))
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -2796,13 +3217,13 @@ struct UnifiedFeedItemCard: View {
                     Button(action: onReply) {
                         HStack(spacing: 6) {
                             Image(systemName: "bubble.left")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.black.opacity(0.6))
+                                .font(.systemScaled(16, weight: .semibold))
+                                .foregroundStyle(.secondary)
                             
                             if item.replies > 0 {
                                 Text("\(item.replies)")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
-                                    .foregroundStyle(.black.opacity(0.6))
+                                    .font(AMENFont.semiBold(13))
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -2848,72 +3269,76 @@ struct ReadOnlyProfilePostCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Post content - Expandable (matches OpenTable PostCard design)
+            // Post content - Expandable
             Text(post.content)
-                .font(.custom("OpenSans-Regular", size: 16))  // ✅ Increased from 14 to 16 to match PostCard
-                .foregroundStyle(.primary)  // ✅ Changed from .black to .primary for consistency
-                .lineSpacing(6)  // ✅ Increased from 4 to 6 to match PostCard
+                .font(AMENFont.regular(16))
+                .foregroundStyle(ProfileDesignTokens.textPrimary)
+                .lineSpacing(6)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-                .lineLimit(isExpanded ? nil : 10)  // ✅ Changed from 4 to 10 lines to match PostCard
-                .animation(.easeInOut(duration: 0.3), value: isExpanded)  // ✅ NEW: Smooth expansion
+                .lineLimit(isExpanded ? nil : 10)
+                .animation(.easeInOut(duration: 0.3), value: isExpanded)
             
-            // "Show more" button (matches OpenTable PostCard design)
+            // "Show more" button
             if needsExpansion && !isExpanded {
                 Button {
                     onToggleExpand()
                 } label: {
                     Text("Show more")
-                        .font(.custom("OpenSans-SemiBold", size: 14))  // ✅ Matches PostCard
-                        .foregroundStyle(.black)  // ✅ Matches PostCard
+                        .font(AMENFont.semiBold(14))
+                        .foregroundStyle(ProfileDesignTokens.textSecondary)
                 }
                 .buttonStyle(PlainButtonStyle())
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
             }
             
-            // Time stamp with post type indicator - Smaller
+            // Time stamp with post type indicator
             HStack(spacing: 6) {
                 Text(post.timestamp)
-                    .font(.custom("OpenSans-Regular", size: 11))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .font(AMENFont.regular(11))
+                    .foregroundStyle(ProfileDesignTokens.textTertiary)
                 
-                // Post type indicator - Minimal black and white
+                // Post type indicator
                 if let postType = post.postType {
                     HStack(spacing: 3) {
                         Image(systemName: postType.icon)
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.systemScaled(9, weight: .medium))
                         Text(postType.rawValue)
-                            .font(.custom("OpenSans-SemiBold", size: 9))
+                            .font(AMENFont.semiBold(9))
                     }
-                    .foregroundStyle(.black.opacity(0.6))
+                    .foregroundStyle(ProfileDesignTokens.textSecondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(
                         Capsule()
-                            .strokeBorder(.black.opacity(0.15), lineWidth: 0.5)
+                            .fill(ProfileDesignTokens.elevatedSurface)
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                            )
                     )
                 }
             }
             .padding(.horizontal, 16)
             .padding(.top, 6)
             
-            // Interaction buttons - Minimal, production-ready
+            // Interaction buttons - Liquid Glass
             HStack(spacing: 16) {
-                // Amen Button (NO COUNT - just icon)
+                // Amen Button
                 Button {
                     onLike()
                 } label: {
                     Image(systemName: isLiked ? "hands.clap.fill" : "hands.clap")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(isLiked ? .black : .black.opacity(0.4))
+                        .font(.systemScaled(16, weight: .medium))
+                        .foregroundStyle(isLiked ? ProfileDesignTokens.textPrimary : ProfileDesignTokens.textTertiary)
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
+                                .fill(ProfileDesignTokens.elevatedSurface)
                                 .overlay(
                                     Circle()
-                                        .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
+                                        .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
                                 )
                         )
                 }
@@ -2921,34 +3346,33 @@ struct ReadOnlyProfilePostCard: View {
                 .scaleEffect(isLiked ? 1.1 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isLiked)
                 
-                // Comment Button - Production ready with count badge
+                // Comment Button with count badge
                 Button {
                     onReply()
                 } label: {
                     ZStack(alignment: .topTrailing) {
                         Image(systemName: "bubble.left")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.black.opacity(0.4))
+                            .font(.systemScaled(16, weight: .medium))
+                            .foregroundStyle(ProfileDesignTokens.textTertiary)
                             .frame(width: 32, height: 32)
                             .background(
                                 Circle()
-                                    .fill(.ultraThinMaterial)
+                                    .fill(ProfileDesignTokens.elevatedSurface)
                                     .overlay(
                                         Circle()
-                                            .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
+                                            .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
                                     )
                             )
                         
-                        // Comment count badge (only if > 0)
                         if post.replies > 0 {
                             Text("\(post.replies)")
-                                .font(.custom("OpenSans-Bold", size: 9))
+                                .font(AMENFont.bold(9))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 2)
                                 .background(
                                     Capsule()
-                                        .fill(Color.black)
+                                        .fill(ProfileDesignTokens.textPrimary)
                                 )
                                 .offset(x: 8, y: -4)
                         }
@@ -2961,15 +3385,15 @@ struct ReadOnlyProfilePostCard: View {
                     sharePost()
                 } label: {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .font(.systemScaled(16, weight: .medium))
+                        .foregroundStyle(ProfileDesignTokens.textTertiary)
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
+                                .fill(ProfileDesignTokens.elevatedSurface)
                                 .overlay(
                                     Circle()
-                                        .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
+                                        .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
                                 )
                         )
                 }
@@ -2977,32 +3401,30 @@ struct ReadOnlyProfilePostCard: View {
                 
                 Spacer()
                 
-                // Like count indicator (subtle, right-aligned)
+                // Like count indicator
                 if post.likes > 0 {
                     Text("\(post.likes)")
-                        .font(.custom("OpenSans-SemiBold", size: 11))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .font(AMENFont.semiBold(11))
+                        .foregroundStyle(ProfileDesignTokens.textTertiary)
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 12)  // ✅ Matches PostCard spacing
+            .padding(.top, 12)
             .padding(.bottom, 14)
         }
         .background(
-            RoundedRectangle(cornerRadius: 0, style: .continuous)  // ✅ Matches ProfileView - flat design
-                .fill(Color(.systemBackground))  // ✅ Adaptive background
+            RoundedRectangle(cornerRadius: ProfileDesignTokens.innerCornerRadius, style: .continuous)
+                .fill(ProfileDesignTokens.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: ProfileDesignTokens.innerCornerRadius, style: .continuous)
+                        .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                )
+                .shadow(color: ProfileDesignTokens.cardShadow, radius: 6, y: 2)
         )
-        .overlay(
-            // Minimal bottom separator like ProfileView
-            Rectangle()
-                .fill(Color.black.opacity(0.08))
-                .frame(height: 0.5),
-            alignment: .bottom
-        )
-        .pressableCard(scale: 0.985)  // ✅ Matches PostCard press animation
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .pressableCard(scale: 0.985)
+        .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+        .padding(.top, 4)
+        .padding(.bottom, 2)
         .contentShape(Rectangle())
         // ✅ NEW: Swipe gesture for quick actions
         .offset(x: swipeOffset)
@@ -3056,8 +3478,8 @@ struct ReadOnlyProfilePostCard: View {
                 .frame(width: 50, height: 50)
             
             Image(systemName: "hands.clap.fill")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(.black.opacity(0.6))
+                .font(.systemScaled(24, weight: .semibold))
+                .foregroundStyle(.secondary)
         }
     }
     
@@ -3069,8 +3491,8 @@ struct ReadOnlyProfilePostCard: View {
                 .frame(width: 50, height: 50)
             
             Image(systemName: "bubble.left.fill")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(.black.opacity(0.6))
+                .font(.systemScaled(24, weight: .semibold))
+                .foregroundStyle(.secondary)
         }
     }
     
@@ -3105,7 +3527,7 @@ struct ReadOnlyProfilePostCard: View {
             triggerCommentSwipe()
         } else {
             // Reset swipe if threshold not met
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                 swipeOffset = 0
                 swipeDirection = nil
             }
@@ -3121,7 +3543,7 @@ struct ReadOnlyProfilePostCard: View {
         onLike()
         
         // Reset swipe with animation AFTER triggering action
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             swipeOffset = 0
             swipeDirection = nil
         }
@@ -3137,7 +3559,7 @@ struct ReadOnlyProfilePostCard: View {
         
         // Small delay before reset to allow sheet to present properly
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
                 swipeOffset = 0
                 swipeDirection = nil
             }
@@ -3154,30 +3576,30 @@ struct UserProfileEmptyStateView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            // Neumorphic icon container
+            // Liquid Glass icon container
             ZStack {
                 Circle()
-                    .fill(
-                        Color(white: 0.95)
-                            .shadow(.inner(color: Color.black.opacity(0.1), radius: 8, x: 4, y: 4))
-                            .shadow(.inner(color: Color.white.opacity(0.8), radius: 8, x: -4, y: -4))
+                    .fill(ProfileDesignTokens.elevatedSurface)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
                     )
-                    .frame(width: 100, height: 100)
-                    .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+                    .shadow(color: ProfileDesignTokens.cardShadow, radius: 10, y: 4)
+                    .frame(width: 80, height: 80)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 40, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.3))
+                    .font(.systemScaled(32, weight: .medium))
+                    .foregroundStyle(ProfileDesignTokens.textTertiary)
             }
             
             VStack(spacing: 8) {
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 20))
-                    .foregroundStyle(.black)
+                    .font(AMENFont.bold(18))
+                    .foregroundStyle(ProfileDesignTokens.textPrimary)
                 
                 Text(message)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .font(AMENFont.regular(15))
+                    .foregroundStyle(ProfileDesignTokens.textTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
             }
@@ -3273,6 +3695,7 @@ struct UserProfileRepost: Identifiable {
     let timestamp: String
     var likes: Int = 0
     var replies: Int = 0
+    var createdAt: Date = Date()
     
     static let sampleUserReposts: [UserProfileRepost] = [
         UserProfileRepost(
@@ -3336,7 +3759,7 @@ struct FollowersListView: View {
                 }
                 .padding(.vertical, 20)
             }
-            .background(Color(white: 0.98))
+            .background(ProfileDesignTokens.canvasBackground)
             .navigationTitle(type.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -3344,7 +3767,7 @@ struct FollowersListView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .task {
@@ -3415,19 +3838,19 @@ struct UserListRow: View {
                 .frame(width: 50, height: 50)
                 .overlay(
                     Text(user.initials)
-                        .font(.custom("OpenSans-Bold", size: 18))
+                        .font(AMENFont.bold(18))
                         .foregroundStyle(.white)
                 )
             
             // Info
             VStack(alignment: .leading, spacing: 4) {
                 Text(user.name)
-                    .font(.custom("OpenSans-Bold", size: 16))
-                    .foregroundStyle(.black)
+                    .font(AMENFont.bold(16))
+                    .foregroundStyle(.primary)
                 
                 Text("@\(user.username)")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .font(AMENFont.regular(14))
+                    .foregroundStyle(.secondary)
             }
             
             Spacer()
@@ -3435,8 +3858,8 @@ struct UserListRow: View {
             // Show "You" for current user; follow button for others
             if isCurrentUser {
                 Text("You")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(.black.opacity(0.4))
+                    .font(AMENFont.semiBold(14))
+                    .foregroundStyle(.tertiary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
             } else {
@@ -3452,7 +3875,7 @@ struct UserListRow: View {
                             .frame(width: 80, height: 32)
                     } else {
                         Text(isFollowing ? "Following" : "Follow")
-                            .font(.custom("OpenSans-Bold", size: 14))
+                            .font(AMENFont.bold(14))
                             .foregroundStyle(isFollowing ? .black : .white)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 8)
@@ -3485,7 +3908,7 @@ struct UserListRow: View {
         let previousState = isFollowing
         
         // Optimistic update
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             isFollowing.toggle()
         }
         
@@ -3536,16 +3959,16 @@ struct ReportUserView: View {
                     // Header
                     VStack(spacing: 12) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 50))
+                            .font(.systemScaled(50))
                             .foregroundStyle(.orange)
                         
                         Text("Report \(userName)")
-                            .font(.custom("OpenSans-Bold", size: 24))
-                            .foregroundStyle(.black)
+                            .font(AMENFont.bold(24))
+                            .foregroundStyle(.primary)
                         
                         Text("Help us understand what's happening")
-                            .font(.custom("OpenSans-Regular", size: 15))
-                            .foregroundStyle(.black.opacity(0.6))
+                            .font(AMENFont.regular(15))
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(.top, 20)
@@ -3553,15 +3976,15 @@ struct ReportUserView: View {
                     // Reason Selection
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Why are you reporting this account?")
-                            .font(.custom("OpenSans-Bold", size: 16))
-                            .foregroundStyle(.black)
+                            .font(AMENFont.bold(16))
+                            .foregroundStyle(.primary)
                         
                         ForEach(UserReportReason.allCases, id: \.self) { reason in
                             ReportReasonRow(
                                 reason: reason,
                                 isSelected: selectedReason == reason
                             ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedReason = reason
                                 }
                             }
@@ -3573,11 +3996,11 @@ struct ReportUserView: View {
                     if selectedReason != nil {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Additional Details (Optional)")
-                                .font(.custom("OpenSans-Bold", size: 16))
-                                .foregroundStyle(.black)
+                                .font(AMENFont.bold(16))
+                                .foregroundStyle(.primary)
                             
                             TextEditor(text: $description)
-                                .font(.custom("OpenSans-Regular", size: 15))
+                                .font(AMENFont.regular(15))
                                 .frame(height: 120)
                                 .padding(12)
                                 .background(
@@ -3600,7 +4023,7 @@ struct ReportUserView: View {
                             submitReport()
                         } label: {
                             Text("Submit Report")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                                .font(AMENFont.bold(16))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -3616,8 +4039,8 @@ struct ReportUserView: View {
                     
                     // Info Text
                     Text("Your report is anonymous. If someone is in immediate danger, call local emergency services.")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                         .padding(.top, 20)
@@ -3632,7 +4055,7 @@ struct ReportUserView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .font(AMENFont.semiBold(16))
                 }
             }
             .alert("Report Submitted", isPresented: $showingConfirmation) {
@@ -3669,19 +4092,19 @@ struct ReportReasonRow: View {
         } label: {
             HStack(spacing: 16) {
                 Image(systemName: reason.icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isSelected ? .red : .black.opacity(0.6))
                     .frame(width: 32)
                 
                 Text(reason.rawValue)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .foregroundStyle(.black)
+                    .font(AMENFont.semiBold(15))
+                    .foregroundStyle(.primary)
                 
                 Spacer()
                 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.red)
                 }
             }
@@ -3708,13 +4131,13 @@ struct StatView: View {
     
     var body: some View {
         HStack(spacing: 4) {
-            Text(label.capitalized)
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.secondary)
-            
             Text(count)
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.secondary)
+                .font(AMENFont.bold(15))
+                .foregroundStyle(ProfileDesignTokens.textPrimary)
+            
+            Text(label)
+                .font(AMENFont.regular(14))
+                .foregroundStyle(ProfileDesignTokens.textTertiary)
         }
     }
 }
@@ -3727,15 +4150,15 @@ struct InterestTagsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .font(.systemScaled(12))
+                        .foregroundStyle(.secondary)
                     
                     Text("Interests")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .font(AMENFont.semiBold(13))
+                        .foregroundStyle(.secondary)
                 }
                 
-                FlowLayout(spacing: 8) {
+                AMENFlowLayout(spacing: 8) {
                     ForEach(Array(interests.enumerated()), id: \.offset) { index, interest in
                         HandDrawnInterestTag(interest: interest, index: index)
                     }
@@ -3755,8 +4178,8 @@ struct HandDrawnInterestTag: View {
     
     var body: some View {
         Text(interest)
-            .font(.custom("OpenSans-SemiBold", size: 13))
-            .foregroundStyle(.black)
+            .font(AMENFont.semiBold(13))
+            .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(
@@ -3845,44 +4268,66 @@ struct HandDrawnCircle: Shape {
 
 struct SocialLinksView: View {
     let socialLinks: [UserSocialLink]
-    
+
+    private func urlFor(_ link: UserSocialLink) -> URL? {
+        let clean = link.username.replacingOccurrences(of: "@", with: "")
+        let urlString: String
+        switch link.platform {
+        case .twitter:   urlString = "https://twitter.com/\(clean)"
+        case .instagram: urlString = "https://instagram.com/\(clean)"
+        case .linkedin:  urlString = "https://linkedin.com/in/\(clean)"
+        case .website:
+            // Treat username as a full URL; add https:// if missing
+            urlString = clean.hasPrefix("http") ? clean : "https://\(clean)"
+        }
+        return URL(string: urlString)
+    }
+
     var body: some View {
         if !socialLinks.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 6) {
                     Image(systemName: "link")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.black.opacity(0.5))
-                    
+                        .font(.systemScaled(12))
+                        .foregroundStyle(ProfileDesignTokens.textTertiary)
+
                     Text("Social Links")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
-                        .foregroundStyle(.black.opacity(0.5))
+                        .font(AMENFont.semiBold(13))
+                        .foregroundStyle(ProfileDesignTokens.textTertiary)
                 }
-                
+
                 VStack(spacing: 8) {
                     ForEach(socialLinks) { link in
-                        HStack(spacing: 10) {
-                            Image(systemName: link.platform.icon)
-                                .font(.system(size: 14))
-                                .foregroundStyle(.blue)
-                                .frame(width: 20)
-                            
-                            Text("@\(link.username)")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundStyle(.black)
-                            
-                            Spacer()
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.black.opacity(0.3))
+                        Button {
+                            if let url = urlFor(link) {
+                                UIApplication.shared.open(url)
+                                HapticManager.impact(style: .light)
+                            }
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: link.platform.icon)
+                                    .font(.systemScaled(14))
+                                    .foregroundStyle(.blue)
+                                    .frame(width: 20)
+
+                                Text("@\(link.username)")
+                                    .font(AMENFont.semiBold(14))
+                                    .foregroundStyle(.primary)
+
+                                Spacer()
+
+                                Image(systemName: "arrow.up.right")
+                                    .font(.systemScaled(12, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.black.opacity(0.03))
+                            )
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.black.opacity(0.03))
-                        )
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -3900,14 +4345,14 @@ struct ProfileRepostCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Repost indicator - Smaller, black and white
+            // Repost indicator - Matches PostCard style
             HStack(spacing: 4) {
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.systemScaled(9, weight: .medium))
                 Text("Reposted from \(originalAuthor)")
-                    .font(.custom("OpenSans-SemiBold", size: 10))
+                    .font(AMENFont.semiBold(10))
             }
-            .foregroundStyle(.black.opacity(0.5))
+            .foregroundStyle(.secondary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
@@ -3915,91 +4360,73 @@ struct ProfileRepostCard: View {
                     .strokeBorder(.black.opacity(0.15), lineWidth: 0.5)
             )
             .padding(.horizontal, 16)
-            .padding(.top, 12)
+            .padding(.top, 14)
             
-            // Content - More compact
+            // Content - Matches PostCard sizing
             Text(content)
-                .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundStyle(.black)
-                .lineSpacing(4)
+                .font(AMENFont.regular(16))  // ✅ Increased from 14 to 16 to match PostCard
+                .foregroundStyle(.primary)  // ✅ Changed from .black to .primary for consistency
+                .lineSpacing(6)  // ✅ Increased from 4 to 6 to match PostCard
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
-                .lineLimit(4) // Limit for compactness
+                .lineLimit(10)  // ✅ Changed from 4 to 10 to match PostCard
             
             // Time stamp
             Text(timestamp)
-                .font(.custom("OpenSans-Regular", size: 11))
-                .foregroundStyle(.black.opacity(0.5))
+                .font(AMENFont.regular(11))
+                .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
             
-            // Stats - Right aligned, subtle
-            HStack {
+            // Interaction buttons - Matches PostCard style
+            HStack(spacing: 16) {
+                // Amen Button (NO COUNT - just icon)
+                Button {
+                    // Disabled for reposts
+                } label: {
+                    Image(systemName: "hands.clap")
+                        .font(.systemScaled(16, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
+                                )
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .hidden()
+                
                 Spacer()
                 
-                HStack(spacing: 12) {
-                    if likes > 0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "hands.clap")
-                                .font(.system(size: 11))
-                            Text("\(likes)")
-                                .font(.custom("OpenSans-SemiBold", size: 11))
-                        }
-                        .foregroundStyle(.black.opacity(0.4))
-                    }
-                    
-                    if replies > 0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "bubble.left")
-                                .font(.system(size: 11))
-                            Text("\(replies)")
-                                .font(.custom("OpenSans-SemiBold", size: 11))
-                        }
-                        .foregroundStyle(.black.opacity(0.4))
-                    }
+                // Like count indicator (subtle, right-aligned)
+                if likes > 0 {
+                    Text("\(likes)")
+                        .font(AMENFont.semiBold(11))
+                        .foregroundStyle(.tertiary)
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 12)
+            .padding(.top, 12)  // ✅ Matches PostCard spacing
+            .padding(.bottom, 14)
         }
         .background(
-            ZStack {
-                // Glassmorphic background - Black and white
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(.ultraThinMaterial)
-                
-                // White overlay with subtle gradient
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.6),
-                                Color.white.opacity(0.3)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Subtle border
-                RoundedRectangle(cornerRadius: 18)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.8),
-                                Color.black.opacity(0.1)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
+            RoundedRectangle(cornerRadius: 0, style: .continuous)  // ✅ Matches ProfileView - flat design
+                .fill(Color(.systemBackground))  // ✅ Adaptive background
         )
-        .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
+        .overlay(
+            // Minimal bottom separator like ProfileView
+            Rectangle()
+                .fill(Color.black.opacity(0.08))
+                .frame(height: 0.5),
+            alignment: .bottom
+        )
         .padding(.horizontal, 16)
-        .padding(.vertical, 6)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
     }
 }
 
@@ -4009,8 +4436,8 @@ struct LoadingStateView: View {
             AMENLoadingIndicator()
             
             Text("Loading...")
-                .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundStyle(.black.opacity(0.5))
+                .font(AMENFont.regular(14))
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
@@ -4075,23 +4502,23 @@ struct SkeletonProfileCard: View {
             // Content placeholder
             VStack(alignment: .leading, spacing: 8) {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(height: 16)
                 
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(height: 16)
                     .frame(maxWidth: .infinity * 0.8)
                 
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(height: 16)
                     .frame(maxWidth: .infinity * 0.6)
             }
             
             // Timestamp placeholder
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color.gray.opacity(0.15))
+                .fill(Color.black.opacity(0.04))
                 .frame(width: 80, height: 12)
             
             // Buttons placeholder
@@ -4099,23 +4526,19 @@ struct SkeletonProfileCard: View {
                 ForEach(0..<2) { _ in
                     HStack(spacing: 6) {
                         Circle()
-                            .fill(Color.gray.opacity(0.2))
+                            .fill(Color.black.opacity(0.06))
                             .frame(width: 20, height: 20)
                         
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.gray.opacity(0.2))
+                            .fill(Color.black.opacity(0.06))
                             .frame(width: 30, height: 12)
                     }
                 }
             }
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
-        )
-        .padding(.horizontal, 20)
+        .padding(ProfileDesignTokens.contentInset)
+        .profileGlassCard()
+        .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
         .padding(.vertical, 8)
         .shimmerEffect()
     }
@@ -4128,55 +4551,57 @@ struct SkeletonProfileHeader: View {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.gray.opacity(0.2))
+                        .fill(Color.black.opacity(0.06))
                         .frame(width: 150, height: 24)
                     
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.gray.opacity(0.15))
+                        .fill(Color.black.opacity(0.04))
                         .frame(width: 100, height: 16)
                 }
                 
                 Spacer()
                 
                 Circle()
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(width: 80, height: 80)
             }
             
             VStack(alignment: .leading, spacing: 8) {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.gray.opacity(0.15))
+                    .fill(Color.black.opacity(0.04))
                     .frame(height: 14)
                 
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.gray.opacity(0.15))
+                    .fill(Color.black.opacity(0.04))
                     .frame(height: 14)
                     .frame(maxWidth: .infinity * 0.7)
             }
             
             HStack(spacing: 24) {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.gray.opacity(0.15))
+                    .fill(Color.black.opacity(0.04))
                     .frame(width: 100, height: 16)
                 
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.gray.opacity(0.15))
+                    .fill(Color.black.opacity(0.04))
                     .frame(width: 100, height: 16)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
             HStack(spacing: 12) {
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(height: 44)
                 
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.black.opacity(0.06))
                     .frame(height: 44)
             }
         }
-        .padding(20)
-        .background(Color(white: 0.98))
+        .padding(ProfileDesignTokens.contentInset)
+        .profileGlassCard()
+        .padding(.horizontal, ProfileDesignTokens.horizontalPadding)
+        .padding(.top, 8)
         .shimmerEffect()
     }
 }
@@ -4223,9 +4648,9 @@ struct BackToTopButton: View {
             Button(action: action) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Back to top")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .font(AMENFont.semiBold(13))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
@@ -4241,13 +4666,13 @@ struct BackToTopButton: View {
     }
     
     func show() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             isVisible = true
         }
     }
     
     func hide() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             isVisible = false
         }
     }
@@ -4354,7 +4779,7 @@ struct PullToRefreshView<Content: View>: View {
         Task {
             await onRefresh()
             await MainActor.run {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))) {
                     isRefreshing = false
                     refreshProgress = 0
                 }
@@ -4392,19 +4817,19 @@ struct ErrorRecoveryView: View {
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(.red)
             }
             
             // Error message
             VStack(spacing: 8) {
                 Text("Oops!")
-                    .font(.custom("OpenSans-Bold", size: 22))
-                    .foregroundStyle(.black)
+                    .font(AMENFont.bold(22))
+                    .foregroundStyle(.primary)
                 
                 Text(error)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .font(AMENFont.regular(15))
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
                     .padding(.horizontal, 32)
@@ -4422,11 +4847,11 @@ struct ErrorRecoveryView: View {
                                 .scaleEffect(0.9)
                         } else {
                             Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                         }
                         
                         Text(isRetrying ? "Retrying..." : "Try Again")
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(AMENFont.bold(16))
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -4442,8 +4867,8 @@ struct ErrorRecoveryView: View {
                     Button("Dismiss") {
                         onDismiss()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .font(AMENFont.semiBold(15))
+                    .foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 32)
@@ -4538,12 +4963,12 @@ struct InlineErrorBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.orange)
             
             Text(message)
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.black.opacity(0.7))
+                .font(AMENFont.regular(13))
+                .foregroundStyle(.secondary)
                 .lineLimit(2)
             
             Spacer()
@@ -4552,7 +4977,7 @@ struct InlineErrorBanner: View {
                 retryAction()
             } label: {
                 Text("Retry")
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(AMENFont.semiBold(13))
                     .foregroundStyle(.blue)
             }
         }
@@ -4581,20 +5006,20 @@ struct PrivacyStatusBadge: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
             
             Text(text)
-                .font(.custom("OpenSans-SemiBold", size: 13))
+                .font(AMENFont.semiBold(13))
         }
         .foregroundStyle(color)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(color.opacity(0.1))
+            RoundedRectangle(cornerRadius: ProfileDesignTokens.innerCornerRadius)
+                .fill(ProfileDesignTokens.elevatedSurface)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(color.opacity(0.3), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: ProfileDesignTokens.innerCornerRadius)
+                        .strokeBorder(color.opacity(0.2), lineWidth: ProfileDesignTokens.hairlineWidth)
                 )
         )
     }
@@ -4634,15 +5059,15 @@ struct ChatConversationLoader: View {
                 // Error state — only shown if ID never resolves
                 VStack(spacing: 20) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 50))
+                        .font(.systemScaled(50))
                         .foregroundStyle(.red)
                     
                     Text("Unable to start conversation")
-                        .font(.custom("OpenSans-Bold", size: 18))
+                        .font(AMENFont.bold(18))
                     
                     if let errorMessage = errorMessage {
                         Text(errorMessage)
-                            .font(.custom("OpenSans-Regular", size: 14))
+                            .font(AMENFont.regular(14))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
@@ -4652,7 +5077,7 @@ struct ChatConversationLoader: View {
                         dismiss()
                     } label: {
                         Text("Close")
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(AMENFont.bold(16))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -4670,7 +5095,7 @@ struct ChatConversationLoader: View {
                 VStack(spacing: 16) {
                     AMENLoadingIndicator()
                     Text(userName)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(AMENFont.semiBold(15))
                         .foregroundStyle(.primary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -4761,12 +5186,21 @@ extension UserProfileView {
     @MainActor
     private func performNotificationToggle() async {
         notificationsEnabled.toggle()
-        
+
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
-        
-        // TODO: Implement notification service
-        // await NotificationService.shared.toggleUserNotifications(userId: userId, enabled: notificationsEnabled)
+
+        guard let currentUid = Auth.auth().currentUser?.uid else { return }
+        // Persist the per-user post-notification preference under the viewer's document
+        // so the backend fan-out can query which users want new-post push notifications.
+        let db = Firestore.firestore()
+        try? await db
+            .collection("users").document(currentUid)
+            .collection("followNotifications")
+            .document(userId)
+            .setData(["enabled": notificationsEnabled, "updatedAt": FieldValue.serverTimestamp()],
+                     merge: true)
+
         dlog("✅ \(notificationsEnabled ? "Enabled" : "Disabled") notifications for user: \(userId)")
     }
 }
@@ -4825,35 +5259,39 @@ extension UserProfileView {
         return UIImage(cgImage: cgImage)
     }
     
-    /// Compact avatar view for toolbar
+    /// Compact avatar view for toolbar — Liquid Glass mini ring
     private func compactAvatarView(profileData: UserProfile) -> some View {
         Group {
             if let imageURL = profileData.profileImageURL, !imageURL.isEmpty, let url = URL(string: imageURL) {
-                // ✅ PERFORMANCE: Use CachedAsyncImage for instant loading on scroll
                 CachedAsyncImage(url: url) { image in
                     image
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 32, height: 32)
+                        .frame(width: 30, height: 30)
                         .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .strokeBorder(ProfileDesignTokens.hairlineBorder, lineWidth: ProfileDesignTokens.hairlineWidth)
+                        )
                 } placeholder: {
-                    Circle().fill(Color.black)
-                        .frame(width: 32, height: 32)
+                    Circle().fill(Color(white: 0.90))
+                        .frame(width: 30, height: 30)
                         .overlay(
                             Text(profileData.initials)
-                                .font(.custom("OpenSans-Bold", size: 12))
-                                .foregroundStyle(.white)
+                                .font(AMENFont.bold(11))
+                                .foregroundStyle(ProfileDesignTokens.textSecondary)
                         )
                 }
             } else {
-                Circle().fill(Color.black).frame(width: 32, height: 32)
+                Circle().fill(Color(white: 0.90)).frame(width: 30, height: 30)
                     .overlay(
                         Text(profileData.initials)
-                            .font(.custom("OpenSans-Bold", size: 12))
-                            .foregroundStyle(.white)
+                            .font(AMENFont.bold(11))
+                            .foregroundStyle(ProfileDesignTokens.textSecondary)
                     )
             }
         }
+        .shadow(color: ProfileDesignTokens.cardShadow, radius: 4, y: 2)
     }
 }
 
@@ -4862,11 +5300,9 @@ extension UserProfileView {
 extension UserProfileView {
     /// Fetch profile view analytics (if viewing own profile)
     private func fetchProfileAnalytics() async {
-        // TODO: Implement analytics
-        // - Profile views count
-        // - Most viewed post
-        // - Follower growth
-        dlog("📊 Analytics feature - implement when needed")
+        guard let uid = Auth.auth().currentUser?.uid, uid == userId else { return }
+        AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "profile_view"))
+        dlog("📊 Profile analytics tracked for uid=\(uid)")
     }
 }
 
@@ -4875,18 +5311,40 @@ extension UserProfileView {
 extension UserProfileView {
     /// Save profile to local cache for offline viewing
     private func cacheProfileData() {
-        guard profileData != nil else { return }
-        
-        // TODO: Implement UserDefaults or CoreData caching
-        // UserDefaults.standard.set(encodedProfile, forKey: "cached_profile_\(userId)")
-        dlog("💾 Caching profile data for offline support")
+        guard let p = profileData else { return }
+        let dict: [String: Any] = [
+            "userId": p.userId,
+            "name": p.name,
+            "username": p.username,
+            "bio": p.bio,
+            "profileImageURL": p.profileImageURL ?? "",
+            "followersCount": p.followersCount,
+            "followingCount": p.followingCount,
+            "isPrivateAccount": p.isPrivateAccount
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: dict) {
+            UserDefaults.standard.set(data, forKey: "cached_profile_\(userId)")
+        }
     }
-    
+
     /// Load cached profile data
     private func loadCachedProfile() -> UserProfile? {
-        // TODO: Implement cache retrieval
-        // return try? JSONDecoder().decode(UserProfile.self, from: cachedData)
-        return nil
+        guard let data = UserDefaults.standard.data(forKey: "cached_profile_\(userId)"),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        return UserProfile(
+            userId: dict["userId"] as? String ?? userId,
+            name: dict["name"] as? String ?? "",
+            username: dict["username"] as? String ?? "",
+            bio: dict["bio"] as? String ?? "",
+            initials: String(((dict["name"] as? String) ?? "").prefix(2).uppercased()),
+            profileImageURL: dict["profileImageURL"] as? String,
+            interests: [],
+            socialLinks: [],
+            followersCount: dict["followersCount"] as? Int ?? 0,
+            followingCount: dict["followingCount"] as? Int ?? 0,
+            isPrivateAccount: dict["isPrivateAccount"] as? Bool ?? false
+        )
     }
 }
 
@@ -4914,9 +5372,13 @@ extension UserProfileView {
     private func trackLoadPerformance(startTime: Date) {
         let loadTime = Date().timeIntervalSince(startTime)
         dlog("⏱️ Profile loaded in \(String(format: "%.2f", loadTime))s")
-        
-        // TODO: Send to analytics service
-        // Analytics.track("profile_load_time", properties: ["duration": loadTime, "userId": userId])
+        // Respect user analytics opt-out before firing.
+        guard !AMENAnalyticsService.shared.isUserOptedOut else { return }
+        Analytics.logEvent("user_profile_loaded", parameters: [
+            "load_ms": Int(loadTime * 1000),
+            // Do not include viewed_user_id — UID is PII; payload-free per GAP_BOARD P1.
+            "session_id": AMENAnalyticsService.shared.sessionId
+        ])
     }
     
     /// Format timestamp to relative time string (e.g., "2h ago")

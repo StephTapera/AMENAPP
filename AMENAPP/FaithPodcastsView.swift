@@ -72,7 +72,7 @@ struct FaithPodcastsView: View {
                                     .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
                                 
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(.primary)
                             }
                         }
@@ -89,7 +89,7 @@ struct FaithPodcastsView: View {
                             showFilters = true
                         } label: {
                             Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(.primary)
                                 .frame(width: 36, height: 36)
                         }
@@ -133,7 +133,7 @@ struct FaithPodcastsView: View {
                                 title: genre.rawValue,
                                 isSelected: selectedGenre == genre
                             ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     selectedGenre = genre
                                     let haptic = UIImpactFeedbackGenerator(style: .light)
                                     haptic.impactOccurred()
@@ -274,7 +274,7 @@ struct TrendingPodcastCard: View {
                     .frame(width: 180, height: 180)
                 
                 Image(systemName: "waveform")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(.white.opacity(0.3))
             }
             .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
@@ -291,7 +291,7 @@ struct TrendingPodcastCard: View {
                 
                 HStack(spacing: 4) {
                     Image(systemName: "headphones")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     Text("\(podcast.episodes) episodes")
                         .font(.custom("OpenSans-Regular", size: 11))
                 }
@@ -321,7 +321,7 @@ struct PodcastCard: View {
                     .frame(width: 80, height: 80)
                 
                 Image(systemName: "waveform")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(.white.opacity(0.6))
             }
             .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
@@ -339,7 +339,7 @@ struct PodcastCard: View {
                 HStack(spacing: 8) {
                     HStack(spacing: 4) {
                         Image(systemName: "headphones")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                         Text("\(podcast.episodes) episodes")
                             .font(.custom("OpenSans-Regular", size: 12))
                     }
@@ -360,13 +360,13 @@ struct PodcastCard: View {
             Spacer()
             
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                     isSubscribed.toggle()
                 }
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: isSubscribed ? "checkmark" : "plus")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.systemScaled(14, weight: .bold))
                     
                     if !isSubscribed {
                         Text("Follow")
@@ -516,7 +516,7 @@ struct ForYouPodcastCard: View {
                         .frame(width: 160, height: 160)
                     
                     Image(systemName: "waveform")
-                        .font(.system(size: 44))
+                        .font(.systemScaled(44))
                         .foregroundStyle(.white.opacity(0.3))
                     
                     VStack {
@@ -524,7 +524,7 @@ struct ForYouPodcastCard: View {
                         HStack {
                             Spacer()
                             Image(systemName: "play.circle.fill")
-                                .font(.system(size: 32))
+                                .font(.systemScaled(32))
                                 .foregroundStyle(.white)
                                 .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
                                 .padding(12)
@@ -573,7 +573,7 @@ struct EnhancedPodcastCard: View {
                         .frame(width: 90, height: 90)
                     
                     Image(systemName: "waveform")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.white.opacity(0.6))
                 }
                 .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
@@ -591,7 +591,7 @@ struct EnhancedPodcastCard: View {
                     HStack(spacing: 8) {
                         HStack(spacing: 4) {
                             Image(systemName: "headphones")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                             Text("\(podcast.episodes) eps")
                                 .font(.custom("OpenSans-Regular", size: 12))
                         }
@@ -620,7 +620,7 @@ struct EnhancedPodcastCard: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "play.circle.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                             Text("Play Latest")
                                 .font(.custom("OpenSans-Bold", size: 13))
                         }
@@ -631,14 +631,14 @@ struct EnhancedPodcastCard: View {
                 Spacer()
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         isSubscribed.toggle()
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
                     }
                 } label: {
                     Image(systemName: isSubscribed ? "checkmark.circle.fill" : "plus.circle")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(isSubscribed ? .green : .primary.opacity(0.5))
                 }
             }
@@ -704,19 +704,19 @@ struct MiniPlayer: View {
                 Spacer()
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         isPlaying.toggle()
                     }
                 } label: {
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.primary)
                         .frame(width: 44, height: 44)
                 }
                 
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 44, height: 44)
                 }
@@ -738,7 +738,10 @@ struct MiniPlayer: View {
 struct PodcastDetailView: View {
     let podcast: Podcast
     @Environment(\.dismiss) var dismiss
-    
+    @State private var showingShare = false
+    @State private var isSubscribed = false
+    @State private var isPlaying = false
+
     var body: some View {
         ScrollView {
                 VStack(spacing: 24) {
@@ -755,7 +758,7 @@ struct PodcastDetailView: View {
                             .frame(width: 240, height: 240)
                         
                         Image(systemName: "waveform")
-                            .font(.system(size: 80))
+                            .font(.systemScaled(80))
                             .foregroundStyle(.white.opacity(0.4))
                     }
                     .shadow(color: .black.opacity(0.2), radius: 16, y: 8)
@@ -774,7 +777,7 @@ struct PodcastDetailView: View {
                         HStack(spacing: 16) {
                             HStack(spacing: 4) {
                                 Image(systemName: "headphones")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                 Text("\(podcast.episodes) episodes")
                                     .font(.custom("OpenSans-Regular", size: 14))
                             }
@@ -796,24 +799,26 @@ struct PodcastDetailView: View {
                     // Action buttons
                     HStack(spacing: 12) {
                         Button {
-                            // Subscribe action
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            isSubscribed.toggle()
                         } label: {
-                            Text("Subscribe")
+                            Text(isSubscribed ? "Subscribed" : "Subscribe")
                                 .font(.custom("OpenSans-Bold", size: 16))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.black)
+                                        .fill(isSubscribed ? Color.gray : Color.black)
                                 )
                         }
                         
                         Button {
-                            // Share action
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            showingShare = true
                         } label: {
                             Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(.primary)
                                 .frame(width: 50, height: 50)
                                 .background(
@@ -844,12 +849,20 @@ struct PodcastDetailView: View {
                             .padding(.horizontal, 32)
                         
                         ForEach(0..<5) { index in
-                            EpisodeRow(episodeNumber: index + 1)
+                            EpisodeRow(episodeNumber: index + 1, onPlay: { isPlaying = true })
                         }
                     }
                     
                     Spacer(minLength: 40)
                 }
+            }
+            .sheet(isPresented: $showingShare) {
+                ShareLink(
+                    item: "\(podcast.title) by \(podcast.host)",
+                    subject: Text(podcast.title),
+                    message: Text("Check out this podcast on Faith Podcasts in AMEN!")
+                )
+                .presentationDetents([.medium])
             }
             .safeAreaInset(edge: .top) {
                 // Custom header with dismiss button
@@ -862,14 +875,14 @@ struct PodcastDetailView: View {
                                 .fill(.ultraThinMaterial)
                                 .frame(width: 36, height: 36)
                                 .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
-                            
+
                             Image(systemName: "xmark")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.primary)
                         }
                     }
                     .buttonStyle(LiquidGlassButtonStyle())
-                    
+
                     Spacer()
                 }
                 .padding(.horizontal, 20)
@@ -886,7 +899,8 @@ struct PodcastDetailView: View {
 
 struct EpisodeRow: View {
     let episodeNumber: Int
-    
+    var onPlay: (() -> Void)? = nil
+
     var body: some View {
         HStack(spacing: 16) {
             // Episode artwork thumbnail
@@ -896,7 +910,7 @@ struct EpisodeRow: View {
                     .frame(width: 60, height: 60)
                 
                 Image(systemName: "play.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.primary.opacity(0.6))
             }
             
@@ -914,10 +928,11 @@ struct EpisodeRow: View {
             Spacer()
             
             Button {
-                // Play episode
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                onPlay?()
             } label: {
                 Image(systemName: "play.circle.fill")
-                    .font(.system(size: 32))
+                    .font(.systemScaled(32))
                     .foregroundStyle(.purple)
             }
         }

@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)$(CFBundleIdentifier)</string>
+	</array>
 	<key>aps-environment</key>
 	<string>production</string>
 	<key>com.apple.developer.applesignin</key>
@@ -20,9 +24,20 @@
 	<array>
 		<string>applinks:amenapp.page.link</string>
 	</array>
+	<key>com.apple.developer.siri</key>
+	<true/>
 	<key>com.apple.developer.location.push</key>
 	<true/>
 	<key>com.apple.developer.usernotifications.communication</key>
 	<true/>
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+	<key>com.apple.developer.healthkit.access</key>
+	<array/>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.amen.app</string>
+		<string>group.com.amenapp.shared</string>
+	</array>
 </dict>
 </plist>

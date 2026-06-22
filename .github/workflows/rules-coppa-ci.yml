@@ -1,0 +1,68 @@
+# GAP BOARD P0-9/10 (complete): all test suites wired into CI.
+name: Rules and COPPA CI
+
+on:
+  pull_request:
+    paths:
+      - firestore.rules
+      - firestore.indexes.json
+      - functions/**
+      - Backend/functions/**
+      - Backend/rules-tests/**
+      - .github/workflows/rules-coppa-ci.yml
+  push:
+    branches: [main, develop, integration]
+    paths:
+      - firestore.rules
+      - firestore.indexes.json
+      - functions/**
+      - Backend/functions/**
+      - Backend/rules-tests/**
+
+jobs:
+  firestore-rules-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install rules-test deps
+        working-directory: Backend/rules-tests
+        run: npm ci
+      - name: Run Firestore rules tests
+        working-directory: Backend/rules-tests
+        run: npx firebase emulators:exec --only firestore --project demo-amen npm test
+
+  functions-coppa-pii-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install functions deps
+        working-directory: functions
+        run: npm ci
+      - name: Run COPPA and PII tests
+        working-directory: functions
+        run: npm test
+
+  backend-functions-tests:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Backend/functions deps
+        working-directory: Backend/functions
+        run: npm ci
+      - name: Run Backend/functions suite
+        working-directory: Backend/functions
+        run: npm test

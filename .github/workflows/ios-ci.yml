@@ -22,7 +22,7 @@ env:
   XCODE_VERSION: "16.2"
   IOS_DEPLOYMENT_TARGET: "16.0"
   SCHEME: "AMENAPP"
-  WORKSPACE: "AMENAPP.xcworkspace"
+  PROJECT: "AMENAPP.xcodeproj"
   BUNDLE_ID: "com.amenapp.ios"
 
 jobs:
@@ -51,12 +51,12 @@ jobs:
           restore-keys: ${{ runner.os }}-spm-
 
       - name: Resolve SPM dependencies
-        run: xcodebuild -resolvePackageDependencies -workspace "${{ env.WORKSPACE }}" -scheme "${{ env.SCHEME }}"
+        run: xcodebuild -resolvePackageDependencies -project "${{ env.PROJECT }}" -scheme "${{ env.SCHEME }}"
 
       - name: Build for testing
         run: |
           xcodebuild build-for-testing \
-            -workspace "${{ env.WORKSPACE }}" \
+            -project "${{ env.PROJECT }}" \
             -scheme "${{ env.SCHEME }}" \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             -configuration Debug \
@@ -66,7 +66,7 @@ jobs:
       - name: Run tests
         run: |
           xcodebuild test-without-building \
-            -workspace "${{ env.WORKSPACE }}" \
+            -project "${{ env.PROJECT }}" \
             -scheme "${{ env.SCHEME }}" \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             -resultBundlePath TestResults.xcresult \

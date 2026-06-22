@@ -2,6 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>ALGOLIA_SEARCH_KEY</key>
+	<string>$(ALGOLIA_SEARCH_KEY)</string>
+	<key>AMENBuildGitBranch</key>
+	<string>cert/reanchor-eee648b4</string>
+	<key>AMENBuildGitDirty</key>
+	<string>dirty</string>
+	<key>AMENBuildGitSHA</key>
+	<string>91af1a440154baf854485d14749c6006de152bbe</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.amenapp.feed.refresh</string>
+		<string>com.amen.app.refresh</string>
+	</array>
 	<key>CFBundleGetInfoString</key>
 	<string>AMEN 1.0 — Faith-centered social network</string>
 	<key>CFBundleLocalizations</key>
@@ -31,75 +44,73 @@
 				<string>com.amenapp</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.amen.protocol</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>amen</string>
+			</array>
+		</dict>
 	</array>
+	<key>FEED_RANKING_URL</key>
+	<string>$(FEED_RANKING_URL)</string>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
-	<key>NSAppleMusicUsageDescription</key>
-	<string>AMEN uses Apple Music to play worship songs in your Church Notes.</string>
+	<key>GOOGLE_VISION_API_KEY</key>
+	<string>$(GOOGLE_VISION_API_KEY)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>AMEN uses the camera to let you take photos and videos for posts, stories, and profile pictures.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>AMEN uses your contacts to help you find friends already in your faith community and to set up trusted contacts for account recovery.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>AMEN uses Face ID to securely unlock the app and protect your private prayers and account.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>AMEN uses your location to show nearby churches and help you find faith communities in your area.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AMEN uses the microphone for voice prayer recordings, voice messages, and AI voice features.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>AMEN uses motion data to detect when you arrive at or are near your saved churches.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AMEN accesses your photo library to let you share photos and videos in posts and set your profile picture.</string>
+	<key>NSSiriUsageDescription</key>
+	<string>AMEN uses Siri to let you open prayers, scripture, and church notes hands-free, and to resume Selah reading sessions on other devices.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>AMEN uses speech recognition to let you compose posts, prayers, and messages by voice.</string>
-	<key>NSUserNotificationsUsageDescription</key>
-	<string>We&apos;ll send you reminders about church service times and when you&apos;re near your saved churches</string>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<string>AMEN uses speech recognition to transcribe your voice prayers, sermon notes, and voice messages into text on your device.</string>
+	<key>NSUserActivityTypes</key>
 	<array>
-		<string>com.amenapp.feed.refresh</string>
+		<string>INSendMessageIntent</string>
+		<string>app.amen.selah.read.scripture</string>
 	</array>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>We'll send you reminders about church service times and when you're near your saved churches</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>AMEN uses the advertising identifier to measure app installs and engagement via Firebase Analytics (app-measurement.com) and Crashlytics crash attribution. This data is used only for product improvement and is not sold to third parties.</string>
+	<key>SEARCH_SERVICE_URL</key>
+	<string>$(SEARCH_SERVICE_URL)</string>
+	<key>SPOTIFY_CLIENT_ID</key>
+	<string>$(SPOTIFY_CLIENT_ID)</string>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>audio</string>
 		<string>remote-notification</string>
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
-	<key>FEED_RANKING_URL</key>
-	<string>$(FEED_RANKING_URL)</string>
-	<key>SEARCH_SERVICE_URL</key>
-	<string>$(SEARCH_SERVICE_URL)</string>
-	<key>YOUVERSION_API_KEY</key>
-	<string>$(YOUVERSION_API_KEY)</string>
-	<key>REVENUECAT_API_KEY</key>
-	<string>$(REVENUECAT_API_KEY)</string>
-	<key>YOUTUBE_API_KEY</key>
-	<string>$(YOUTUBE_API_KEY)</string>
-	<key>SPOTIFY_CLIENT_ID</key>
-	<string>$(SPOTIFY_CLIENT_ID)</string>
-	<key>SPOTIFY_CLIENT_SECRET</key>
-	<string>$(SPOTIFY_CLIENT_SECRET)</string>
-	<key>NSUserActivityTypes</key>
-	<array>
-		<string>INSendMessageIntent</string>
-	</array>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
-	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
-	<true/>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>AMEN needs access to your photo library to share images in posts, messages, and your profile.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>AMEN uses the camera to take photos for posts, messages, and your profile picture.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>AMEN uses your location to find nearby churches and faith communities.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>AMEN uses the microphone to let you compose posts, prayers, and messages by voice.</string>
-	<key>NSCalendarsUsageDescription</key>
-	<string>AMEN adds church events and service reminders to your calendar so you never miss a moment.</string>
-	<key>NSRemindersUsageDescription</key>
-	<string>AMEN creates reminders for prayer commitments, church events, and spiritual goals.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>AMEN saves shared photos and church media to your photo library.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>AMEN uses Face ID to keep your account secure and let you sign in quickly.</string>
-	<key>NSHealthShareUsageDescription</key>
-	<string>AMEN reads your heart rate and activity to help Synaptic Studio craft prayers and reflections that match how you feel right now. No health data is stored.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>AMEN may log mindfulness minutes from prayer and meditation sessions to Apple Health, helping you track your spiritual wellness alongside your physical health.</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 	<key>UILaunchScreen</key>
 	<dict>
-		<key>UIImageName</key>
-		<string>amen-logo</string>
 		<key>UIColorName</key>
 		<string>AccentColor</string>
 	</dict>
+	<key>VERTEX_AI_KEY</key>
+	<string>$(VERTEX_AI_KEY)</string>
+	<key>YOUTUBE_API_KEY</key>
+	<string>$(YOUTUBE_API_KEY)</string>
+	<key>YOUVERSION_API_KEY</key>
+	<string>$(YOUVERSION_API_KEY)</string>
 </dict>
 </plist>

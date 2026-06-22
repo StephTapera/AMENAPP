@@ -50,7 +50,7 @@ final class EnforcementLadderService {
         trustProfile?.accountStatus == .banned
     }
 
-    // MARK: - Capability Checks
+    // MARK: - SystemCapability Checks
 
     /// Returns true if the current user is allowed to post.
     var canPost: Bool {
@@ -84,7 +84,7 @@ final class EnforcementLadderService {
     }
 
     private func loadTrustProfile(uid: String) async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let doc = try await db.collection("user_trust").document(uid).getDocument()
             if doc.exists {
@@ -96,7 +96,7 @@ final class EnforcementLadderService {
     }
 
     private func loadEnforcementHistory(uid: String) async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("enforcement_actions")
                 .whereField("target_user_id", isEqualTo: uid)
@@ -118,7 +118,7 @@ final class EnforcementLadderService {
         guard let uid = Auth.auth().currentUser?.uid,
               let actionId = action.id else { return }
 
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         let appeal: [String: Any] = [
             "user_id": uid,
             "enforcement_action_id": actionId,
@@ -148,7 +148,7 @@ struct RestrictionBannerView: View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(tint)
 
                 VStack(alignment: .leading, spacing: 2) {

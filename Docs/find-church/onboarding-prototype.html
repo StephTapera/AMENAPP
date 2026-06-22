@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Find Church 2.0 — Onboarding Prototype</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --glass-bg:      rgba(255, 255, 255, 0.88);
+      --glass-border:  rgba(255, 255, 255, 0.70);
+      --glass-blur:    20px;
+      --glass-shadow:  0 8px 32px rgba(60, 40, 90, 0.12), 0 1.5px 4px rgba(60,40,90,0.06);
+
+      --chip-idle-bg:     rgba(255, 255, 255, 0.72);
+      --chip-idle-border: rgba(180, 160, 200, 0.40);
+      --chip-sel-bg:      rgba(148, 122, 230, 0.18);
+      --chip-sel-border:  rgba(148, 122, 230, 0.70);
+      --chip-sel-text:    #5b40b0;
+
+      --chip-priv-idle-bg:     rgba(250, 248, 255, 0.80);
+      --chip-priv-idle-border: rgba(148, 122, 230, 0.35);
+      --chip-priv-sel-bg:      rgba(148, 122, 230, 0.22);
+      --chip-priv-sel-border:  rgba(148, 122, 230, 0.80);
+      --chip-priv-sel-text:    #4a2fa0;
+
+      --gold:   #c9a84c;
+      --purple: #7c5cbf;
+
+      --progress-active: var(--purple);
+      --progress-idle:   rgba(120,90,180,0.22);
+
+      --text-title:  #1a1025;
+      --text-sub:    #5a4878;
+      --text-body:   #3d2d60;
+      --text-chip:   #3d2d60;
+
+      --btn-primary-bg:    linear-gradient(135deg, #7c5cbf 0%, #a87ad8 100%);
+      --btn-skip-color:    rgba(100, 75, 155, 0.65);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: linear-gradient(155deg, #ece9f8 0%, #f5f0ff 40%, #f9f5e8 100%);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Outer stage — one screen, flex-centered ─────────────────── */
+    .stage {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    /* ── Background blobs for visual depth ───────────────────────── */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(60px);
+      opacity: 0.25;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blob-1 { width: 380px; height: 380px; background: #c4aef5; top: -80px;  left: -100px; }
+    .blob-2 { width: 300px; height: 300px; background: #f5e0a0; bottom: -60px; right: -80px; }
+    .blob-3 { width: 200px; height: 200px; background: #b8e0f7; top: 40%;   right: 5%; }
+
+    /* ── Card — the frosted glass onboarding sheet ───────────────── */
+    .card {
+      position: relative;
+      z-index: 1;
+      width: min(420px, calc(100vw - 32px));
+      max-height: calc(100vh - 40px);
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+      border: 1.5px solid var(--glass-border);
+      border-radius: 28px;
+      box-shadow: var(--glass-shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header row: Skip top-right ──────────────────────────────── */
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 18px 20px 0 20px;
+      flex-shrink: 0;
+    }
+
+    .btn-skip {
+      background: none;
+      border: none;
+      color: var(--btn-skip-color);
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 8px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .btn-skip:hover { color: var(--purple); background: rgba(124,92,191,0.07); }
+
+    /* ── Phase viewport (slides) ─────────────────────────────────── */
+    .phases-viewport {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .phases-track {
+      display: flex;
+      width: 300%; /* 3 phases */
+      height: 100%;
+      transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .phase {
+      width: calc(100% / 3);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 24px 8px 24px;
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .phase::-webkit-scrollbar { display: none; }
+
+    /* ── Phase title / subtitle ──────────────────────────────────── */
+    .phase-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+
+    .phase-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-title);
+      line-height: 1.25;
+      margin-bottom: 4px;
+    }
+
+    .phase-sub {
+      font-size: 13.5px;
+      color: var(--text-sub);
+      margin-bottom: 18px;
+      line-height: 1.45;
+    }
+
+    /* ── Chip grid ───────────────────────────────────────────────── */
+    .chip-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-bottom: 4px;
+    }
+
+    /* ── Base chip ───────────────────────────────────────────────── */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 8px 14px;
+      background: var(--chip-idle-bg);
+      border: 1.5px solid var(--chip-idle-border);
+      border-radius: 999px;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--text-chip);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s, box-shadow 0.15s;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      line-height: 1.2;
+    }
+    .chip:hover {
+      background: rgba(148, 122, 230, 0.10);
+      border-color: rgba(148,122,230,0.45);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 10px rgba(124,92,191,0.10);
+    }
+    .chip:active { transform: translateY(0); }
+
+    .chip.selected {
+      background: var(--chip-sel-bg);
+      border-color: var(--chip-sel-border);
+      color: var(--chip-sel-text);
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(124,92,191,0.14);
+    }
+
+    /* ── Checkmark icon inside selected chip ─────────────────────── */
+    .chip .chip-check {
+      display: none;
+      font-size: 11px;
+      color: var(--purple);
+    }
+    .chip.selected .chip-check { display: inline; }
+
+    /* ── Privacy chip variant ────────────────────────────────────── */
+    .chip.privacy {
+      background: var(--chip-priv-idle-bg);
+      border-color: var(--chip-priv-idle-border);
+    }
+    .chip.privacy .lock-icon {
+      font-size: 12px;
+      opacity: 0.65;
+    }
+    .chip.privacy:hover {
+      background: rgba(148, 122, 230, 0.12);
+      border-color: var(--chip-priv-idle-border);
+    }
+    .chip.privacy.selected {
+      background: var(--chip-priv-sel-bg);
+      border-color: var(--chip-priv-sel-border);
+      color: var(--chip-priv-sel-text);
+      box-shadow: 0 2px 10px rgba(80,50,170,0.16);
+    }
+    .chip.privacy.selected .lock-icon {
+      opacity: 1;
+      color: var(--chip-priv-sel-text);
+    }
+
+    /* Privacy section divider label */
+    .privacy-section-label {
+      width: 100%;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-sub);
+      opacity: 0.70;
+      margin-top: 6px;
+      margin-bottom: 2px;
+      padding-left: 4px;
+    }
+
+    /* ── Footer: progress dots + nav buttons ─────────────────────── */
+    .card-footer {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 24px 22px 24px;
+      border-top: 1px solid rgba(200,185,230,0.25);
+    }
+
+    /* Three-dot progress */
+    .progress-dots {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--progress-idle);
+      transition: background 0.25s, transform 0.25s;
+    }
+    .dot.active {
+      background: var(--progress-active);
+      transform: scale(1.25);
+    }
+
+    /* Nav buttons row */
+    .nav-buttons {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .btn-back {
+      flex: 0 0 auto;
+      padding: 12px 20px;
+      background: rgba(255,255,255,0.60);
+      border: 1.5px solid rgba(180,160,210,0.40);
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-body);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .btn-back:hover { background: rgba(255,255,255,0.85); color: var(--purple); }
+    .btn-back:disabled { opacity: 0.35; cursor: default; }
+
+    .btn-next {
+      flex: 1;
+      padding: 12px 20px;
+      background: var(--btn-primary-bg);
+      border: none;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      box-shadow: 0 4px 16px rgba(124,92,191,0.28);
+      transition: opacity 0.15s, transform 0.12s, box-shadow 0.15s;
+    }
+    .btn-next:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,92,191,0.35); }
+    .btn-next:active { transform: translateY(0); }
+
+    /* ── Completion overlay ──────────────────────────────────────── */
+    .completion {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 28px;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      z-index: 10;
+      padding: 40px;
+      text-align: center;
+    }
+    .completion.visible { display: flex; }
+    .completion .icon { font-size: 52px; }
+    .completion h2 { font-size: 24px; font-weight: 700; color: var(--text-title); }
+    .completion p { font-size: 14px; color: var(--text-sub); line-height: 1.5; }
+    .completion .summary-chips {
+      display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 4px;
+    }
+    .completion .summary-chip {
+      font-size: 12px; font-weight: 600; color: var(--chip-sel-text);
+      background: var(--chip-sel-bg); border: 1px solid var(--chip-sel-border);
+      border-radius: 999px; padding: 4px 11px;
+    }
+    .btn-find-churches {
+      margin-top: 8px;
+      padding: 14px 32px;
+      background: var(--btn-primary-bg);
+      border: none; border-radius: 16px;
+      font-size: 15px; font-weight: 700; color: #fff;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(124,92,191,0.28);
+      transition: opacity 0.15s, transform 0.12s;
+    }
+    .btn-find-churches:hover { opacity: 0.90; transform: translateY(-1px); }
+    .btn-restart {
+      background: none; border: none;
+      font-size: 13px; color: var(--btn-skip-color); cursor: pointer;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Background blobs -->
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+
+<div class="stage">
+  <div class="card" id="card">
+
+    <!-- Skip button -->
+    <div class="card-header">
+      <button class="btn-skip" id="btn-skip" onclick="skipPhase()">Skip</button>
+    </div>
+
+    <!-- Sliding phases viewport -->
+    <div class="phases-viewport">
+      <div class="phases-track" id="phases-track">
+
+        <!-- ══════════════════════════════════════════════
+             PHASE 1 — What are you looking for?
+             ════════════════════════════════════════════ -->
+        <div class="phase" id="phase-1">
+          <div class="phase-label">Phase 1 of 3</div>
+          <div class="phase-title">What are you looking for?</div>
+          <div class="phase-sub">Choose one or more — we'll personalize your results.</div>
+
+          <div class="chip-grid" id="chips-phase1">
+            <div class="chip" data-phase="1" data-value="find_a_church"      onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Find a church
+            </div>
+            <div class="chip" data-phase="1" data-value="join_a_bible_study" onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Join a Bible study
+            </div>
+            <div class="chip" data-phase="1" data-value="visit_this_sunday"  onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Visit this Sunday
+            </div>
+            <div class="chip" data-phase="1" data-value="watch_online"       onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Watch online
+            </div>
+            <div class="chip" data-phase="1" data-value="find_community"     onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Find community
+            </div>
+            <div class="chip" data-phase="1" data-value="talk_to_a_pastor"   onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Talk to a pastor
+            </div>
+            <div class="chip" data-phase="1" data-value="serve_somewhere"    onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Serve somewhere
+            </div>
+            <div class="chip" data-phase="1" data-value="new_to_faith"       onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> New to faith
+            </div>
+          </div>
+        </div><!-- /phase-1 -->
+
+        <!-- ══════════════════════════════════════════════
+             PHASE 2 — What fits you?
+             ════════════════════════════════════════════ -->
+        <div class="phase" id="phase-2">
+          <div class="phase-label">Phase 2 of 3</div>
+          <div class="phase-title">What fits you?</div>
+          <div class="phase-sub">Showing options based on what you're looking for. Pick any that fit.</div>
+
+          <div class="chip-grid" id="chips-phase2">
+            <div class="chip" data-phase="2" data-value="near_me"             onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Near me
+            </div>
+            <div class="chip" data-phase="2" data-value="service_today"       onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Service today
+            </div>
+            <div class="chip" data-phase="2" data-value="young_adults"        onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Young adults
+            </div>
+            <div class="chip" data-phase="2" data-value="families"            onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Families
+            </div>
+            <div class="chip" data-phase="2" data-value="traditional"         onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Traditional
+            </div>
+            <div class="chip" data-phase="2" data-value="modern_worship"      onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Modern worship
+            </div>
+            <div class="chip" data-phase="2" data-value="small_church"        onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Small church
+            </div>
+            <div class="chip" data-phase="2" data-value="large_church"        onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Large church
+            </div>
+            <div class="chip" data-phase="2" data-value="non_denominational"  onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Non-denominational
+            </div>
+            <div class="chip" data-phase="2" data-value="baptist"             onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Baptist
+            </div>
+            <div class="chip" data-phase="2" data-value="methodist"           onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Methodist
+            </div>
+            <div class="chip" data-phase="2" data-value="pentecostal"         onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Pentecostal
+            </div>
+            <div class="chip" data-phase="2" data-value="catholic"            onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Catholic
+            </div>
+            <div class="chip" data-phase="2" data-value="orthodox"            onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Orthodox
+            </div>
+            <div class="chip" data-phase="2" data-value="spanish_service"     onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Spanish service
+            </div>
+            <div class="chip" data-phase="2" data-value="asl_available"       onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> ASL available
+            </div>
+          </div>
+        </div><!-- /phase-2 -->
+
+        <!-- ══════════════════════════════════════════════
+             PHASE 3 — Your first visit comfort
+             ════════════════════════════════════════════ -->
+        <div class="phase" id="phase-3">
+          <div class="phase-label">Phase 3 of 3</div>
+          <div class="phase-title">Your first visit comfort</div>
+          <div class="phase-sub">What would make showing up feel easier? Select anything helpful.</div>
+
+          <div class="chip-grid" id="chips-phase3">
+            <!-- Standard comfort chips -->
+            <div class="chip" data-phase="3" data-value="show_parking"          onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Show parking info
+            </div>
+            <div class="chip" data-phase="3" data-value="show_what_to_expect"   onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Show what to expect
+            </div>
+            <div class="chip" data-phase="3" data-value="need_childcare"        onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Need childcare
+            </div>
+            <div class="chip" data-phase="3" data-value="prefer_smaller_groups" onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Prefer smaller groups
+            </div>
+            <div class="chip" data-phase="3" data-value="want_bible_study_first" onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Want Bible study first
+            </div>
+            <div class="chip" data-phase="3" data-value="need_livestream_first" onclick="toggleChip(this)">
+              <span class="chip-check">✓</span> Need livestream first
+            </div>
+
+            <!-- Privacy label break -->
+            <div class="privacy-section-label">Privacy controls</div>
+
+            <!-- Functional privacy chips -->
+            <div class="chip privacy" data-phase="3" data-value="private_recommendations_only" onclick="toggleChip(this)">
+              <span class="lock-icon">🔒</span>
+              <span class="chip-check">✓</span> Private recommendations only
+            </div>
+            <div class="chip privacy" data-phase="3" data-value="dont_share_location" onclick="toggleChip(this)">
+              <span class="lock-icon">🔒</span>
+              <span class="chip-check">✓</span> Don't share my location
+            </div>
+          </div>
+        </div><!-- /phase-3 -->
+
+      </div><!-- /phases-track -->
+    </div><!-- /phases-viewport -->
+
+    <!-- Footer: dots + nav -->
+    <div class="card-footer">
+      <div class="progress-dots" role="tablist" aria-label="Onboarding progress">
+        <div class="dot active" id="dot-0" role="tab" aria-selected="true"  aria-label="Phase 1"></div>
+        <div class="dot"        id="dot-1" role="tab" aria-selected="false" aria-label="Phase 2"></div>
+        <div class="dot"        id="dot-2" role="tab" aria-selected="false" aria-label="Phase 3"></div>
+      </div>
+      <div class="nav-buttons">
+        <button class="btn-back" id="btn-back" onclick="prevPhase()" disabled aria-label="Back">← Back</button>
+        <button class="btn-next" id="btn-next" onclick="nextPhase()" aria-label="Next">Next →</button>
+      </div>
+    </div>
+
+    <!-- Completion overlay -->
+    <div class="completion" id="completion">
+      <div class="icon">⛪</div>
+      <h2>You're all set!</h2>
+      <p>Here's what we'll use to match you with churches.</p>
+      <div class="summary-chips" id="summary-chips"></div>
+      <button class="btn-find-churches" onclick="findChurches()">Find Churches →</button>
+      <button class="btn-restart" onclick="restart()">Start over</button>
+    </div>
+
+  </div><!-- /card -->
+</div><!-- /stage -->
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let currentPhase = 0; // 0-indexed internally
+  const totalPhases = 3;
+
+  // Selections: keyed by phase index (0,1,2)
+  const selections = { 0: new Set(), 1: new Set(), 2: new Set() };
+
+  // Intent → FitChip relevance map (mirrors contract relevantIntents)
+  const fitChipRelevance = {
+    near_me:             null,          // always shown
+    service_today:       null,
+    traditional:         null,
+    modern_worship:      null,
+    small_church:        null,
+    large_church:        null,
+    non_denominational:  null,
+    baptist:             null,
+    methodist:           null,
+    pentecostal:         null,
+    catholic:            null,
+    orthodox:            null,
+    asl_available:       null,
+    young_adults:        ['find_a_church', 'find_community', 'join_a_bible_study'],
+    families:            ['find_a_church', 'visit_this_sunday', 'find_community'],
+    spanish_service:     ['find_a_church', 'visit_this_sunday'],
+  };
+
+  // ── Chip toggle ────────────────────────────────────────────────────────────
+  function toggleChip(el) {
+    const phaseIdx = parseInt(el.dataset.phase, 10) - 1;
+    const value = el.dataset.value;
+    el.classList.toggle('selected');
+    if (el.classList.contains('selected')) {
+      selections[phaseIdx].add(value);
+    } else {
+      selections[phaseIdx].delete(value);
+    }
+  }
+
+  // ── Phase navigation ───────────────────────────────────────────────────────
+  function goToPhase(idx) {
+    currentPhase = idx;
+    const track = document.getElementById('phases-track');
+    track.style.transform = `translateX(-${(100 / 3) * idx}%)`;
+
+    // Dots
+    for (let i = 0; i < totalPhases; i++) {
+      const dot = document.getElementById(`dot-${i}`);
+      dot.classList.toggle('active', i === idx);
+      dot.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+    }
+
+    // Back button
+    const btnBack = document.getElementById('btn-back');
+    btnBack.disabled = idx === 0;
+
+    // Next button label
+    const btnNext = document.getElementById('btn-next');
+    btnNext.textContent = idx === totalPhases - 1 ? 'Find Churches →' : 'Next →';
+
+    // On entering phase 2: filter chips by selected intents
+    if (idx === 1) { filterPhase2Chips(); }
+  }
+
+  function nextPhase() {
+    if (currentPhase < totalPhases - 1) {
+      goToPhase(currentPhase + 1);
+    } else {
+      showCompletion();
+    }
+  }
+
+  function prevPhase() {
+    if (currentPhase > 0) { goToPhase(currentPhase - 1); }
+  }
+
+  function skipPhase() {
+    if (currentPhase < totalPhases - 1) {
+      goToPhase(currentPhase + 1);
+    } else {
+      showCompletion();
+    }
+  }
+
+  // ── Filter Phase 2 chips based on Phase 1 intents ─────────────────────────
+  function filterPhase2Chips() {
+    const intents = selections[0]; // Set of selected intent values
+    const chips = document.querySelectorAll('[data-phase="2"]');
+    chips.forEach(chip => {
+      const val = chip.dataset.value;
+      const relevant = fitChipRelevance[val];
+      // null = always relevant; array = only if an intent overlaps
+      let show = true;
+      if (relevant !== null && relevant !== undefined && intents.size > 0) {
+        show = relevant.some(r => intents.has(r));
+      }
+      chip.style.display = show ? '' : 'none';
+    });
+  }
+
+  // ── Completion screen ──────────────────────────────────────────────────────
+  function showCompletion() {
+    // Apply privacy flags visually
+    const comfortSel = selections[2];
+    const privMsg = [];
+    if (comfortSel.has('private_recommendations_only')) privMsg.push('Private mode on');
+    if (comfortSel.has('dont_share_location')) privMsg.push('Location not shared');
+
+    // Build summary chips: phase 1 intents
+    const container = document.getElementById('summary-chips');
+    container.innerHTML = '';
+
+    const intentLabels = {
+      find_a_church:      'Find a church',
+      join_a_bible_study: 'Bible study',
+      visit_this_sunday:  'Visit Sunday',
+      watch_online:       'Watch online',
+      find_community:     'Community',
+      talk_to_a_pastor:   'Pastor chat',
+      serve_somewhere:    'Serve',
+      new_to_faith:       'New to faith',
+    };
+
+    selections[0].forEach(v => {
+      const span = document.createElement('span');
+      span.className = 'summary-chip';
+      span.textContent = intentLabels[v] || v;
+      container.appendChild(span);
+    });
+    if (selections[0].size === 0) {
+      const span = document.createElement('span');
+      span.className = 'summary-chip';
+      span.textContent = 'All churches';
+      container.appendChild(span);
+    }
+    privMsg.forEach(msg => {
+      const span = document.createElement('span');
+      span.className = 'summary-chip';
+      span.style.background = 'rgba(148,122,230,0.22)';
+      span.style.borderColor = 'rgba(148,122,230,0.70)';
+      span.textContent = '🔒 ' + msg;
+      container.appendChild(span);
+    });
+
+    document.getElementById('completion').classList.add('visible');
+  }
+
+  function findChurches() {
+    // In the real app this dismisses the sheet and triggers the search.
+    // For the prototype, show a simple confirmation.
+    const comp = document.getElementById('completion');
+    comp.innerHTML = `
+      <div class="icon">✅</div>
+      <h2>Launching search…</h2>
+      <p style="color: #5a4878; font-size:14px;">In the live app, Find Church 2.0 results would appear here.<br><br>
+         <strong>Prototype complete.</strong></p>
+      <button class="btn-restart" onclick="restart()">Start over</button>
+    `;
+  }
+
+  function restart() {
+    // Reset all state
+    currentPhase = 0;
+    selections[0].clear(); selections[1].clear(); selections[2].clear();
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('[data-phase="2"]').forEach(c => c.style.display = '');
+    document.getElementById('completion').classList.remove('visible');
+    // Restore completion content (re-parse from template)
+    const comp = document.getElementById('completion');
+    comp.innerHTML = `
+      <div class="icon">⛪</div>
+      <h2>You're all set!</h2>
+      <p>Here's what we'll use to match you with churches.</p>
+      <div class="summary-chips" id="summary-chips"></div>
+      <button class="btn-find-churches" onclick="findChurches()">Find Churches →</button>
+      <button class="btn-restart" onclick="restart()">Start over</button>
+    `;
+    goToPhase(0);
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  goToPhase(0);
+</script>
+</body>
+</html>

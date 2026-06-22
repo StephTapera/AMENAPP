@@ -111,19 +111,19 @@ struct ConnectForumView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("FORUM")
-                    .font(.system(size: 10, weight: .semibold)).kerning(3)
+                    .font(.systemScaled(10, weight: .semibold)).kerning(3)
                     .foregroundStyle(Color.white.opacity(0.55))
                 Text("Community Forum")
-                    .font(.system(size: 26, weight: .black))
+                    .font(.systemScaled(26, weight: .black))
                     .foregroundStyle(.white)
                 Text("Discuss, debate, and grow together in faith.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.7))
 
                 Button { showCreate = true } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "plus").font(.system(size: 11, weight: .bold))
-                        Text("New Thread").font(.system(size: 12, weight: .semibold))
+                        Image(systemName: "plus").font(.systemScaled(11, weight: .bold))
+                        Text("New Thread").font(.systemScaled(12, weight: .semibold))
                     }
                     .foregroundStyle(accentRed)
                     .padding(.horizontal, 14).padding(.vertical, 9)
@@ -146,22 +146,22 @@ struct ConnectForumView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 Button {
-                    withAnimation(.spring(response: 0.25)) { selectedCategory = nil }
+                    withAnimation(Motion.adaptive(.spring(response: 0.25))) { selectedCategory = nil }
                 } label: {
                     Text("All")
-                        .font(.system(size: 13, weight: selectedCategory == nil ? .bold : .regular))
+                        .font(.systemScaled(13, weight: selectedCategory == nil ? .bold : .regular))
                         .foregroundStyle(selectedCategory == nil ? .white : .secondary)
                         .padding(.horizontal, 14).padding(.vertical, 8)
                         .background(Capsule().fill(selectedCategory == nil ? accentRed : Color(.secondarySystemBackground)))
                 }
                 ForEach(categories, id: \.self) { cat in
                     Button {
-                        withAnimation(.spring(response: 0.25)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25))) {
                             selectedCategory = selectedCategory == cat ? nil : cat
                         }
                     } label: {
                         Text(cat)
-                            .font(.system(size: 13, weight: selectedCategory == cat ? .bold : .regular))
+                            .font(.systemScaled(13, weight: selectedCategory == cat ? .bold : .regular))
                             .foregroundStyle(selectedCategory == cat ? .white : .secondary)
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(Capsule().fill(selectedCategory == cat ? accentRed : Color(.secondarySystemBackground)))
@@ -184,7 +184,7 @@ struct ConnectForumView: View {
                     Circle().fill(accentRed.opacity(0.15))
                         .overlay(
                             Text(String(thread.authorName.prefix(1)).uppercased())
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.systemScaled(14, weight: .bold))
                                 .foregroundStyle(accentRed)
                         )
                 }
@@ -196,35 +196,35 @@ struct ConnectForumView: View {
                 HStack(spacing: 4) {
                     if isPinned {
                         Image(systemName: "pin.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(accentRed)
                     }
                     Text(thread.title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                 }
 
                 Text(thread.body)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
 
                 HStack(spacing: 12) {
                     HStack(spacing: 4) {
-                        Image(systemName: "bubble.left").font(.system(size: 11))
-                        Text("\(thread.replyCount)").font(.system(size: 11))
+                        Image(systemName: "bubble.left").font(.systemScaled(11))
+                        Text("\(thread.replyCount)").font(.systemScaled(11))
                     }
                     .foregroundStyle(.tertiary)
 
                     HStack(spacing: 4) {
-                        Image(systemName: "eye").font(.system(size: 11))
-                        Text("\(thread.viewCount)").font(.system(size: 11))
+                        Image(systemName: "eye").font(.systemScaled(11))
+                        Text("\(thread.viewCount)").font(.systemScaled(11))
                     }
                     .foregroundStyle(.tertiary)
 
                     Text(thread.category)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(accentRed)
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Capsule().fill(accentRed.opacity(0.1)))
@@ -233,7 +233,7 @@ struct ConnectForumView: View {
 
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -245,13 +245,13 @@ struct ConnectForumView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "text.bubble.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary.opacity(0.4))
                 .padding(.top, 40)
             Text("No threads yet")
-                .font(.system(size: 17, weight: .bold))
+                .font(.systemScaled(17, weight: .bold))
             Text("Start a new thread to kick off the discussion!")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -261,7 +261,7 @@ struct ConnectForumView: View {
     // MARK: - Data
 
     private func loadThreads() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("forumThreads")
                 .order(by: "lastActivityAt", descending: true)
@@ -296,11 +296,11 @@ struct ForumThreadDetailView: View {
                     // Thread header
                     VStack(alignment: .leading, spacing: 8) {
                         Text(thread.category.uppercased())
-                            .font(.system(size: 10, weight: .bold)).kerning(1)
+                            .font(.systemScaled(10, weight: .bold)).kerning(1)
                             .foregroundStyle(accentRed)
 
                         Text(thread.title)
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.systemScaled(20, weight: .bold))
                             .foregroundStyle(.primary)
 
                         HStack(spacing: 8) {
@@ -314,30 +314,30 @@ struct ForumThreadDetailView: View {
                             .clipShape(Circle())
 
                             Text(thread.authorName)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.primary)
 
                             Text(formatDate(thread.createdAt))
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
 
                     Text(thread.body)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.primary)
 
                     Divider()
 
                     // Replies
                     Text("\(thread.replyCount) Replies")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
 
                     if isLoading {
                         ProgressView().frame(maxWidth: .infinity).padding(.top, 20)
                     } else if replies.isEmpty {
                         Text("No replies yet. Be the first to respond!")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                             .padding(.top, 12)
                     } else {
@@ -353,7 +353,7 @@ struct ForumThreadDetailView: View {
             if !thread.isLocked {
                 HStack(spacing: 10) {
                     TextField("Write a reply...", text: $replyText)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .focused($isReplyFocused)
                         .textFieldStyle(.plain)
 
@@ -361,7 +361,7 @@ struct ForumThreadDetailView: View {
                         postReply()
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(replyText.isEmpty ? Color.secondary : accentRed)
                     }
                     .disabled(replyText.isEmpty)
@@ -390,13 +390,13 @@ struct ForumThreadDetailView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(reply.authorName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                     Text(formatDate(reply.createdAt))
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
                 Text(reply.body)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.primary)
             }
         }
@@ -404,7 +404,7 @@ struct ForumThreadDetailView: View {
     }
 
     private func loadReplies() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("forumThreads")
                 .document(thread.id)
@@ -436,11 +436,10 @@ struct ForumThreadDetailView: View {
         )
 
         replies.append(reply)
-        let text = replyText
         replyText = ""
 
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let encoded = try? Firestore.Encoder().encode(reply)
             if let encoded {
                 try? await db.collection("forumThreads")
@@ -520,7 +519,7 @@ struct CreateForumThreadSheet: View {
             category: category
         )
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let encoded = try? Firestore.Encoder().encode(thread)
             if let encoded {
                 try? await db.collection("forumThreads").document(thread.id).setData(encoded)

@@ -33,7 +33,7 @@ struct SiriTipView: View {
                         .frame(width: 40, height: 40)
                     
                     Image(systemName: "waveform")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                 }
                 
@@ -41,7 +41,7 @@ struct SiriTipView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Siri Tip")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.6))
                         Spacer()
                         Button {
@@ -50,7 +50,7 @@ struct SiriTipView: View {
                             }
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .foregroundStyle(.white.opacity(0.4))
                                 .padding(6)
                                 .background(Circle().fill(Color.white.opacity(0.05)))
@@ -58,13 +58,13 @@ struct SiriTipView: View {
                     }
                     
                     Text(tipType.message)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.white)
                         .lineLimit(2)
                         .lineSpacing(2)
                     
                     Text("\"\(tipType.phrase)\"")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.purple.opacity(0.8))
                         .padding(.top, 2)
                 }
@@ -131,7 +131,7 @@ struct FloatingSiriTip: View {
             if isShowing {
                 HStack(spacing: 10) {
                     Image(systemName: "waveform.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [
@@ -145,22 +145,22 @@ struct FloatingSiriTip: View {
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Try this with Siri")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.white.opacity(0.6))
                         Text("\"\(tipType.phrase)\"")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.white)
                     }
                     
                     Spacer()
                     
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             isShowing = false
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(.white.opacity(0.3))
                     }
                 }

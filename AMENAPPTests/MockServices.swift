@@ -42,32 +42,30 @@ final class MockCommentService: ObservableObject, CommentServiceProtocol {
         if shouldThrowOnAdd { throw MockError.stubbed }
         let comment = addCommentResult ?? Comment(
             id: UUID().uuidString,
+            postId: postId,
             authorId: "testUser",
             authorName: "Test User",
-            text: content,
-            createdAt: Date(),
-            postId: postId,
-            amenCount: 0,
-            isOptimistic: false
+            authorUsername: "testuser",
+            authorInitials: "TU",
+            content: content
         )
         comments[postId, default: []].append(comment)
         return comment
     }
 
-    func addReply(postId: String, commentId: String, content: String, mentionedUserIds: [String]?) async throws -> Comment {
+    func addReply(postId: String, parentCommentId: String, content: String, mentionedUserIds: [String]?, post: Post?) async throws -> Comment {
         if shouldThrowOnAdd { throw MockError.stubbed }
         let reply = Comment(
             id: UUID().uuidString,
+            postId: postId,
             authorId: "testUser",
             authorName: "Test User",
-            text: content,
-            createdAt: Date(),
-            postId: postId,
-            parentCommentId: commentId,
-            amenCount: 0,
-            isOptimistic: false
+            authorUsername: "testuser",
+            authorInitials: "TU",
+            content: content,
+            parentCommentId: parentCommentId
         )
-        commentReplies[commentId, default: []].append(reply)
+        commentReplies[parentCommentId, default: []].append(reply)
         return reply
     }
 
@@ -239,15 +237,15 @@ final class MockNotificationService: ObservableObject, NotificationServiceProtoc
         if shouldThrow { throw MockError.stubbed }
         markedReadIds.append(notificationId)
         if let idx = notifications.firstIndex(where: { $0.id == notificationId }) {
-            notifications[idx].isRead = true
+            notifications[idx].read = true
         }
-        unreadCount = notifications.filter { !$0.isRead }.count
+        unreadCount = notifications.filter { !$0.read }.count
     }
 
     func markAllAsRead() async throws {
         if shouldThrow { throw MockError.stubbed }
         notifications = notifications.map { n in
-            var copy = n; copy.isRead = true; return copy
+            var copy = n; copy.read = true; return copy
         }
         unreadCount = 0
     }
@@ -260,7 +258,7 @@ final class MockNotificationService: ObservableObject, NotificationServiceProtoc
 
     func deleteAllRead() async throws {
         if shouldThrow { throw MockError.stubbed }
-        notifications.removeAll { $0.isRead }
+        notifications.removeAll { $0.read }
     }
 
     func refresh() async {
@@ -278,3 +276,36 @@ enum MockError: Error, LocalizedError {
     case stubbed
     var errorDescription: String? { "MockError: stubbed failure" }
 }
+// MARK: - AppNotification Test Helper
+
+extension AppNotification {
+    /// Test-only convenience initializer. Builds via Firestore-compatible JSON decoding.
+    /// AppNotification only exposes init(from decoder:), so we decode from a minimal JSON dict.
+    @MainActor
+    static func makeTest(
+        id: String = UUID().uuidString,
+        userId: String = "testUser",
+        type: NotificationType = .follow,
+        actorId: String = "actor",
+        actorName: String = "Actor",
+        read: Bool = false
+    ) -> AppNotification {
+        // FirebaseFirestore.Timestamp decodes from {"seconds":N,"nanoseconds":N} in JSONDecoder
+        let seconds = Int(Date().timeIntervalSince1970)
+        let jsonString = """
+        {
+            "userId": "\(userId)",
+            "type": "\(type.rawValue)",
+            "actorId": "\(actorId)",
+            "actorName": "\(actorName)",
+            "read": \(read),
+            "createdAt": { "seconds": \(seconds), "nanoseconds": 0 }
+        }
+        """
+        let data = jsonString.data(using: .utf8)!
+        var notification = try! JSONDecoder().decode(AppNotification.self, from: data)
+        notification.id = id
+        return notification
+    }
+}
+

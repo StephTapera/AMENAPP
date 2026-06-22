@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "rootDir": "src",
+    "outDir": "lib/capabilities",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "types": ["node"]
+  },
+  "include": [
+    "src/capabilities/**/*.ts",
+    "src/contextEngine/**/*.ts"
+  ],
+  "exclude": [
+    "src/capabilities/**/*.test.ts",
+    "src/contextEngine/**/*.test.ts"
+  ]
+}

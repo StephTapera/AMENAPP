@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent C — Amen Life Planner</title>
+  <style>
+    /* ─── Design Tokens ────────────────────────────────────────────────── */
+    :root {
+      --amenGold:    #C9A84C;
+      --amenPurple:  #6B4FA2;
+      --amenBlue:    #2E6DA4;
+      --amenBlack:   #1A1A1E;
+      --amenCream:   #F8F4EC;
+      --amenSlate:   #4A4A55;
+
+      --amenGoldLight:   #F5EDD4;
+      --amenPurpleLight: #EDE8F5;
+      --amenBlueLight:   #E3EDF8;
+
+      --bg:          #EFEBE0;
+      --cardBg:      #F8F4EC;
+      --timelineLine:#D6CDB8;
+      --dotBorder:   #C4BA9E;
+
+      --textPrimary: var(--amenBlack);
+      --textSecondary: var(--amenSlate);
+      --textMuted:   #9E9A90;
+
+      --shadow-sm: 0 1px 3px rgba(26,26,30,0.08), 0 1px 2px rgba(26,26,30,0.04);
+      --shadow-md: 0 4px 12px rgba(26,26,30,0.10), 0 2px 4px rgba(26,26,30,0.06);
+
+      --glass-bg:    rgba(248, 244, 236, 0.72);
+      --glass-border:rgba(201, 168, 76, 0.18);
+      --glass-blur:  blur(16px) saturate(1.4);
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    /* Dark mode tokens */
+    [data-theme="dark"] {
+      --bg:          #12100E;
+      --cardBg:      #1E1B16;
+      --timelineLine:#3A3628;
+      --dotBorder:   #4A4232;
+
+      --textPrimary: #F0EBE0;
+      --textSecondary:#9E9A88;
+      --textMuted:   #6A6658;
+
+      --glass-bg:    rgba(30, 27, 22, 0.78);
+      --glass-border:rgba(201, 168, 76, 0.22);
+
+      --amenGoldLight:   #2E2518;
+      --amenPurpleLight: #1E1828;
+      --amenBlueLight:   #141E2C;
+    }
+
+    /* ─── Reset & base ────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: #9B9080;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 0 48px;
+    }
+
+    /* Agent label */
+    .agent-label {
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    /* ─── Phone frame ──────────────────────────────────────────────────── */
+    .phone-frame {
+      width: 390px;
+      min-height: 844px;
+      background: var(--bg);
+      border-radius: 44px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 2px rgba(255,255,255,0.15),
+        0 30px 80px rgba(0,0,0,0.5),
+        0 8px 20px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: background 0.3s ease;
+    }
+
+    /* Status bar fake */
+    .status-bar {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px 0 32px;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--textPrimary);
+      transition: color 0.3s;
+    }
+
+    .status-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+    }
+
+    /* ─── Navigation bar (glass chrome) ───────────────────────────────── */
+    .nav-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 8px 20px 12px;
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    .nav-bar-left {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nav-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--textPrimary);
+      letter-spacing: -0.3px;
+      transition: color 0.3s;
+    }
+
+    .nav-subtitle {
+      font-size: 12px;
+      color: var(--textSecondary);
+      margin-top: 1px;
+      transition: color 0.3s;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Add button — glass chrome */
+    .btn-add {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      color: var(--amenGold);
+      font-size: 20px;
+      font-weight: 400;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s, border-color 0.3s;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-add:hover { background: rgba(201,168,76,0.12); transform: scale(1.05); }
+    .btn-add:active { transform: scale(0.96); }
+
+    /* Dark mode toggle */
+    .btn-theme {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid var(--glass-border);
+      color: var(--textSecondary);
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.3s, color 0.3s;
+    }
+    .btn-theme:hover { background: rgba(201,168,76,0.1); }
+
+    /* ─── Scrollable content ───────────────────────────────────────────── */
+    .scroll-content {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 80px;
+    }
+
+    .scroll-content::-webkit-scrollbar { width: 4px; }
+    .scroll-content::-webkit-scrollbar-track { background: transparent; }
+    .scroll-content::-webkit-scrollbar-thumb { background: var(--timelineLine); border-radius: 2px; }
+
+    /* ─── Formation chips row ──────────────────────────────────────────── */
+    .formation-row {
+      padding: 12px 20px 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Glass chip — chrome element */
+    .glass-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: 20px;
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-border);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--amenGold);
+      transition: background 0.3s, border-color 0.3s, color 0.3s;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .glass-chip-blue {
+      color: var(--amenBlue);
+      border-color: rgba(46,109,164,0.2);
+    }
+
+    [data-theme="dark"] .glass-chip-blue {
+      border-color: rgba(46,109,164,0.3);
+    }
+
+    /* ─── Day section header (matte) ──────────────────────────────────── */
+    .day-section {
+      margin-top: 8px;
+    }
+
+    .day-header {
+      padding: 10px 20px 8px;
+      background: var(--amenCream);
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      border-top: 1px solid var(--timelineLine);
+      border-bottom: 1px solid var(--timelineLine);
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    [data-theme="dark"] .day-header {
+      background: #1E1B16;
+    }
+
+    .day-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--textPrimary);
+      letter-spacing: 0.03em;
+      transition: color 0.3s;
+    }
+
+    .day-date {
+      font-size: 12px;
+      color: var(--textSecondary);
+      font-weight: 400;
+      transition: color 0.3s;
+    }
+
+    /* ─── Timeline container ───────────────────────────────────────────── */
+    .timeline {
+      padding: 0 0 0 20px;
+      position: relative;
+    }
+
+    /* The vertical line */
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 76px; /* 20px padding + 60px time column - 4px */
+      top: 0;
+      bottom: 0;
+      width: 1.5px;
+      background: var(--timelineLine);
+      transition: background 0.3s;
+    }
+
+    /* ─── Timeline row ─────────────────────────────────────────────────── */
+    .tl-row {
+      display: flex;
+      align-items: flex-start;
+      padding: 10px 16px 10px 0;
+      position: relative;
+      gap: 0;
+    }
+
+    /* Time label */
+    .tl-time {
+      width: 56px;
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--textSecondary);
+      padding-top: 3px;
+      text-align: right;
+      line-height: 1.2;
+      letter-spacing: 0.01em;
+      transition: color 0.3s;
+    }
+
+    /* Dot area */
+    .tl-dot-col {
+      width: 20px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 4px;
+    }
+
+    .tl-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid var(--dotBorder);
+      background: var(--bg);
+      flex-shrink: 0;
+      transition: border-color 0.3s, background 0.3s;
+    }
+
+    /* Dot state variants */
+    .tl-row.completed .tl-dot {
+      border-color: var(--amenGold);
+      background: var(--amenGold);
+    }
+
+    .tl-row.type-reading .tl-dot {
+      border-color: var(--amenGold);
+      background: var(--amenGoldLight);
+    }
+
+    .tl-row.type-space-blue .tl-dot {
+      border-color: var(--amenBlue);
+      background: var(--amenBlueLight);
+    }
+
+    .tl-row.type-space-gold .tl-dot {
+      border-color: var(--amenGold);
+      background: var(--amenGoldLight);
+    }
+
+    .tl-row.type-personal-purple .tl-dot {
+      border-color: var(--amenPurple);
+      background: var(--amenPurpleLight);
+    }
+
+    .tl-row.completed.type-reading .tl-dot {
+      background: var(--amenGold);
+    }
+
+    /* ─── Content card (matte) ─────────────────────────────────────────── */
+    .tl-card {
+      flex: 1;
+      margin-left: 10px;
+      background: var(--cardBg);
+      border-radius: var(--radius-md);
+      padding: 9px 11px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid transparent;
+      position: relative;
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    /* Left accent border by type */
+    .tl-row.type-space-blue .tl-card {
+      border-left: 3px solid var(--amenBlue);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      background: var(--amenBlueLight);
+    }
+
+    .tl-row.type-space-gold .tl-card {
+      border-left: 3px solid var(--amenGold);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      background: var(--amenGoldLight);
+    }
+
+    .tl-row.type-personal-purple .tl-card {
+      border-left: 3px solid var(--amenPurple);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      background: var(--amenPurpleLight);
+    }
+
+    .tl-row.type-reading .tl-card {
+      background: var(--amenGoldLight);
+    }
+
+    /* Completed card state */
+    .tl-row.completed .tl-card {
+      opacity: 0.62;
+    }
+
+    .tl-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .tl-card-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--textPrimary);
+      line-height: 1.3;
+      transition: color 0.3s;
+    }
+
+    .tl-row.completed .tl-card-title {
+      text-decoration: line-through;
+      color: var(--textMuted);
+    }
+
+    .tl-card-subtitle {
+      font-size: 11.5px;
+      color: var(--textSecondary);
+      margin-top: 2px;
+      font-weight: 400;
+      transition: color 0.3s;
+    }
+
+    /* Gold check for completed */
+    .check-icon {
+      font-size: 15px;
+      color: var(--amenGold);
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    /* ─── Berean suggestion chip (glass chrome) ────────────────────────── */
+    .berean-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 7px;
+      padding: 5px 8px 5px 7px;
+      border-radius: 14px;
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid rgba(107, 79, 162, 0.22);
+      font-size: 11.5px;
+      font-style: italic;
+      color: var(--amenPurple);
+      cursor: pointer;
+      transition: opacity 0.3s ease, background 0.3s;
+      max-width: 100%;
+    }
+
+    .berean-chip:hover { background: rgba(107,79,162,0.08); }
+
+    .berean-chip-icon { font-style: normal; font-size: 12px; }
+
+    .berean-chip-text {
+      flex: 1;
+      line-height: 1.3;
+    }
+
+    .berean-chip-dismiss {
+      font-style: normal;
+      font-size: 13px;
+      color: var(--textMuted);
+      line-height: 1;
+      padding: 0 1px;
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .berean-chip-dismiss:hover { color: var(--amenPurple); }
+
+    /* Dismissed state */
+    .berean-chip.dismissed {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .berean-chip.dismissed .berean-chip-text {
+      text-decoration: line-through;
+    }
+
+    /* ─── Bottom tab bar (glass) ───────────────────────────────────────── */
+    .tab-bar {
+      position: sticky;
+      bottom: 0;
+      z-index: 100;
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 8px 0 20px;
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 4px 12px;
+      cursor: pointer;
+    }
+
+    .tab-icon { font-size: 20px; line-height: 1; }
+    .tab-label { font-size: 10px; font-weight: 500; color: var(--textSecondary); transition: color 0.3s; }
+    .tab-item.active .tab-label { color: var(--amenGold); }
+    .tab-item.active .tab-icon { filter: none; }
+    .tab-item:not(.active) .tab-icon { opacity: 0.5; }
+
+    /* ─── Responsive — always 390px within the page ────────────────────── */
+    @media (max-width: 430px) {
+      .phone-frame {
+        width: 100vw;
+        border-radius: 0;
+        min-height: 100vh;
+      }
+      body { padding: 0; }
+    }
+
+    /* ─── Subtle animation on load ─────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .day-section { animation: fadeUp 0.35s ease both; }
+    .day-section:nth-child(2) { animation-delay: 0.08s; }
+
+    /* ─── Divider ──────────────────────────────────────────────────────── */
+    .tl-divider {
+      height: 1px;
+      background: var(--timelineLine);
+      margin: 2px 16px 2px 86px;
+      opacity: 0.5;
+      transition: background 0.3s;
+    }
+  </style>
+</head>
+<body>
+
+  <p class="agent-label">Agent C — Amen Life Planner</p>
+
+  <div class="phone-frame" id="phoneFrame" data-theme="light">
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-bar-right">
+        <span>●●●</span>
+        <span>WiFi</span>
+        <span>🔋</span>
+      </div>
+    </div>
+
+    <!-- Navigation bar — glass chrome -->
+    <div class="nav-bar">
+      <div class="nav-bar-left">
+        <span class="nav-title">Life Planner</span>
+        <span class="nav-subtitle">Mon, Jun 1 · Formation calendar</span>
+      </div>
+      <div class="nav-actions">
+        <button class="btn-theme" onclick="toggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">
+          <span id="themeIcon">🌙</span>
+        </button>
+        <button class="btn-add" title="Add event" aria-label="Add event">＋</button>
+      </div>
+    </div>
+
+    <!-- Scrollable body -->
+    <div class="scroll-content">
+
+      <!-- Formation chips row -->
+      <div class="formation-row">
+        <div class="glass-chip">
+          📖 Reading — Day 14
+        </div>
+        <div class="glass-chip glass-chip-blue">
+          📅 3 events today
+        </div>
+      </div>
+
+      <!-- ── TODAY ──────────────────────────────────────────────────────── -->
+      <div class="day-section">
+        <div class="day-header">
+          <span class="day-label">TODAY</span>
+          <span class="day-date">Monday, June 1</span>
+        </div>
+
+        <div class="timeline">
+
+          <!-- 6:00 AM — Morning Prayer (completed) -->
+          <div class="tl-row completed" aria-label="Morning Prayer, 6:00 AM, completed">
+            <div class="tl-time">6:00<br>AM</div>
+            <div class="tl-dot-col"><div class="tl-dot"></div></div>
+            <div class="tl-card">
+              <div class="tl-card-header">
+                <span class="tl-card-title">Morning Prayer</span>
+                <span class="check-icon">✓</span>
+              </div>
+              <div class="tl-card-subtitle">Personal · Prayer</div>
+            </div>
+          </div>
+
+          <div class="tl-divider"></div>
+
+          <!-- 7:30 AM — Daily Reading: Romans 8 (completed, reading plan) -->
+          <div class="tl-row completed type-reading" aria-label="Daily Reading Romans 8, 7:30 AM, completed">
+            <div class="tl-time">7:30<br>AM</div>
+            <div class="tl-dot-col"><div class="tl-dot"></div></div>
+            <div class="tl-card">
+              <div class="tl-card-header">
+                <span class="tl-card-title">Daily Reading: Romans 8</span>
+                <span class="check-icon">✓</span>
+              </div>
+              <div class="tl-card-subtitle">Reading Plan · NT Walk</div>
+            </div>
+          </div>
+
+          <div class="tl-divider"></div>
+
+          <!-- 12:00 PM — Lunch with Pastor James (personal) -->
+          <div class="tl-row" aria-label="Lunch with Pastor James, 12:00 PM">
+            <div class="tl-time">12:00<br>PM</div>
+            <div class="tl-dot-col"><div class="tl-dot"></div></div>
+            <div class="tl-card">
+              <div class="tl-card-header">
+                <span class="tl-card-title">Lunch with Pastor James</span>
+              </div>
+              <div class="tl-card-subtitle">Personal · Gathering</div>
+            </div>
+          </div>
+
+          <div class="tl-divider"></div>
+
+          <!-- 7:00 PM — Covenant Men's Study (Space event, blue) -->
+          <div class="tl-row type-space-blue" aria-label="Covenant Mens Study, 7:00 PM, Space event">
+            <div class="tl-time">7:00<br>PM</div>
+            <div class="tl-dot-col"><div class="tl-dot"></div></div>
+            <div class="tl-card">
+              <div class="tl-card-header">
+                <span class="tl-card-title">Covenant Men's Study</span>
+              </div>
+              <div class="tl-card-subtitle">Space · Men's Covenant</div>
+
+              <!-- Berean suggestion chip — glass chrome, dismissed state to demonstrate interaction -->
+              <div class="berean-chip dismissed" id="berean-1" aria-label="Berean suggestion dismissed">
+                <span class="berean-chip-icon">✨</span>
+                <span class="berean-chip-text">Men's study tonight — read Romans 12 first?</span>
+                <span class="berean-chip-dismiss" aria-label="Dismiss suggestion">×</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="tl-divider"></div>
+
+          <!-- 9:00 PM — Evening Reflection (personal, purple) -->
+          <div class="tl-row type-personal-purple" aria-label="Evening Reflection, 9:00 PM">
+            <div class="tl-time">9:00<br>PM</div>
+            <div class="tl-dot-col"><div class="tl-dot"></div></div>
+            <div class="tl-card">
+              <div class="tl-card-header">
+                <span class="tl-card-title">Evening Reflection</span>
+              </div>
+              <div class="tl-card-subtitle">Personal · Devotional</div>
+            </div>
+          </div>
+
+        </div><!-- /timeline -->
+      </div><!-- /TODAY -->
+
+      <!-- ── TOMORROW ───────────────────────────────────────────────────── -->
+      <div class="day-section">
+        <div class="day-header">
+          <span class="day-label">TOMORROW</span>
+          <span class="day-date">Tuesday, June 2</span>
+        </div>
+
+        <div class="timeline">
+
+          <!-- 9:00 AM — Daily Reading: Romans 9 (reading plan) -->
+          <div class="tl-row type-reading" aria-label="Daily Reading Romans 9, 9:00 AM">
+            <div class="tl-time">9:00<br>AM</div>
+            <div class="tl-dot-col"><div class="tl-dot"></div></div>
+            <div class="tl-card">
+              <div class="tl-card-header">
+                <span class="tl-card-title">Daily Reading: Romans 9</span>
+              </div>
+              <div class="tl-card-subtitle">Reading Plan · NT Walk</div>
+            </div>
+          </div>
+
+          <div class="tl-divider"></div>
+
+          <!-- 6:30 PM — Women's Small Group (Space event, gold tint) -->
+          <div class="tl-row type-space-gold" aria-label="Womens Small Group, 6:30 PM, Space event">
+            <div class="tl-time">6:30<br>PM</div>
+            <div class="tl-dot-col"><div class="tl-dot"></div></div>
+            <div class="tl-card">
+              <div class="tl-card-header">
+                <span class="tl-card-title">Women's Small Group</span>
+              </div>
+              <div class="tl-card-subtitle">Space · Covenant Sisters</div>
+            </div>
+          </div>
+
+          <div class="tl-divider"></div>
+
+          <!-- 8:00 PM — Prayer Wall check-in (personal, purple) with active Berean chip -->
+          <div class="tl-row type-personal-purple" aria-label="Prayer Wall check-in, 8:00 PM">
+            <div class="tl-time">8:00<br>PM</div>
+            <div class="tl-dot-col"><div class="tl-dot"></div></div>
+            <div class="tl-card">
+              <div class="tl-card-header">
+                <span class="tl-card-title">Prayer Wall check-in</span>
+              </div>
+              <div class="tl-card-subtitle">Personal · Prayer</div>
+
+              <!-- Berean suggestion chip — active, dismissible -->
+              <div class="berean-chip" id="berean-2" onclick="dismissChip('berean-2')" aria-label="Berean study suggestion, tap to dismiss" role="button" tabindex="0">
+                <span class="berean-chip-icon">✨</span>
+                <span class="berean-chip-text">Continuing to pray for the retreat team?</span>
+                <span class="berean-chip-dismiss" aria-label="Dismiss">×</span>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /timeline -->
+      </div><!-- /TOMORROW -->
+
+    </div><!-- /scroll-content -->
+
+    <!-- Tab bar — glass chrome -->
+    <div class="tab-bar" role="tablist" aria-label="Main navigation">
+      <div class="tab-item" role="tab" aria-label="Home">
+        <div class="tab-icon">🏠</div>
+        <div class="tab-label">Home</div>
+      </div>
+      <div class="tab-item" role="tab" aria-label="Spaces">
+        <div class="tab-icon">🌐</div>
+        <div class="tab-label">Spaces</div>
+      </div>
+      <div class="tab-item active" role="tab" aria-selected="true" aria-label="Planner, current tab">
+        <div class="tab-icon">📅</div>
+        <div class="tab-label" style="color: var(--amenGold);">Planner</div>
+      </div>
+      <div class="tab-item" role="tab" aria-label="Prayer">
+        <div class="tab-icon">🙏</div>
+        <div class="tab-label">Prayer</div>
+      </div>
+      <div class="tab-item" role="tab" aria-label="Profile">
+        <div class="tab-icon">👤</div>
+        <div class="tab-label">Profile</div>
+      </div>
+    </div>
+
+  </div><!-- /phone-frame -->
+
+  <script>
+    // ─── Dark mode toggle ──────────────────────────────────────────────────
+    function toggleTheme() {
+      const frame = document.getElementById('phoneFrame');
+      const icon  = document.getElementById('themeIcon');
+      const isDark = frame.getAttribute('data-theme') === 'dark';
+      frame.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      icon.textContent = isDark ? '🌙' : '☀️';
+    }
+
+    // ─── Berean chip dismiss ───────────────────────────────────────────────
+    function dismissChip(id) {
+      const chip = document.getElementById(id);
+      if (!chip) return;
+      chip.classList.add('dismissed');
+      chip.setAttribute('aria-label', 'Berean suggestion dismissed');
+    }
+
+    // Support keyboard dismiss on Berean chip
+    document.querySelectorAll('.berean-chip[tabindex]').forEach(chip => {
+      chip.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          dismissChip(chip.id);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

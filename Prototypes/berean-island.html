@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Berean Island — W0 HTML Prototype</title>
+<style>
+  /* ── Reset & tokens ───────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --glass-bg: rgba(255,255,255,0.72);
+    --glass-blur: blur(24px);
+    --glass-border: rgba(0,0,0,0.10);
+    --glass-shadow: 0 4px 32px rgba(0,0,0,0.12);
+    --pill-h: 44px;
+    --pill-r: 22px;
+    --card-r: 24px;
+    --accent: #1C6EF2;
+    --accent-ring: rgba(28,110,242,0.3);
+    --text-primary: rgba(0,0,0,0.88);
+    --text-secondary: rgba(0,0,0,0.46);
+    --hairline: rgba(0,0,0,0.10);
+    --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --bg: #F2F2F7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --glass-bg: rgba(30,30,30,0.80);
+      --glass-border: rgba(255,255,255,0.12);
+      --text-primary: rgba(255,255,255,0.92);
+      --text-secondary: rgba(255,255,255,0.46);
+      --hairline: rgba(255,255,255,0.10);
+      --bg: #1C1C1E;
+    }
+  }
+
+  body {
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 40px 24px 80px;
+  }
+
+  h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+  h2 { font-size: 17px; font-weight: 600; margin: 32px 0 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; font-size: 13px; }
+  p.note { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; }
+
+  /* ── Glass surface ────────────────────────────────────────────────── */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 0.5px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+
+  /* ── Island states ────────────────────────────────────────────────── */
+  .island-demo-row {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  .island-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+
+  /* State A — Compact */
+  .island-compact {
+    height: var(--pill-h);
+    border-radius: var(--pill-r);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    cursor: pointer;
+    transition: transform 0.18s var(--ease-out), box-shadow 0.18s;
+    user-select: none;
+  }
+  .island-compact:active { transform: scale(0.96); }
+  .island-compact .glyph {
+    width: 20px; height: 20px;
+    background: var(--text-primary);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%23000' d='M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14a6 6 0 110-12 6 6 0 010 12zm1-9H9v5h2V7zm0 6H9v2h2v-2z'/%3E%3C/svg%3E") center/contain no-repeat;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%23000' d='M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14a6 6 0 110-12 6 6 0 010 12zm1-9H9v5h2V7zm0 6H9v2h2v-2z'/%3E%3C/svg%3E") center/contain no-repeat;
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+  .island-compact .whisper {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--text-primary);
+  }
+
+  /* State B — Expanded */
+  .island-expanded {
+    border-radius: var(--card-r);
+    padding: 16px;
+    max-width: 380px;
+    transform-origin: top center;
+    animation: expand-in 0.28s var(--spring) forwards;
+  }
+  @keyframes expand-in {
+    from { transform: scaleY(0.6) scaleX(0.9); opacity: 0; }
+    to   { transform: scaleY(1) scaleX(1); opacity: 1; }
+  }
+  .island-expanded .ask-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,0,0,0.05);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+  .island-expanded .ask-field input {
+    border: none;
+    background: transparent;
+    font-size: 15px;
+    color: var(--text-primary);
+    flex: 1;
+    outline: none;
+    font-family: inherit;
+  }
+  .island-expanded .ask-field input::placeholder { color: var(--text-secondary); }
+  .island-expanded .ask-field .mic { font-size: 16px; cursor: pointer; }
+  .quick-actions {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;
+  }
+  .qa-chip {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 16px;
+    background: rgba(0,0,0,0.06);
+    color: var(--text-primary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.14s;
+  }
+  .qa-chip:hover { background: rgba(28,110,242,0.12); color: var(--accent); }
+  .context-chip {
+    font-size: 11px;
+    color: var(--text-secondary);
+    padding: 4px 0;
+  }
+  .context-chip span { color: var(--accent); cursor: pointer; }
+
+  /* State C — Live */
+  .island-live {
+    height: var(--pill-h);
+    border-radius: var(--pill-r);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .live-ring {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    position: relative;
+    flex-shrink: 0;
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.5; transform: scale(0.92); }
+    50%       { opacity: 1;   transform: scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .live-ring { animation: none; opacity: 0.7; }
+    @keyframes expand-in { from { opacity: 0; } to { opacity: 1; } }
+  }
+  .live-ring::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    background: var(--accent);
+    border-radius: 50%;
+    opacity: 0.25;
+  }
+  .live-status { font-size: 13px; font-weight: 500; }
+
+  /* State D — Action-Ready */
+  .island-action-ready {
+    height: var(--pill-h);
+    border-radius: var(--pill-r);
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    cursor: default;
+    max-width: 340px;
+    animation: expand-in 0.22s var(--ease-out) forwards;
+  }
+  .ar-message {
+    flex: 1;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ar-divider { width: 0.5px; height: 28px; background: var(--hairline); flex-shrink: 0; }
+  .ar-action {
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: opacity 0.14s;
+  }
+  .ar-action:hover { opacity: 0.7; }
+
+  /* ── Glass Cards ──────────────────────────────────────────────────── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  .island-card {
+    border-radius: var(--card-r);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-kind-glyph {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .kind-verse   { background: rgba(88, 28, 235, 0.10); }
+  .kind-answer  { background: rgba(28,110,242, 0.10); }
+  .kind-event   { background: rgba(22, 163, 74, 0.10); }
+  .kind-sermon  { background: rgba(234, 88, 12, 0.10); }
+  .kind-music   { background: rgba(219, 39, 119, 0.10); }
+  .kind-link    { background: rgba(100, 116, 139, 0.10); }
+
+  .card-title { font-size: 15px; font-weight: 600; }
+  .card-body  { font-size: 14px; line-height: 1.55; color: var(--text-primary); }
+  .card-source {
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding-top: 2px;
+    border-top: 0.5px solid var(--hairline);
+  }
+  .card-actions {
+    display: flex;
+    gap: 12px;
+    border-top: 0.5px solid var(--hairline);
+    padding-top: 10px;
+  }
+  .card-action-btn {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+    transition: opacity 0.14s;
+  }
+  .card-action-btn:hover { opacity: 0.65; }
+
+  /* ── Lens overlay ─────────────────────────────────────────────────── */
+  .lens-container {
+    max-width: 380px;
+    border-radius: var(--card-r);
+    overflow: hidden;
+    position: relative;
+    aspect-ratio: 3/4;
+    background: #0a0a0f;
+    box-shadow: var(--glass-shadow);
+  }
+  .lens-viewfinder {
+    width: 100%; height: 100%;
+    background: linear-gradient(160deg, #0f1a2e 0%, #1a0f2e 50%, #0a1a1a 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .lens-corners {
+    position: absolute;
+    inset: 20%;
+    pointer-events: none;
+  }
+  .lens-corners::before, .lens-corners::after {
+    content: '';
+    position: absolute;
+    width: 24px; height: 24px;
+    border-color: rgba(255,255,255,0.6);
+    border-style: solid;
+  }
+  .lens-corners::before {
+    top: 0; left: 0;
+    border-width: 2px 0 0 2px;
+    border-radius: 3px 0 0 0;
+  }
+  .lens-corners::after {
+    bottom: 0; right: 0;
+    border-width: 0 2px 2px 0;
+    border-radius: 0 0 3px 0;
+  }
+  .lens-scan-line {
+    position: absolute;
+    left: 20%; right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(28,110,242,0.8), transparent);
+    animation: scan 1.8s ease-in-out infinite;
+  }
+  @keyframes scan {
+    0%   { top: 20%; }
+    100% { top: 80%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lens-scan-line { animation: none; top: 50%; opacity: 0.4; }
+  }
+  .lens-mode-chips {
+    position: absolute;
+    bottom: 38%;
+    left: 0; right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 16px;
+  }
+  .lens-chip {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 0.5px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.8);
+    cursor: pointer;
+    transition: background 0.14s;
+  }
+  .lens-chip.active {
+    background: rgba(28,110,242,0.7);
+    color: white;
+    border-color: rgba(28,110,242,0.5);
+  }
+  .no-save-badge {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    font-size: 10px;
+    color: rgba(255,255,255,0.6);
+    background: rgba(0,0,0,0.3);
+    padding: 3px 7px;
+    border-radius: 8px;
+    backdrop-filter: blur(8px);
+  }
+  .lens-result-overlay {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    border-radius: 0 0 var(--card-r) var(--card-r);
+    padding: 14px 16px;
+    animation: slide-up 0.28s var(--ease-out) forwards;
+    border-top: 0.5px solid rgba(255,255,255,0.12);
+    background: rgba(15,20,35,0.85);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+  @keyframes slide-up {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .lens-result-title { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.9); margin-bottom: 4px; }
+  .lens-result-body  { font-size: 13px; color: rgba(255,255,255,0.65); margin-bottom: 10px; line-height: 1.5; }
+  .lens-result-actions {
+    display: flex; gap: 12px;
+  }
+  .lens-btn {
+    font-size: 12px; font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    background: rgba(255,255,255,0.12);
+    border: none; border-radius: 10px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.14s;
+  }
+  .lens-btn.primary { background: var(--accent); color: white; }
+  .lens-btn:hover { opacity: 0.8; }
+
+  /* ── Composer diff view ───────────────────────────────────────────── */
+  .diff-container {
+    max-width: 380px;
+    border-radius: var(--card-r);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .diff-header { font-size: 15px; font-weight: 700; }
+  .diff-subhead { font-size: 12px; color: var(--text-secondary); margin-top: -6px; }
+  .diff-block {
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+    position: relative;
+  }
+  .diff-block.original { background: rgba(220,38,38,0.07); }
+  .diff-block.revised  { background: rgba(22,163,74,0.07); }
+  .diff-badge {
+    position: absolute;
+    top: 8px; right: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .diff-badge.removed { background: rgba(220,38,38,0.15); color: rgb(185,28,28); }
+  .diff-badge.revised { background: rgba(22,163,74,0.15); color: rgb(15,118,63); }
+  .diff-del { text-decoration: line-through; color: rgba(220,38,38,0.7); }
+  .diff-ins { color: rgb(15,118,63); font-weight: 500; }
+  .diff-actions {
+    display: flex; gap: 10px;
+  }
+  .diff-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 12px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.14s;
+  }
+  .diff-btn.accept { background: var(--accent); color: white; }
+  .diff-btn.dismiss { background: rgba(0,0,0,0.06); color: var(--text-primary); }
+  .diff-btn:hover { opacity: 0.8; }
+  .diff-footer { font-size: 11px; color: var(--text-secondary); text-align: center; }
+
+  /* ── Reduced-motion note ──────────────────────────────────────────── */
+  .rm-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: rgba(28,110,242,0.06);
+    border: 0.5px solid rgba(28,110,242,0.15);
+    border-radius: 10px;
+    padding: 8px 12px;
+    max-width: 420px;
+  }
+
+  .section-divider {
+    height: 0.5px;
+    background: var(--hairline);
+    margin: 32px 0;
+  }
+</style>
+</head>
+<body>
+
+<h1>Berean Island</h1>
+<p class="note">W0 HTML prototype · All four Island states · Six card kinds · Lens overlay · Composer diff · Reduced-motion variant</p>
+
+<!-- ── Island States ──────────────────────────────────────────────────── -->
+<h2>Island States</h2>
+<div class="island-demo-row">
+
+  <!-- State A: Compact -->
+  <div>
+    <div class="island-label">A — Compact (resting)</div>
+    <div class="island-compact glass" onclick="this.style.transform='scale(0.96)'; setTimeout(()=>this.style.transform='',120)">
+      <div class="glyph"></div>
+      <span class="whisper">Ask about this verse</span>
+    </div>
+  </div>
+
+  <!-- State A: Compact glyph-only -->
+  <div>
+    <div class="island-label">A — Compact (glyph only, nil whisper)</div>
+    <div class="island-compact glass" style="padding: 0 14px;">
+      <div class="glyph"></div>
+    </div>
+  </div>
+
+  <!-- State B: Expanded -->
+  <div>
+    <div class="island-label">B — Expanded (engaged)</div>
+    <div class="island-expanded glass">
+      <div class="ask-field">
+        <input type="text" placeholder="Ask Berean anything…" value="">
+        <span class="mic">🎙</span>
+      </div>
+      <div class="quick-actions">
+        <div class="qa-chip">Ask Berean</div>
+        <div class="qa-chip">Open Bible</div>
+        <div class="qa-chip">Compare translations</div>
+        <div class="qa-chip">Save note</div>
+      </div>
+      <div class="context-chip">Using: <span>John 15 · this post</span> · <span>Tap to review</span></div>
+    </div>
+  </div>
+
+  <!-- State C: Live -->
+  <div>
+    <div class="island-label">C — Live (Sermon Companion running)</div>
+    <div class="island-live glass">
+      <div class="live-ring"></div>
+      <span class="live-status">Sermon Companion · 14 verses</span>
+    </div>
+  </div>
+
+  <!-- State D: Action-Ready -->
+  <div>
+    <div class="island-label">D — Action-Ready (12s timeout)</div>
+    <div class="island-action-ready glass">
+      <span class="ar-message">Small group tonight · Prep me</span>
+      <div class="ar-divider"></div>
+      <span class="ar-action">Open</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ── Glass Cards ───────────────────────────────────────────────────── -->
+<h2>Glass Card Kinds (six)</h2>
+<div class="cards-grid">
+
+  <!-- Verse -->
+  <div class="island-card glass">
+    <div class="card-header">
+      <div class="card-kind-glyph kind-verse">✦</div>
+      <span class="card-title">Verse</span>
+    </div>
+    <div class="card-body">"I am the vine; you are the branches. If you remain in me and I in you, you will bear much fruit; apart from me you can do nothing."</div>
+    <div class="card-source">John 15:5 · BSB <span style="margin-left: 6px; color: var(--accent); font-size: 11px; cursor: pointer;">↕ Compare</span></div>
+    <div class="card-actions">
+      <button class="card-action-btn">Save</button>
+      <button class="card-action-btn">Share</button>
+      <button class="card-action-btn">Ask follow-up</button>
+    </div>
+  </div>
+
+  <!-- Answer -->
+  <div class="island-card glass">
+    <div class="card-header">
+      <div class="card-kind-glyph kind-answer">●</div>
+      <span class="card-title">Answer</span>
+    </div>
+    <div class="card-body">The vine metaphor emphasizes complete dependence on Christ. In first-century viticulture, branches that disconnected withered within hours — John uses this urgency to contrast abundant life with spiritual sterility.<br><br><span style="font-size: 12px; color: var(--accent); cursor: pointer;">Sources (3)</span></div>
+    <div class="card-source">Berean · Ask mode</div>
+    <div class="card-actions">
+      <button class="card-action-btn">Save</button>
+      <button class="card-action-btn">Share</button>
+      <button class="card-action-btn">Ask follow-up</button>
+    </div>
+  </div>
+
+  <!-- Event -->
+  <div class="island-card glass">
+    <div class="card-header">
+      <div class="card-kind-glyph kind-event">📅</div>
+      <span class="card-title">Event</span>
+    </div>
+    <div class="card-body"><strong>Worship Night</strong><br>Friday, Jun 20 · 7:00 PM<br>Grace Chapel — 123 Faith Ave</div>
+    <div class="card-actions">
+      <button class="card-action-btn">Add to calendar</button>
+      <button class="card-action-btn">RSVP</button>
+      <button class="card-action-btn">Share</button>
+    </div>
+  </div>
+
+  <!-- Sermon -->
+  <div class="island-card glass">
+    <div class="card-header">
+      <div class="card-kind-glyph kind-sermon">✝</div>
+      <span class="card-title">Sermon</span>
+    </div>
+    <div class="card-body"><strong>Abiding in the Vine</strong><br>Grace Chapel · Jun 15, 2026<br>5 points · 18 verses captured</div>
+    <div class="card-source">Sermon Companion session</div>
+    <div class="card-actions">
+      <button class="card-action-btn">Open note</button>
+      <button class="card-action-btn">Share</button>
+      <button class="card-action-btn">Ask follow-up</button>
+    </div>
+  </div>
+
+  <!-- Music -->
+  <div class="island-card glass">
+    <div class="card-header">
+      <div class="card-kind-glyph kind-music">♪</div>
+      <span class="card-title">Music</span>
+    </div>
+    <div class="card-body"><strong>Abide with Me</strong><br>Sovereign Grace Music<br>Related to John 15 · Abiding</div>
+    <div class="card-actions">
+      <button class="card-action-btn">Save</button>
+      <button class="card-action-btn">Share</button>
+    </div>
+  </div>
+
+  <!-- Link -->
+  <div class="island-card glass">
+    <div class="card-header">
+      <div class="card-kind-glyph kind-link">↗</div>
+      <span class="card-title">Link</span>
+    </div>
+    <div class="card-body"><strong>The Vine and the Branches</strong><br>gotquestions.org<br><span style="font-size: 12px; color: var(--text-secondary);">Verified safe · GUARDIAN checked</span></div>
+    <div class="card-actions">
+      <button class="card-action-btn">Open</button>
+      <button class="card-action-btn">Save</button>
+      <button class="card-action-btn">Share</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ── Lens Result Overlay ───────────────────────────────────────────── -->
+<h2>Lens — Bible Mode (live viewfinder lower-third)</h2>
+<p class="note">Camera stays live behind the result card. Tap anywhere outside to dismiss.</p>
+<div class="lens-container">
+  <div class="lens-viewfinder">
+    <div class="lens-corners"></div>
+    <div class="lens-scan-line"></div>
+    <span class="no-save-badge">Frames not saved</span>
+    <div class="lens-mode-chips">
+      <span class="lens-chip active">Bible</span>
+      <span class="lens-chip">Flyer</span>
+      <span class="lens-chip">Safety</span>
+    </div>
+  </div>
+  <div class="lens-result-overlay">
+    <div class="lens-result-title">John 3:16 — BSB</div>
+    <div class="lens-result-body">"For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life." · Context: John 3 begins Nicodemus' night visit.</div>
+    <div class="lens-result-actions">
+      <button class="lens-btn primary">Save</button>
+      <button class="lens-btn">Compare translations</button>
+      <button class="lens-btn">Ask follow-up</button>
+    </div>
+  </div>
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ── Composer Diff View ────────────────────────────────────────────── -->
+<h2>Write with Berean — Diff View (Make More Gracious)</h2>
+<p class="note">Berean suggests; human decides. Never silent replace. Never auto-post.</p>
+<div class="diff-container glass">
+  <div class="diff-header">More gracious version</div>
+  <div class="diff-subhead">Berean suggested · You decide</div>
+  <div class="diff-block original">
+    <div class="diff-badge removed">Original</div>
+    This is <span class="diff-del">completely wrong and you should know better</span> if you actually read the text.
+  </div>
+  <div class="diff-block revised">
+    <div class="diff-badge revised">Revised</div>
+    I see this differently — <span class="diff-ins">I'd love to explore what the text says together.</span>
+  </div>
+  <div class="diff-actions">
+    <button class="diff-btn accept">Accept &amp; Edit</button>
+    <button class="diff-btn dismiss">Dismiss</button>
+  </div>
+  <div class="diff-footer">Your words, refined. Berean never posts on your behalf.</div>
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ── Reduced-Motion Variant ────────────────────────────────────────── -->
+<h2>Reduced-Motion Variant</h2>
+<p class="note">When prefers-reduced-motion: reduce is set, all spring animations → crossfades, scan line is static, Live ring loses breathing animation.</p>
+<div class="rm-note">
+  <strong>Motion rules:</strong> expand-in → fade; Live ring → static 70% opacity ring; scan line → static 50% opacity; matchedGeometry pill↔card morph → opacity crossfade only. All transitions ≤ 0.22s ease-out. Tested via macOS Accessibility → Reduce motion or iOS Settings → Accessibility → Motion → Reduce Motion.
+</div>
+
+<div style="height: 40px;"></div>
+
+<script>
+  // Simple state toggle demo for compact → expanded
+  document.querySelectorAll('.island-compact').forEach(pill => {
+    pill.addEventListener('click', () => {
+      pill.style.opacity = pill.style.opacity === '0.5' ? '1' : '0.5';
+    });
+  });
+</script>
+</body>
+</html>

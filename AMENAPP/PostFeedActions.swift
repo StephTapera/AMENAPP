@@ -21,12 +21,12 @@ struct WhyAmISeeingThisSheet: View {
     @State private var showFeedControls = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Header
                 VStack(spacing: 12) {
                     Image(systemName: "lightbulb.circle.fill")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundColor(.blue)
                     
                     Text("Why you're seeing this")
@@ -108,7 +108,7 @@ struct WhyAmISeeingThisSheet: View {
                 }
             }
             .sheet(isPresented: $showFeedControls) {
-                HeyFeedControlsSheet()
+                YourFeedView()
             }
         }
     }
@@ -224,13 +224,13 @@ struct PostFeedActionsMenu: View {
     
     private func showFeedback(_ message: String) {
         feedbackMessage = message
-        withAnimation(.spring(response: 0.3)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3))) {
             showFeedbackToast = true
         }
         
         Task {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
-            withAnimation(.spring(response: 0.3)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3))) {
                 showFeedbackToast = false
             }
         }
@@ -371,11 +371,11 @@ struct ThinkFirstPromptSheet: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 24) {
                 // Icon based on action type
                 Image(systemName: iconName)
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundColor(iconColor)
                     .padding(.top, 24)
                 

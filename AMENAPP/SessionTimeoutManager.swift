@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import FirebaseCore
 import FirebaseAuth
 import UIKit
 import Combine
@@ -49,6 +50,7 @@ class SessionTimeoutManager: ObservableObject {
     // MARK: - Initialization
 
     private init() {
+        guard FirebaseApp.app() != nil else { return }
         setupActivityMonitoring()
         checkAuthState()
     }
@@ -58,6 +60,8 @@ class SessionTimeoutManager: ObservableObject {
         warningTimer?.invalidate()
         maxAgeTimer?.invalidate()
         countdownTimer?.invalidate()
+        activityObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        activityObservers.removeAll()
     }
 
     // MARK: - Public Methods
@@ -503,7 +507,7 @@ struct SessionTimeoutWarningView: View {
                         .shadow(color: .white.opacity(0.08), radius: 12, y: 4)
 
                     Image(systemName: "clock.badge.exclamationmark.fill")
-                        .font(.system(size: 36, weight: .semibold))
+                        .font(.systemScaled(36, weight: .semibold))
                         .foregroundStyle(.white)
                         .symbolEffect(.pulse)
                 }
@@ -520,7 +524,7 @@ struct SessionTimeoutWarningView: View {
 
                 // MARK: Countdown
                 Text(formatTime(sessionManager.secondsUntilLogout))
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .font(.systemScaled(52, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(
                         sessionManager.secondsUntilLogout < 60
@@ -551,17 +555,17 @@ struct SessionTimeoutWarningView: View {
                     // Primary — Stay Signed In
                     Button {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             sessionManager.extendSession()
                         }
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                             Text("Stay Signed In")
                                 .font(.custom("OpenSans-Bold", size: 15))
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(
@@ -574,13 +578,13 @@ struct SessionTimeoutWarningView: View {
                     // Secondary — Sign Out
                     Button {
                         UINotificationFeedbackGenerator().notificationOccurred(.warning)
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             sessionManager.forceLogout()
                         }
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.systemScaled(15, weight: .medium))
                             Text("Sign Out Now")
                                 .font(.custom("OpenSans-SemiBold", size: 14))
                         }
@@ -636,7 +640,7 @@ struct SessionTimeoutWarningView: View {
             .opacity(animate ? 1.0 : 0)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.72))) {
                 animate = true
             }
             pulse = true
@@ -671,22 +675,32 @@ class AppReadyStateManager: ObservableObject {
     static let shared = AppReadyStateManager()
 
     /// True while the loading screen should be displayed.
-    /// Pre-set to `true` on init if a Firebase user is already cached, so the overlay
-    /// is visible from the very first ContentView render — eliminating the separate
-    /// `isResolvingAuthState` Screen 1 and the white flash that followed its exit.
     @Published var isShowingLoadingScreen: Bool
 
-    private init() {
-        // If a user session is already cached, start with the overlay visible.
-        // This means the overlay is already `true` before ContentView renders its body,
-        // so there is only ever ONE loading state — no dual-screen flicker.
-        isShowingLoadingScreen = Auth.auth().currentUser != nil
+    private let watchdogTimeoutNanos: UInt64
+    private var watchdogTask: Task<Void, Never>?
+
+    init(initialShowing: Bool? = nil, watchdogTimeoutNanos: UInt64 = 8_000_000_000) {
+        self.watchdogTimeoutNanos = watchdogTimeoutNanos
+        if let initialShowing {
+            isShowingLoadingScreen = initialShowing
+        } else {
+            isShowingLoadingScreen = FirebaseApp.app() != nil && Auth.auth().currentUser != nil
+        }
+        if isShowingLoadingScreen {
+            armWatchdog()
+        }
+    }
+
+    deinit {
+        watchdogTask?.cancel()
     }
 
     /// Called when a user signs in (fresh install, sign-out + sign-back-in, update).
     func signalSignIn() {
         dlog("🚦 [LAUNCH] signalSignIn() → isShowingLoadingScreen = true")
         isShowingLoadingScreen = true
+        armWatchdog()
     }
 
     /// Called from ContentView.mainContent.onAppear — ensures the screen is showing
@@ -695,6 +709,7 @@ class AppReadyStateManager: ObservableObject {
         if !isShowingLoadingScreen {
             isShowingLoadingScreen = true
         }
+        armWatchdog()
     }
 
     /// Call once posts have been loaded (or after a maximum wait) to dismiss the screen.
@@ -703,9 +718,24 @@ class AppReadyStateManager: ObservableObject {
             dlog("🚦 [LAUNCH] signalReady() called but screen already hidden — no-op")
             return
         }
+        watchdogTask?.cancel()
+        watchdogTask = nil
         dlog("🚦 [LAUNCH] signalReady() → isShowingLoadingScreen = false (animating out)")
         withAnimation(.easeOut(duration: 0.2)) {
             isShowingLoadingScreen = false
+        }
+    }
+
+    private func armWatchdog() {
+        watchdogTask?.cancel()
+        watchdogTask = Task { [weak self, watchdogTimeoutNanos] in
+            try? await Task.sleep(nanoseconds: watchdogTimeoutNanos)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self, self.isShowingLoadingScreen else { return }
+                self.isShowingLoadingScreen = false
+                self.watchdogTask = nil
+            }
         }
     }
 }
@@ -865,6 +895,7 @@ struct AppLoadingScreen: View {
                 // Logo
                 Image("amen-logo")
                     .resizable()
+                    .renderingMode(.original)
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 90, height: 90)
                     .opacity(logoOpacity)
@@ -872,7 +903,7 @@ struct AppLoadingScreen: View {
 
                 // Tagline
                 Text("Social Media, Re-ordered")
-                    .font(.system(size: 13, weight: .light))
+                    .font(.systemScaled(13, weight: .light))
                     .tracking(2)
                     .foregroundColor(.black.opacity(0.35))
                     .padding(.top, 16)
@@ -885,7 +916,7 @@ struct AppLoadingScreen: View {
                     AMENLoadingIndicator(color: .black.opacity(0.3), dotSize: 8, spacing: 7, bounceHeight: 10)
 
                     Text("Loading your feed...")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundColor(.black.opacity(0.25))
                 }
                 .opacity(dotsOpacity)

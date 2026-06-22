@@ -48,14 +48,23 @@ struct TrendingItem: Identifiable {
 class SearchService: ObservableObject {
     static let shared = SearchService()
     
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let firebaseManager = FirebaseManager.shared
     
     @Published var isSearching = false
     @Published var searchResults: [AppSearchResult] = []
     @Published var recentSearches: [String] = []
     @Published var error: String?
-    
+    @Published var hasMoreResults = false
+
+    // P1 FIX: Cursor for Firestore-backed pagination.
+    // Algolia uses its own offset/page mechanism; this cursor applies to the
+    // Firestore fallback path only.
+    private var currentQuery: String = ""
+    private var currentFilter: SearchFilter = .all
+    private(set) var lastDocument: DocumentSnapshot?   // Firestore pagination cursor
+    private let pageSize = 20
+
     private let maxRecentSearches = 10
     
     private init() {
@@ -63,15 +72,23 @@ class SearchService: ObservableObject {
     }
     
     // MARK: - Main Search Function
-    
-    /// Search across all categories
-    func search(query: String, filter: SearchFilter = .all) async throws -> [AppSearchResult] {
+
+    /// Search across all categories. Pass `loadMore: true` to append the next page.
+    func search(query: String, filter: SearchFilter = .all, loadMore: Bool = false) async throws -> [AppSearchResult] {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
             return []
         }
-        
-        dlog("🔍 Searching for: '\(query)' with filter: \(filter.rawValue)")
-        
+
+        // P1 FIX: Reset cursor when query or filter changes
+        if query != currentQuery || filter != currentFilter {
+            lastDocument = nil
+            currentQuery = query
+            currentFilter = filter
+            if !loadMore { searchResults = [] }
+        }
+
+        dlog("🔍 Searching for: '\(query)' with filter: \(filter.rawValue) loadMore:\(loadMore)")
+
         isSearching = true
         defer { isSearching = false }
         
@@ -104,17 +121,33 @@ class SearchService: ObservableObject {
         
         // Sort by relevance
         results = sortByRelevance(results, query: query)
-        
-        // Save to recent searches
-        saveRecentSearch(query)
-        
+
+        // Save to recent searches (first page only)
+        if !loadMore { saveRecentSearch(query) }
+
+        // P1 FIX: Update pagination cursor + hasMoreResults signal
+        hasMoreResults = results.count >= pageSize
+
         await MainActor.run {
-            self.searchResults = results
+            if loadMore {
+                // Deduplicate by firestoreId before appending
+                let existingIds = Set(self.searchResults.map { $0.firestoreId ?? "" })
+                let newResults = results.filter { !existingIds.contains($0.firestoreId ?? "") }
+                self.searchResults.append(contentsOf: newResults)
+            } else {
+                self.searchResults = results
+            }
         }
-        
-        dlog("✅ Found \(results.count) results")
-        
+
+        dlog("✅ Found \(results.count) results (loadMore:\(loadMore), hasMore:\(hasMoreResults))")
+
         return results
+    }
+
+    /// Load the next page of results for the current query.
+    func loadMoreResults() async throws -> [AppSearchResult] {
+        guard hasMoreResults, !currentQuery.isEmpty else { return [] }
+        return try await search(query: currentQuery, filter: currentFilter, loadMore: true)
     }
     
     // MARK: - Search People/Users
@@ -149,11 +182,15 @@ class SearchService: ObservableObject {
         
         // STRATEGY 1: Try searching with lowercase fields (if they exist)
         do {
-            let snapshot = try await db.collection(FirebaseManager.CollectionPath.users)
+            var usernameQuery = db.collection(FirebaseManager.CollectionPath.users)
                 .whereField("usernameLowercase", isGreaterThanOrEqualTo: lowercaseQuery)
                 .whereField("usernameLowercase", isLessThanOrEqualTo: lowercaseQuery + "\u{f8ff}")
-                .limit(to: 20)
-                .getDocuments()
+                .limit(to: pageSize)
+            // P1 FIX: apply pagination cursor when loading more results
+            if let cursor = lastDocument {
+                usernameQuery = usernameQuery.start(afterDocument: cursor)
+            }
+            let snapshot = try await usernameQuery.getDocuments()
             
             dlog("✅ Found \(snapshot.documents.count) users by usernameLowercase")
             
@@ -227,13 +264,12 @@ class SearchService: ObservableObject {
         
         let bio = data["bio"] as? String
         let isVerified = data["isVerified"] as? Bool ?? false
-        let followerCount = data["followersCount"] as? Int ?? 0
-        
+
         return AppSearchResult(
             firestoreId: userId,
             title: displayName,
             subtitle: "@\(username)",
-            metadata: "\(followerCount) followers" + (bio.flatMap { $0.isEmpty ? nil : " • \($0.prefix(50))" } ?? ""),
+            metadata: bio.flatMap { $0.isEmpty ? nil : String($0.prefix(50)) } ?? "",
             type: .person,
             isVerified: isVerified
         )
@@ -260,15 +296,14 @@ class SearchService: ObservableObject {
             }
             
             let description = data["description"] as? String ?? ""
-            let memberCount = data["memberCount"] as? Int ?? 0
             let isPrivate = data["isPrivate"] as? Bool ?? false
             let isVerified = data["isVerified"] as? Bool ?? false
-            
+
             results.append(AppSearchResult(
                 firestoreId: nil,  // Groups don't need user ID
                 title: name,
-                subtitle: isPrivate ? "🔒 Private Group" : "Public Group",
-                metadata: "\(memberCount) members" + (!description.isEmpty ? " • \(description.prefix(50))" : ""),
+                subtitle: isPrivate ? "Private Group" : "Public Group",
+                metadata: !description.isEmpty ? String(description.prefix(50)) : "",
                 type: .group,
                 isVerified: isVerified
             ))
@@ -324,55 +359,50 @@ class SearchService: ObservableObject {
                 continue
             }
             
-            let amenCount = data["amenCount"] as? Int ?? 0
-            let commentCount = data["commentCount"] as? Int ?? 0
             let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
-            
+
             let timeAgo = SearchService.formatTimeAgo(from: createdAt)
-            
+
             results.append(AppSearchResult(
                 firestoreId: nil,  // Posts don't need this
                 title: content.prefix(80) + (content.count > 80 ? "..." : ""),
                 subtitle: "by \(authorName)",
-                metadata: "\(timeAgo) • \(amenCount) Amens • \(commentCount) comments",
+                metadata: timeAgo,
                 type: .post,
                 isVerified: false
             ))
         }
-        
+
         // Also search by hashtags if query starts with #
         if query.hasPrefix("#") {
             let hashtag = String(query.dropFirst()).lowercased()
-            
+
             let hashtagSnapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
                 .whereField("hashtagsLowercase", arrayContains: hashtag)
                 .limit(to: 20)
                 .getDocuments()
-            
+
             for document in hashtagSnapshot.documents {
                 let data = document.data()
-                
+
                 guard let content = data["content"] as? String,
                       let authorName = data["authorName"] as? String else {
                     continue
                 }
-                
+
                 // Skip duplicates
                 if results.contains(where: { $0.title == content.prefix(80) + (content.count > 80 ? "..." : "") }) {
                     continue
                 }
-                
-                let amenCount = data["amenCount"] as? Int ?? 0
-                let commentCount = data["commentCount"] as? Int ?? 0
+
                 let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
-                
                 let timeAgo = SearchService.formatTimeAgo(from: createdAt)
-                
+
                 results.append(AppSearchResult(
                     firestoreId: nil,
                     title: content.prefix(80) + (content.count > 80 ? "..." : ""),
                     subtitle: "by \(authorName)",
-                    metadata: "\(timeAgo) • \(amenCount) Amens • \(commentCount) comments",
+                    metadata: timeAgo,
                     type: .post,
                     isVerified: false
                 ))
@@ -404,18 +434,17 @@ class SearchService: ObservableObject {
             
             let location = data["location"] as? String ?? "Online"
             let date = (data["date"] as? Timestamp)?.dateValue() ?? Date()
-            let attendeeCount = data["attendeeCount"] as? Int ?? 0
             let isVerified = data["isVerified"] as? Bool ?? false
-            
+
             let dateFormatter = DateFormatter()
             dateFormatter.dateStyle = .medium
             dateFormatter.timeStyle = .short
-            
+
             results.append(AppSearchResult(
                 firestoreId: nil,
                 title: title,
                 subtitle: dateFormatter.string(from: date),
-                metadata: "\(location) • \(attendeeCount) attending",
+                metadata: location,
                 type: .event,
                 isVerified: isVerified
             ))

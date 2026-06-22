@@ -92,21 +92,21 @@ struct ConnectServeView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("SERVE")
-                    .font(.system(size: 10, weight: .semibold)).kerning(3)
+                    .font(.systemScaled(10, weight: .semibold)).kerning(3)
                     .foregroundStyle(Color.white.opacity(0.55))
                 Text("Serve Your Community")
-                    .font(.system(size: 26, weight: .black))
+                    .font(.systemScaled(26, weight: .black))
                     .foregroundStyle(.white)
                 Text("Find volunteer opportunities and make an impact.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.7))
 
                 Button { showCreate = true } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.systemScaled(11, weight: .bold))
                         Text("Post Opportunity")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                     }
                     .foregroundStyle(accentGreen)
                     .padding(.horizontal, 14).padding(.vertical, 9)
@@ -129,10 +129,10 @@ struct ConnectServeView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 Button {
-                    withAnimation(.spring(response: 0.25)) { selectedCategory = nil }
+                    withAnimation(Motion.adaptive(.spring(response: 0.25))) { selectedCategory = nil }
                 } label: {
                     Text("All")
-                        .font(.system(size: 13, weight: selectedCategory == nil ? .bold : .regular))
+                        .font(.systemScaled(13, weight: selectedCategory == nil ? .bold : .regular))
                         .foregroundStyle(selectedCategory == nil ? .white : .secondary)
                         .padding(.horizontal, 14).padding(.vertical, 8)
                         .background(Capsule().fill(selectedCategory == nil ? accentGreen : Color(.secondarySystemBackground)))
@@ -140,12 +140,12 @@ struct ConnectServeView: View {
 
                 ForEach(categories, id: \.self) { cat in
                     Button {
-                        withAnimation(.spring(response: 0.25)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25))) {
                             selectedCategory = selectedCategory == cat ? nil : cat
                         }
                     } label: {
                         Text(cat)
-                            .font(.system(size: 13, weight: selectedCategory == cat ? .bold : .regular))
+                            .font(.systemScaled(13, weight: selectedCategory == cat ? .bold : .regular))
                             .foregroundStyle(selectedCategory == cat ? .white : .secondary)
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(Capsule().fill(selectedCategory == cat ? accentGreen : Color(.secondarySystemBackground)))
@@ -162,37 +162,37 @@ struct ConnectServeView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(opp.category.uppercased())
-                    .font(.system(size: 10, weight: .bold)).kerning(1)
+                    .font(.systemScaled(10, weight: .bold)).kerning(1)
                     .foregroundStyle(accentGreen)
                 Spacer()
                 if opp.spotsAvailable > 0 {
                     Text("\(opp.spotsAvailable) spots left")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
 
             Text(opp.title)
-                .font(.system(size: 16, weight: .bold))
+                .font(.systemScaled(16, weight: .bold))
                 .foregroundStyle(.primary)
 
             Text(opp.description)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
 
             HStack(spacing: 12) {
                 if !opp.church.isEmpty {
                     HStack(spacing: 4) {
-                        Image(systemName: "building.2").font(.system(size: 11))
-                        Text(opp.church).font(.system(size: 12))
+                        Image(systemName: "building.2").font(.systemScaled(11))
+                        Text(opp.church).font(.systemScaled(12))
                     }
                     .foregroundStyle(.secondary)
                 }
                 if !opp.location.isEmpty {
                     HStack(spacing: 4) {
-                        Image(systemName: opp.isRemote ? "wifi" : "mappin").font(.system(size: 11))
-                        Text(opp.location).font(.system(size: 12))
+                        Image(systemName: opp.isRemote ? "wifi" : "mappin").font(.systemScaled(11))
+                        Text(opp.location).font(.systemScaled(12))
                     }
                     .foregroundStyle(.secondary)
                 }
@@ -202,7 +202,7 @@ struct ConnectServeView: View {
                 signUp(for: opp)
             } label: {
                 Text("Sign Up")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20).padding(.vertical, 8)
                     .background(Capsule().fill(accentGreen))
@@ -220,13 +220,13 @@ struct ConnectServeView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "hands.sparkles.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary.opacity(0.4))
                 .padding(.top, 40)
             Text("No opportunities yet")
-                .font(.system(size: 17, weight: .bold))
+                .font(.systemScaled(17, weight: .bold))
             Text("Be the first to post a volunteer opportunity!")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
     }
@@ -234,7 +234,7 @@ struct ConnectServeView: View {
     // MARK: - Data
 
     private func loadOpportunities() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("serveOpportunities")
                 .order(by: "createdAt", descending: true)
@@ -254,11 +254,22 @@ struct ConnectServeView: View {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task {
-            let db = Firestore.firestore()
-            try? await db.collection("serveOpportunities").document(opp.id).updateData([
-                "signedUpUIDs": FieldValue.arrayUnion([uid]),
-                "spotsAvailable": FieldValue.increment(Int64(-1))
-            ])
+            lazy var db = Firestore.firestore()
+            // Store signup in a subcollection to avoid unbounded in-document array.
+            do {
+                try await db.collection("serveOpportunities").document(opp.id)
+                    .collection("signups").document(uid)
+                    .setData(["signedUpAt": FieldValue.serverTimestamp()], merge: true)
+            } catch {
+                print("ConnectServeView: failed to write signup — \(error.localizedDescription)")
+            }
+            do {
+                try await db.collection("serveOpportunities").document(opp.id).updateData([
+                    "spotsAvailable": FieldValue.increment(Int64(-1))
+                ])
+            } catch {
+                print("ConnectServeView: failed to decrement spotsAvailable — \(error.localizedDescription)")
+            }
         }
     }
 }
@@ -331,10 +342,14 @@ struct CreateServeSheet: View {
             spotsAvailable: Int(spots) ?? 0
         )
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
             let encoded = try? Firestore.Encoder().encode(opp)
             if let encoded {
-                try? await db.collection("serveOpportunities").document(opp.id).setData(encoded)
+                do {
+                    try await db.collection("serveOpportunities").document(opp.id).setData(encoded)
+                } catch {
+                    print("ConnectServeView: failed to save serve opportunity — \(error.localizedDescription)")
+                }
             }
             await MainActor.run {
                 onCreate(opp)

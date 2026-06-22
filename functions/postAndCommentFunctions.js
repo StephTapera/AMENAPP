@@ -77,6 +77,10 @@ exports.finalizePostPublish = onCall({ region: REGION }, async (request) => {
   const auth = request.auth;
   if (!auth) throw new HttpsError('unauthenticated', 'Must be signed in');
 
+  // H-04: Rate limit post creation — 20 posts per hour per user
+  const { enforceRateLimit } = require('./rateLimiter');
+  await enforceRateLimit(auth.uid, 'post_create', 20, 3600);
+
   const { postId, mediaUrls = [] } = request.data;
   if (!postId || typeof postId !== 'string') {
     throw new HttpsError('invalid-argument', 'postId required');
@@ -99,6 +103,11 @@ exports.finalizePostPublish = onCall({ region: REGION }, async (request) => {
   // Idempotency: already published → no-op
   if (post.status === 'published') {
     return { success: true, alreadyPublished: true };
+  }
+
+  // Moderation guard: blocked posts cannot be re-published by the client.
+  if (post.moderation?.status === 'blocked') {
+    throw new HttpsError('permission-denied', 'This post has been blocked by moderation and cannot be published.');
   }
 
   // Validate mediaUrls if present
@@ -138,7 +147,7 @@ exports.finalizePostPublish = onCall({ region: REGION }, async (request) => {
 //    Idempotent via clientCommentId deduplication key.
 // ─────────────────────────────────────────────────────────────────────────────
 
-exports.addComment = onCall({ region: REGION }, async (request) => {
+exports.addComment = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
   const auth = request.auth;
   if (!auth) throw new HttpsError('unauthenticated', 'Must be signed in');
 
@@ -147,6 +156,10 @@ exports.addComment = onCall({ region: REGION }, async (request) => {
     text,
     clientCommentId, // UUID generated client-side for idempotency
     parentCommentId = null,
+    authorInitials = '',
+    authorUsername = '',
+    authorName = '',
+    authorProfileImageURL = null,
   } = request.data;
 
   // Validate inputs
@@ -170,6 +183,44 @@ exports.addComment = onCall({ region: REGION }, async (request) => {
     throw new HttpsError('resource-exhausted', 'Too many comments. Please wait before commenting again.');
   }
 
+  // ── MODERATION GATE: Require a prior checkCommentQuality decision record ──
+  // The client MUST call checkCommentQuality before calling addComment.
+  // We verify by looking for a decision record keyed on uid + clientCommentId.
+  // This prevents any path (including manual API calls) from bypassing the gate.
+  //
+  // Decision records written by commentGateway.js expire after 10 minutes —
+  // old records are rejected to prevent replay attacks.
+  const decisionDocId = `${auth.uid}_${clientCommentId}`;
+  const decisionSnap = await db.collection('commentModerationDecisions').doc(decisionDocId).get();
+
+  if (!decisionSnap.exists) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Comment quality check required before publishing. Call checkCommentQuality first.'
+    );
+  }
+
+  const decisionData = decisionSnap.data();
+
+  // Reject stale records (older than 10 minutes)
+  const checkedAt = decisionData.checkedAt?.toMillis?.() || 0;
+  if (Date.now() - checkedAt > 10 * 60 * 1000) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Comment quality check has expired. Please re-check before posting.'
+    );
+  }
+
+  // Hard-blocked comments MUST NOT reach the write path
+  if (decisionData.decision === 'block') {
+    throw new HttpsError(
+      'permission-denied',
+      'This comment was blocked by safety moderation and cannot be published.'
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Idempotency: check if comment with this clientCommentId was already written
   const idempotencyRef = db.collection('commentIdempotencyKeys').doc(clientCommentId);
   const idempotencySnap = await idempotencyRef.get();
@@ -184,7 +235,7 @@ exports.addComment = onCall({ region: REGION }, async (request) => {
     throw new HttpsError('not-found', 'Post not found');
   }
   const post = postSnap.data();
-  if (post.status !== 'published') {
+  if (post.status && post.status !== 'published') {
     throw new HttpsError('failed-precondition', 'Post is not published');
   }
 
@@ -205,14 +256,23 @@ exports.addComment = onCall({ region: REGION }, async (request) => {
   const commentId = commentRef.key;
 
   const commentData = {
+    id: commentId,
+    postId,
+    userId: auth.uid,
     authorId: auth.uid,
-    authorName: commenter.displayName || commenter.username || 'User',
-    authorUsername: commenter.username || '',
-    authorProfileImageURL: commenter.profileImageURL || null,
+    authorName: authorName || commenter.displayName || commenter.username || 'User',
+    authorInitials: authorInitials || ((commenter.displayName || commenter.username || '??').slice(0, 2).toUpperCase()),
+    authorUsername: authorUsername || commenter.username || '',
+    authorProfileImageURL: authorProfileImageURL || commenter.profileImageURL || null,
+    content: trimmed,
     text: trimmed,
+    timestamp: admin.database.ServerValue.TIMESTAMP,
     createdAt: admin.database.ServerValue.TIMESTAMP,
     parentCommentId: parentCommentId || null,
+    parentId: parentCommentId || null,
+    clientRequestId: clientCommentId,
     clientCommentId,
+    likes: 0,
     likeCount: 0,
   };
 
@@ -223,6 +283,10 @@ exports.addComment = onCall({ region: REGION }, async (request) => {
     commentCount: admin.firestore.FieldValue.increment(1),
     lastCommentAt: admin.firestore.FieldValue.serverTimestamp(),
   });
+
+  await getRtdb()
+    .ref(`postInteractions/${postId}/commentCount`)
+    .transaction((current) => Math.max(0, (current || 0) + 1));
 
   // Store idempotency key (TTL 7 days — cleaned up by scheduled function)
   await idempotencyRef.set({

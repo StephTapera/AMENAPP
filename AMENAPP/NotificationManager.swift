@@ -27,7 +27,7 @@ class NotificationManager: ObservableObject {
     @Published var isAuthorized: Bool = false
     
     private let center = UNUserNotificationCenter.current()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     // DEPRECATED: UserDefaults storage deprecated. Settings now stored in Firestore.
     private let settingsKey = "notification_preferences"
     // P2 FIX: Track the app version at which the notification prompt was last shown
@@ -135,8 +135,7 @@ class NotificationManager: ObservableObject {
     /// Load saved notification preferences from Firestore
     func loadSettings() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            dlog("⚠️ No authenticated user to load notification settings")
-            // Migrate legacy UserDefaults settings if they exist
+            // Migrate legacy UserDefaults settings if they exist.
             await migrateLegacySettings()
             return
         }

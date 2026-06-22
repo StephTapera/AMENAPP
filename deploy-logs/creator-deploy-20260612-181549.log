@@ -1,0 +1,333 @@
+
+=== Deploying to 'amen-5e359'...
+
+i  deploying functions
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+✔  functions: Finished running predeploy script.
+i  functions: preparing codebase creator for deployment
+i  functions: ensuring required API cloudfunctions.googleapis.com is enabled...
+i  functions: ensuring required API cloudbuild.googleapis.com is enabled...
+i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled...
+⚠  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory.
+⚠  functions: Please note that there will be breaking changes when you upgrade.
+i  functions: Loading and analyzing source code for codebase creator to determine what to deploy
+i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly
+Serving at port 8430
+
+i  functions: Loaded environment variables from .env.
+i  functions: preparing Backend/functions directory for uploading...
+i  functions: packaged /Users/stephtapera/Desktop/AMEN/AMENAPP copy/Backend/functions (4.3 MB) for uploading
+i  functions: ensuring required API cloudscheduler.googleapis.com is enabled...
+i  functions: ensuring required API run.googleapis.com is enabled...
+i  functions: ensuring required API eventarc.googleapis.com is enabled...
+i  functions: ensuring required API pubsub.googleapis.com is enabled...
+i  functions: ensuring required API storage.googleapis.com is enabled...
+i  functions: generating the service identity for pubsub.googleapis.com...
+i  functions: generating the service identity for eventarc.googleapis.com...
+i  functions: ensuring required API secretmanager.googleapis.com is enabled...
+i  functions: ensuring 78278013543-compute@developer.gserviceaccount.com access to secret LIVEKIT_SERVER_URL.
+i  functions: ensuring 78278013543-compute@developer.gserviceaccount.com access to secret BEREAN_LLM_KEY.
+i  functions: ensuring 78278013543-compute@developer.gserviceaccount.com access to secret STRIPE_COVENANT_WEBHOOK_SECRET.
+i  functions: ensuring 78278013543-compute@developer.gserviceaccount.com access to secret XAI_API_KEY.
+✔  secretmanager: Granted roles/secretmanager.secretAccessor on projects/amen-5e359/secrets/XAI_API_KEY to 78278013543-compute@developer.gserviceaccount.com
+✔  functions: ensured 78278013543-compute@developer.gserviceaccount.com access to XAI_API_KEY.
+✔  secretmanager: Granted roles/secretmanager.secretAccessor on projects/amen-5e359/secrets/STRIPE_COVENANT_WEBHOOK_SECRET to 78278013543-compute@developer.gserviceaccount.com
+✔  functions: ensured 78278013543-compute@developer.gserviceaccount.com access to STRIPE_COVENANT_WEBHOOK_SECRET.
+✔  secretmanager: Granted roles/secretmanager.secretAccessor on projects/amen-5e359/secrets/BEREAN_LLM_KEY to 78278013543-compute@developer.gserviceaccount.com
+✔  functions: ensured 78278013543-compute@developer.gserviceaccount.com access to BEREAN_LLM_KEY.
+✔  secretmanager: Granted roles/secretmanager.secretAccessor on projects/amen-5e359/secrets/LIVEKIT_SERVER_URL to 78278013543-compute@developer.gserviceaccount.com
+✔  functions: ensured 78278013543-compute@developer.gserviceaccount.com access to LIVEKIT_SERVER_URL.
+✔  functions: Backend/functions source uploaded successfully
+
+Error: The following functions are found in your project but do not exist in your local source code:
+	creator:createOrganizationClaim(us-central1)
+	creator:createRoom(us-central1)
+	creator:createSpace(us-central1)
+	creator:createSpacePrayerRequest(us-central1)
+	creator:dailyAgeTierPromotion(us-central1)
+	creator:dedupeOrganizations(us-central1)
+	creator:deleteRoomPost(us-central1)
+	creator:deleteSpaceSemanticPin(us-central1)
+	creator:detectPrayerRequest(us-central1)
+	creator:detectScriptureReferences(us-central1)
+	creator:detectSmartDateEvents(us-central1)
+	creator:dismissSpaceAmbientSignal(us-central1)
+	creator:dismissSpaceMemoryNode(us-central1)
+	creator:dissolveEphemeralRoom(us-central1)
+	creator:enforcePostModeConstraints(us-central1)
+	creator:enforceYouthAccountDefaults(us-central1)
+	creator:escalateAbuseReport(us-central1)
+	creator:extractDiscussionTopics(us-central1)
+	creator:forwardYouthAlertToGuardians(us-central1)
+	creator:generateAccessibilityAltText(us-central1)
+	creator:generateMediaSummary(us-central1)
+	creator:generateSpaceDNA(us-central1)
+	creator:generateVideoChapters(us-central1)
+	creator:geocodeOrganizationBatch(us-central1)
+	creator:getAmenIntegrationAccounts(us-central1)
+	creator:getAmenNationalDirectorySources(us-central1)
+	creator:getAmenSpaceBanners(us-central1)
+	creator:getAuditSummary(us-central1)
+	creator:getContextualBereanActions(us-central1)
+	creator:getEvidenceRecord(us-central1)
+	creator:getIdentityTrustProfile(us-central1)
+	creator:getInteractionMode(us-central1)
+	creator:getMyMentorships(us-central1)
+	creator:getMyReports(us-central1)
+	creator:getOrganizationDirectoryImportManifest(us-central1)
+	creator:getReviewQueue(us-central1)
+	creator:getSmartMessageVectorIndexStatus(us-central1)
+	creator:getToneCheckSuggestion(us-central1)
+	creator:getTrustProfile(us-central1)
+	creator:handleOrganizationBillingWebhook(us-central1)
+	creator:indexSmartPrayerRequest(us-central1)
+	creator:initializeModeForNewUser(us-central1)
+	creator:initializeNewAccount(us-central1)
+	creator:initiateDM(us-central1)
+	creator:issueEnforcementStrike(us-central1)
+	creator:joinSpace(us-central1)
+	creator:leaveSpace(us-central1)
+	creator:listOrganizationReviewQueue(us-central1)
+	creator:logAmenSpaceBannerEvent(us-central1)
+	creator:markEvidenceProvided(us-central1)
+	creator:moderateImageCallable(us-central1)
+	creator:moderateOrganizationBanner(us-central1)
+	creator:moderateTextCallable(us-central1)
+	creator:onCommentUpdatedUpdatePreviewsTrigger(us-central1)
+	creator:onPostDeletedClearPreviewsTrigger(us-central1)
+	creator:onPostUpdatedUpdatePreviewsTrigger(us-central1)
+	creator:onUserWrite(us-central1)
+	creator:postToRoom(us-central1)
+	creator:preserveEvidenceCallable(us-central1)
+	creator:processAmenIntelligenceSnapshot(us-central1)
+	creator:processQueuedUniversalMedia(us-central1)
+	creator:processUploadedMedia(us-central1)
+	creator:publishContentNode(us-central1)
+	creator:publishDraftToContentNode(us-central1)
+	creator:publishDueUniversalScheduledContent(us-central1)
+	creator:publishScheduledContent(us-central1)
+	creator:queryAuditLog(us-central1)
+	creator:queryTrustSafetyAuditLog(us-central1)
+	creator:rankAmenSpacesDiscussions(us-central1)
+	creator:recordPreviewImpression(us-central1)
+	creator:reflectPrivately(us-central1)
+	creator:rejectOrganizationClaim(us-central1)
+	creator:rejectOrganizationEdit(us-central1)
+	creator:removeConnectSavedItem(us-central1)
+	creator:reportAbuse(us-central1)
+	creator:reportAmenSpaceDiscussion(us-central1)
+	creator:requestAmenSpaceDiscussionAccess(us-central1)
+	creator:requestGuardianConnection(us-central1)
+	creator:requestGuardianConsent(us-central1)
+	creator:requestTextRewrite(us-central1)
+	creator:resolvePermissionsCallable(us-central1)
+	creator:resolveReviewItem(us-central1)
+	creator:reviewContentNodeModeration(us-central1)
+	creator:revokeAmenIntegrationAccount(us-central1)
+	creator:revokeGuardianConnection(us-central1)
+	creator:rewriteContent(us-central1)
+	creator:saveAICorrection(us-central1)
+	creator:saveAmenSpaceDiscussion(us-central1)
+	creator:saveConnectItemForLater(us-central1)
+	creator:saveContentDraft(us-central1)
+	creator:saveDesignProject(us-central1)
+	creator:saveSpaceSemanticPin(us-central1)
+	creator:saveThreadToNote(us-central1)
+	creator:saveToNotes(us-central1)
+	creator:scanCoordinatedHarassment(us-central1)
+	creator:scanGroomingVelocity(us-central1)
+	creator:scheduleContent(us-central1)
+	creator:scheduledSmartMessageVectorBackfill(us-central1)
+	creator:searchAmenNationalDirectory(us-central1)
+	creator:searchEvidenceByUser(us-central1)
+	creator:searchOrganizations(us-central1)
+	creator:semanticSearchAmenSpace(us-central1)
+	creator:setAmenSpaceBannerDisplayPreference(us-central1)
+	creator:setAmenSpaceDefaultBannerSize(us-central1)
+	creator:setInteractionMode(us-central1)
+	creator:setMode(us-central1)
+	creator:startIntegrationOAuth(us-central1)
+	creator:startSmartStudyMode(us-central1)
+	creator:stripeConnectWebhook(us-central1)
+	creator:suggestBiblicalRewrite(us-central1)
+	creator:suggestOrganizationEdit(us-central1)
+	creator:summarizeConnectCatchUpItem(us-central1)
+	creator:summarizeContent(us-central1)
+	creator:summarizeDiscussion(us-central1)
+	creator:summarizeThread(us-central1)
+	creator:syncBadgeCountToRTDB(us-central1)
+	creator:transcribeVoiceMessage(us-central1)
+	creator:translateContent(us-central1)
+	creator:undoConnectCatchUpAction(us-central1)
+	creator:updateConnectReminder(us-central1)
+	creator:updateContentNode(us-central1)
+	creator:updateMemberRole(us-central1)
+	creator:updateNoteBlock(us-central1)
+	creator:updateOrganizationBanner(us-central1)
+	creator:updatePresence(us-central1)
+	creator:updateScopedProfile(us-central1)
+	creator:updateSpaceCovenant(us-central1)
+	creator:updateSpaceDNA(us-central1)
+	creator:updateSpaceSettings(us-central1)
+	creator:updateYouthSettings(us-central1)
+	creator:validateAmenSpaceBannerCTA(us-central1)
+	creator:acceptFollowRequest(us-east1)
+	creator:blockRelationshipCleanupTrigger(us-east1)
+	creator:cancelFollowRequest(us-east1)
+	creator:createFollow(us-east1)
+	creator:createUnfollow(us-east1)
+	creator:getMediaVariant(us-east1)
+	creator:getThreadOfflineCache(us-east1)
+	creator:onAccountPrivacyChange(us-east1)
+	creator:processMediaUpload(us-east1)
+	creator:reconcileFollowCounts(us-east1)
+	creator:rejectFollowRequest(us-east1)
+	creator:removeFollower(us-east1)
+	creator:sendMessageGlobal(us-east1)
+
+Aborting because deletion cannot proceed in non-interactive mode. To fix, manually delete the functions by running:
+	firebase functions:delete createOrganizationClaim --region us-central1
+	firebase functions:delete createRoom --region us-central1
+	firebase functions:delete createSpace --region us-central1
+	firebase functions:delete createSpacePrayerRequest --region us-central1
+	firebase functions:delete dailyAgeTierPromotion --region us-central1
+	firebase functions:delete dedupeOrganizations --region us-central1
+	firebase functions:delete deleteRoomPost --region us-central1
+	firebase functions:delete deleteSpaceSemanticPin --region us-central1
+	firebase functions:delete detectPrayerRequest --region us-central1
+	firebase functions:delete detectScriptureReferences --region us-central1
+	firebase functions:delete detectSmartDateEvents --region us-central1
+	firebase functions:delete dismissSpaceAmbientSignal --region us-central1
+	firebase functions:delete dismissSpaceMemoryNode --region us-central1
+	firebase functions:delete dissolveEphemeralRoom --region us-central1
+	firebase functions:delete enforcePostModeConstraints --region us-central1
+	firebase functions:delete enforceYouthAccountDefaults --region us-central1
+	firebase functions:delete escalateAbuseReport --region us-central1
+	firebase functions:delete extractDiscussionTopics --region us-central1
+	firebase functions:delete forwardYouthAlertToGuardians --region us-central1
+	firebase functions:delete generateAccessibilityAltText --region us-central1
+	firebase functions:delete generateMediaSummary --region us-central1
+	firebase functions:delete generateSpaceDNA --region us-central1
+	firebase functions:delete generateVideoChapters --region us-central1
+	firebase functions:delete geocodeOrganizationBatch --region us-central1
+	firebase functions:delete getAmenIntegrationAccounts --region us-central1
+	firebase functions:delete getAmenNationalDirectorySources --region us-central1
+	firebase functions:delete getAmenSpaceBanners --region us-central1
+	firebase functions:delete getAuditSummary --region us-central1
+	firebase functions:delete getContextualBereanActions --region us-central1
+	firebase functions:delete getEvidenceRecord --region us-central1
+	firebase functions:delete getIdentityTrustProfile --region us-central1
+	firebase functions:delete getInteractionMode --region us-central1
+	firebase functions:delete getMyMentorships --region us-central1
+	firebase functions:delete getMyReports --region us-central1
+	firebase functions:delete getOrganizationDirectoryImportManifest --region us-central1
+	firebase functions:delete getReviewQueue --region us-central1
+	firebase functions:delete getSmartMessageVectorIndexStatus --region us-central1
+	firebase functions:delete getToneCheckSuggestion --region us-central1
+	firebase functions:delete getTrustProfile --region us-central1
+	firebase functions:delete handleOrganizationBillingWebhook --region us-central1
+	firebase functions:delete indexSmartPrayerRequest --region us-central1
+	firebase functions:delete initializeModeForNewUser --region us-central1
+	firebase functions:delete initializeNewAccount --region us-central1
+	firebase functions:delete initiateDM --region us-central1
+	firebase functions:delete issueEnforcementStrike --region us-central1
+	firebase functions:delete joinSpace --region us-central1
+	firebase functions:delete leaveSpace --region us-central1
+	firebase functions:delete listOrganizationReviewQueue --region us-central1
+	firebase functions:delete logAmenSpaceBannerEvent --region us-central1
+	firebase functions:delete markEvidenceProvided --region us-central1
+	firebase functions:delete moderateImageCallable --region us-central1
+	firebase functions:delete moderateOrganizationBanner --region us-central1
+	firebase functions:delete moderateTextCallable --region us-central1
+	firebase functions:delete onCommentUpdatedUpdatePreviewsTrigger --region us-central1
+	firebase functions:delete onPostDeletedClearPreviewsTrigger --region us-central1
+	firebase functions:delete onPostUpdatedUpdatePreviewsTrigger --region us-central1
+	firebase functions:delete onUserWrite --region us-central1
+	firebase functions:delete postToRoom --region us-central1
+	firebase functions:delete preserveEvidenceCallable --region us-central1
+	firebase functions:delete processAmenIntelligenceSnapshot --region us-central1
+	firebase functions:delete processQueuedUniversalMedia --region us-central1
+	firebase functions:delete processUploadedMedia --region us-central1
+	firebase functions:delete publishContentNode --region us-central1
+	firebase functions:delete publishDraftToContentNode --region us-central1
+	firebase functions:delete publishDueUniversalScheduledContent --region us-central1
+	firebase functions:delete publishScheduledContent --region us-central1
+	firebase functions:delete queryAuditLog --region us-central1
+	firebase functions:delete queryTrustSafetyAuditLog --region us-central1
+	firebase functions:delete rankAmenSpacesDiscussions --region us-central1
+	firebase functions:delete recordPreviewImpression --region us-central1
+	firebase functions:delete reflectPrivately --region us-central1
+	firebase functions:delete rejectOrganizationClaim --region us-central1
+	firebase functions:delete rejectOrganizationEdit --region us-central1
+	firebase functions:delete removeConnectSavedItem --region us-central1
+	firebase functions:delete reportAbuse --region us-central1
+	firebase functions:delete reportAmenSpaceDiscussion --region us-central1
+	firebase functions:delete requestAmenSpaceDiscussionAccess --region us-central1
+	firebase functions:delete requestGuardianConnection --region us-central1
+	firebase functions:delete requestGuardianConsent --region us-central1
+	firebase functions:delete requestTextRewrite --region us-central1
+	firebase functions:delete resolvePermissionsCallable --region us-central1
+	firebase functions:delete resolveReviewItem --region us-central1
+	firebase functions:delete reviewContentNodeModeration --region us-central1
+	firebase functions:delete revokeAmenIntegrationAccount --region us-central1
+	firebase functions:delete revokeGuardianConnection --region us-central1
+	firebase functions:delete rewriteContent --region us-central1
+	firebase functions:delete saveAICorrection --region us-central1
+	firebase functions:delete saveAmenSpaceDiscussion --region us-central1
+	firebase functions:delete saveConnectItemForLater --region us-central1
+	firebase functions:delete saveContentDraft --region us-central1
+	firebase functions:delete saveDesignProject --region us-central1
+	firebase functions:delete saveSpaceSemanticPin --region us-central1
+	firebase functions:delete saveThreadToNote --region us-central1
+	firebase functions:delete saveToNotes --region us-central1
+	firebase functions:delete scanCoordinatedHarassment --region us-central1
+	firebase functions:delete scanGroomingVelocity --region us-central1
+	firebase functions:delete scheduleContent --region us-central1
+	firebase functions:delete scheduledSmartMessageVectorBackfill --region us-central1
+	firebase functions:delete searchAmenNationalDirectory --region us-central1
+	firebase functions:delete searchEvidenceByUser --region us-central1
+	firebase functions:delete searchOrganizations --region us-central1
+	firebase functions:delete semanticSearchAmenSpace --region us-central1
+	firebase functions:delete setAmenSpaceBannerDisplayPreference --region us-central1
+	firebase functions:delete setAmenSpaceDefaultBannerSize --region us-central1
+	firebase functions:delete setInteractionMode --region us-central1
+	firebase functions:delete setMode --region us-central1
+	firebase functions:delete startIntegrationOAuth --region us-central1
+	firebase functions:delete startSmartStudyMode --region us-central1
+	firebase functions:delete stripeConnectWebhook --region us-central1
+	firebase functions:delete suggestBiblicalRewrite --region us-central1
+	firebase functions:delete suggestOrganizationEdit --region us-central1
+	firebase functions:delete summarizeConnectCatchUpItem --region us-central1
+	firebase functions:delete summarizeContent --region us-central1
+	firebase functions:delete summarizeDiscussion --region us-central1
+	firebase functions:delete summarizeThread --region us-central1
+	firebase functions:delete syncBadgeCountToRTDB --region us-central1
+	firebase functions:delete transcribeVoiceMessage --region us-central1
+	firebase functions:delete translateContent --region us-central1
+	firebase functions:delete undoConnectCatchUpAction --region us-central1
+	firebase functions:delete updateConnectReminder --region us-central1
+	firebase functions:delete updateContentNode --region us-central1
+	firebase functions:delete updateMemberRole --region us-central1
+	firebase functions:delete updateNoteBlock --region us-central1
+	firebase functions:delete updateOrganizationBanner --region us-central1
+	firebase functions:delete updatePresence --region us-central1
+	firebase functions:delete updateScopedProfile --region us-central1
+	firebase functions:delete updateSpaceCovenant --region us-central1
+	firebase functions:delete updateSpaceDNA --region us-central1
+	firebase functions:delete updateSpaceSettings --region us-central1
+	firebase functions:delete updateYouthSettings --region us-central1
+	firebase functions:delete validateAmenSpaceBannerCTA --region us-central1
+	firebase functions:delete acceptFollowRequest --region us-east1
+	firebase functions:delete blockRelationshipCleanupTrigger --region us-east1
+	firebase functions:delete cancelFollowRequest --region us-east1
+	firebase functions:delete createFollow --region us-east1
+	firebase functions:delete createUnfollow --region us-east1
+	firebase functions:delete getMediaVariant --region us-east1
+	firebase functions:delete getThreadOfflineCache --region us-east1
+	firebase functions:delete onAccountPrivacyChange --region us-east1
+	firebase functions:delete processMediaUpload --region us-east1
+	firebase functions:delete reconcileFollowCounts --region us-east1
+	firebase functions:delete rejectFollowRequest --region us-east1
+	firebase functions:delete removeFollower --region us-east1
+	firebase functions:delete sendMessageGlobal --region us-east1

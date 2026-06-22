@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+// subscript(safe:) — canonical definition in SafeSubscriptExtension.swift
+
 // MARK: - Main Component
 
 struct MutualFollowersView: View {
@@ -19,10 +21,10 @@ struct MutualFollowersView: View {
 
         var result = AttributedString("Followed by ")
         result.foregroundColor = Color(.secondaryLabel)
-        result.font = .system(size: 12.5)
+        result.font = .systemScaled(12.5)
 
-        var name1 = AttributedString(mutuals[0].username)
-        name1.font = .system(size: 12.5, weight: .semibold)
+        var name1 = AttributedString(mutuals[safe: 0]?.username ?? "")
+        name1.font = .systemScaled(12.5, weight: .semibold)
         name1.foregroundColor = Color(.label)
         result += name1
 
@@ -31,11 +33,11 @@ struct MutualFollowersView: View {
         if mutuals.count == 2 {
             var sep = AttributedString(" and ")
             sep.foregroundColor = Color(.secondaryLabel)
-            sep.font = .system(size: 12.5)
+            sep.font = .systemScaled(12.5)
             result += sep
 
-            var name2 = AttributedString(mutuals[1].username)
-            name2.font = .system(size: 12.5, weight: .semibold)
+            var name2 = AttributedString(mutuals[safe: 1]?.username ?? "")
+            name2.font = .systemScaled(12.5, weight: .semibold)
             name2.foregroundColor = Color(.label)
             result += name2
             return result
@@ -44,22 +46,22 @@ struct MutualFollowersView: View {
         // 3+ mutuals
         var comma = AttributedString(", ")
         comma.foregroundColor = Color(.secondaryLabel)
-        comma.font = .system(size: 12.5)
+        comma.font = .systemScaled(12.5)
         result += comma
 
-        var name2 = AttributedString(mutuals[1].username)
-        name2.font = .system(size: 12.5, weight: .semibold)
+        var name2 = AttributedString(mutuals[safe: 1]?.username ?? "")
+        name2.font = .systemScaled(12.5, weight: .semibold)
         name2.foregroundColor = Color(.label)
         result += name2
 
         let othersCount = mutuals.count - 2
         var and = AttributedString(" and ")
         and.foregroundColor = Color(.secondaryLabel)
-        and.font = .system(size: 12.5)
+        and.font = .systemScaled(12.5)
         result += and
 
         var othersNum = AttributedString("\(othersCount) other\(othersCount == 1 ? "" : "s")")
-        othersNum.font = .system(size: 12.5, weight: .semibold)
+        othersNum.font = .systemScaled(12.5, weight: .semibold)
         othersNum.foregroundColor = Color(.label)
         result += othersNum
 
@@ -84,7 +86,7 @@ struct MutualFollowersView: View {
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 6)
             .onAppear {
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.78).delay(0.1)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.42, dampingFraction: 0.78)).delay(0.1)) {
                     appeared = true
                 }
             }
@@ -134,7 +136,7 @@ struct MutualSingleAvatar: View {
                     .fill(Color(.systemGray4))
                     .overlay(
                         Text(String(initials.prefix(1)))
-                            .font(.system(size: size * 0.38, weight: .semibold))
+                            .font(.systemScaled(size * 0.38, weight: .semibold))
                             .foregroundStyle(Color(.secondaryLabel))
                     )
             }

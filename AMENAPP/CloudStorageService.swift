@@ -25,7 +25,7 @@ enum MediaType {
 
 class CloudStorageService {
     static let shared = CloudStorageService()
-    private let storage = Storage.storage()
+    private lazy var storage = Storage.storage()
     
     private init() {}
     
@@ -41,7 +41,19 @@ class CloudStorageService {
         userId: String,
         progressHandler: ((Double) -> Void)? = nil
     ) async throws -> String {
-        
+        // CSAM-005 SAFETY GATE: Block all media uploads until scanning is deployed.
+        // 18 USC 2258A requires NCMEC reporting within 24h of actual knowledge.
+        // Do NOT remove this guard without PhotoDNA/NCMEC integration + legal sign-off.
+        // See AmenSafetyModerationCoordinator.isMediaScanningAvailable for the full
+        // list of requirements before this gate can be opened.
+        guard await AmenSafetyModerationCoordinator.shared.isMediaScanningAvailable else {
+            throw NSError(
+                domain: "CSAM005",
+                code: 451,
+                userInfo: [NSLocalizedDescriptionKey: "Media upload is temporarily unavailable. Please try again later."]
+            )
+        }
+
         let fileName = "\(UUID().uuidString).\(type.fileExtension)"
         let path = "posts/\(userId)/\(type.folder)/\(fileName)"
         
@@ -94,20 +106,30 @@ class CloudStorageService {
         }
     }
     
-    /// Upload image with compression
+    /// Upload image with compression.
+    /// Uses ImageCompressor: resizes to ≤1920px then compresses to ≤1MB JPEG.
+    /// Raw 5MB+ phone photos become ~300–500KB — critical for storage cost control.
     func uploadImage(
         image: UIImage,
         userId: String,
-        compressionQuality: CGFloat = 0.7,
+        compressionQuality: CGFloat = 0.75,
         progressHandler: ((Double) -> Void)? = nil
     ) async throws -> String {
-        
-        guard let imageData = image.jpegData(compressionQuality: compressionQuality) else {
-            throw NSError(domain: "CloudStorage", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to compress image"])
+        // ✅ FIX: Run dimension resize (max 1920px) + quality compression before upload.
+        // Previously only jpegData(compressionQuality:) was called — no resize.
+        // A 4032×3024 photo at quality 0.7 is still ~3MB.
+        guard let imageData = await ImageCompressor.compressAsync(
+            image,
+            maxSizeMB: 1.0,
+            maxDimension: 1920
+        ) else {
+            throw NSError(domain: "CloudStorage", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "Failed to compress image"])
         }
-        
+
+        let strippedData = EXIFStrippingService.strip(from: imageData)
         return try await uploadMedia(
-            data: imageData,
+            data: strippedData,
             type: .image,
             userId: userId,
             progressHandler: progressHandler

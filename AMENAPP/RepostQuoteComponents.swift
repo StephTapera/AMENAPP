@@ -53,10 +53,10 @@ struct RepostActionSheet: View {
                 } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "repeat")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(Color(.label))
                         Text("Repost")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(Color(.label))
                         Spacer()
                     }
@@ -82,10 +82,10 @@ struct RepostActionSheet: View {
                 } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "quote.bubble")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(Color(.label))
                         Text("Quote")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(Color(.label))
                         Spacer()
                     }
@@ -274,7 +274,7 @@ struct QuotePostComposerView: View {
                         HapticManager.impact(style: .light)
                         dismiss()
                     }
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.secondary)
                 }
                 ToolbarItem(placement: .principal) {
@@ -402,7 +402,7 @@ struct QuotePostComposerView: View {
                 Text(selectedCategory.displayName)
                     .font(.custom("OpenSans-SemiBold", size: 11))
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
             }
             .foregroundStyle(categoryColor(for: selectedCategory))
             .padding(.horizontal, 8)
@@ -467,7 +467,7 @@ struct QuotePostComposerView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 5) {
                 Image(systemName: "at")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.secondary)
                 Text("Mention User")
                     .font(.custom("OpenSans-SemiBold", size: 12))
@@ -511,7 +511,7 @@ struct QuotePostComposerView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.blue)
                 Text("Suggested Hashtags")
                     .font(.custom("OpenSans-Bold", size: 13))
@@ -559,12 +559,12 @@ struct QuotePostComposerView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     cameraImage = nil
                 }
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(.white, .black.opacity(0.6))
                     .padding(8)
@@ -594,7 +594,7 @@ struct QuotePostComposerView: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .symbolRenderingMode(.palette)
                                 .foregroundStyle(.white, .black.opacity(0.6))
                                 .padding(2)
@@ -624,12 +624,12 @@ struct QuotePostComposerView: View {
                                 .clipShape(Circle())
                         } placeholder: {
                             Text(originalPost.authorInitials)
-                                .font(.system(size: 8, weight: .bold))
+                                .font(.systemScaled(8, weight: .bold))
                                 .foregroundStyle(.primary)
                         }
                     } else {
                         Text(originalPost.authorInitials)
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.systemScaled(8, weight: .bold))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -664,13 +664,13 @@ struct QuotePostComposerView: View {
                             .frame(width: 52, height: 52)
                             .overlay(
                                 Image(systemName: "photo")
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundStyle(.secondary)
                             )
                     }
                     if urls.count > 3 {
                         Text("+\(urls.count - 3)")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -687,7 +687,7 @@ struct QuotePostComposerView: View {
 
     private func quoteCategoryBadge(for category: Post.PostCategory) -> some View {
         Text(category.displayName)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.systemScaled(10, weight: .semibold))
             .foregroundStyle(categoryColor(for: category))
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
@@ -704,7 +704,7 @@ struct QuotePostComposerView: View {
                 .frame(width: 28, height: 28)
                 .overlay(
                     Image(systemName: "plus")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                 )
                 .padding(.leading, 6)
@@ -735,7 +735,7 @@ struct QuotePostComposerView: View {
                     matching: .images
                 ) {
                     Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 18, weight: .light))
+                        .font(.systemScaled(18, weight: .light))
                         .foregroundStyle(.secondary)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -751,7 +751,7 @@ struct QuotePostComposerView: View {
                     showingCamera = true
                 } label: {
                     Image(systemName: "camera")
-                        .font(.system(size: 18, weight: .light))
+                        .font(.systemScaled(18, weight: .light))
                         .foregroundStyle(.secondary)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -765,7 +765,7 @@ struct QuotePostComposerView: View {
                     isFocused = true
                 } label: {
                     Image(systemName: "at")
-                        .font(.system(size: 18, weight: .light))
+                        .font(.systemScaled(18, weight: .light))
                         .foregroundStyle(.secondary)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -782,7 +782,7 @@ struct QuotePostComposerView: View {
                     }
                 } label: {
                     Image(systemName: "number")
-                        .font(.system(size: 18, weight: .light))
+                        .font(.systemScaled(18, weight: .light))
                         .foregroundStyle(.secondary)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -813,7 +813,7 @@ struct QuotePostComposerView: View {
 
                         if remaining <= 20 {
                             Text("\(remaining)")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.systemScaled(9, weight: .bold))
                                 .foregroundStyle(remaining < 0 ? .red : .secondary)
                                 .monospacedDigit()
                         }
@@ -952,7 +952,7 @@ struct QuotePostComposerView: View {
         guard !trimmed.isEmpty else { return }
 
         HapticManager.notification(type: .success)
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             isPublishing = true
         }
 
@@ -977,22 +977,25 @@ struct QuotePostComposerView: View {
         }
     }
 
-    /// Fire-and-forget Firestore write when no parent callback is provided.
-    /// Uploads any attached images to Storage first, then writes the post doc.
+    /// Fallback publish path used when no parent `onPublish` callback is provided.
+    /// Uploads any attached images to Storage first (a legitimate client-side operation),
+    /// then routes through PostsManager.createPost — ensuring rate-limiting, AI-content
+    /// detection, idempotency, and the moderatePost Cloud Function trigger all execute.
+    /// Direct Firestore writes are intentionally removed to prevent bypassing the
+    /// moderation pipeline (H3 security fix).
     private func writeQuotePostToFirestore(text: String, images: [UIImage] = []) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
-        let docId = db.collection("posts").document().documentID
-        let docRef = db.collection("posts").document(docId)
 
         Task {
+            // Step 1: Upload images to Storage (legitimate client operation — no post doc yet)
             var imageURLs: [String] = []
             if !images.isEmpty {
+                let uploadSlot = UUID().uuidString
                 imageURLs = await withTaskGroup(of: String?.self) { group in
                     for (i, img) in images.enumerated() {
                         group.addTask {
                             guard let data = img.jpegData(compressionQuality: 0.82) else { return nil }
-                            let path = "posts/\(uid)/\(docId)/image_\(i).jpg"
+                            let path = "posts/\(uid)/\(uploadSlot)/image_\(i).jpg"
                             let ref = Storage.storage().reference().child(path)
                             let meta = StorageMetadata(); meta.contentType = "image/jpeg"
                             guard (try? await ref.putDataAsync(data, metadata: meta)) != nil,
@@ -1007,39 +1010,29 @@ struct QuotePostComposerView: View {
                 }
             }
 
-            // Extract hashtags from content for indexing
-            let hashtags = extractHashtags(from: text)
+            // Step 2: Build quote metadata — server will re-verify quoted fields via
+            // the moderatePost trigger; client-supplied values are treated as hints only.
+            let sourcePostId = originalPost.firebaseId ?? originalPost.id.uuidString
+            let quote = PostQuoteMetadata(
+                sourcePostId: sourcePostId,
+                sourceAuthorId: originalPost.authorId,
+                sourceAuthorName: originalPost.authorName,
+                sourceAuthorUsername: originalPost.authorUsername,
+                sourceExcerpt: String(originalPost.content.prefix(280)),
+                selectionStart: 0,
+                selectionLength: min(originalPost.content.count, 280),
+                quoteType: .sentence,
+                createdAt: Date()
+            )
 
-            var data: [String: Any] = [
-                "authorId": uid,
-                "content": text,
-                "category": selectedCategory.rawValue,
-                "isQuotePost": true,
-                "quotedPostId": originalPost.firebaseId ?? originalPost.id.uuidString,
-                "quotedAuthorId": originalPost.authorId,
-                "quotedAuthorName": originalPost.authorName,
-                "quotedContent": originalPost.content,
-                "createdAt": FieldValue.serverTimestamp(),
-                "repostCount": 0,
-                "amenCount": 0,
-                "commentCount": 0,
-                "lightbulbCount": 0,
-                "visibility": Post.PostVisibility.everyone.rawValue,
-                "isRepost": false
-            ]
-            if !imageURLs.isEmpty { data["imageURLs"] = imageURLs }
-            if !hashtags.isEmpty { data["hashtags"] = hashtags }
-            try? await docRef.setData(data)
-
-            // Index hashtags for search/discovery
-            if !hashtags.isEmpty {
-                await indexHashtags(hashtags, postId: docId)
-            }
-
-            NotificationCenter.default.post(
-                name: .newPostCreated,
-                object: nil,
-                userInfo: ["category": selectedCategory.rawValue]
+            // Step 3: Submit through the full moderation pipeline
+            PostsManager.shared.createPost(
+                content: text,
+                category: selectedCategory,
+                visibility: originalPost.visibility,
+                allowComments: true,
+                imageURLs: imageURLs.isEmpty ? nil : imageURLs,
+                quote: quote
             )
         }
     }
@@ -1057,7 +1050,7 @@ struct QuotePostComposerView: View {
     /// Indexes hashtags in Firestore for discovery.
     /// Each hashtag gets a document in `hashtags` collection with a post count and recent posts array.
     private func indexHashtags(_ hashtags: [String], postId: String) async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         for tag in hashtags {
             let cleanTag = tag.hasPrefix("#") ? String(tag.dropFirst()) : tag
             guard !cleanTag.isEmpty else { continue }
@@ -1072,16 +1065,17 @@ struct QuotePostComposerView: View {
                         return nil
                     }
                     if snapshot.exists {
+                        // Do NOT use arrayUnion for recentPostIds — that array would grow
+                        // unbounded for popular hashtags (hotspot write + 1MB doc limit risk).
+                        // Posts are already queryable by tag via contentTokens/topicTag fields.
                         transaction.updateData([
                             "postCount": FieldValue.increment(Int64(1)),
-                            "recentPostIds": FieldValue.arrayUnion([postId]),
                             "lastUsed": FieldValue.serverTimestamp()
                         ], forDocument: tagRef)
                     } else {
                         transaction.setData([
                             "tag": cleanTag.lowercased(),
                             "postCount": 1,
-                            "recentPostIds": [postId],
                             "createdAt": FieldValue.serverTimestamp(),
                             "lastUsed": FieldValue.serverTimestamp()
                         ], forDocument: tagRef)

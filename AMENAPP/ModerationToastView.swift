@@ -28,11 +28,11 @@ struct ModerationToastView: View {
                     // Header
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.shield.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundColor(.primary)
                         
                         Text("Content Flagged")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundColor(.primary)
                         
                         Spacer()
@@ -47,7 +47,7 @@ struct ModerationToastView: View {
                                     .frame(width: 4, height: 4)
                                 
                                 Text(reason)
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundColor(.primary.opacity(0.8))
                             }
                         }
@@ -55,7 +55,7 @@ struct ModerationToastView: View {
                     
                     // Footer
                     Text("Please review and edit your content")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundColor(.primary.opacity(0.6))
                         .padding(.top, 4)
                 }
@@ -104,7 +104,7 @@ struct ModerationToastView: View {
         }
         .onAppear {
             // Animate in
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7))) {
                 isVisible = true
                 offset = 0
             }
@@ -117,7 +117,7 @@ struct ModerationToastView: View {
     }
     
     private func dismiss() {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8))) {
             offset = 50
             isVisible = false
         }

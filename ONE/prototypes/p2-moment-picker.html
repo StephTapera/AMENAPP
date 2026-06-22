@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ONE — Moment Format Picker</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --gold:         #D4AE38;
+    --gold-dim:     rgba(212,174,56,0.14);
+    --indigo:       #4B5EC6;
+    --indigo-dim:   rgba(75,94,198,0.18);
+    --red:          #D95B4A;
+    --green:        #42B172;
+    --purple:       #9B72CF;
+    --teal:         #3AACB8;
+    --orange:       #E07A3A;
+    --rose:         #C85A7C;
+    --glass-bg:     rgba(255,255,255,0.07);
+    --glass-warm:   rgba(255,248,230,0.06);
+    --glass-blur:   20px;
+    --bg:           #0F0F12;
+    --card-bg:      #18181F;
+    --card-bg-hover:#1E1E28;
+    --text:         #F5F0E8;
+    --text2:        rgba(245,240,232,0.55);
+    --text3:        rgba(245,240,232,0.30);
+    --separator:    rgba(255,255,255,0.09);
+    --selected-ring:rgba(75,94,198,0.70);
+    --safe-bottom:  env(safe-area-inset-bottom, 0px);
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* ── Outer Shell (phone-width mockup) ─────────────────────────── */
+  .shell {
+    width: 100%;
+    max-width: 420px;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ── Header Bar ────────────────────────────────────────────────── */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 14px;
+    background: rgba(15,15,18,0.88);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+    border-bottom: 0.5px solid var(--separator);
+  }
+
+  .header-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+
+  .header-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.10);
+    border: 0.5px solid rgba(255,255,255,0.14);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 16px;
+    transition: background 0.15s, transform 0.12s;
+    flex-shrink: 0;
+  }
+  .header-close:hover  { background: rgba(255,255,255,0.16); }
+  .header-close:active { transform: scale(0.88); }
+
+  /* ── Scroll list ───────────────────────────────────────────────── */
+  .format-list {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: calc(180px + var(--safe-bottom));
+  }
+  .format-list::-webkit-scrollbar { display: none; }
+
+  /* ── Format Card (matte) ──────────────────────────────────────── */
+  .format-card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    border: 1.5px solid transparent;
+    padding: 16px 16px 16px 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition:
+      background 0.18s ease,
+      border-color 0.18s ease,
+      box-shadow 0.18s ease,
+      transform 0.12s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+  .format-card:hover  { background: var(--card-bg-hover); }
+  .format-card:active { transform: scale(0.98); }
+
+  .format-card.selected {
+    border-color: var(--selected-ring);
+    background: rgba(75,94,198,0.10);
+    box-shadow: 0 0 0 0.5px rgba(75,94,198,0.35) inset,
+                0 4px 16px -4px rgba(75,94,198,0.20);
+  }
+
+  /* Icon badge */
+  .format-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    flex-shrink: 0;
+  }
+
+  /* Text block */
+  .format-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .format-name {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    color: var(--text);
+  }
+  .format-sub {
+    font-size: 12.5px;
+    color: var(--text2);
+    line-height: 1.4;
+  }
+
+  /* Privacy chip on the card */
+  .format-chip {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    letter-spacing: 0.1px;
+    align-self: flex-start;
+    margin-top: 1px;
+  }
+  .chip-cf     { background: rgba(66,177,114,0.15); color: var(--green); }
+  .chip-me     { background: rgba(75,94,198,0.15);  color: #8B9CF0; }
+  .chip-sub    { background: var(--gold-dim);        color: var(--gold); }
+  .chip-group  { background: rgba(155,114,207,0.15); color: var(--purple); }
+
+  /* Checkmark */
+  .format-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--indigo);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: #fff;
+    flex-shrink: 0;
+    opacity: 0;
+    transform: scale(0.4);
+    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .format-card.selected .format-check {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Subscriber badge for Creator Drop */
+  .badge-sub {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--gold);
+    background: var(--gold-dim);
+    border: 0.5px solid rgba(212,174,56,0.30);
+    border-radius: 6px;
+    padding: 2px 6px;
+    margin-left: 6px;
+    letter-spacing: 0.3px;
+    vertical-align: middle;
+  }
+
+  /* ── Privacy Contract Preview (glass, docked bottom) ─────────── */
+  .privacy-dock {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 420px;
+    z-index: 30;
+    padding: 12px 16px calc(16px + var(--safe-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(15,15,18,0.70);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    border-top: 0.5px solid rgba(255,255,255,0.10);
+    box-shadow:
+      0 -1px 0 0 rgba(255,255,255,0.07) inset,
+      0 -20px 40px -8px rgba(0,0,0,0.55);
+  }
+
+  /* Privacy pill inside the dock */
+  .privacy-pill {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 10px 14px;
+    background: rgba(255,248,230,0.06);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+    border-radius: 14px;
+    border: 0.5px solid rgba(255,255,255,0.13);
+    box-shadow:
+      0 1px 0 0 rgba(255,255,255,0.16) inset,
+      0 4px 16px -4px rgba(0,0,0,0.40);
+    transition: opacity 0.2s;
+  }
+
+  .pill-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+
+  .pill-segments {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .pill-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    transition: background 0.2s, color 0.2s;
+  }
+  .pill-tag.audience { background: rgba(66,177,114,0.15); color: var(--green); }
+  .pill-tag.lifetime { background: rgba(75,94,198,0.13);  color: #8B9CF0; }
+  .pill-tag.nosave   { background: rgba(217,91,74,0.12);  color: #E08070; }
+  .pill-tag.gold-tag { background: var(--gold-dim);       color: var(--gold); }
+
+  .pill-override {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--indigo);
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: rgba(75,94,198,0.12);
+    border: 0.5px solid rgba(75,94,198,0.25);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pill-override:hover  { background: rgba(75,94,198,0.22); }
+  .pill-override:active { transform: scale(0.93); }
+
+  /* CTA button */
+  .cta-btn {
+    width: 100%;
+    padding: 15px 20px;
+    background: var(--indigo);
+    border: none;
+    border-radius: 14px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    box-shadow: 0 4px 20px -4px rgba(75,94,198,0.50);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cta-btn:hover  { background: #5A6FD8; box-shadow: 0 6px 24px -4px rgba(75,94,198,0.65); }
+  .cta-btn:active { transform: scale(0.97); }
+  .cta-btn:disabled { opacity: 0.45; cursor: default; }
+
+  /* ── Override Sheet (slides up) ──────────────────────────────── */
+  .override-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .override-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .override-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    width: 100%;
+    max-width: 420px;
+    z-index: 50;
+    background: rgba(22,22,30,0.94);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    border-radius: 24px 24px 0 0;
+    border: 0.5px solid rgba(255,255,255,0.12);
+    border-bottom: none;
+    box-shadow:
+      0 1px 0 0 rgba(255,255,255,0.15) inset,
+      0 -24px 60px -8px rgba(0,0,0,0.70);
+    padding: 20px 20px calc(28px + var(--safe-bottom));
+    transition: transform 0.30s cubic-bezier(0.32,0.72,0,1);
+  }
+  .override-sheet.open {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .sheet-handle {
+    width: 36px; height: 5px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.22);
+    margin: 0 auto 18px;
+  }
+
+  .sheet-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 14px;
+    text-align: center;
+  }
+
+  .sheet-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .audience-chip {
+    padding: 10px 20px;
+    border-radius: 14px;
+    border: 1.5px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text2);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .audience-chip:hover  { background: rgba(255,255,255,0.10); }
+  .audience-chip:active { transform: scale(0.95); }
+  .audience-chip.chosen {
+    background: rgba(75,94,198,0.18);
+    border-color: rgba(75,94,198,0.55);
+    color: #A0ADFF;
+  }
+
+  .sheet-note {
+    font-size: 12px;
+    color: var(--text3);
+    text-align: center;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
+  .sheet-confirm {
+    width: 100%;
+    padding: 13px;
+    background: var(--indigo);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sheet-confirm:hover  { background: #5A6FD8; }
+  .sheet-confirm:active { transform: scale(0.97); }
+
+  /* ── Toast / Alert ───────────────────────────────────────────── */
+  .toast {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: rgba(30,30,40,0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 0.5px solid rgba(255,255,255,0.15);
+    border-radius: 14px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    box-shadow: 0 8px 32px -4px rgba(0,0,0,0.55);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    white-space: nowrap;
+    max-width: calc(100vw - 40px);
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── Scroll fade hint ────────────────────────────────────────── */
+  .scroll-hint {
+    position: sticky;
+    bottom: 180px;
+    height: 40px;
+    background: linear-gradient(to top, rgba(15,15,18,0.8), transparent);
+    pointer-events: none;
+    margin-top: -40px;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header class="header">
+    <div style="width:32px"></div><!-- spacer -->
+    <h1 class="header-title">Choose Format</h1>
+    <button class="header-close" aria-label="Close format picker" onclick="handleClose()">✕</button>
+  </header>
+
+  <!-- ── Format List ────────────────────────────────────────── -->
+  <div class="format-list" id="formatList" role="listbox" aria-label="Moment format options">
+
+    <!-- Snap -->
+    <div class="format-card" role="option" aria-selected="false" data-format="Snap"
+         tabindex="0" aria-label="Snap: Disappears after viewing"
+         onclick="selectFormat(this)" onkeydown="keySelect(event,this)">
+      <div class="format-icon" style="background:rgba(212,174,56,0.14)">⚡</div>
+      <div class="format-text">
+        <span class="format-name">Snap</span>
+        <span class="format-sub">Disappears after viewing</span>
+      </div>
+      <span class="format-chip chip-me">Only Me</span>
+      <div class="format-check" aria-hidden="true">✓</div>
+    </div>
+
+    <!-- Post -->
+    <div class="format-card selected" role="option" aria-selected="true" data-format="Post"
+         tabindex="0" aria-label="Post: Standard feed post visible to audience"
+         onclick="selectFormat(this)" onkeydown="keySelect(event,this)">
+      <div class="format-icon" style="background:rgba(75,94,198,0.14)">🖼</div>
+      <div class="format-text">
+        <span class="format-name">Post</span>
+        <span class="format-sub">Standard feed post · visible to audience</span>
+      </div>
+      <span class="format-chip chip-cf">Close Friends</span>
+      <div class="format-check" aria-hidden="true">✓</div>
+    </div>
+
+    <!-- Story -->
+    <div class="format-card" role="option" aria-selected="false" data-format="Story"
+         tabindex="0" aria-label="Story: 24-hour story"
+         onclick="selectFormat(this)" onkeydown="keySelect(event,this)">
+      <div class="format-icon" style="background:rgba(155,114,207,0.14)">◎</div>
+      <div class="format-text">
+        <span class="format-name">Story</span>
+        <span class="format-sub">24-hour story</span>
+      </div>
+      <span class="format-chip chip-cf">Close Friends</span>
+      <div class="format-check" aria-hidden="true">✓</div>
+    </div>
+
+    <!-- Voice -->
+    <div class="format-card" role="option" aria-selected="false" data-format="Voice"
+         tabindex="0" aria-label="Voice: Voice note with transcription"
+         onclick="selectFormat(this)" onkeydown="keySelect(event,this)">
+      <div class="format-icon" style="background:rgba(58,172,184,0.14)">🎙</div>
+      <div class="format-text">
+        <span class="format-name">Voice</span>
+        <span class="format-sub">Voice note with transcription</span>
+      </div>
+      <span class="format-chip chip-cf">Close Friends</span>
+      <div class="format-check" aria-hidden="true">✓</div>
+    </div>
+
+    <!-- Reflection -->
+    <div class="format-card" role="option" aria-selected="false" data-format="Reflection"
+         tabindex="0" aria-label="Reflection: Private prompted reflection"
+         onclick="selectFormat(this)" onkeydown="keySelect(event,this)">
+      <div class="format-icon" style="background:rgba(75,94,198,0.14)">📖</div>
+      <div class="format-text">
+        <span class="format-name">Reflection</span>
+        <span class="format-sub">Private prompted reflection</span>
+      </div>
+      <span class="format-chip chip-me">Only Me</span>
+      <div class="format-check" aria-hidden="true">✓</div>
+    </div>
+
+    <!-- Location -->
+    <div class="format-card" role="option" aria-selected="false" data-format="Location"
+         tabindex="0" aria-label="Location: Place check-in"
+         onclick="selectFormat(this)" onkeydown="keySelect(event,this)">
+      <div class="format-icon" style="background:rgba(66,177,114,0.14)">📍</div>
+      <div class="format-text">
+        <span class="format-name">Location</span>
+        <span class="format-sub">Place · check-in</span>
+      </div>
+      <span class="format-chip chip-cf">Close Friends</span>
+      <div class="format-check" aria-hidden="true">✓</div>
+    </div>
+
+    <!-- Memory -->
+    <div class="format-card" role="option" aria-selected="false" data-format="Memory"
+         tabindex="0" aria-label="Memory: From your vault"
+         onclick="selectFormat(this)" onkeydown="keySelect(event,this)">
+      <div class="format-icon" style="background:rgba(200,90,124,0.14)">🫀</div>
+      <div class="format-text">
+        <span class="format-name">Memory</span>
+        <span class="format-sub">From your vault</span>
+      </div>
+      <span class="format-chip chip-me">Only Me</span>
+      <div class="format-check" aria-hidden="true">✓</div>
+    </div>
+
+    <!-- Album -->
+    <div class="format-card" role="option" aria-selected="false" data-format="Album"
+         tabindex="0" aria-label="Album: Collaborative photo collection"
+         onclick="selectFormat(this)" onkeydown="keySelect(event,this)">
+      <div class="format-icon" style="background:rgba(155,114,207,0.14)">🗂</div>
+      <div class="format-text">
+        <span class="format-name">Album</span>
+        <span class="format-sub">Collaborative photo collection</span>
+      </div>
+      <span class="format-chip chip-group">Group</span>
+      <div class="format-check" aria-hidden="true">✓</div>
+    </div>
+
+    <!-- Creator Drop -->
+    <div class="format-card" role="option" aria-selected="false" data-format="Creator Drop"
+         tabindex="0" aria-label="Creator Drop: Subscriber-only content"
+         onclick="selectFormat(this)" onkeydown="keySelect(event,this)">
+      <div class="format-icon" style="background:rgba(212,174,56,0.14)">★</div>
+      <div class="format-text">
+        <span class="format-name">
+          Creator Drop
+          <span class="badge-sub" aria-label="Subscribers only">★ SUBSCRIBERS</span>
+        </span>
+        <span class="format-sub">Subscriber-only content</span>
+      </div>
+      <span class="format-chip chip-sub">Subscribers</span>
+      <div class="format-check" aria-hidden="true">✓</div>
+    </div>
+
+    <!-- DM -->
+    <div class="format-card" role="option" aria-selected="false" data-format="DM"
+         tabindex="0" aria-label="DM: Direct private message"
+         onclick="selectFormat(this)" onkeydown="keySelect(event,this)">
+      <div class="format-icon" style="background:rgba(58,172,184,0.14)">💬</div>
+      <div class="format-text">
+        <span class="format-name">DM</span>
+        <span class="format-sub">Direct private message</span>
+      </div>
+      <span class="format-chip chip-me">Only Me</span>
+      <div class="format-check" aria-hidden="true">✓</div>
+    </div>
+
+  </div><!-- /format-list -->
+
+  <!-- ── Privacy Contract Preview (docked) ─────────────────── -->
+  <div class="privacy-dock" role="complementary" aria-label="Privacy contract preview">
+
+    <div class="privacy-pill" aria-live="polite" aria-label="Current privacy settings">
+      <span class="pill-label">Privacy</span>
+      <div class="pill-segments" id="pillSegments">
+        <!-- filled by JS -->
+      </div>
+      <button class="pill-override" aria-label="Override privacy settings" onclick="openOverride()">Override</button>
+    </div>
+
+    <button class="cta-btn" id="ctaBtn" aria-label="Continue with selected format" onclick="handleContinue()">
+      Continue with Post
+    </button>
+
+  </div>
+
+</div><!-- /shell -->
+
+<!-- ── Override Sheet ────────────────────────────────────── -->
+<div class="override-backdrop" id="overrideBackdrop"
+     aria-hidden="true" onclick="closeOverride()"></div>
+
+<div class="override-sheet" id="overrideSheet"
+     role="dialog" aria-modal="true" aria-label="Override audience" aria-hidden="true">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-title">Override Audience</div>
+
+  <div class="sheet-row" role="group" aria-label="Audience options">
+    <button class="audience-chip" data-audience="Only Me"      aria-pressed="false" onclick="chooseAudience(this)">Only Me</button>
+    <button class="audience-chip chosen" data-audience="Close Friends" aria-pressed="true"  onclick="chooseAudience(this)">Close Friends</button>
+    <button class="audience-chip" data-audience="Everyone"     aria-pressed="false" onclick="chooseAudience(this)">Everyone</button>
+  </div>
+
+  <p class="sheet-note" id="sheetNote">
+    Overrides apply to this moment only. Your default for Post stays Close Friends.
+  </p>
+
+  <button class="sheet-confirm" aria-label="Confirm audience override" onclick="confirmOverride()">Apply Override</button>
+</div>
+
+<!-- ── Toast ─────────────────────────────────────────────── -->
+<div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+<script>
+// ── Privacy contract defaults per format ──────────────────────
+const FORMAT_CONTRACTS = {
+  'Snap':         { audience:'Close Friends', lifetime:'After view',  extra:'No forward · No save',  audienceClass:'audience', lifetimeClass:'lifetime', extraClass:'nosave' },
+  'Post':         { audience:'Close Friends', lifetime:'Fades 30d',   extra:null,                    audienceClass:'audience', lifetimeClass:'lifetime' },
+  'Story':        { audience:'Close Friends', lifetime:'24h',         extra:null,                    audienceClass:'audience', lifetimeClass:'lifetime' },
+  'Voice':        { audience:'Close Friends', lifetime:'After view',  extra:null,                    audienceClass:'audience', lifetimeClass:'lifetime' },
+  'Reflection':   { audience:'Only Me',       lifetime:'Permanent',   extra:null,                    audienceClass:'chip-me-tag', lifetimeClass:'lifetime' },
+  'Location':     { audience:'Close Friends', lifetime:'7d',          extra:null,                    audienceClass:'audience', lifetimeClass:'lifetime' },
+  'Memory':       { audience:'Only Me',       lifetime:'Permanent',   extra:null,                    audienceClass:'chip-me-tag', lifetimeClass:'lifetime' },
+  'Album':        { audience:'Group',         lifetime:'Permanent',   extra:null,                    audienceClass:'audience', lifetimeClass:'lifetime' },
+  'Creator Drop': { audience:'Subscribers',   lifetime:'Permanent',   extra:null,                    audienceClass:'gold-tag', lifetimeClass:'lifetime' },
+  'DM':           { audience:'Close Friends', lifetime:'After view',  extra:'No forward · No save',  audienceClass:'audience', lifetimeClass:'lifetime', extraClass:'nosave' },
+};
+
+const AUDIENCE_NOTES = {
+  'Snap':         'Overrides apply to this moment only. Your default for Snap stays Only Me.',
+  'Post':         'Overrides apply to this moment only. Your default for Post stays Close Friends.',
+  'Story':        'Overrides apply to this moment only. Your default for Story stays Close Friends.',
+  'Voice':        'Overrides apply to this moment only. Your default for Voice stays Close Friends.',
+  'Reflection':   'Overrides apply to this moment only. Your default for Reflection stays Only Me.',
+  'Location':     'Overrides apply to this moment only. Your default for Location stays Close Friends.',
+  'Memory':       'Overrides apply to this moment only. Your default for Memory stays Only Me.',
+  'Album':        'Overrides apply to this moment only. Your default for Album stays Group.',
+  'Creator Drop': 'Subscriber-only formats cannot be shared beyond your subscriber list.',
+  'DM':           'Direct messages cannot be broadened beyond Close Friends.',
+};
+
+// ── State ─────────────────────────────────────────────────────
+let selectedFormat   = 'Post';
+let overrideAudience = null; // null = use default
+
+// ── Card selection ────────────────────────────────────────────
+function selectFormat(card) {
+  // Deselect previous
+  document.querySelectorAll('.format-card.selected').forEach(c => {
+    c.classList.remove('selected');
+    c.setAttribute('aria-selected', 'false');
+  });
+  // Select new
+  card.classList.add('selected');
+  card.setAttribute('aria-selected', 'true');
+  selectedFormat = card.dataset.format;
+  overrideAudience = null; // reset override on new selection
+
+  updatePrivacyPill();
+  updateCTA();
+  resetOverrideChips();
+}
+
+function keySelect(event, card) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    selectFormat(card);
+  }
+}
+
+// ── Privacy pill ──────────────────────────────────────────────
+function updatePrivacyPill() {
+  const contract  = FORMAT_CONTRACTS[selectedFormat];
+  const segments  = document.getElementById('pillSegments');
+  const audience  = overrideAudience || contract.audience;
+
+  // Map audience text → pill class
+  const aClass = (() => {
+    if (audience === 'Subscribers') return 'gold-tag';
+    if (audience === 'Only Me')     return 'pill-tag lifetime'; // reuse lifetime color for Only Me
+    if (audience === 'Everyone')    return 'pill-tag audience';
+    return 'audience';
+  })();
+
+  let html = `<span class="pill-tag ${aClass === 'gold-tag' ? 'gold-tag' : 'audience'}" aria-label="Audience: ${audience}">${audience}</span>`;
+  html    += `<span class="pill-tag lifetime" aria-label="Lifetime: ${contract.lifetime}">${contract.lifetime}</span>`;
+  if (contract.extra) {
+    html  += `<span class="pill-tag nosave" aria-label="${contract.extra}">${contract.extra}</span>`;
+  }
+
+  segments.innerHTML = html;
+}
+
+// ── CTA ───────────────────────────────────────────────────────
+function updateCTA() {
+  document.getElementById('ctaBtn').textContent = `Continue with ${selectedFormat}`;
+  document.getElementById('ctaBtn').setAttribute('aria-label', `Continue with ${selectedFormat}`);
+}
+
+// ── Override sheet ────────────────────────────────────────────
+function openOverride() {
+  const backdrop = document.getElementById('overrideBackdrop');
+  const sheet    = document.getElementById('overrideSheet');
+  const note     = document.getElementById('sheetNote');
+
+  backdrop.classList.add('open');
+  sheet.classList.add('open');
+  backdrop.removeAttribute('aria-hidden');
+  sheet.removeAttribute('aria-hidden');
+
+  note.textContent = AUDIENCE_NOTES[selectedFormat] || '';
+
+  // Lock body scroll
+  document.body.style.overflow = 'hidden';
+
+  // Pre-mark current audience
+  const current = overrideAudience || FORMAT_CONTRACTS[selectedFormat].audience;
+  document.querySelectorAll('.audience-chip').forEach(chip => {
+    const isChosen = chip.dataset.audience === current;
+    chip.classList.toggle('chosen', isChosen);
+    chip.setAttribute('aria-pressed', String(isChosen));
+  });
+
+  // Focus first chip
+  setTimeout(() => {
+    const chosen = document.querySelector('.audience-chip.chosen') || document.querySelector('.audience-chip');
+    if (chosen) chosen.focus();
+  }, 310);
+}
+
+function closeOverride() {
+  const backdrop = document.getElementById('overrideBackdrop');
+  const sheet    = document.getElementById('overrideSheet');
+  backdrop.classList.remove('open');
+  sheet.classList.remove('open');
+  backdrop.setAttribute('aria-hidden', 'true');
+  sheet.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+}
+
+function chooseAudience(chip) {
+  document.querySelectorAll('.audience-chip').forEach(c => {
+    c.classList.remove('chosen');
+    c.setAttribute('aria-pressed', 'false');
+  });
+  chip.classList.add('chosen');
+  chip.setAttribute('aria-pressed', 'true');
+}
+
+function confirmOverride() {
+  const chosen = document.querySelector('.audience-chip.chosen');
+  if (chosen) {
+    overrideAudience = chosen.dataset.audience;
+    updatePrivacyPill();
+  }
+  closeOverride();
+  showToast(`Audience set to ${overrideAudience} for this ${selectedFormat}`);
+}
+
+function resetOverrideChips() {
+  // Reset override chips to Close Friends as a sensible neutral default
+  document.querySelectorAll('.audience-chip').forEach(chip => {
+    const isDefault = chip.dataset.audience === 'Close Friends';
+    chip.classList.toggle('chosen', isDefault);
+    chip.setAttribute('aria-pressed', String(isDefault));
+  });
+}
+
+// ── Continue ──────────────────────────────────────────────────
+function handleContinue() {
+  const contract  = FORMAT_CONTRACTS[selectedFormat];
+  const audience  = overrideAudience || contract.audience;
+  showToast(`Selected: ${selectedFormat}  ·  ${audience}  ·  ${contract.lifetime}`);
+}
+
+// ── Close ─────────────────────────────────────────────────────
+function handleClose() {
+  showToast('Dismissed — no format change');
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── Init ──────────────────────────────────────────────────────
+updatePrivacyPill();
+updateCTA();
+
+// Keyboard: Escape closes override sheet if open
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('overrideSheet').classList.contains('open')) {
+      closeOverride();
+    }
+  }
+});
+</script>
+
+</body>
+</html>

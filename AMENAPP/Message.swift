@@ -53,7 +53,7 @@ public enum MessageType: String, Codable {
 
 public class AppMessage: Identifiable, Equatable, Hashable {
     public var id: String
-    let text: String
+    var text: String
     let isFromCurrentUser: Bool
     let timestamp: Date
     var senderId: String
@@ -70,6 +70,7 @@ public class AppMessage: Identifiable, Equatable, Hashable {
     var isDeleted: Bool = false
     var deletedBy: String?
     var editedAt: Date?
+    var detectedLanguage: String? = nil
 
     // New properties for delivery status and features
     var isSent: Bool = false
@@ -100,6 +101,20 @@ public class AppMessage: Identifiable, Equatable, Hashable {
 
     // Upload progress (0.0 – 1.0), nil when upload is complete
     var uploadProgress: Double? = nil
+
+    // MARK: - Feature: AMEN Reaction Capsules
+    // Key = reaction label (e.g. "🙏 Pray"), value = array of userIds who reacted
+    var amenReactions: [String: [String]] = [:]
+
+    // MARK: - Feature: Inline Reply Threads
+    var replyToMessageId: String? = nil
+    var replyToText: String? = nil
+    var replyToAuthorName: String? = nil
+    var replyCount: Int = 0
+
+    // MARK: - Feature: Poll
+    // Non-nil when this message IS a poll card
+    var poll: PollMessage? = nil
 
     init(
         id: String = UUID().uuidString,
@@ -137,7 +152,13 @@ public class AppMessage: Identifiable, Equatable, Hashable {
         linkDescription: String? = nil,
         linkThumbnailURL: String? = nil,
         linkDomain: String? = nil,
-        uploadProgress: Double? = nil
+        uploadProgress: Double? = nil,
+        amenReactions: [String: [String]] = [:],
+        replyToMessageId: String? = nil,
+        replyToText: String? = nil,
+        replyToAuthorName: String? = nil,
+        replyCount: Int = 0,
+        poll: PollMessage? = nil
     ) {
         self.id = id
         self.text = text
@@ -175,8 +196,14 @@ public class AppMessage: Identifiable, Equatable, Hashable {
         self.linkThumbnailURL = linkThumbnailURL
         self.linkDomain = linkDomain
         self.uploadProgress = uploadProgress
+        self.amenReactions = amenReactions
+        self.replyToMessageId = replyToMessageId
+        self.replyToText = replyToText
+        self.replyToAuthorName = replyToAuthorName
+        self.replyCount = replyCount
+        self.poll = poll
     }
-    
+
     var senderInitials: String {
         let name = senderName ?? "U"
         let components = name.split(separator: " ")
@@ -216,6 +243,80 @@ public class AppMessage: Identifiable, Equatable, Hashable {
         hasher.combine(id)
     }
 }
+
+// MARK: - Poll Message Model (Feature 3)
+
+public struct PollMessage: Codable, Identifiable, Equatable, Hashable {
+    public var id: String
+    public var question: String
+    public var options: [PollOption]
+    public var allowMultiple: Bool
+    public var createdBy: String
+    public var expiresAt: Date?
+
+    public init(
+        id: String = UUID().uuidString,
+        question: String,
+        options: [PollOption],
+        allowMultiple: Bool = false,
+        createdBy: String,
+        expiresAt: Date? = nil
+    ) {
+        self.id = id
+        self.question = question
+        self.options = options
+        self.allowMultiple = allowMultiple
+        self.createdBy = createdBy
+        self.expiresAt = expiresAt
+    }
+
+    public struct PollOption: Codable, Identifiable, Equatable, Hashable {
+        public var id: String
+        public var text: String
+        public var votes: [String]
+
+        public init(id: String = UUID().uuidString, text: String, votes: [String] = []) {
+            self.id = id
+            self.text = text
+            self.votes = votes
+        }
+
+        public static func == (lhs: PollOption, rhs: PollOption) -> Bool { lhs.id == rhs.id }
+        public func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    }
+
+    public static func == (lhs: PollMessage, rhs: PollMessage) -> Bool { lhs.id == rhs.id }
+    public func hash(into hasher: inout Hasher) { hasher.combine(id) }
+
+    /// Decode from a raw Firestore [String: Any] dict (used where Codable can't be applied directly).
+    public static func fromFirestore(_ data: [String: Any]) -> PollMessage? {
+        guard let id = data["id"] as? String,
+              let question = data["question"] as? String,
+              let optionsRaw = data["options"] as? [[String: Any]],
+              let createdBy = data["createdBy"] as? String else { return nil }
+
+        let options: [PollOption] = optionsRaw.compactMap { opt in
+            guard let oid = opt["id"] as? String, let text = opt["text"] as? String else { return nil }
+            let votes = opt["votes"] as? [String] ?? []
+            return PollOption(id: oid, text: text, votes: votes)
+        }
+
+        var poll = PollMessage(
+            id: id,
+            question: question,
+            options: options,
+            allowMultiple: data["allowMultiple"] as? Bool ?? false,
+            createdBy: createdBy
+        )
+        if let expTimestamp = data["expiresAt"] as? [String: Any],
+           let seconds = expTimestamp["_seconds"] as? TimeInterval {
+            poll.expiresAt = Date(timeIntervalSince1970: seconds)
+        }
+        return poll
+    }
+}
+
+// MARK: - Attachment
 
 public struct MessageAttachment: Identifiable, Equatable, Hashable {
     public let id: UUID

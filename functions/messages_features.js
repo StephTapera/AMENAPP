@@ -10,13 +10,15 @@
  * Feature 08: analyzeThreadsForRevival   — daily 7AM, write revivalNudges docs
  * Feature 10: notifyPrayerRoomAnswered   — callable, FCM fan-out to prayedLog members
  */
-
 'use strict';
 
 const { onCall, HttpsError }    = require('firebase-functions/v2/https');
 const { onDocumentUpdated }     = require('firebase-functions/v2/firestore');
 const { onSchedule }            = require('firebase-functions/v2/scheduler');
+const { defineSecret }          = require('firebase-functions/params');
 const admin                     = require('firebase-admin');
+
+const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 
 const db      = admin.firestore();
 const REGION  = 'us-central1';
@@ -39,7 +41,7 @@ function claudeRequest(messages, maxTokens = 512) {
         method:   'POST',
         headers: {
           'Content-Type':      'application/json',
-          'x-api-key':         process.env.ANTHROPIC_API_KEY,
+          'x-api-key':         ANTHROPIC_API_KEY.value(),
           'anthropic-version': '2023-06-01',
           'Content-Length':    Buffer.byteLength(body),
         },

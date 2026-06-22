@@ -1,0 +1,248 @@
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/algoliasearch-client-swift/Sources/Search/Models/SearchStrategy.swift:10:/// one, stopping as soon as a query matches at least the `hitsPerPage` number of results.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/firebase-ios-sdk/ReleaseTooling/Sources/ZipBuilder/ZipBuilder.swift:357:  /// Try to build and package the contents of the Zip file. This will throw an error as soon as it
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/firebase-ios-sdk/ReleaseTooling/Sources/Utils/ShellUtils.swift:102:    // Assign a pipe to read as soon as data is available, log it to the console if requested, but
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/firebase-ios-sdk/FirebaseCombineSwift/Tests/Unit/Auth/IDTokenDidChangePublisherTests.swift:99:    // 1) Publisher should emit as soon as it is registered
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/firebase-ios-sdk/FirebaseCombineSwift/Tests/Unit/Auth/IDTokenDidChangePublisherTests.swift:100:    var expect = expectation(description: "Publisher emits value as soon as it is subscribed")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/firebase-ios-sdk/FirebaseCombineSwift/Tests/Unit/Auth/AuthStateDidChangePublisherTests.swift:152:      expectation(description: "Publisher emits value as soon as it is subscribed")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/firebase-ios-sdk/FirebaseCore/Internal/Sources/HeartbeatLogging/HeartbeatStorage.swift:131:  /// a block to transform the current value (or, soon-to-be old value) to a new value.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Internal/Live/BidiGenerateContentServerMessage.swift:38:    /// Server will disconnect soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Internal/Live/GoAway.swift:17:/// Server will not be able to service client soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Public/Live/LiveServerMessage.swift:37:    /// Server will disconnect soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Public/Live/LiveServerGoingAwayNotice.swift:17:/// Server will not be able to service client soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.spm/checkouts/firebase-ios-sdk/FirebaseAI/Sources/FirebaseAI.swift:42:  ///   > Migrating to limited-use tokens sooner minimizes disruption when support for replay
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPPTests/AmenMessagingAuditFixTests.swift:28:        // It must NEVER show "Coming soon" (isUnavailable must return false).
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPPTests/AmenMessagingAuditFixTests.swift:41:        // No notes save service is wired — must always show "Coming soon" (never fake success).
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AntiHarassmentEngine.swift:347:    /// Idempotent: if protection is already active and would not expire sooner,
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/SpotlightCard.swift:295:            Button(action: {}) {
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/ImportReviewSheet.swift:307:                    Text("Your posts are in review and will appear publicly soon.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ResourcesView.swift:1556:                    Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ResourcesView.swift:1560:                    Text("This feature is currently under development. Check back soon for updates!")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ResourcesView.swift:1976:// MARK: - Christian Dating Banner Button (Coming Soon)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ResourcesView.swift:1990:                badge: "Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ResourcesView.swift:2006:// MARK: - Find Friends Banner Button (Coming Soon)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ResourcesView.swift:2020:                badge: "Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ResourcesView.swift:2199:// MARK: - Resource Coming Soon Placeholder
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ResourcesView.swift:2261:                            // Coming Soon Badge
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ResourcesView.swift:2267:                                Text("COMING SOON")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ResourcesView.swift:2314:                                    text: "Full functionality coming soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/AntiHarassmentEngine.swift:347:    /// Idempotent: if protection is already active and would not expire sooner,
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ConnectForYouView.swift:145:                Text("No upcoming events yet. Check back soon!")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/SettingsView.swift:419:// MARK: - Disabled Row (Coming Soon / unimplemented destinations)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/SettingsView.swift:556:                // Insights: Coming Soon — navigation disabled until feature is live
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/SettingsView.swift:557:                SDDisabledRow(icon: "chart.line.uptrend.xyaxis", label: "Insights & Analytics", badge: "Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/MentalHealthSection.swift:319:                        Text("COMING SOON")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/SpotlightCard.swift:295:            Button(action: {}) {
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ProfileView.swift:6242:                Text("User profile view coming soon...")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ProfileView.swift:6272:                Text("Hashtag search view coming soon...")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/FindChurchView.swift:1923:        content.body = "Ready to go? Service starts soon."
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/EnhancedCrisisSupportService.swift:106:            "soon as", "after i", "before i go"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ImportReviewSheet.swift:307:                    Text("Your posts are in review and will appear publicly soon.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrayerGroupsView.swift:588:                    Text("Group prayer feed coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrayerToActionCompanion.swift:100:    case soon = "Soon"               // Upcoming event, deadline
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrayerToActionCompanion.swift:107:        case .soon: return "Pray soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrayerToActionCompanion.swift:116:        case .soon: return "orange"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrayerToActionCompanion.swift:340:            return .soon
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/UnifiedChatView.swift:969:                    toastManager.showInfo("Video sharing coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/UnifiedChatView.swift:981:                    toastManager.showInfo("File sharing coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/UnifiedChatView.swift:993:                    toastManager.showInfo("Link sharing coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/GivingNonprofitsDetailView.swift:360:                    Text("More \(selectedCause.rawValue) organizations coming soon.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/SpotlightView.swift:183:            Text("Check back soon for meaningful posts from your community")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/NotificationExamples.swift:292:                            description: "Event starting soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ModelsTrendingTopic.swift:41:    // These are replaced by live Firestore data as soon as loadTrendingFromFirestore() resolves.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/DailyPrayerView.swift:491:            Text("Weekly prayer themes coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/CommentService.swift:179:            } ?? "soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/CommentService.swift:807:        // directly from comments[postId], so as soon as the listener fires SwiftUI redraws.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/SmartBreakReminderService.swift:66:                dlog("📊 Too soon since last usage reminder (only \(Int(hoursSinceLastReminder * 60)) min ago)")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/SmartBreakReminderService.swift:282:        // Don't send if too soon since last one
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PeopleDiscoveryView.swift:931:                        Text("Check back soon as your community grows.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:244:                description: "Support multiple languages to make your community accessible to everyone. Coming soon with 50+ language options."
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:313:                    // ✅ Coming Soon Features
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:320:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:332:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:344:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:356:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:376:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:388:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:3070:                    Text("Coming Soon: Full moderation tools")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4196:            // Coming Soon Overlay
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4200:                title: "Events Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4223:            // Coming Soon Overlay
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4227:                title: "Prayer Wall Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4251:            // Coming Soon Overlay
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4255:                title: "Resources Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4475:// MARK: - Coming Soon Overlay (for tabs)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4500:                    Text("COMING SOON")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4528:// MARK: - Coming Soon Placeholder
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4590:                            // Coming Soon Badge
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4596:                                Text("COMING SOON")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/PrivateCommunitiesView.swift:4643:                                    text: "Full functionality coming soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/MentorshipView.swift:502:            Text("Mentors coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/MentorshipView.swift:1272:            Text("You've joined the accountability circle. Check in soon!")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/ContentView.swift:948:    ///   • On cold launch — as soon as mainContent appears (user is authenticated)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/GivingNonprofitsSection.swift:343:                        Text("COMING SOON")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/SettingsDestinationViews.swift:865:                    "Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENAPP/AMENQuickActionManager.swift:25://   ContentView picks it up as soon as auth resolves.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ab04dd01/AMENQuickActionManager.swift:25://   ContentView picks it up as soon as auth resolves.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AntiHarassmentEngine.swift:347:    /// Idempotent: if protection is already active and would not expire sooner,
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/SpotlightCard.swift:295:            Button(action: {}) {
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/ImportReviewSheet.swift:307:                    Text("Your posts are in review and will appear publicly soon.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ResourcesView.swift:1556:                    Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ResourcesView.swift:1560:                    Text("This feature is currently under development. Check back soon for updates!")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ResourcesView.swift:1976:// MARK: - Christian Dating Banner Button (Coming Soon)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ResourcesView.swift:1990:                badge: "Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ResourcesView.swift:2006:// MARK: - Find Friends Banner Button (Coming Soon)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ResourcesView.swift:2020:                badge: "Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ResourcesView.swift:2199:// MARK: - Resource Coming Soon Placeholder
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ResourcesView.swift:2261:                            // Coming Soon Badge
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ResourcesView.swift:2267:                                Text("COMING SOON")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ResourcesView.swift:2314:                                    text: "Full functionality coming soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/AntiHarassmentEngine.swift:347:    /// Idempotent: if protection is already active and would not expire sooner,
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ConnectForYouView.swift:145:                Text("No upcoming events yet. Check back soon!")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/SettingsView.swift:419:// MARK: - Disabled Row (Coming Soon / unimplemented destinations)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/SettingsView.swift:556:                // Insights: Coming Soon — navigation disabled until feature is live
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/SettingsView.swift:557:                SDDisabledRow(icon: "chart.line.uptrend.xyaxis", label: "Insights & Analytics", badge: "Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/MentalHealthSection.swift:319:                        Text("COMING SOON")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/SpotlightCard.swift:295:            Button(action: {}) {
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ProfileView.swift:6242:                Text("User profile view coming soon...")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ProfileView.swift:6272:                Text("Hashtag search view coming soon...")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/FindChurchView.swift:1923:        content.body = "Ready to go? Service starts soon."
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/EnhancedCrisisSupportService.swift:106:            "soon as", "after i", "before i go"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ImportReviewSheet.swift:307:                    Text("Your posts are in review and will appear publicly soon.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrayerGroupsView.swift:588:                    Text("Group prayer feed coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrayerToActionCompanion.swift:100:    case soon = "Soon"               // Upcoming event, deadline
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrayerToActionCompanion.swift:107:        case .soon: return "Pray soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrayerToActionCompanion.swift:116:        case .soon: return "orange"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrayerToActionCompanion.swift:340:            return .soon
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/UnifiedChatView.swift:969:                    toastManager.showInfo("Video sharing coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/UnifiedChatView.swift:981:                    toastManager.showInfo("File sharing coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/UnifiedChatView.swift:993:                    toastManager.showInfo("Link sharing coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/GivingNonprofitsDetailView.swift:360:                    Text("More \(selectedCause.rawValue) organizations coming soon.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/SpotlightView.swift:183:            Text("Check back soon for meaningful posts from your community")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/NotificationExamples.swift:292:                            description: "Event starting soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ModelsTrendingTopic.swift:41:    // These are replaced by live Firestore data as soon as loadTrendingFromFirestore() resolves.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/DailyPrayerView.swift:491:            Text("Weekly prayer themes coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/CommentService.swift:179:            } ?? "soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/CommentService.swift:807:        // directly from comments[postId], so as soon as the listener fires SwiftUI redraws.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/SmartBreakReminderService.swift:66:                dlog("📊 Too soon since last usage reminder (only \(Int(hoursSinceLastReminder * 60)) min ago)")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/SmartBreakReminderService.swift:282:        // Don't send if too soon since last one
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PeopleDiscoveryView.swift:931:                        Text("Check back soon as your community grows.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:244:                description: "Support multiple languages to make your community accessible to everyone. Coming soon with 50+ language options."
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:313:                    // ✅ Coming Soon Features
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:320:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:332:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:344:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:356:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:376:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:388:                            Text("Coming Soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:3070:                    Text("Coming Soon: Full moderation tools")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4196:            // Coming Soon Overlay
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4200:                title: "Events Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4223:            // Coming Soon Overlay
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4227:                title: "Prayer Wall Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4251:            // Coming Soon Overlay
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4255:                title: "Resources Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4475:// MARK: - Coming Soon Overlay (for tabs)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4500:                    Text("COMING SOON")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4528:// MARK: - Coming Soon Placeholder
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4590:                            // Coming Soon Badge
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4596:                                Text("COMING SOON")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/PrivateCommunitiesView.swift:4643:                                    text: "Full functionality coming soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/MentorshipView.swift:502:            Text("Mentors coming soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/MentorshipView.swift:1272:            Text("You've joined the accountability circle. Check in soon!")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/ContentView.swift:948:    ///   • On cold launch — as soon as mainContent appears (user is authenticated)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/GivingNonprofitsSection.swift:343:                        Text("COMING SOON")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/SettingsDestinationViews.swift:865:                    "Coming Soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENAPP/AMENQuickActionManager.swift:25://   ContentView picks it up as soon as auth resolves.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.claude/worktrees/agent-ac1dd9a1/AMENQuickActionManager.swift:25://   ContentView picks it up as soon as auth resolves.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AntiHarassmentEngine.swift:347:    /// Idempotent: if protection is already active and would not expire sooner,
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/DiscipleshipJourneyView.swift:57:            Text("Guided discipleship tracking is being rolled out. Check back soon.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/TestimoniesView.swift:166:                             : "Check back soon — your feed will fill up.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/CreatePostView.swift:1414:            // Load current user if not yet available so the composer header shows
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/CreatePostView.swift:4329:                let mediaURLs: [String] = []  // upload URLs not yet available at this stage
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ConnectForYouView.swift:145:                Text("No upcoming events yet. Check back soon!")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AmbientPresenceIntelligence.swift:111:            return "A nearby prayer gathering is beginning soon."
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/WellnessRiskLayer.swift:274:    // Suppressed interventions: type → soonest allowed Date
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/FindChurchView.swift:2868:        content.body = "Ready to go? Service starts soon."
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/BereanActionEngine.swift:117:                let soon = now.addingTimeInterval(60 * 60 * 48) // next 48 hours
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/BereanActionEngine.swift:121:                        return due <= soon
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/BereanActionEngine.swift:266:        if lower.contains("this week") || lower.contains("soon") || lower.contains("quickly") {
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/EnhancedCrisisSupportService.swift:106:            "soon as", "after i", "before i go"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ImportReviewSheet.swift:307:                    Text("Your posts are in review and will appear publicly soon.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/PrayerToActionCompanion.swift:100:    case soon = "Soon"               // Upcoming event, deadline
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/PrayerToActionCompanion.swift:107:        case .soon: return "Pray soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/PrayerToActionCompanion.swift:116:        case .soon: return "orange"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/PrayerToActionCompanion.swift:340:            return .soon
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/SpotlightView.swift:183:            Text("Check back soon for meaningful posts from your community")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/NotificationExamples.swift:292:                            description: "Event starting soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ModelsTrendingTopic.swift:41:    // These are replaced by live Firestore data as soon as loadTrendingFromFirestore() resolves.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/UserProfileView.swift:404:                    // .task(id: userId) here ensures mutuals load kicks off as soon as the
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchDetailExperience.swift:192:                    subtitle: liveState.title ?? "Service starts soon",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchDetailExperience.swift:696:        case .upcoming: return "Service starts soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchRankingService.swift:420:        case "service_starts_soon":
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchRankingService.swift:422:                return String(localized: "church.reason.service_soon", defaultValue: "Service starts in \(minutes) minutes")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchRankingService.swift:424:            return String(localized: "church.reason.service_soon_generic", defaultValue: "Service starts soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchRankingService.swift:450:            case "service_starts_soon":
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchRankingService.swift:452:                    return String(localized: "church.reason.service_soon", defaultValue: "Service starts in \(minutes) minutes")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchRankingService.swift:454:                return String(localized: "church.reason.service_soon_generic", defaultValue: "Service starts soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchRankingService.swift:492:        case "starts_soon":
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchRankingService.swift:494:                return String(localized: "church.urgency.starts_soon", defaultValue: "Starts in \(minutes) min")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchRankingService.swift:496:            return String(localized: "church.urgency.starts_soon_generic", defaultValue: "Service starting soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChurchRankingService.swift:512:                return String(localized: "church.urgency.starts_soon_generic", defaultValue: "Service starting soon")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/CommentService.swift:214:            } ?? "soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/CommentService.swift:751:                // and correctly signals that the username is not yet available.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/CommentService.swift:925:        // directly from comments[postId], so as soon as the listener fires SwiftUI redraws.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/NotificationScheduler.swift:200:        content.body = "You're close to the event location. Event starts soon!"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/SelahMediaHomeView.swift:147:                blockedReason = "Selah is not enabled for your account yet. Check back soon."
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/SelahMediaHomeView.swift:159:                blockedReason = "Selah is rolling out gradually. You'll get access soon."
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/Giving/Views/GivingOrgDetailView.swift:262:                        Text("Financial data not yet available from verified sources.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/HolidayAwarenessModels.swift:281:                expandedReflection: "Jesus, the King of the universe, wrapped a towel around His waist and washed the feet of the men who would soon deny and betray Him. This is the standard of the Kingdom. Today, find someone to serve without expectation of recognition or return.",
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/Covenant/AmenCovenantRevenueView.swift:193:            Text("These trends suggest some members may leave soon. Consider increasing engagement.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/ChurchVisitReminderService.swift:9://   - Pre-visit (leave-soon): fires N minutes before service based on travel estimate
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/ChurchVisitReminderService.swift:29:        static func leaveSoon(churchId: String) -> String { "church_leave_soon_\(churchId)" }
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/ChurchVisitReminderService.swift:38:    /// Schedule a "leave soon" reminder for a planned visit.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/ChurchVisitReminderService.swift:53:        content.body = "Your service starts soon. Safe travels! 🙏"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/ChurchVisitReminderService.swift:59:            "type": "leave_soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/ChurchVisitReminderService.swift:78:            let soon = Date().addingTimeInterval(30 * 60)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/ChurchVisitReminderService.swift:79:            scheduleReflectContent(for: church, at: soon)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENAPP/SelahSessionShapingCard.swift:182:            case .goodStopping:   return "Good stopping point soon"
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/SmartBreakReminderService.swift:66:                dlog("📊 Too soon since last usage reminder (only \(Int(hoursSinceLastReminder * 60)) min ago)")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/SmartBreakReminderService.swift:282:        // Don't send if too soon since last one
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ChristianMediaView.swift:310:            Text("Check back soon for new content")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/PeopleDiscoveryView.swift:948:                        Text("Check back soon as your community grows.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/TwoFourTwoHub.swift:208:        Text("soon").font(.systemScaled(9, weight: .semibold, design: .rounded)).foregroundColor(Color(white: 0.55))
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/PrayerTestimonyFeatures.swift:888:    /// Score a post for spiritual momentum (higher = surfaces sooner)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/PrivateCommunitiesView.swift:244:                description: "Support multiple languages to make your community accessible to everyone. Coming soon with 50+ language options."
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENTypography.swift:164:            // Each word is added as soon as its reveal slot fires.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/MentorshipView.swift:1327:            Text("You've joined the accountability circle. Check in soon!")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/ContentView.swift:1212:    ///   • On cold launch — as soon as mainContent appears (user is authenticated)
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENQuickActionManager.swift:25://   ContentView picks it up as soon as auth resolves.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/MLNotificationClassifier.swift:139:            "soon": 0.3
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENDiscoveryView.swift:731:                    Text("Check back soon for top ideas from the community")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/AMENDiscoveryView.swift:1258:                    Text("No communities available yet. Check back soon.")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.codex-source-packages/checkouts/algoliasearch-client-swift/Sources/Search/Models/SearchStrategy.swift:10:/// one, stopping as soon as a query matches at least the `hitsPerPage` number of results.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/algoliasearch-client-swift/Sources/Search/Models/SearchStrategy.swift:10:/// one, stopping as soon as a query matches at least the `hitsPerPage` number of results.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/firebase-ios-sdk/ReleaseTooling/Sources/ZipBuilder/ZipBuilder.swift:357:  /// Try to build and package the contents of the Zip file. This will throw an error as soon as it
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/firebase-ios-sdk/ReleaseTooling/Sources/Utils/ShellUtils.swift:102:    // Assign a pipe to read as soon as data is available, log it to the console if requested, but
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/firebase-ios-sdk/FirebaseCombineSwift/Tests/Unit/Auth/IDTokenDidChangePublisherTests.swift:99:    // 1) Publisher should emit as soon as it is registered
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/firebase-ios-sdk/FirebaseCombineSwift/Tests/Unit/Auth/IDTokenDidChangePublisherTests.swift:100:    var expect = expectation(description: "Publisher emits value as soon as it is subscribed")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/firebase-ios-sdk/FirebaseCombineSwift/Tests/Unit/Auth/AuthStateDidChangePublisherTests.swift:152:      expectation(description: "Publisher emits value as soon as it is subscribed")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/firebase-ios-sdk/FirebaseCore/Internal/Sources/HeartbeatLogging/HeartbeatStorage.swift:131:  /// a block to transform the current value (or, soon-to-be old value) to a new value.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Internal/Live/BidiGenerateContentServerMessage.swift:38:    /// Server will disconnect soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Internal/Live/GoAway.swift:17:/// Server will not be able to service client soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Public/Live/LiveServerMessage.swift:37:    /// Server will disconnect soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Public/Live/LiveServerGoingAwayNotice.swift:17:/// Server will not be able to service client soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/build/SourcePackages/checkouts/firebase-ios-sdk/FirebaseAI/Sources/FirebaseAI.swift:42:  ///   > Migrating to limited-use tokens sooner minimizes disruption when support for replay
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/algoliasearch-client-swift/Sources/Search/Models/SearchStrategy.swift:10:/// one, stopping as soon as a query matches at least the `hitsPerPage` number of results.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/ReleaseTooling/Sources/ZipBuilder/ZipBuilder.swift:357:  /// Try to build and package the contents of the Zip file. This will throw an error as soon as it
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/ReleaseTooling/Sources/Utils/ShellUtils.swift:102:    // Assign a pipe to read as soon as data is available, log it to the console if requested, but
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/FirebaseCombineSwift/Tests/Unit/Auth/IDTokenDidChangePublisherTests.swift:99:    // 1) Publisher should emit as soon as it is registered
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/FirebaseCombineSwift/Tests/Unit/Auth/IDTokenDidChangePublisherTests.swift:100:    var expect = expectation(description: "Publisher emits value as soon as it is subscribed")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/FirebaseCombineSwift/Tests/Unit/Auth/AuthStateDidChangePublisherTests.swift:152:      expectation(description: "Publisher emits value as soon as it is subscribed")
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/FirebaseCore/Internal/Sources/HeartbeatLogging/HeartbeatStorage.swift:131:  /// a block to transform the current value (or, soon-to-be old value) to a new value.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/GeneratedFirebaseAI/Sources/Types.swift:34711:/// Server will not be able to service client soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/GeneratedFirebaseAI/Sources/Types.swift:34959:  /// Server will disconnect soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Internal/Live/BidiGenerateContentServerMessage.swift:37:    /// Server will disconnect soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Internal/Live/GoAway.swift:17:/// Server will not be able to service client soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Public/Live/LiveServerMessage.swift:36:    /// Server will disconnect soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/FirebaseAI/Sources/Types/Public/Live/LiveServerGoingAwayNotice.swift:17:/// Server will not be able to service client soon.
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/.sourcePackages/HealthyMediaGO/checkouts/firebase-ios-sdk/FirebaseAI/Sources/FirebaseAI.swift:44:  ///   > Migrating to limited-use tokens sooner minimizes disruption when support for replay

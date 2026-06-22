@@ -5,6 +5,7 @@ import Foundation
 // MARK: - Feed Algorithm Tests
 
 @Suite("HomeFeedAlgorithm — Scoring & Ranking")
+@MainActor
 struct FeedAlgorithmTests {
     let algo = HomeFeedAlgorithm()
 
@@ -66,16 +67,47 @@ struct FeedAlgorithmTests {
         )
     }
 
+    /// Returns a default ScoringContext suitable for unit tests (no Firebase/prefs service needed).
+    private func makeScoringContext(
+        mutedAuthors: Set<String> = [],
+        hiddenPosts: Set<String> = [],
+        modeWeightsRecency: Double = 1.0,
+        modeWeightsFollowing: Double = 1.0
+    ) -> HomeFeedAlgorithm.ScoringContext {
+        HomeFeedAlgorithm.ScoringContext(
+            prefsLoaded: true,
+            mutedAuthors: mutedAuthors,
+            hiddenPosts: hiddenPosts,
+            boostedPosts: [],
+            boostedAuthors: [],
+            controversyPenaltyFactor: 1.0,
+            topicWeights: [:],
+            modeWeightsRecency: modeWeightsRecency,
+            modeWeightsFollowing: modeWeightsFollowing,
+            currentUserId: nil,
+            trustScores: [:],
+            recommendationScores: [:],
+            mutualFollowIds: [],
+            nlRankingDeltas: [:],
+            sessionModeDeltas: [:],
+            saturationPenalties: [:],
+            contradictionMultipliers: [:]
+        )
+    }
+
     // ── Recency ──────────────────────────────────────────────────────────
 
     @Test("Recent posts score higher than old posts")
     func recencyDecay() {
         let interests = makeInterests()
+        // Use a small weight (0.001) so recency scores don't saturate the 100-point cap.
+        // The cap is min(100, score); with weight=1.0 both posts score 10000+ before capping.
+        let context = makeScoringContext(modeWeightsRecency: 0.001, modeWeightsFollowing: 0.0)
         let recent = makePost(createdAt: Date())
         let old = makePost(createdAt: Date().addingTimeInterval(-72 * 3600)) // 3 days ago
 
-        let recentScore = algo.scorePost(recent, for: interests)
-        let oldScore = algo.scorePost(old, for: interests)
+        let recentScore = algo.scorePost(recent, for: interests, context: context)
+        let oldScore = algo.scorePost(old, for: interests, context: context)
 
         #expect(recentScore > oldScore, "Recent post should score higher than 3-day-old post")
     }
@@ -83,8 +115,9 @@ struct FeedAlgorithmTests {
     @Test("Posts older than 72 hours get minimal recency score")
     func veryOldPostRecency() {
         let interests = makeInterests()
+        let context = makeScoringContext()
         let veryOld = makePost(createdAt: Date().addingTimeInterval(-100 * 3600))
-        let score = algo.scorePost(veryOld, for: interests)
+        let score = algo.scorePost(veryOld, for: interests, context: context)
 
         // Score should still be positive but low
         #expect(score >= 0, "Score should not be negative")
@@ -95,10 +128,12 @@ struct FeedAlgorithmTests {
     @Test("Posts from followed users score higher")
     func followingBoost() {
         let interests = makeInterests()
+        // Use a small weight (0.001) so following scores don't saturate the 100-point cap.
+        let context = makeScoringContext(modeWeightsRecency: 0.0, modeWeightsFollowing: 0.001)
         let post = makePost(authorId: "friend1")
 
-        let withFollow = algo.scorePost(post, for: interests, followingIds: ["friend1"])
-        let withoutFollow = algo.scorePost(post, for: interests, followingIds: [])
+        let withFollow = algo.scorePost(post, for: interests, followingIds: ["friend1"], context: context)
+        let withoutFollow = algo.scorePost(post, for: interests, followingIds: [], context: context)
 
         #expect(withFollow > withoutFollow, "Following an author should boost their post score")
     }
@@ -194,7 +229,19 @@ struct FeedAlgorithmTests {
             mutedAuthors: ["blocked_user"],
             hiddenPosts: [],
             boostedPosts: [],
-            boostedAuthors: []
+            boostedAuthors: [],
+            controversyPenaltyFactor: 1.0,
+            topicWeights: [:],
+            modeWeightsRecency: 1.0,
+            modeWeightsFollowing: 1.0,
+            currentUserId: nil,
+            trustScores: [:],
+            recommendationScores: [:],
+            mutualFollowIds: [],
+            nlRankingDeltas: [:],
+            sessionModeDeltas: [:],
+            saturationPenalties: [:],
+            contradictionMultipliers: [:]
         )
 
         let score = algo.scorePost(post, for: interests, context: context)
@@ -210,7 +257,19 @@ struct FeedAlgorithmTests {
             mutedAuthors: [],
             hiddenPosts: [post.firebaseId ?? ""],
             boostedPosts: [],
-            boostedAuthors: []
+            boostedAuthors: [],
+            controversyPenaltyFactor: 1.0,
+            topicWeights: [:],
+            modeWeightsRecency: 1.0,
+            modeWeightsFollowing: 1.0,
+            currentUserId: nil,
+            trustScores: [:],
+            recommendationScores: [:],
+            mutualFollowIds: [],
+            nlRankingDeltas: [:],
+            sessionModeDeltas: [:],
+            saturationPenalties: [:],
+            contradictionMultipliers: [:]
         )
 
         let score = algo.scorePost(post, for: interests, context: context)
@@ -221,6 +280,7 @@ struct FeedAlgorithmTests {
 // MARK: - Listener Registry Tests
 
 @Suite("ListenerRegistry — Deduplication Gate")
+@MainActor
 struct ListenerRegistryTests {
 
     @Test("begin() returns true on first call, false on subsequent")

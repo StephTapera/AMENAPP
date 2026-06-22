@@ -20,7 +20,7 @@ struct BiometricOnboardingPage: View {
         VStack(spacing: 32) {
             // Icon - Dynamic based on device capability
             Image(systemName: biometricService.biometricType.icon)
-                .font(.system(size: 80))
+                .font(.systemScaled(80))
                 .foregroundStyle(.blue.opacity(0.9))
                 .symbolEffect(.pulse, options: .repeating, value: enableBiometric)
             

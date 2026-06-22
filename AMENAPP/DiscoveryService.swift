@@ -19,6 +19,7 @@
 
 import Foundation
 import Combine
+import CryptoKit
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -36,11 +37,13 @@ final class DiscoveryService: ObservableObject {
     @Published private(set) var topicChips: [DiscoveryTopic] = []                          // horizontal chips
     @Published private(set) var trends: [DiscoveryTrend] = []
     @Published private(set) var followSuggestions: [FollowSuggestion] = []
+    @Published private(set) var contactSuggestions: [FollowSuggestion] = []
     @Published private(set) var recentSearches: [RecentSearchItem] = []
     @Published private(set) var isSearching = false
     @Published private(set) var isSuggestionsLoading = false
     @Published private(set) var isTrendsLoading = false
     @Published private(set) var isFollowSuggestionsLoading = false
+    @Published private(set) var isContactSuggestionsLoading = false
 
     // MARK: - Search Results (per tab)
 
@@ -56,7 +59,7 @@ final class DiscoveryService: ObservableObject {
 
     // MARK: - Dependencies
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let algolia = AlgoliaSearchService.shared
 
     // MARK: - Internal State
@@ -178,6 +181,187 @@ final class DiscoveryService: ObservableObject {
         } catch {
             dlog("[DiscoveryService] Unfollow failed: \(error)")
         }
+    }
+
+    // MARK: - Public: Onboarding Interest-Based Suggestions
+
+    /// Loads suggestions ranked by matching interests. Falls back to quality-based
+    /// if interest matches are insufficient. Used by the onboarding "Find your people" step.
+    func loadOnboardingSuggestions(interests: [String]) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isFollowSuggestionsLoading = true
+        defer { isFollowSuggestionsLoading = false }
+
+        let followingSet = FollowService.shared.following
+        let blockedSet = BlockService.shared.blockedUsers
+        var candidates: [FollowSuggestion] = []
+
+        // 1. Interest-based candidates
+        if !interests.isEmpty {
+            let safeInterests = Array(interests.prefix(10)) // Firestore arrayContainsAny max 10
+            do {
+                let snapshot = try await db
+                    .collection("users")
+                    .whereField("showInDiscovery", isEqualTo: true)
+                    .whereField("interests", arrayContainsAny: safeInterests)
+                    .limit(to: 30)
+                    .getDocuments()
+
+                let interestCandidates: [FollowSuggestion] = snapshot.documents.compactMap { doc in
+                    let d = doc.data()
+                    let userId = doc.documentID
+                    guard userId != uid,
+                          !followingSet.contains(userId),
+                          !blockedSet.contains(userId),
+                          !(d["isDeactivated"] as? Bool ?? false),
+                          let displayName = d["displayName"] as? String,
+                          let username = d["username"] as? String else { return nil }
+
+                    let userInterests = d["interests"] as? [String] ?? []
+                    let matched = interests.filter { userInterests.contains($0) }
+                    let reason = matched.first.map { "Interested in \($0)" }
+                        ?? generateFollowReason(from: d)
+                        ?? "Active in AMEN community"
+
+                    let person = DiscoveryPerson(
+                        id: userId, displayName: displayName, username: username,
+                        bio: d["bio"] as? String ?? "",
+                        avatarURL: d["profileImageURL"] as? String,
+                        followerCount: d["followersCount"] as? Int ?? 0,
+                        isVerified: d["isVerified"] as? Bool ?? false,
+                        isFollowing: false, mutualFollowersCount: 0,
+                        followReason: reason,
+                        topicAffinities: d["topicAffinities"] as? [String] ?? [],
+                        qualityScore: d["qualityScore"] as? Double ?? 50
+                    )
+                    return FollowSuggestion(id: userId, person: person, reason: reason, isFollowing: false)
+                }
+                candidates.append(contentsOf: interestCandidates)
+            } catch {
+                dlog("[DiscoveryService] Interest suggestions query failed: \(error)")
+            }
+        }
+
+        // 2. Pad with quality-based candidates if fewer than 8
+        if candidates.count < 8 {
+            let existingIds = Set(candidates.map { $0.id })
+            do {
+                let snapshot = try await db
+                    .collection("users")
+                    .whereField("showInDiscovery", isEqualTo: true)
+                    .whereField("qualityScore", isGreaterThanOrEqualTo: 60)
+                    .order(by: "qualityScore", descending: true)
+                    .limit(to: 30)
+                    .getDocuments()
+
+                let qualityCandidates: [FollowSuggestion] = snapshot.documents.compactMap { doc in
+                    let d = doc.data()
+                    let userId = doc.documentID
+                    guard userId != uid,
+                          !followingSet.contains(userId),
+                          !existingIds.contains(userId),
+                          !blockedSet.contains(userId),
+                          !(d["isDeactivated"] as? Bool ?? false),
+                          let displayName = d["displayName"] as? String,
+                          let username = d["username"] as? String else { return nil }
+
+                    let reason = generateFollowReason(from: d) ?? "Active in AMEN community"
+                    let person = DiscoveryPerson(
+                        id: userId, displayName: displayName, username: username,
+                        bio: d["bio"] as? String ?? "",
+                        avatarURL: d["profileImageURL"] as? String,
+                        followerCount: d["followersCount"] as? Int ?? 0,
+                        isVerified: d["isVerified"] as? Bool ?? false,
+                        isFollowing: false, mutualFollowersCount: 0,
+                        followReason: reason,
+                        topicAffinities: d["topicAffinities"] as? [String] ?? [],
+                        qualityScore: d["qualityScore"] as? Double ?? 50
+                    )
+                    return FollowSuggestion(id: userId, person: person, reason: reason, isFollowing: false)
+                }
+                candidates.append(contentsOf: qualityCandidates)
+            } catch {
+                dlog("[DiscoveryService] Quality fallback suggestions failed: \(error)")
+            }
+        }
+
+        followSuggestions = Array(rankFollowSuggestions(candidates).prefix(10))
+    }
+
+    // MARK: - Public: Contact-Based Suggestions
+
+    /// Looks up normalized phone hashes against Firestore `users.phoneHash`.
+    /// Call after fetching E.164-normalized numbers from CNContactStore.
+    func loadContactSuggestions(phoneNumbers: [String]) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isContactSuggestionsLoading = true
+        defer { isContactSuggestionsLoading = false }
+
+        let phoneHashes = Set(phoneNumbers.map { phoneHash(for: normalizePhone($0)) }.filter { !$0.isEmpty })
+        guard !phoneHashes.isEmpty else { contactSuggestions = []; return }
+
+        let followingSet = FollowService.shared.following
+        var suggestions: [FollowSuggestion] = []
+        var seen = Set<String>()
+
+        // Firestore `in` supports up to 30 items per query
+        let chunks = Array(phoneHashes).chunked(into: 30)
+        do {
+            for chunk in chunks {
+                let snapshot = try await db
+                    .collection("users")
+                    .whereField("phoneHash", in: chunk)
+                    .limit(to: 30)
+                    .getDocuments()
+
+                for doc in snapshot.documents {
+                    let d = doc.data()
+                    let userId = doc.documentID
+                    guard userId != uid,
+                          !followingSet.contains(userId),
+                          seen.insert(userId).inserted,
+                          let displayName = d["displayName"] as? String,
+                          let username = d["username"] as? String else { continue }
+
+                    let person = DiscoveryPerson(
+                        id: userId, displayName: displayName, username: username,
+                        bio: d["bio"] as? String ?? "",
+                        avatarURL: d["profileImageURL"] as? String,
+                        followerCount: d["followersCount"] as? Int ?? 0,
+                        isVerified: d["isVerified"] as? Bool ?? false,
+                        isFollowing: false, mutualFollowersCount: 0,
+                        followReason: "In your contacts",
+                        topicAffinities: d["topicAffinities"] as? [String] ?? [],
+                        qualityScore: d["qualityScore"] as? Double ?? 50
+                    )
+                    suggestions.append(FollowSuggestion(
+                        id: userId, person: person, reason: "In your contacts", isFollowing: false
+                    ))
+                }
+            }
+        } catch {
+            dlog("[DiscoveryService] Contact suggestions failed: \(error)")
+        }
+
+        contactSuggestions = suggestions
+    }
+
+    /// Normalizes a raw phone string to E.164 (+1XXXXXXXXXX for US numbers).
+    private func normalizePhone(_ raw: String) -> String {
+        let digits = raw.filter { $0.isNumber }
+        switch digits.count {
+        case 10: return "+1" + digits
+        case 11 where digits.hasPrefix("1"): return "+" + digits
+        case 11...: return "+" + digits
+        default: return ""
+        }
+    }
+
+    private func phoneHash(for normalizedPhone: String) -> String {
+        let digits = normalizedPhone.filter { $0.isNumber }
+        guard !digits.isEmpty else { return "" }
+        let digest = SHA256.hash(data: Data(digits.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: - Public: Recent Searches
@@ -321,6 +505,7 @@ final class DiscoveryService: ObservableObject {
                 let userId = doc.documentID
                 guard userId != uid,
                       !followingSet.contains(userId),
+                      !(d["isDeactivated"] as? Bool ?? false),   // hide deactivated accounts
                       let displayName = d["displayName"] as? String,
                       let username = d["username"] as? String else { return nil }
 
@@ -371,8 +556,9 @@ final class DiscoveryService: ObservableObject {
         // Simple relevance ranking for suggestions
         // Full personalization can be added later with user interests
         return candidates.sorted { a, b in
-            let aScore = a.person.qualityScore + Double(a.person.followerCount) * 0.001
-            let bScore = b.person.qualityScore + Double(b.person.followerCount) * 0.001
+            // C-022: followerCount removed from sort — formation score only
+            let aScore = a.person.qualityScore
+            let bScore = b.person.qualityScore
             return aScore > bScore
         }
     }
@@ -428,8 +614,13 @@ final class DiscoveryService: ObservableObject {
             ))
         }
 
-        // People from Algolia (fast) — skip if task was cancelled between keystrokes
-        guard !Task.isCancelled else { return }
+        // People from Algolia (fast) — skip if task was cancelled between keystrokes.
+        // MEDIUM FIX: Require at least 3 characters before hitting the Algolia API.
+        // A single character like "J" returns a huge result set that is immediately
+        // replaced as the user continues typing, causing visible flicker and wasting
+        // Algolia quota. Local suggestions (recents, topics) are served above regardless
+        // of query length since they read from in-memory data.
+        guard !Task.isCancelled, query.count >= 3 else { return }
         if let algoliaResults = try? await algolia.getUserSuggestions(query: query, limit: 3) {
             let peopleSuggestions = algoliaResults.map { u in
                 TypeaheadSuggestion(
@@ -516,8 +707,9 @@ final class DiscoveryService: ObservableObject {
         if let algoliaUsers = try? await algolia.searchUsers(query: query, limit: 20) {
             let currentUser = Auth.auth().currentUser?.uid ?? ""
             let followingSet = FollowService.shared.following
+            let blockedSet = BlockService.shared.blockedUsers
             let mapped = algoliaUsers
-                .filter { $0.objectID != currentUser }
+                .filter { $0.objectID != currentUser && !blockedSet.contains($0.objectID) }
                 .map { u -> DiscoveryPerson in
                     DiscoveryPerson(
                         id: u.objectID,
@@ -531,7 +723,7 @@ final class DiscoveryService: ObservableObject {
                         mutualFollowersCount: 0,
                         followReason: nil,
                         topicAffinities: [],
-                        qualityScore: Double(u.followersCount ?? 0) * 0.01 + 50
+                        qualityScore: 50.0 // Formation-ranked — follower count removed per product integrity (B-028)
                     )
                 }
             if !mapped.isEmpty { return mapped }
@@ -552,10 +744,12 @@ final class DiscoveryService: ObservableObject {
 
             let followingSet = FollowService.shared.following
             let currentUser = Auth.auth().currentUser?.uid ?? ""
+            let blockedSet = BlockService.shared.blockedUsers
 
             return snapshot.documents.compactMap { doc in
                 let d = doc.data()
                 guard doc.documentID != currentUser,
+                      !blockedSet.contains(doc.documentID),
                       let displayName = d["displayName"] as? String,
                       let username = d["username"] as? String else { return nil }
                 return DiscoveryPerson(
@@ -579,8 +773,11 @@ final class DiscoveryService: ObservableObject {
     }
 
     private func searchPosts(query: String) async -> [DiscoveryPost] {
+        let blockedSet = BlockService.shared.blockedUsers
         if let algoliaResults = try? await algolia.searchPosts(query: query, category: nil, limit: 20) {
-            return algoliaResults.map { p in
+            return algoliaResults
+                .filter { !blockedSet.contains($0.authorId ?? "") }
+                .map { p in
                 DiscoveryPost(
                     id: p.objectID,
                     authorId: p.authorId ?? "",
@@ -809,5 +1006,3 @@ final class DiscoveryService: ObservableObject {
         recentSearches = decoded.filter { $0.timestamp > cutoff }
     }
 }
-
-

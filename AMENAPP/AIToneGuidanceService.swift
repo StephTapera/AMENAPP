@@ -19,10 +19,10 @@ class AIToneGuidanceService: ObservableObject {
     private let openAI = OpenAIService.shared
     private var analysisTask: Task<ToneFeedback?, Never>?
     private var debounceTimer: Timer?
-    private let apiKey: String
+    // SECURITY: OpenAI API key is NOT stored on the client.
+    // Content moderation is proxied through Firebase Cloud Functions.
 
     private init() {
-        self.apiKey = BundleConfig.string(forKey: "OPENAI_API_KEY") ?? ""
         dlog("✅ AIToneGuidanceService initialized")
     }
 
@@ -166,62 +166,17 @@ class AIToneGuidanceService: ObservableObject {
         return await analysisTask?.value
     }
 
-    // MARK: - Content Moderation (FREE)
+    // MARK: - Content Moderation
 
     private func checkContentModeration(_ text: String) async throws -> ToneFeedback? {
-        // Call OpenAI Moderation API (completely FREE)
-        let moderationEndpoint = "https://api.openai.com/v1/moderations"
-
-        guard let moderationURL = URL(string: moderationEndpoint) else {
-            throw URLError(.badURL)
-        }
-        var request = URLRequest(url: moderationURL)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let requestBody: [String: Any] = [
-            "input": text
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-
-        let (data, _) = try await URLSession.shared.data(for: request)
-
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let results = json["results"] as? [[String: Any]],
-              let firstResult = results.first else {
-            return nil
-        }
-
-        let flagged = firstResult["flagged"] as? Bool ?? false
-
-        if flagged {
-            // Determine specific issue
-            if let categories = firstResult["categories"] as? [String: Bool] {
-                var issueType = "inappropriate content"
-
-                if categories["hate"] == true || categories["hate/threatening"] == true {
-                    issueType = "hateful or divisive language"
-                } else if categories["harassment"] == true || categories["harassment/threatening"] == true {
-                    issueType = "harassing language"
-                } else if categories["violence"] == true || categories["violence/graphic"] == true {
-                    issueType = "violent content"
-                } else if categories["sexual"] == true || categories["sexual/minors"] == true {
-                    issueType = "inappropriate content"
-                } else if categories["self-harm"] == true {
-                    issueType = "concerning content about self-harm"
-                }
-
-                return ToneFeedback(
-                    type: .flagged,
-                    message: "This comment contains \(issueType) that goes against our community guidelines.",
-                    suggestion: "Please revise your comment to be respectful and faith-focused.",
-                    scriptureReference: "Ephesians 4:29 - Do not let any unwholesome talk come out of your mouths"
-                )
-            }
-        }
-
-        return nil
+        // SECURITY: Direct OpenAI API calls from the client are disabled.
+        // OpenAI API key is NOT stored on the client.
+        // Content moderation must be proxied through a Firebase Cloud Function.
+        throw NSError(
+            domain: "AIToneGuidanceService",
+            code: 501,
+            userInfo: [NSLocalizedDescriptionKey: "OpenAI moderation must be invoked via Cloud Function proxy"]
+        )
     }
 
     // MARK: - Tone Analysis (GPT-4o-mini)

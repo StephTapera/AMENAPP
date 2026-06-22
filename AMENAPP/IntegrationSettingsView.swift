@@ -32,6 +32,7 @@ struct IntegrationSettingsView: View {
                         systemPermissionBanner
                     }
 
+                    connectedServicesSection
                     notificationsSection
                     widgetsSection
                     liveActivitiesSection
@@ -54,14 +55,14 @@ struct IntegrationSettingsView: View {
         HStack(spacing: 12) {
             Image(systemName: "bell.slash.fill")
                 .foregroundStyle(.orange)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Notifications are off")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                 Text("Enable in iOS Settings to receive community updates.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.white.opacity(0.6))
             }
 
@@ -72,7 +73,7 @@ struct IntegrationSettingsView: View {
                     UIApplication.shared.open(url)
                 }
             }
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundStyle(.orange)
         }
         .padding(14)
@@ -81,6 +82,36 @@ struct IntegrationSettingsView: View {
                 .fill(Color.orange.opacity(0.12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.orange.opacity(0.3), lineWidth: 1))
         )
+    }
+
+    // MARK: - Connected Services Section
+
+    private var connectedServicesSection: some View {
+        IntegrationSection(title: "Connected Services", icon: "square.stack.3d.up.fill") {
+            NavigationLink(destination: ExternalIntegrationView()) {
+                HStack(spacing: 12) {
+                    Image(systemName: "link.circle.fill")
+                        .font(.systemScaled(18))
+                        .foregroundStyle(.indigo)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("External Integrations")
+                            .font(.systemScaled(15))
+                            .foregroundStyle(.white)
+                        Text("Maps, Calendar, Contacts, Career, Health & more")
+                            .font(.systemScaled(12))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.systemScaled(12, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.3))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: - Notifications Section
@@ -177,10 +208,10 @@ struct IntegrationSettingsView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Devotional Time")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.white)
                 Text("When would you like your daily reminder?")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.white.opacity(0.5))
             }
             Spacer()
@@ -216,10 +247,10 @@ struct IntegrationSettingsView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Daily Reminder Limit")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.white)
                 Text("\(prefs.maxDailyNotifications) per day (non-critical)")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.white.opacity(0.5))
             }
             Spacer()
@@ -372,7 +403,7 @@ struct IntegrationSettingsView: View {
     private var siriShortcutsList: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Available shortcuts")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.4))
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
@@ -386,12 +417,12 @@ struct IntegrationSettingsView: View {
             ], id: \.0) { icon, title, phrase in
                 HStack(spacing: 12) {
                     Image(systemName: icon)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.white.opacity(0.5))
                         .frame(width: 24)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(title).font(.system(size: 14)).foregroundStyle(.white)
-                        Text(phrase).font(.system(size: 11)).foregroundStyle(.white.opacity(0.4))
+                        Text(title).font(.systemScaled(14)).foregroundStyle(.white)
+                        Text(phrase).font(.systemScaled(11)).foregroundStyle(.white.opacity(0.4))
                     }
                 }
                 .padding(.horizontal, 16)
@@ -408,7 +439,7 @@ struct IntegrationSettingsView: View {
             showResetConfirm = true
         } label: {
             Text("Reset to Defaults")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.red.opacity(0.8))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -433,10 +464,10 @@ struct IntegrationSettingsView: View {
     private func infoBanner(icon: String, text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.white.opacity(0.5))
             Text(text)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.white.opacity(0.5))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -473,10 +504,10 @@ private struct IntegrationSection<Content: View>: View {
             // Section header
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.7))
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.7))
                     .textCase(.uppercase)
                     .tracking(0.5)
@@ -509,10 +540,10 @@ private struct IntegrationToggle: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(label)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.white)
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.white.opacity(0.5))
                     .fixedSize(horizontal: false, vertical: true)
             }

@@ -6,9 +6,11 @@
 //
 
 import Foundation
+import FirebaseCore
 import FirebaseDatabase
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import Combine
 import SwiftUI
 
@@ -37,7 +39,8 @@ class PostInteractionsService: ObservableObject {
         database.reference()
     }
     
-    private let firestore = Firestore.firestore()
+    private lazy var firestore = Firestore.firestore()
+    private lazy var functions = Functions.functions(region: "us-central1")
     
     // Published properties for real-time updates
     @Published var postLightbulbs: [String: Int] = [:]  // postId -> count
@@ -75,6 +78,15 @@ class PostInteractionsService: ObservableObject {
     // Insertion-order tracking so we can evict the oldest post when the cap is hit.
     private var observerInsertionOrder: [String] = []   // postIds in observation order
 
+    // FIX: Store handles for the per-user interaction observers (lightbulbs/amens/reposts)
+    // so they can be removed on sign-out / deinit. Previously these were fire-and-forget
+    // .observe(.value) calls with no handle retention, causing a permanent RTDB connection
+    // for the previous user's data even after sign-out.
+    private var userInteractionHandles: [DatabaseHandle] = []
+    // The ref path used when the user interaction observers were registered, needed to call
+    // removeObserver(withHandle:) on the exact same DatabaseReference.
+    private var userInteractionRef: DatabaseReference?
+
     // P0 FIX: In-flight guards prevent concurrent toggle calls (rapid double-tap).
     // Keyed by postId so different posts can toggle independently.
     private var lightbulbTogglesInFlight: Set<String> = []
@@ -87,8 +99,18 @@ class PostInteractionsService: ObservableObject {
     
     // Track if initial cache load is complete
     @Published var hasLoadedInitialCache = false
+
+    // Guard: set to true between stopAllObservers() and the next sign-in so that
+    // observeUserInteractions() / loadUserInteractions() don't re-attach during
+    // the sign-out → sign-in transition window.
+    private var isSignedOut = false
     
     private init() {
+        // Guard: skip Firebase setup when running in a test host that has not
+        // configured Firebase (FirebaseApp.configure() was never called).
+        // This prevents Firestore.firestore() and Database.database() from crashing
+        // the test process during singleton initialization.
+        guard FirebaseApp.app() != nil else { return }
         loadUserInteractions()
         Task {
             await loadUserDisplayName()
@@ -469,75 +491,45 @@ class PostInteractionsService: ObservableObject {
         authorProfileImageURL: String? = nil,
         clientRequestId: String? = nil
     ) async throws -> String {
-        let commentRef = ref.child("postInteractions").child(postId).child("comments").childByAutoId()
-        
-        guard let commentId = commentRef.key else {
-            throw NSError(domain: "PostInteractions", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to generate comment ID"])
-        }
-        
-        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        
-        // ✅ Build comment data with optional profile image URL
-        var commentData: [String: Any] = [
-            "id": commentId,
-            "postId": postId,
-            "authorId": currentUserId,
-            "authorName": currentUserName,
-            "authorInitials": authorInitials,
-            "authorUsername": authorUsername,
-            "content": content,
-            "timestamp": timestamp,
-            "likes": 0
-        ]
-        
-        // ✅ Add profile image URL if available
-        if let profileImageURL = authorProfileImageURL, !profileImageURL.isEmpty {
-            commentData["authorProfileImageURL"] = profileImageURL
-            dlog("✅ Storing profile image URL in comment: \(profileImageURL)")
+        guard let clientRequestId else {
+            throw NSError(
+                domain: "PostInteractions",
+                code: -3,
+                userInfo: [NSLocalizedDescriptionKey: "Comment moderation token missing. Please try again."]
+            )
         }
 
-        // Write clientRequestId so the real-time listener can match optimistic entries
-        if let clientRequestId = clientRequestId {
-            commentData["clientRequestId"] = clientRequestId
+        var payload: [String: Any] = [
+            "postId": postId,
+            "text": content,
+            "clientCommentId": clientRequestId,
+            "authorInitials": authorInitials,
+            "authorUsername": authorUsername,
+            "authorName": currentUserName
+        ]
+
+        if let profileImageURL = authorProfileImageURL, !profileImageURL.isEmpty {
+            payload["authorProfileImageURL"] = profileImageURL
         }
-        
+
         do {
-            try await commentRef.setValue(commentData)
-            dlog("✅ Comment data written to RTDB successfully")
-            dlog("   Path: postInteractions/\(postId)/comments/\(commentId)")
-            dlog("   Data keys: \(commentData.keys.joined(separator: ", "))")
+            let result = try await functions.httpsCallable("addComment").call(payload)
+            guard let response = result.data as? [String: Any],
+                  let commentId = response["commentId"] as? String else {
+                throw NSError(
+                    domain: "PostInteractions",
+                    code: -4,
+                    userInfo: [NSLocalizedDescriptionKey: "Comment service returned an unexpected response."]
+                )
+            }
+
+            postComments[postId] = (postComments[postId] ?? 0) + 1
+            dlog("💬 Comment added through server gateway: \(commentId)")
+            return commentId
         } catch {
-            dlog("❌ CRITICAL: Failed to write comment to RTDB: \(error)")
+            dlog("❌ Failed to write comment through server gateway: \(error)")
             throw error
         }
-        
-        // Increment comment count
-        do {
-            try await ref.child("postInteractions").child(postId).child("commentCount").setValue(ServerValue.increment(1))
-            dlog("✅ Comment count incremented successfully")
-        } catch {
-            dlog("⚠️ Warning: Failed to increment comment count: \(error)")
-            // Don't throw - comment was still created
-        }
-        
-        // Update local state
-        postComments[postId] = (postComments[postId] ?? 0) + 1
-        
-        // ✅ Create notification for post author
-        Task.detached { [weak self] in
-            guard let self = self else { return }
-            do {
-                let postAuthorId = try await self.getPostAuthorId(postId: postId)
-                try await self.createNotification(type: "comment", postId: postId, postAuthorId: postAuthorId)
-            } catch {
-                dlog("⚠️ Comment notification failed for post \(postId): \(error.localizedDescription)")
-            }
-        }
-        
-        dlog("💬 Comment added to post: \(postId) by @\(authorUsername)")
-        dlog("🔍 You can verify at: postInteractions/\(postId)/comments")
-        
-        return commentId
     }
     
     /// Delete a comment
@@ -700,8 +692,10 @@ class PostInteractionsService: ObservableObject {
             // Remove repost
             try await userRepostRef.removeValue()
 
-            // P0-E FIX: Use a transaction to decrement with a floor of 0.
-            try await ref.child("postInteractions").child(postId).child("repostCount").runTransactionBlock { currentData in
+            // repostCount is server-managed (.write: false) — decrement best-effort only.
+            // Failure here does not roll back the repost removal; local state is the source of
+            // truth for the current session and a CF trigger owns the persistent count.
+            _ = try? await ref.child("postInteractions").child(postId).child("repostCount").runTransactionBlock { currentData in
                 if let count = currentData.value as? Int, count > 0 {
                     currentData.value = count - 1
                 } else {
@@ -735,8 +729,8 @@ class PostInteractionsService: ObservableObject {
                 "timestamp": ServerValue.timestamp()
             ])
             
-            // Increment count
-            try await ref.child("postInteractions").child(postId).child("repostCount").setValue(ServerValue.increment(1))
+            // repostCount is server-managed (.write: false) — increment best-effort only.
+            _ = try? await ref.child("postInteractions").child(postId).child("repostCount").setValue(ServerValue.increment(1))
 
             // Mirror to user interaction index in background (non-critical path)
             Task.detached { [weak self] in
@@ -940,6 +934,20 @@ class PostInteractionsService: ObservableObject {
         observerInsertionOrder.removeAll { $0 == postId }
     }
     
+    /// Remove the three per-user interaction observers (lightbulbs/amens/reposts).
+    /// Must be called before re-registering observers for a new user account.
+    private func stopUserInteractionObservers() {
+        guard let interactionRef = userInteractionRef else { return }
+        let childKeys = ["lightbulbs", "amens", "reposts"]
+        for (index, handle) in userInteractionHandles.enumerated() {
+            if index < childKeys.count {
+                interactionRef.child(childKeys[index]).removeObserver(withHandle: handle)
+            }
+        }
+        userInteractionHandles.removeAll()
+        userInteractionRef = nil
+    }
+
     /// Stop ALL active observers — call on sign-out or when no posts are visible.
     func stopAllObservers() {
         // Each key is formatted as "\(postId)_counts" or "\(postId)_commentsData".
@@ -958,12 +966,18 @@ class PostInteractionsService: ObservableObject {
         }
         observers.removeAll()
         observerInsertionOrder.removeAll()
+        // Also stop the per-user interaction observers.
+        stopUserInteractionObservers()
     }
     
     // MARK: - Load User Interactions
     
     /// Load all user's interactions on app start
     private func loadUserInteractions() {
+        guard !isSignedOut else {
+            dlog("⏭️ Skipping loadUserInteractions — sign-out in progress")
+            return
+        }
         guard currentUserId != "anonymous" else { 
             dlog("⚠️ Cannot load user interactions: anonymous user")
             return 
@@ -999,9 +1013,14 @@ class PostInteractionsService: ObservableObject {
             var hasLoadedLightbulbs = false
             var hasLoadedAmens = false
             var hasLoadedReposts = false
-            
+            // FIX: With RTDB persistence enabled, observeSingleEvent can fire more than once
+            // (once from local cache, once from network). CheckedContinuation must only be
+            // resumed a single time or the app will crash with a "continuation resumed twice" trap.
+            var hasResumed = false
+
             func checkCompletion() {
-                if hasLoadedLightbulbs && hasLoadedAmens && hasLoadedReposts {
+                if hasLoadedLightbulbs && hasLoadedAmens && hasLoadedReposts && !hasResumed {
+                    hasResumed = true
                     Task { @MainActor in
                         dlog("✅ Initial user interactions loaded successfully from cache")
                         self.hasLoadedInitialCache = true
@@ -1075,6 +1094,10 @@ class PostInteractionsService: ObservableObject {
     
     /// Observe user's interactions in real-time
     private func observeUserInteractions() {
+        guard !isSignedOut else {
+            dlog("⏭️ Skipping observeUserInteractions — sign-out in progress")
+            return
+        }
         guard currentUserId != "anonymous" else { 
             dlog("⚠️ Cannot observe user interactions: anonymous user")
             return 
@@ -1086,11 +1109,18 @@ class PostInteractionsService: ObservableObject {
         let userInteractionsRef = ref.child("userInteractions").child(currentUserId)
         userInteractionsRef.keepSynced(true)
         dlog("✅ Enabled offline sync for user interactions")
-        
+
+        // FIX: Remove any previous user interaction observers before registering new ones.
+        // Without this, signing out and back in as a different user stacks duplicate observers.
+        stopUserInteractionObservers()
+        // Store the ref so stopUserInteractionObservers() can call removeObserver on the
+        // exact same DatabaseReference instance that .observe() was called on.
+        userInteractionRef = userInteractionsRef
+
         // Observe user's lightbulbs
-        userInteractionsRef.child("lightbulbs").observe(.value) { [weak self] snapshot in
+        let lightbulbHandle = userInteractionsRef.child("lightbulbs").observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
-            
+
             Task { @MainActor in
                 if let data = snapshot.value as? [String: Bool] {
                     self.userLightbulbedPosts = Set(data.keys)
@@ -1108,11 +1138,12 @@ class PostInteractionsService: ObservableObject {
                 }
             }
         }
-        
+        userInteractionHandles.append(lightbulbHandle)
+
         // Observe user's amens
-        userInteractionsRef.child("amens").observe(.value) { [weak self] snapshot in
+        let amenHandle = userInteractionsRef.child("amens").observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
-            
+
             Task { @MainActor in
                 if let data = snapshot.value as? [String: Bool] {
                     self.userAmenedPosts = Set(data.keys)
@@ -1127,11 +1158,12 @@ class PostInteractionsService: ObservableObject {
                 }
             }
         }
-        
+        userInteractionHandles.append(amenHandle)
+
         // Observe user's reposts
-        userInteractionsRef.child("reposts").observe(.value) { [weak self] snapshot in
+        let repostHandle = userInteractionsRef.child("reposts").observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
-            
+
             Task { @MainActor in
                 if let data = snapshot.value as? [String: Bool] {
                     self.userRepostedPosts = Set(data.keys)
@@ -1146,6 +1178,7 @@ class PostInteractionsService: ObservableObject {
                 }
             }
         }
+        userInteractionHandles.append(repostHandle)
         
         dlog("✅ Real-time observers active for user interactions")
     }
@@ -1194,7 +1227,38 @@ class PostInteractionsService: ObservableObject {
     }
     
     // MARK: - Cleanup
-    
+
+    /// Stop observers AND clear all per-user published state.
+    /// Called by AppLifecycleManager on sign-out so the previous user's
+    /// liked/amened/reposted sets and interaction counts are never visible
+    /// to the next signed-in account.
+    func resetUserState() {
+        isSignedOut = true
+        stopAllObservers()
+        userLightbulbedPosts.removeAll()
+        userAmenedPosts.removeAll()
+        userRepostedPosts.removeAll()
+        postLightbulbs.removeAll()
+        postAmens.removeAll()
+        postComments.removeAll()
+        postReposts.removeAll()
+        postCommentsData.removeAll()
+        expandedPostIds.removeAll()
+        cachedUserDisplayName = nil
+        hasLoadedInitialCache = false
+        lightbulbTogglesInFlight.removeAll()
+        amenTogglesInFlight.removeAll()
+        repostTogglesInFlight.removeAll()
+        dlog("🧹 PostInteractionsService: user state cleared on sign-out")
+    }
+
+    /// Call this on sign-in (after resetUserState()) to re-enable interaction loading.
+    func prepareForNewUser() {
+        isSignedOut = false
+        loadUserInteractions()
+        Task { await loadUserDisplayName() }
+    }
+
     func cleanup() {
         stopAllObservers()
     }
@@ -1250,7 +1314,8 @@ extension PostInteractionsService {
                     dlog("✅ Firebase Realtime Database: CONNECTED")
                     hasLoggedInitialConnection = true
                 } else if !connected {
-                    dlog("⚠️ Firebase Realtime Database: DISCONNECTED (will auto-reconnect)")
+                    // Expected during app launch/network changes - auto-reconnects
+                    // dlog("⚠️ Firebase Realtime Database: DISCONNECTED (will auto-reconnect)")
                 }
                 #endif
             }
@@ -1260,13 +1325,27 @@ extension PostInteractionsService {
 
 // MARK: - Notification Helper Extension
 extension PostInteractionsService {
-    /// Get post author ID from Firestore
+    /// Get post author ID, trying RTDB cache first then Firestore list query.
+    /// Direct Firestore get() on posts triggers callerCanReadPost() which can fail
+    /// for posts with restricted visibility. Using a list query with authorId filter
+    /// avoids the per-document visibility check.
     private func getPostAuthorId(postId: String) async throws -> String {
-        let postDoc = try await firestore.collection("posts").document(postId).getDocument()
-        guard let authorId = postDoc.data()?["authorId"] as? String else {
-            throw NSError(domain: "PostInteractions", code: -1, userInfo: [NSLocalizedDescriptionKey: "Post author not found"])
+        // 1. Try RTDB postInteractions cache (authorId may be stored there)
+        let rtdbSnapshot = try? await ref.child("postInteractions").child(postId).child("authorId").getData()
+        if let authorId = rtdbSnapshot?.value as? String, !authorId.isEmpty {
+            return authorId
         }
-        return authorId
+        
+        // 2. Try Firestore list query (doesn't trigger callerCanReadPost get-rule)
+        let snapshot = try await firestore.collection("posts")
+            .whereField(FieldPath.documentID(), isEqualTo: postId)
+            .limit(to: 1)
+            .getDocuments()
+        if let authorId = snapshot.documents.first?.data()["authorId"] as? String {
+            return authorId
+        }
+        
+        throw NSError(domain: "PostInteractions", code: -1, userInfo: [NSLocalizedDescriptionKey: "Post author not found"])
     }
     
     /// Create a notification in Firestore for post reactions
@@ -1299,9 +1378,10 @@ extension PostInteractionsService {
         // This avoids writing to another user's subcollection (which requires App Check
         // to pass, causing 403 errors on simulator where App Check uses a debug token).
         // Deterministic ID prevents duplicate notifications for the same action.
+        // merge: false — full overwrite so Firestore applies the create rule (not update).
         let deterministicId = "\(type)_\(postId)_\(currentUserId)"
         try await firestore.collection("notifications")
             .document(deterministicId)
-            .setData(notification, merge: true)
+            .setData(notification, merge: false)
     }
 }

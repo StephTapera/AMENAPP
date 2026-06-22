@@ -1,0 +1,23 @@
+{
+  "configurations" : [
+    {
+      "id" : "C1B1F2D0-4E97-4000-8912-E300000000A1",
+      "name" : "Configuration 1",
+      "options" : {}
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverageEnabled" : false
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:AMENAPP.xcodeproj",
+        "identifier" : "EF56F7402F2881A30019B94A",
+        "name" : "AMENAPPTests"
+      }
+    }
+  ],
+  "version" : 1
+}

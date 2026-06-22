@@ -84,7 +84,7 @@ struct QuickTestimonyView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Image(systemName: "heart.text.square.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [.pink, .purple],
@@ -94,12 +94,12 @@ struct QuickTestimonyView: View {
                         )
                     
                     Text("Quick Testimony")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .font(.systemScaled(22, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)
                 }
                 
                 Text("Share God's goodness in your life")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundColor(.white.opacity(0.6))
             }
             
@@ -110,7 +110,7 @@ struct QuickTestimonyView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(.white.opacity(0.5))
                     .symbolRenderingMode(.hierarchical)
             }
@@ -129,7 +129,7 @@ struct QuickTestimonyView: View {
                         category: category,
                         isSelected: selectedCategory == category
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                             selectedCategory = category
                             hapticLight.impactOccurred()
                         }
@@ -145,12 +145,12 @@ struct QuickTestimonyView: View {
     private var textInputSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(selectedCategory.prompt)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundColor(.white.opacity(0.7))
                 .padding(.horizontal, 24)
             
             TextEditor(text: $testimonyText)
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundColor(.white)
                 .focused($isTextFieldFocused)
                 .scrollContentBackground(.hidden)
@@ -173,7 +173,7 @@ struct QuickTestimonyView: View {
                     if newValue.count > maxCharacters {
                         testimonyText = String(newValue.prefix(maxCharacters))
                         hapticMedium.impactOccurred()
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.3)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.3))) {
                             characterWarningShake = true
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -193,7 +193,7 @@ struct QuickTestimonyView: View {
                 // Warning icon
                 if testimonyText.count >= warningThreshold {
                     Image(systemName: testimonyText.count == maxCharacters ? "exclamationmark.circle.fill" : "exclamationmark.circle")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(testimonyText.count == maxCharacters ? .red : .orange)
                         .symbolEffect(.bounce, value: testimonyText.count == maxCharacters)
                 }
@@ -201,16 +201,16 @@ struct QuickTestimonyView: View {
                 // Character count
                 HStack(spacing: 4) {
                     Text("\(testimonyText.count)")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.systemScaled(14, weight: .bold, design: .rounded))
                         .foregroundColor(characterCountColor)
                         .contentTransition(.numericText())
                     
                     Text("/")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundColor(.white.opacity(0.4))
                     
                     Text("\(maxCharacters)")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundColor(.white.opacity(0.4))
                 }
                 .padding(.horizontal, 12)
@@ -253,18 +253,18 @@ struct QuickTestimonyView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "lightbulb.fill")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundColor(.yellow.opacity(0.8))
                 
                 Text("Quick Tips")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(.white.opacity(0.7))
             }
             
             HStack(spacing: 12) {
                 ForEach(selectedCategory.tips, id: \.self) { tip in
                     Text(tip)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundColor(.white.opacity(0.6))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -288,7 +288,7 @@ struct QuickTestimonyView: View {
                 dismiss()
             } label: {
                 Text("Cancel")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.systemScaled(16, weight: .semibold, design: .rounded))
                     .foregroundColor(.white.opacity(0.7))
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
@@ -309,10 +309,10 @@ struct QuickTestimonyView: View {
                             .scaleEffect(0.9)
                     } else {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                         
                         Text("Share Testimony")
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .font(.systemScaled(16, weight: .bold, design: .rounded))
                     }
                 }
                 .foregroundColor(.white)
@@ -415,20 +415,20 @@ struct QuickTestimonyView: View {
                         .shadow(color: .green.opacity(0.5), radius: 20, y: 10)
                     
                     Image(systemName: "checkmark")
-                        .font(.system(size: 40, weight: .bold))
+                        .font(.systemScaled(40, weight: .bold))
                         .foregroundColor(.white)
                 }
                 .scaleEffect(showSuccessAnimation ? 1.0 : 0.5)
                 .opacity(showSuccessAnimation ? 1.0 : 0)
                 
                 Text("Testimony Shared!")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .font(.systemScaled(20, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .opacity(showSuccessAnimation ? 1.0 : 0)
                     .offset(y: showSuccessAnimation ? 0 : 20)
             }
             .onAppear {
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.7))) {
                     showSuccessAnimation = true
                 }
             }
@@ -591,10 +591,10 @@ struct QuickTestimonyCategoryChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 
                 Text(category.rawValue)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.systemScaled(13, weight: .semibold, design: .rounded))
             }
             .foregroundColor(isSelected ? .white : .white.opacity(0.7))
             .padding(.horizontal, 14)

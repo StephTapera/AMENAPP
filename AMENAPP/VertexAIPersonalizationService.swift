@@ -70,7 +70,7 @@ struct NotificationPrediction: Codable {
 /// ML-powered personalization using Vertex AI
 class VertexAIPersonalizationService {
     static let shared = VertexAIPersonalizationService()
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     
     // Vertex AI Configuration from Firebase Remote Config
     private var vertexAIProjectId: String {
@@ -87,32 +87,34 @@ class VertexAIPersonalizationService {
     private var sessionViewedPostIds = Set<String>()
 
     private init() {}
-    
+
+    /// Explicit opt-in for off-device personalization / behavioral training.
+    /// Defaults to false (fail-closed) until a consent surface records a choice.
+    /// NG-4 remediation (2026-06-19).
+    static var personalizationConsentGranted: Bool {
+        UserDefaults.standard.bool(forKey: "amen.personalization.trackingConsent")
+    }
+
     // MARK: - Engagement Tracking
-    
+
     /// Record user engagement event for ML training.
     /// `.view` events are throttled to once per post per app session to avoid
     /// hammering Firestore on every scroll pass.
     func recordEngagement(_ event: EngagementEvent) async throws {
-        if event.eventType == .view {
-            guard sessionViewedPostIds.insert(event.postId).inserted else { return }
-        }
-
-        // Store in Firestore for batch training
-        let eventData: [String: Any] = [
-            "userId": event.userId,
-            "postId": event.postId,
-            "eventType": event.eventType.rawValue,
-            "timestamp": FieldValue.serverTimestamp(),
-            "duration": event.duration ?? 0,
-            "metadata": event.metadata ?? [:]
-        ]
-        
-        try await db.collection("engagementEvents")
-            .addDocument(data: eventData)
-        
-        // Also update real-time user interests (for hybrid approach)
-        await updateUserInterests(event)
+        // NG-4 CLOSE — DRAFT for founder approval (2026-06-19).
+        // The off-device behavioral corpus (engagementEvents → GCS/Vertex) is DELETED.
+        // Wave 0 diagnostic proved it had no live consumer: the only reader
+        // (functions/aiPersonalization.js `generatePersonalizedFeed`) has zero Swift callers
+        // and a Math.random() mock predictor; the export CF had no automated trigger;
+        // getHybridFeed/getPredictedFeed are dead. Collecting it was pure liability
+        // (incl. minors, contradicting our privacy posture), so the write is removed entirely.
+        //
+        // The 4 PostCard call sites remain (no-op now) so the build is undisturbed; they and
+        // the dead export/prediction methods below can be removed in a follow-up cleanup.
+        // Server-side deletion of the engagementEvents collection + the
+        // generatePersonalizedFeed / exportEngagementData Cloud Functions is HUMAN/deploy-gated
+        // (see deploy-logs/NG4-engagement-deletion.md).
+        _ = event
     }
     
     /// Update user interests based on engagement
@@ -174,7 +176,7 @@ class VertexAIPersonalizationService {
     func exportToGCS(bucket: String, startDate: Date, endDate: Date) async throws {
         let localFile = try await exportEngagementData(startDate: startDate, endDate: endDate)
         
-        // TODO: Upload to GCS using Firebase Storage or Google Cloud SDK
+        // GCS upload via Firebase Storage or gsutil (see log instruction below).
         dlog("📤 [GCS] Upload to gs://\(bucket)/training-data/\(localFile.lastPathComponent)")
         
         // For now, just log the instruction
@@ -273,15 +275,21 @@ class VertexAIPersonalizationService {
         } catch {
             dlog("⚠️ [HYBRID] Vertex AI failed, falling back to local algorithm")
             // Fallback to local algorithm
-            return HomeFeedAlgorithm.shared.rankPosts(
-                candidatePosts,
-                for: HomeFeedAlgorithm.shared.userInterests
-            )
+            return await MainActor.run {
+                HomeFeedAlgorithm.shared.rankPosts(
+                    candidatePosts,
+                    for: HomeFeedAlgorithm.shared.userInterests
+                )
+            }
         }
         
         // Step 2: Combine with local scores (70% Vertex AI, 30% local)
-        let localScores = candidatePosts.map { post in
-            HomeFeedAlgorithm.shared.scorePost(post, for: HomeFeedAlgorithm.shared.userInterests)
+        let localScores = await MainActor.run {
+            let algorithm = HomeFeedAlgorithm.shared
+            let interests = algorithm.userInterests
+            return candidatePosts.map { post in
+                algorithm.scorePost(post, for: interests)
+            }
         }
         
         var scoredPosts: [(post: Post, score: Double)] = []

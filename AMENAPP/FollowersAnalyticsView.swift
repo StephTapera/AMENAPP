@@ -166,7 +166,7 @@ struct FollowersAnalyticsView: View {
     private var emptyChartView: some View {
         VStack(spacing: 12) {
             Image(systemName: "chart.line.uptrend.xyaxis")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
             
             Text("Not enough data yet")
@@ -303,7 +303,7 @@ struct FollowerStatCard: View {
         VStack(spacing: 12) {
             HStack {
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(color)
                 
                 Spacer()
@@ -311,7 +311,7 @@ struct FollowerStatCard: View {
                 if let change = change {
                     HStack(spacing: 4) {
                         Image(systemName: change >= 0 ? "arrow.up" : "arrow.down")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.systemScaled(10, weight: .bold))
                         Text("\(abs(change))")
                             .font(.custom("OpenSans-Bold", size: 12))
                     }
@@ -327,7 +327,7 @@ struct FollowerStatCard: View {
             
             Text(value)
                 .font(.custom("OpenSans-Bold", size: 32))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
             
             Text(label)
                 .font(.custom("OpenSans-Regular", size: 14))
@@ -400,7 +400,7 @@ struct TopFollowerRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(user.displayName)
                     .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 Text("@\(user.username)")
                     .font(.custom("OpenSans-Regular", size: 13))
@@ -451,7 +451,7 @@ struct MutualFollowerCard: View {
                 
                 Text(user.displayName)
                     .font(.custom("OpenSans-SemiBold", size: 13))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
                 
                 Text("@\(user.username)")
@@ -488,7 +488,7 @@ struct InsightCard: View {
                     .frame(width: 50, height: 50)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(color)
             }
             
@@ -499,7 +499,7 @@ struct InsightCard: View {
                 
                 Text(value)
                     .font(.custom("OpenSans-Bold", size: 22))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 
                 if let trend = trend {
                     Text(trend)

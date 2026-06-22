@@ -43,10 +43,10 @@ struct ConnectMinistriesView: View {
 
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.secondary)
                     TextField("Search ministries...", text: $searchText)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .textFieldStyle(.plain)
                         .autocorrectionDisabled()
                 }
@@ -106,13 +106,13 @@ struct ConnectMinistriesView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("MINISTRIES")
-                    .font(.system(size: 10, weight: .semibold)).kerning(3)
+                    .font(.systemScaled(10, weight: .semibold)).kerning(3)
                     .foregroundStyle(Color.white.opacity(0.55))
                 Text("Ministry Groups")
-                    .font(.system(size: 26, weight: .black))
+                    .font(.systemScaled(26, weight: .black))
                     .foregroundStyle(.white)
                 Text("Find your place in the body of Christ.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.7))
             }
             .padding(.horizontal, 20)
@@ -130,36 +130,36 @@ struct ConnectMinistriesView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(ministry.category.uppercased())
-                    .font(.system(size: 10, weight: .bold)).kerning(1)
+                    .font(.systemScaled(10, weight: .bold)).kerning(1)
                     .foregroundStyle(accentOrange)
                 Spacer()
                 if ministry.isOpen {
                     Text("Open")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.green)
                 }
             }
 
             Text(ministry.name)
-                .font(.system(size: 16, weight: .bold))
+                .font(.systemScaled(16, weight: .bold))
                 .foregroundStyle(.primary)
 
             Text(ministry.description)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
 
             HStack(spacing: 16) {
                 HStack(spacing: 4) {
-                    Image(systemName: "person.2.fill").font(.system(size: 11))
-                    Text("\(ministry.memberCount) members").font(.system(size: 12))
+                    Image(systemName: "person.2.fill").font(.systemScaled(11))
+                    Text("\(ministry.memberCount) members").font(.systemScaled(12))
                 }
                 .foregroundStyle(.secondary)
 
                 if !ministry.church.isEmpty {
                     HStack(spacing: 4) {
-                        Image(systemName: "building.2").font(.system(size: 11))
-                        Text(ministry.church).font(.system(size: 12))
+                        Image(systemName: "building.2").font(.systemScaled(11))
+                        Text(ministry.church).font(.systemScaled(12))
                     }
                     .foregroundStyle(.secondary)
                 }
@@ -167,8 +167,8 @@ struct ConnectMinistriesView: View {
 
             if !ministry.meetingSchedule.isEmpty {
                 HStack(spacing: 4) {
-                    Image(systemName: "calendar").font(.system(size: 11))
-                    Text(ministry.meetingSchedule).font(.system(size: 12))
+                    Image(systemName: "calendar").font(.systemScaled(11))
+                    Text(ministry.meetingSchedule).font(.systemScaled(12))
                 }
                 .foregroundStyle(.secondary)
             }
@@ -177,7 +177,7 @@ struct ConnectMinistriesView: View {
                 joinMinistry(ministry)
             } label: {
                 Text("Join Group")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20).padding(.vertical, 8)
                     .background(Capsule().fill(accentOrange))
@@ -195,13 +195,13 @@ struct ConnectMinistriesView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "person.3.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary.opacity(0.4))
                 .padding(.top, 40)
             Text("No ministries yet")
-                .font(.system(size: 17, weight: .bold))
+                .font(.systemScaled(17, weight: .bold))
             Text("Ministry groups will appear here as churches create them.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -211,7 +211,7 @@ struct ConnectMinistriesView: View {
     // MARK: - Data
 
     private func loadMinistries() async {
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("ministries")
                 .order(by: "memberCount", descending: true)
@@ -231,9 +231,12 @@ struct ConnectMinistriesView: View {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task {
-            let db = Firestore.firestore()
+            lazy var db = Firestore.firestore()
+            // Store membership in a subcollection to avoid unbounded in-document array.
+            try? await db.collection("ministries").document(ministry.id)
+                .collection("members").document(uid)
+                .setData(["joinedAt": FieldValue.serverTimestamp()], merge: true)
             try? await db.collection("ministries").document(ministry.id).updateData([
-                "memberUIDs": FieldValue.arrayUnion([uid]),
                 "memberCount": FieldValue.increment(Int64(1))
             ])
         }

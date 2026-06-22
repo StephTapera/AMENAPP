@@ -34,7 +34,7 @@ struct MessagingPhotoPickerView: View {
                 ) {
                     VStack(spacing: 20) {
                         Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(.blue)
                         
                         VStack(spacing: 8) {
@@ -93,7 +93,7 @@ struct MessagingPhotoPickerView: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 24))
+                                .font(.systemScaled(24))
                                 .foregroundStyle(.white)
                                 .background(
                                     Circle()
@@ -242,7 +242,7 @@ struct ModernMessageBubble: View {
     private var deletedMessageView: some View {
         HStack(spacing: 8) {
             Image(systemName: "trash.slash")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
             
             Text("This message was deleted")
@@ -374,7 +374,7 @@ struct ModernMessageBubble: View {
                         .frame(width: 200, height: 200)
                         .overlay(
                             Image(systemName: "photo")
-                                .font(.system(size: 40))
+                                .font(.systemScaled(40))
                                 .foregroundStyle(.secondary)
                         )
                 }
@@ -398,7 +398,7 @@ struct ModernMessageBubble: View {
             ForEach(groupedReactions, id: \.emoji) { group in
                 HStack(spacing: 4) {
                     Text(group.emoji)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                     
                     if group.count > 1 {
                         Text("\(group.count)")
@@ -434,11 +434,11 @@ struct ModernMessageBubble: View {
             if message.isFromCurrentUser {
                 if message.isRead {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.blue)
                 } else {
                     Image(systemName: "checkmark.circle")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -564,7 +564,7 @@ struct NeumorphicSegmentedControl: View {
         HStack(spacing: 0) {
             ForEach(0..<options.count, id: \.self) { index in
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                         selectedIndex = index
                     }
                     
@@ -690,12 +690,12 @@ struct ModernChatInputBar: View {
                     }) {
                         HStack(spacing: 5) {
                             Image(systemName: canSend ? "arrow.up" : "mic.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .animation(.spring(response: 0.28, dampingFraction: 0.65), value: canSend)
                             if canSend {
                                 Text("Send")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                     .foregroundStyle(.white)
                                     .transition(.asymmetric(
                                         insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -747,7 +747,7 @@ struct ModernChatInputBar: View {
     private func attachButton(icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .regular))
+                .font(.systemScaled(18, weight: .regular))
                 .foregroundStyle(Color(.secondaryLabel))
                 .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
@@ -770,12 +770,12 @@ struct ModernChatInputBar: View {
                             )
                         
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 let _ = selectedImages.remove(at: index)
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.white)
                                 .background(
                                     Circle()
@@ -876,11 +876,11 @@ struct DiaChatView: View {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
-        .overlay(
+        .overlay {
             // Subtle noise texture
             Color.white.opacity(0.05)
                 .blendMode(.overlay)
-        )
+        }
     }
     
     // MARK: - Navigation Bar
@@ -892,7 +892,7 @@ struct DiaChatView: View {
                 // Handle back action
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
                     .background(
@@ -909,7 +909,7 @@ struct DiaChatView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Image(systemName: "bubble.left.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                     
                     Text(conversationTitle)
                         .font(.custom("OpenSans-Bold", size: 17))
@@ -930,7 +930,7 @@ struct DiaChatView: View {
                 // Handle menu
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
                     .background(
@@ -970,7 +970,7 @@ struct DiaChatView: View {
         guard !messageText.isEmpty else { return }
         
         // Create and send message
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+        withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
             messageText = ""
             selectedImages.removeAll()
         }
@@ -1024,7 +1024,7 @@ struct DiaActionButton: View {
                 Spacer()
                 
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 32, height: 32)
                     .background(
@@ -1073,6 +1073,8 @@ struct DiaEmptyStateView: View {
     let secondaryButtonTitle: String?
     let onPrimaryAction: () -> Void
     let onSecondaryAction: (() -> Void)?
+
+    @State private var selectedAttachment: PhotosPickerItem? = nil
     
     init(
         title: String = "Chat with your tabs",
@@ -1111,7 +1113,7 @@ struct DiaEmptyStateView: View {
                 // Logo
                 HStack(spacing: 8) {
                     Image(systemName: "bubble.left.fill")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.systemScaled(24, weight: .bold))
                     
                     Text("Dia")
                         .font(.custom("OpenSans-Bold", size: 32))
@@ -1184,16 +1186,16 @@ struct DiaEmptyStateView: View {
     private var demoInputBar: some View {
         HStack(spacing: 12) {
             // Plus button
-            Button {} label: {
+            PhotosPicker(selection: $selectedAttachment, matching: .images) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(.secondary)
             }
             
             // Input field
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.secondary)
                 
                 Text("Hey Dia...")
@@ -1240,7 +1242,7 @@ struct DiaEmptyStateView: View {
                 .frame(width: 44, height: 44)
                 .overlay(
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                 )
         }

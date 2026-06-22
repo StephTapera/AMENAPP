@@ -11,6 +11,17 @@
 
 import SwiftUI
 
+// MARK: - Notification names for CaughtUpCard redirect actions
+
+extension Notification.Name {
+    /// Posted when the user taps "Pray" on the CaughtUpCard.
+    /// HomeView observes this to switch the feed category to Prayer.
+    static let caughtUpOpenPrayer = Notification.Name("caughtUpOpenPrayer")
+    /// Posted when the user taps "Ask Berean" on the CaughtUpCard.
+    /// HomeView observes this to open the Berean assistant sheet.
+    static let caughtUpOpenBerean = Notification.Name("caughtUpOpenBerean")
+}
+
 // MARK: - Reflection prompts (shown 30% of the time)
 
 private let reflectionPrompts: [String] = [
@@ -41,12 +52,16 @@ struct CaughtUpCard: View {
 
             // Main text
             VStack(spacing: 8) {
-                Text("You're All Caught Up")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(.primary)
+                MaskedSlideUpText(
+                    "You're All Caught Up",
+                    font: .systemScaled(20, weight: .bold),
+                    color: Color(.label),
+                    delay: 0.12
+                )
+                .multilineTextAlignment(.center)
 
                 Text("You've seen all new posts from the past 3 days.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
@@ -59,10 +74,45 @@ struct CaughtUpCard: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
+            // Redirect action buttons — post NotificationCenter events observed by HomeView
+            HStack(spacing: 10) {
+                Button {
+                    NotificationCenter.default.post(name: .caughtUpOpenPrayer, object: nil)
+                } label: {
+                    Label("Pray", systemImage: "hands.sparkles.fill")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.35, green: 0.50, blue: 0.95))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .background(
+                            Capsule()
+                                .fill(Color(red: 0.35, green: 0.50, blue: 0.95).opacity(0.10))
+                                .overlay(Capsule().strokeBorder(Color(red: 0.35, green: 0.50, blue: 0.95).opacity(0.25), lineWidth: 1))
+                        )
+                }
+                .buttonStyle(CaughtUpPressStyle())
+
+                Button {
+                    NotificationCenter.default.post(name: .caughtUpOpenBerean, object: nil)
+                } label: {
+                    Label("Ask Berean", systemImage: "sparkles")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.55, green: 0.30, blue: 0.90))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .background(
+                            Capsule()
+                                .fill(Color(red: 0.55, green: 0.30, blue: 0.90).opacity(0.10))
+                                .overlay(Capsule().strokeBorder(Color(red: 0.55, green: 0.30, blue: 0.90).opacity(0.25), lineWidth: 1))
+                        )
+                }
+                .buttonStyle(CaughtUpPressStyle())
+            }
+
             // CTA
             Button(action: onViewOlder) {
                 Text("View older posts")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
@@ -93,7 +143,7 @@ struct CaughtUpCard: View {
         .scaleEffect(appeared ? 1 : 0.92)
         .blur(radius: appeared ? 0 : 6)
         .onAppear {
-            withAnimation(.spring(response: 0.48, dampingFraction: 0.78).delay(0.08)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.48, dampingFraction: 0.78)).delay(0.08)) {
                 appeared = true
             }
             if shouldShowReflection() {
@@ -105,11 +155,11 @@ struct CaughtUpCard: View {
     private func reflectionCard(_ prompt: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "leaf.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(red: 0.22, green: 0.62, blue: 0.42))
 
             Text(prompt)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.primary)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -165,7 +215,7 @@ struct AnimatedCheckRing: View {
 
             // Checkmark
             Image(systemName: "checkmark")
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color(red: 0.28, green: 0.72, blue: 0.50),
@@ -183,7 +233,7 @@ struct AnimatedCheckRing: View {
                 ringProgress = 1.0
             }
             // Then pop the check
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.6).delay(0.50)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.6)).delay(0.50)) {
                 checkOpacity = 1.0
                 checkScale = 1.0
             }
@@ -240,15 +290,15 @@ private func nudgeBanner(
 ) -> some View {
     HStack(spacing: 12) {
         Image(systemName: icon)
-            .font(.system(size: 14, weight: .semibold))
+            .font(.systemScaled(14, weight: .semibold))
             .foregroundStyle(.secondary)
 
         VStack(alignment: .leading, spacing: 1) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.primary)
             Text(subtitle)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
 
@@ -257,7 +307,7 @@ private func nudgeBanner(
         if let dismiss = onDismiss {
             Button(action: dismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: 24, height: 24)
                     .background(Color(.tertiarySystemFill), in: Circle())
@@ -311,6 +361,85 @@ extension View {
     /// Mark a post as seen after it has been continuously visible for 1.5 seconds.
     func trackPostVisibility(postId: String, onSeen: @escaping (String) -> Void) -> some View {
         modifier(PostVisibilityTracker(postId: postId, onSeen: onSeen))
+    }
+    
+    /// Track post visibility continuously for intelligent caught-up banner
+    func trackPostVisibilityForBanner(postId: String, onChange: @escaping (String, CGFloat, TimeInterval) -> Void) -> some View {
+        modifier(PostVisibilityTrackerForBanner(postId: postId, onChange: onChange))
+    }
+}
+
+// MARK: - Intelligent Banner Visibility Tracker
+
+/// Continuously tracks visibility percentage and dwell time for intelligent banner eligibility
+struct PostVisibilityTrackerForBanner: ViewModifier {
+    let postId: String
+    var onChange: (String, CGFloat, TimeInterval) -> Void
+    
+    @State private var visibilityRatio: CGFloat = 0
+    @State private var visibilityStartTime: Date?
+    @State private var updateTimer: Timer?
+    
+    func body(content: Content) -> some View {
+        content
+            .background(
+                GeometryReader { geometry in
+                    Color.clear
+                        .preference(key: VisibilityPreferenceKey.self, value: geometry.frame(in: .global))
+                }
+            )
+            .onPreferenceChange(VisibilityPreferenceKey.self) { frame in
+                updateVisibility(frame: frame)
+            }
+            .onAppear {
+                visibilityStartTime = Date()
+                startUpdateTimer()
+            }
+            .onDisappear {
+                stopUpdateTimer()
+                visibilityStartTime = nil
+            }
+    }
+    
+    private func updateVisibility(frame: CGRect) {
+        let screenHeight = ScreenMetrics.bounds.height
+        let visibleHeight = min(frame.maxY, screenHeight) - max(frame.minY, 0)
+        let totalHeight = frame.height
+        
+        guard totalHeight > 0 else {
+            visibilityRatio = 0
+            return
+        }
+        
+        visibilityRatio = max(0, min(1, visibleHeight / totalHeight))
+        
+        // Notify about visibility change with current dwell time
+        if let startTime = visibilityStartTime {
+            let dwell = Date().timeIntervalSince(startTime)
+            onChange(postId, visibilityRatio, dwell)
+        }
+    }
+    
+    private func startUpdateTimer() {
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            // Periodically update dwell time even if visibility hasn't changed
+            if let startTime = visibilityStartTime, visibilityRatio > 0 {
+                let dwell = Date().timeIntervalSince(startTime)
+                onChange(postId, visibilityRatio, dwell)
+            }
+        }
+    }
+    
+    private func stopUpdateTimer() {
+        updateTimer?.invalidate()
+        updateTimer = nil
+    }
+}
+
+private struct VisibilityPreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
     }
 }
 

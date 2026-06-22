@@ -19,9 +19,17 @@
 
 import Foundation
 import UIKit
+import CryptoKit
 import FirebaseFirestore
 import FirebaseAuth
 import FirebaseAnalytics
+
+/// One-way truncated hash for analytics — lets us correlate events for the same
+/// user without storing a recoverable UID in any analytics pipeline.
+private func uidHash(_ uid: String) -> String {
+    let digest = SHA256.hash(data: Data(uid.utf8))
+    return digest.compactMap { String(format: "%02x", $0) }.joined().prefix(16).description
+}
 
 // MARK: - Analytics Event
 
@@ -46,6 +54,28 @@ enum AMENAnalyticsEvent {
     case bereanSourceTapped(sourceType: String)
     case bereanFollowUpUsed
     case bereanMessageSaved
+    case bereanFeatureFlagBlocked(feature: String)
+    case bereanStudyActionStarted(action: String)
+    case bereanStudyActionCompleted(action: String)
+    case bereanProviderFailure(reason: String)
+    case bereanSafetyRewrite(trigger: String)
+    case bereanSelahSaveStarted(entryType: String)
+    case bereanSelahSaveCompleted(entryType: String)
+    case bereanChurchNoteSaveStarted
+    case bereanChurchNoteSaveCompleted
+    case bereanSmartPillTapped(pill: String)
+    case bereanScriptureContextOpened
+    case bereanHumanSupportSuggested(context: String)
+    case bereanResearchViewOpened
+    case bereanTheoLensSelected(lens: String)
+    case bereanRateLimitHit(surface: String)
+    case bereanDailyQuotaHit(tier: String)
+    case bereanPremiumGateHit(requestedMode: String, surface: String)
+    case bereanModelDowngraded(requestedMode: String, grantedMode: String, tier: String)
+    case bereanCrisisEscalationDetected(surface: String)
+    case bereanTheologyBoundaryViolation(surface: String)
+    case bereanSafetyOutputRewritten(violationCount: Int)
+    case bereanAppCheckFailure(surface: String)
 
     // Spiritual Check-In
     case checkInShown(tier: Int)
@@ -61,6 +91,17 @@ enum AMENAnalyticsEvent {
     case churchFirstVisitGuideOpened
     case churchPreferenceOnboardingCompleted
 
+    // Church Study Companion
+    case churchStudyCompanionOpened(source: String)
+    case churchNotesStartedFromChurch
+    case scriptureAddedToChurchNote(source: String)
+    case selahVerseAddedToChurchNotes
+    case churchStudySessionStarted(source: String)
+    case afterServiceReflectionStarted
+    case afterServiceReflectionSaved
+    case prayerVisibilitySelected(visibility: String)
+    case churchContextAttachedToNote
+
     // Knowledge Graph
     case relatedContentShown(nodeType: String)
     case relatedContentTapped(nodeType: String)
@@ -70,6 +111,127 @@ enum AMENAnalyticsEvent {
     case studioProfileViewed
     case studioInquirySent
     case studioJobApplied
+
+    // Account
+    case accountTypeSelected(type: String)
+
+    // Media Feed Mode
+    case mediaModeSwitched(toMode: String)
+    case mediaGridTileOpened(postId: String)
+    case mediaDetailClosed
+    case mediaDetailJumpedToPost(postId: String)
+    case mediaGridEmptyStateViewed
+    case mediaFilterChanged(filter: String)
+
+    // Suggested Accounts
+    case suggestionImpression(suggestedUserId: String, position: Int, reasonType: String)
+    case suggestionFollowTap(suggestedUserId: String, position: Int)
+    case suggestionFollowSuccess(suggestedUserId: String)
+    case suggestionFollowFailure(suggestedUserId: String)
+    case suggestionProfileOpen(suggestedUserId: String)
+    case suggestionDismiss(suggestedUserId: String)
+    case suggestionsRailSeen(count: Int)
+    case suggestionsModuleHidden
+    case suggestionsModuleRestored
+    case suggestionPeekOpen(suggestedUserId: String, surface: String)
+    case suggestionPeekExpand(suggestedUserId: String, surface: String)
+    case suggestionFullProfileOpen(suggestedUserId: String, surface: String)
+    case suggestionRailHidden(surface: String)
+    case suggestionRailRestored(surface: String)
+    case suggestionShowFewer(surface: String)
+    case suggestionWhyShown(surface: String)
+
+    // Profile Mini
+    case profileMiniUnfollowTap(userId: String, surface: String)
+    case profileMiniMessageTap(userId: String, surface: String, viewerId: String)
+    case profileMiniMessageBlocked(userId: String, surface: String)
+    case profileMiniPrimaryCTATap(userId: String, surface: String, ctaType: String)
+    case profileMiniSecondaryCTATap(userId: String, surface: String, ctaType: String)
+    case profileMiniSaveSuggestion(userId: String, surface: String)
+    case profileMiniSeeSimilar(userId: String, surface: String)
+    case profileMiniShare(userId: String, surface: String)
+    case profileMiniUndoHide(userId: String, surface: String)
+    case profileMiniOverflowTapped(userId: String, surface: String)
+
+    // Content Rendering
+    case contentNodeRendered(type: String)
+
+    // Creation Hub
+    case creationIntentSelected(intent: String)
+    case createHubOpened
+
+    // Discover
+    case discoverView
+    case discoverFeedLoaded(count: Int)
+    case discoverEmptyStateSeen
+    case discoverErrorSeen(message: String)
+    case discoverFilterChanged(filter: String)
+    case discoverDetailOpened(itemType: String)
+    case discoverItemTapped(itemType: String)
+    case discoverWhyThisOpened
+    case discoverFeedbackSubmitted(type: String)
+
+    // Messaging Search
+    case messageSearchOpened(surface: String)
+    case messageThreadFilterSelected(filter: String)
+    case messageSearchResultTapped(surface: String, kind: String)
+    case messageSearchSubmitted(surface: String, hasResults: Bool, resultBuckets: Int)
+
+    // Voice Prayer
+    case voiceCommentReacted(postId: String, reaction: String)
+    case voiceCommentRecordStarted(postId: String, type: String)
+    case voiceCommentProcessingStarted(postId: String)
+    case voiceCommentEntryTapped(postId: String, type: String)
+    case voiceCommentReported(postId: String)
+    case voiceCommentDeleted(postId: String)
+    case voiceCommentPreviewPlayed(postId: String)
+    case voiceCommentSubmitted(postId: String, type: String)
+    case voiceCommentRecordCancelled(postId: String, type: String)
+    case voiceCommentTranscriptReady(postId: String)
+    case voiceCommentPublished(postId: String, type: String, durationMs: Int)
+    case voiceCommentHeldForReview(postId: String)
+    case voiceCommentBlocked(postId: String)
+    case voiceCommentVisibilityChanged(postId: String, visibility: String)
+
+    // Walk With Christ
+    case walkWithChristOpened
+    case walkWithChristOnboardingCompleted(path: String)
+    case walkWithChristSeasonSelected(season: String)
+    case walkWithChristBereanLaunched(sourceSurface: String)
+    case walkWithChristApplicationStepCompleted(stepIndex: Int)
+    case walkWithChristFollowThroughPlanCreated(area: String, frequency: String)
+    case walkWithChristFollowThroughCompleted(planId: String, streakDays: Int)
+    case walkWithChristReminderEnabled
+
+    // Subscription
+    case manageSubscriptionOpened(surface: String)
+
+    // Drafts
+    case draftRestored(type: String)
+    case draftSaved(type: String)
+    case draftDeleted(type: String)
+    case draftPublished(type: String)
+
+    // Daily Digest
+    case amenDailyDigestLoaded(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+    case amenDailyWeatherShown(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+    case amenDailyHolidayShown(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+    case amenDailyDigestFallbackUsed(dateKey: String, priority: String, hasWeather: Bool, hasHoliday: Bool, source: String)
+
+    // Video Explain AI
+    case videoExplainTapped(postId: String, mediaId: String, surface: String)
+    case aiGenerationStarted(feature: String, postId: String)
+    case aiGenerationCompleted(feature: String, postId: String, durationMs: Int)
+    case aiGenerationFailed(feature: String, postId: String, reason: String)
+
+    // Communication OS
+    case commOSActionTapped(actionKey: String)
+    case commOSContactNoteSaved
+    case commOSCreatorDraftRequested(draftType: String)
+
+    // Content Creation
+    case commentSubmitted(postId: String)
+    case postCreated(hasMedia: Bool, hasScripture: Bool)
 
     var name: String {
         switch self {
@@ -88,6 +250,28 @@ enum AMENAnalyticsEvent {
         case .bereanSourceTapped: return "berean_source_tapped"
         case .bereanFollowUpUsed: return "berean_follow_up_used"
         case .bereanMessageSaved: return "berean_message_saved"
+        case .bereanFeatureFlagBlocked: return "berean_feature_flag_blocked"
+        case .bereanStudyActionStarted: return "berean_study_action_started"
+        case .bereanStudyActionCompleted: return "berean_study_action_completed"
+        case .bereanProviderFailure: return "berean_provider_failure"
+        case .bereanSafetyRewrite: return "berean_safety_rewrite"
+        case .bereanSelahSaveStarted: return "berean_selah_save_started"
+        case .bereanSelahSaveCompleted: return "berean_selah_save_completed"
+        case .bereanChurchNoteSaveStarted: return "berean_church_note_save_started"
+        case .bereanChurchNoteSaveCompleted: return "berean_church_note_save_completed"
+        case .bereanSmartPillTapped: return "berean_smart_pill_tapped"
+        case .bereanScriptureContextOpened: return "berean_scripture_context_opened"
+        case .bereanHumanSupportSuggested: return "berean_human_support_suggested"
+        case .bereanResearchViewOpened: return "berean_research_view_opened"
+        case .bereanTheoLensSelected: return "berean_theo_lens_selected"
+        case .bereanRateLimitHit: return "berean_rate_limit_hit"
+        case .bereanDailyQuotaHit: return "berean_daily_quota_hit"
+        case .bereanPremiumGateHit: return "berean_premium_gate_hit"
+        case .bereanModelDowngraded: return "berean_model_downgraded"
+        case .bereanCrisisEscalationDetected: return "berean_crisis_escalation_detected"
+        case .bereanTheologyBoundaryViolation: return "berean_theology_boundary_violation"
+        case .bereanSafetyOutputRewritten: return "berean_safety_output_rewritten"
+        case .bereanAppCheckFailure: return "berean_app_check_failure"
         case .checkInShown: return "check_in_shown"
         case .checkInEngaged: return "check_in_engaged"
         case .checkInDismissed: return "check_in_dismissed"
@@ -98,12 +282,110 @@ enum AMENAnalyticsEvent {
         case .churchDirectionsTapped: return "church_directions_tapped"
         case .churchFirstVisitGuideOpened: return "church_first_visit_guide_opened"
         case .churchPreferenceOnboardingCompleted: return "church_preference_onboarding_completed"
+        case .churchStudyCompanionOpened: return "church_study_companion_opened"
+        case .churchNotesStartedFromChurch: return "church_notes_started_from_church"
+        case .scriptureAddedToChurchNote: return "scripture_added_to_church_note"
+        case .selahVerseAddedToChurchNotes: return "selah_verse_added_to_church_notes"
+        case .churchStudySessionStarted: return "church_study_session_started"
+        case .afterServiceReflectionStarted: return "after_service_reflection_started"
+        case .afterServiceReflectionSaved: return "after_service_reflection_saved"
+        case .prayerVisibilitySelected: return "prayer_visibility_selected"
+        case .churchContextAttachedToNote: return "church_context_attached_to_note"
         case .relatedContentShown: return "related_content_shown"
         case .relatedContentTapped: return "related_content_tapped"
         case .topicFollowed: return "topic_followed"
         case .studioProfileViewed: return "studio_profile_viewed"
         case .studioInquirySent: return "studio_inquiry_sent"
         case .studioJobApplied: return "studio_job_applied"
+        case .accountTypeSelected: return "account_type_selected"
+        case .mediaModeSwitched: return "media_mode_switched"
+        case .mediaGridTileOpened: return "media_grid_tile_opened"
+        case .mediaDetailClosed: return "media_detail_closed"
+        case .mediaDetailJumpedToPost: return "media_detail_jumped_to_post"
+        case .mediaGridEmptyStateViewed: return "media_grid_empty_state_viewed"
+        case .mediaFilterChanged: return "media_filter_changed"
+        case .suggestionImpression: return "suggestion_impression"
+        case .suggestionFollowTap: return "suggestion_follow_tap"
+        case .suggestionFollowSuccess: return "suggestion_follow_success"
+        case .suggestionFollowFailure: return "suggestion_follow_failure"
+        case .suggestionProfileOpen: return "suggestion_profile_open"
+        case .suggestionDismiss: return "suggestion_dismiss"
+        case .suggestionsRailSeen: return "suggestions_rail_seen"
+        case .suggestionsModuleHidden: return "suggestions_module_hidden"
+        case .suggestionsModuleRestored: return "suggestions_module_restored"
+        case .suggestionPeekOpen: return "suggestion_peek_open"
+        case .suggestionPeekExpand: return "suggestion_peek_expand"
+        case .suggestionFullProfileOpen: return "suggestion_full_profile_open"
+        case .suggestionRailHidden: return "suggestion_rail_hidden"
+        case .suggestionRailRestored: return "suggestion_rail_restored"
+        case .suggestionShowFewer: return "suggestion_show_fewer"
+        case .suggestionWhyShown: return "suggestion_why_shown"
+        case .profileMiniUnfollowTap: return "profile_mini_unfollow_tap"
+        case .profileMiniMessageTap: return "profile_mini_message_tap"
+        case .profileMiniMessageBlocked: return "profile_mini_message_blocked"
+        case .profileMiniPrimaryCTATap: return "profile_mini_primary_cta_tap"
+        case .profileMiniSecondaryCTATap: return "profile_mini_secondary_cta_tap"
+        case .profileMiniSaveSuggestion: return "profile_mini_save_suggestion"
+        case .profileMiniSeeSimilar: return "profile_mini_see_similar"
+        case .profileMiniShare: return "profile_mini_share"
+        case .profileMiniUndoHide: return "profile_mini_undo_hide"
+        case .profileMiniOverflowTapped: return "profile_mini_overflow_tapped"
+        case .contentNodeRendered: return "content_node_rendered"
+        case .creationIntentSelected: return "creation_intent_selected"
+        case .createHubOpened: return "create_hub_opened"
+        case .discoverView: return "discover_view"
+        case .discoverFeedLoaded: return "discover_feed_loaded"
+        case .discoverEmptyStateSeen: return "discover_empty_state_seen"
+        case .discoverErrorSeen: return "discover_error_seen"
+        case .discoverFilterChanged: return "discover_filter_changed"
+        case .discoverDetailOpened: return "discover_detail_opened"
+        case .discoverItemTapped: return "discover_item_tapped"
+        case .discoverWhyThisOpened: return "discover_why_this_opened"
+        case .discoverFeedbackSubmitted: return "discover_feedback_submitted"
+        case .voiceCommentReacted: return "voice_comment_reacted"
+        case .voiceCommentRecordStarted: return "voice_comment_record_started"
+        case .voiceCommentProcessingStarted: return "voice_comment_processing_started"
+        case .voiceCommentEntryTapped: return "voice_comment_entry_tapped"
+        case .voiceCommentReported: return "voice_comment_reported"
+        case .voiceCommentDeleted: return "voice_comment_deleted"
+        case .voiceCommentPreviewPlayed: return "voice_comment_preview_played"
+        case .voiceCommentSubmitted: return "voice_comment_submitted"
+        case .voiceCommentRecordCancelled: return "voice_comment_record_cancelled"
+        case .voiceCommentTranscriptReady: return "voice_comment_transcript_ready"
+        case .voiceCommentPublished: return "voice_comment_published"
+        case .voiceCommentHeldForReview: return "voice_comment_held_for_review"
+        case .voiceCommentBlocked: return "voice_comment_blocked"
+        case .voiceCommentVisibilityChanged: return "voice_comment_visibility_changed"
+        case .walkWithChristOpened: return "walk_with_christ_opened"
+        case .walkWithChristOnboardingCompleted: return "walk_with_christ_onboarding_completed"
+        case .walkWithChristSeasonSelected: return "walk_with_christ_season_selected"
+        case .walkWithChristBereanLaunched: return "walk_with_christ_berean_launched"
+        case .walkWithChristApplicationStepCompleted: return "walk_with_christ_application_step_completed"
+        case .walkWithChristFollowThroughPlanCreated: return "walk_with_christ_follow_through_plan_created"
+        case .walkWithChristFollowThroughCompleted: return "walk_with_christ_follow_through_completed"
+        case .walkWithChristReminderEnabled: return "walk_with_christ_reminder_enabled"
+        case .messageSearchOpened: return "message_search_opened"
+        case .messageThreadFilterSelected: return "message_thread_filter_selected"
+        case .messageSearchResultTapped: return "message_search_result_tapped"
+        case .messageSearchSubmitted: return "message_search_submitted"
+        case .manageSubscriptionOpened: return "manage_subscription_opened"
+        case .draftRestored: return "draft_restored"
+        case .draftSaved: return "draft_saved"
+        case .draftDeleted: return "draft_deleted"
+        case .draftPublished: return "draft_published"
+        case .amenDailyDigestLoaded: return "amen_daily_digest_loaded"
+        case .amenDailyWeatherShown: return "amen_daily_weather_shown"
+        case .amenDailyHolidayShown: return "amen_daily_holiday_shown"
+        case .amenDailyDigestFallbackUsed: return "amen_daily_digest_fallback_used"
+        case .videoExplainTapped: return "video_explain_tapped"
+        case .aiGenerationStarted: return "ai_generation_started"
+        case .aiGenerationCompleted: return "ai_generation_completed"
+        case .aiGenerationFailed: return "ai_generation_failed"
+        case .commOSActionTapped: return "comm_os_action_tapped"
+        case .commOSContactNoteSaved: return "comm_os_contact_note_saved"
+        case .commOSCreatorDraftRequested: return "comm_os_creator_draft_requested"
+        case .commentSubmitted: return "comment_submitted"
+        case .postCreated: return "post_created"
         }
     }
 
@@ -127,6 +409,138 @@ enum AMENAnalyticsEvent {
             return ["node_type": type]
         case .topicFollowed(let slug):
             return ["topic_slug": slug]
+        case .churchStudyCompanionOpened(let source):
+            return ["source": source]
+        case .scriptureAddedToChurchNote(let source):
+            return ["source": source]
+        case .churchStudySessionStarted(let source):
+            return ["source": source]
+        case .prayerVisibilitySelected(let visibility):
+            return ["visibility": visibility]
+        case .accountTypeSelected(let type):
+            return ["account_type": type]
+        case .mediaModeSwitched(let mode):
+            return ["to_mode": mode]
+        case .mediaGridTileOpened(let postId):
+            return ["post_id": postId]
+        case .mediaDetailJumpedToPost(let postId):
+            return ["post_id": postId]
+        case .mediaFilterChanged(let filter):
+            return ["filter": filter]
+        case .suggestionImpression(let userId, let position, let reason):
+            return ["suggested_user_id": uidHash(userId), "position": position, "reason_type": reason]
+        case .suggestionFollowTap(let userId, let position):
+            return ["suggested_user_id": uidHash(userId), "position": position]
+        case .suggestionFollowSuccess(let userId):
+            return ["suggested_user_id": uidHash(userId)]
+        case .suggestionFollowFailure(let userId):
+            return ["suggested_user_id": uidHash(userId)]
+        case .suggestionProfileOpen(let userId):
+            return ["suggested_user_id": uidHash(userId)]
+        case .suggestionDismiss(let userId):
+            return ["suggested_user_id": uidHash(userId)]
+        case .suggestionsRailSeen(let count):
+            return ["suggestion_count": count]
+        case .suggestionPeekOpen(let userId, let surface):
+            return ["suggested_user_id": uidHash(userId), "surface": surface]
+        case .suggestionPeekExpand(let userId, let surface):
+            return ["suggested_user_id": uidHash(userId), "surface": surface]
+        case .suggestionFullProfileOpen(let userId, let surface):
+            return ["suggested_user_id": uidHash(userId), "surface": surface]
+        case .suggestionRailHidden(let surface):
+            return ["surface": surface]
+        case .suggestionRailRestored(let surface):
+            return ["surface": surface]
+        case .suggestionShowFewer(let surface):
+            return ["surface": surface]
+        case .suggestionWhyShown(let surface):
+            return ["surface": surface]
+        case .bereanFeatureFlagBlocked(let feature):
+            return ["feature": feature]
+        case .bereanStudyActionStarted(let action):
+            return ["action": action]
+        case .bereanStudyActionCompleted(let action):
+            return ["action": action]
+        case .bereanProviderFailure(let reason):
+            return ["reason": reason]
+        case .bereanSafetyRewrite(let trigger):
+            return ["trigger": trigger]
+        case .bereanSelahSaveStarted(let entryType):
+            return ["entry_type": entryType]
+        case .bereanSelahSaveCompleted(let entryType):
+            return ["entry_type": entryType]
+        case .bereanSmartPillTapped(let pill):
+            return ["pill": pill]
+        case .bereanHumanSupportSuggested(let context):
+            return ["context": context]
+        case .bereanRateLimitHit(let surface):
+            return ["surface": surface]
+        case .bereanDailyQuotaHit(let tier):
+            return ["tier": tier]
+        case .bereanPremiumGateHit(let requestedMode, let surface):
+            return ["requested_mode": requestedMode, "surface": surface]
+        case .bereanModelDowngraded(let requestedMode, let grantedMode, let tier):
+            return ["requested_mode": requestedMode, "granted_mode": grantedMode, "tier": tier]
+        case .bereanCrisisEscalationDetected(let surface):
+            return ["surface": surface]
+        case .bereanTheologyBoundaryViolation(let surface):
+            return ["surface": surface]
+        case .bereanSafetyOutputRewritten(let violationCount):
+            return ["violation_count": violationCount]
+        case .bereanAppCheckFailure(let surface):
+            return ["surface": surface]
+        case .voiceCommentReacted(let postId, let reaction):
+            return ["post_id": postId, "reaction": reaction]
+        case .voiceCommentRecordStarted(let postId, let type):
+            return ["post_id": postId, "type": type]
+        case .voiceCommentProcessingStarted(let postId):
+            return ["post_id": postId]
+        case .voiceCommentEntryTapped(let postId, let type):
+            return ["post_id": postId, "type": type]
+        case .voiceCommentReported(let postId):
+            return ["post_id": postId]
+        case .voiceCommentDeleted(let postId):
+            return ["post_id": postId]
+        case .voiceCommentPreviewPlayed(let postId):
+            return ["post_id": postId]
+        case .voiceCommentSubmitted(let postId, let type):
+            return ["post_id": postId, "type": type]
+        case .voiceCommentRecordCancelled(let postId, let type):
+            return ["post_id": postId, "type": type]
+        case .voiceCommentTranscriptReady(let postId):
+            return ["post_id": postId]
+        case .voiceCommentPublished(let postId, let type, let durationMs):
+            return ["post_id": postId, "type": type, "duration_ms": durationMs]
+        case .voiceCommentHeldForReview(let postId):
+            return ["post_id": postId]
+        case .voiceCommentBlocked(let postId):
+            return ["post_id": postId]
+        case .voiceCommentVisibilityChanged(let postId, let visibility):
+            return ["post_id": postId, "visibility": visibility]
+        case .walkWithChristOnboardingCompleted(let path):
+            return ["path": path]
+        case .walkWithChristSeasonSelected(let season):
+            return ["season": season]
+        case .walkWithChristBereanLaunched(let sourceSurface):
+            return ["source_surface": sourceSurface]
+        case .walkWithChristApplicationStepCompleted(let stepIndex):
+            return ["step_index": stepIndex]
+        case .walkWithChristFollowThroughPlanCreated(let area, let frequency):
+            return ["practice_area": area, "frequency": frequency]
+        case .walkWithChristFollowThroughCompleted(let planId, let streakDays):
+            return ["plan_id": planId, "streak_days": streakDays]
+        case .contentNodeRendered(let type):
+            return ["node_type": type]
+        case .creationIntentSelected(let intent):
+            return ["intent": intent]
+        case .commOSActionTapped(let actionKey):
+            return ["action_key": actionKey]
+        case .commOSCreatorDraftRequested(let draftType):
+            return ["draft_type": draftType]
+        case .commentSubmitted(let postId):
+            return ["post_id": postId]
+        case .postCreated(let hasMedia, let hasScripture):
+            return ["has_media": hasMedia, "has_scripture": hasScripture]
         default:
             return [:]
         }
@@ -140,8 +554,21 @@ final class AMENAnalyticsService {
 
     static let shared = AMENAnalyticsService()
 
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private let flags = AMENFeatureFlags.shared
+
+    // P2 FIX: Session ID — a UUID generated fresh on each app foreground session.
+    // Threaded through all events so the analytics backend can reconstruct a full
+    // user session funnel (e.g. feed_session_started → berean_session_started →
+    // feed_meaningful_interaction) without relying on timestamp proximity alone.
+    private(set) var sessionId: String = UUID().uuidString
+
+    /// Call this when the app moves to foreground (scenePhase == .active) to start
+    /// a fresh session. Events fired before this retain the prior session ID.
+    func startNewSession() {
+        sessionId = UUID().uuidString
+        dlog("📊 Analytics: new session \(sessionId.prefix(8))…")
+    }
 
     // In-memory buffer for batching (flush every 30s or 20 events).
     // Hard cap at 200 events: if Firestore writes fail repeatedly and the buffer
@@ -149,15 +576,40 @@ final class AMENAnalyticsService {
     private var eventBuffer: [(name: String, props: [String: Any], ts: Date)] = []
     private static let maxBufferSize = 200
     private var flushTask: Task<Void, Never>?
+    private var notificationTokens: [NSObjectProtocol] = []
+
+    // MARK: - User Opt-Out (GDPR Article 21)
+
+    /// UserDefaults key for the user's analytics opt-out preference.
+    static let analyticsOptOutKey = "amen.analyticsOptOut"
+
+    /// True when the current user has opted out of analytics collection.
+    var isUserOptedOut: Bool {
+        UserDefaults.standard.bool(forKey: Self.analyticsOptOutKey)
+    }
+
+    /// Set the user's analytics opt-out preference.
+    /// Also toggles Firebase Analytics collection immediately.
+    func setAnalyticsOptOut(_ optOut: Bool) {
+        UserDefaults.standard.set(optOut, forKey: Self.analyticsOptOutKey)
+        Analytics.setAnalyticsCollectionEnabled(!optOut)
+        dlog("📊 Analytics collection \(optOut ? "DISABLED" : "ENABLED") by user preference")
+    }
 
     private init() {
+        // Apply stored opt-out preference on launch
+        let storedOptOut = UserDefaults.standard.bool(forKey: Self.analyticsOptOutKey)
+        if storedOptOut {
+            Analytics.setAnalyticsCollectionEnabled(false)
+        }
+
         schedulePeriodicFlush()
 
         // P1 FIX: Flush buffered Firestore events before the app is suspended.
         // Previously, events batched just before backgrounding were lost if the
         // process was terminated. Firebase Analytics events are already durable
         // (the SDK queues them), so this only applies to the Firestore secondary write.
-        NotificationCenter.default.addObserver(
+        let bgToken = NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
             object: nil,
             queue: .main
@@ -166,17 +618,26 @@ final class AMENAnalyticsService {
                 await self?.flush()
             }
         }
+        notificationTokens.append(bgToken)
+    }
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     // MARK: - Track
 
     func track(_ event: AMENAnalyticsEvent) {
-        guard flags.analyticsEnabled else { return }
+        guard flags.analyticsEnabled, !isUserOptedOut else { return }
 
         // P1 FIX: Fire to Firebase Analytics immediately — events are durable and
         // survive sign-out and process termination. The Firestore batch write below
         // is secondary (for custom dashboards) and requires a signed-in user.
-        let params = event.properties.isEmpty ? nil : event.properties
+        // P2 FIX: Thread sessionId through every event so the backend can reconstruct
+        // complete user sessions without relying on timestamp proximity.
+        var enriched = event.properties
+        enriched["session_id"] = sessionId
+        let params: [String: Any]? = enriched.isEmpty ? nil : enriched
         Analytics.logEvent(event.name, parameters: params)
 
         // Buffer for secondary Firestore write (requires auth).
@@ -185,7 +646,7 @@ final class AMENAnalyticsService {
         if eventBuffer.count >= Self.maxBufferSize {
             eventBuffer.removeFirst()
         }
-        eventBuffer.append((event.name, event.properties, Date()))
+        eventBuffer.append((event.name, enriched, Date()))
         if eventBuffer.count >= 20 {
             Task { await flush() }
         }

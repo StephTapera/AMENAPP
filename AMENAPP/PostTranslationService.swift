@@ -27,8 +27,14 @@ class PostTranslationService: ObservableObject {
     @Published var isTranslating = false
     @Published var translationCache: [String: CachedTranslation] = [:]
 
-    private let db = Firestore.firestore()
-    let deviceLanguage: String = Locale.current.language.languageCode?.identifier ?? "en"
+    private lazy var db = Firestore.firestore()
+    let deviceLanguage: String = {
+        if #available(iOS 16, *) {
+            return Locale.current.language.languageCode?.identifier ?? "en"
+        } else {
+            return Locale.current.languageCode ?? "en"
+        }
+    }()
 
     struct CachedTranslation: Codable {
         let originalText: String
@@ -77,6 +83,13 @@ class PostTranslationService: ObservableObject {
     /// Falls back to the original text if the language pair is unsupported or the
     /// model download fails.
     func translateText(_ text: String, from sourceLanguage: String, to targetLanguage: String) async throws -> String {
+        // Translation framework requires iOS 18+
+        guard #available(iOS 18, *) else {
+            throw NSError(domain: "PostTranslationService", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Translation requires iOS 18 or later"
+            ])
+        }
+        
         // 1. In-memory cache hit
         let cacheKey = "\(sourceLanguage)_\(targetLanguage)_\(text.hashValue)"
         if let cached = translationCache[cacheKey],
@@ -85,16 +98,34 @@ class PostTranslationService: ObservableObject {
         }
 
         // 2. Apple Translation session — headless (no SwiftUI view needed).
-        // init(installedSource:target:) requires on-device language models; throws if not installed.
+        // Check LanguageAvailability first; init(installedSource:target:) only works
+        // with pre-downloaded models.
         let sourceLang = Locale.Language(identifier: sourceLanguage)
         let targetLang = Locale.Language(identifier: targetLanguage)
+
+        let availability = LanguageAvailability()
+        let status = await availability.status(from: sourceLang, to: targetLang)
+
+        guard status == .installed else {
+            throw NSError(domain: "PostTranslationService", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: status == .supported
+                    ? "Language models not downloaded yet. Use .translationTask() to prompt download."
+                    : "Language pair \(sourceLanguage) → \(targetLanguage) is unsupported."
+            ])
+        }
 
         let translated: String = try await withCheckedThrowingContinuation { continuation in
             Task { @MainActor in
                 do {
-                    let session = TranslationSession(installedSource: sourceLang, target: targetLang)
-                    let response = try await session.translate(text)
-                    continuation.resume(returning: response.targetText)
+                    if #available(iOS 26, *) {
+                        let session = TranslationSession(installedSource: sourceLang, target: targetLang)
+                        let response = try await session.translate(text)
+                        continuation.resume(returning: response.targetText)
+                    } else {
+                        continuation.resume(throwing: NSError(domain: "PostTranslationService", code: 3, userInfo: [
+                            NSLocalizedDescriptionKey: "Headless translation session requires iOS 26."
+                        ]))
+                    }
                 } catch {
                     continuation.resume(throwing: error)
                 }

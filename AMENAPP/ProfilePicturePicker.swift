@@ -26,9 +26,9 @@ struct ProfilePicturePicker: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(red: 0.08, green: 0.08, blue: 0.08)
+                Color(.systemBackground)
                     .ignoresSafeArea()
-                
+
                 VStack(spacing: 32) {
                     if let selectedImage {
                         // Preview
@@ -39,17 +39,17 @@ struct ProfilePicturePicker: View {
                             .clipShape(Circle())
                             .overlay(
                                 Circle()
-                                    .stroke(
+                                    .strokeBorder(
                                         LinearGradient(
-                                            colors: [Color.orange, Color(red: 1.0, green: 0.6, blue: 0.2)],
+                                            colors: [Color.white.opacity(0.85), Color.white.opacity(0.30)],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         ),
-                                        lineWidth: 4
+                                        lineWidth: 3
                                     )
                             )
-                            .shadow(color: .orange.opacity(0.3), radius: 20, y: 10)
-                        
+                            .shadow(color: .black.opacity(0.12), radius: 20, y: 10)
+
                         // Upload Button
                         Button {
                             uploadImage()
@@ -57,88 +57,73 @@ struct ProfilePicturePicker: View {
                             HStack(spacing: 12) {
                                 if isUploading {
                                     ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .progressViewStyle(CircularProgressViewStyle(tint: Color(.systemBackground)))
                                 } else {
                                     Image(systemName: "arrow.up.circle.fill")
-                                        .font(.system(size: 20))
+                                        .font(.systemScaled(20))
                                 }
-                                
+
                                 Text(isUploading ? "Uploading..." : "Upload Photo")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .font(AMENFont.bold(16))
                             }
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color(.systemBackground))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 18)
-                            .background(
-                                RoundedRectangle(cornerRadius: 28)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.orange, Color(red: 1.0, green: 0.6, blue: 0.2)],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                                    .shadow(color: .orange.opacity(0.5), radius: 15, y: 8)
-                            )
+                            .background(Color(.label), in: Capsule())
                         }
                         .disabled(isUploading)
                         .padding(.horizontal, 40)
-                        
+
                         // Change Photo Button
                         PhotosPicker(selection: $selectedItem, matching: .images) {
                             Text("Choose Different Photo")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.white.opacity(0.7))
+                                .font(AMENFont.semiBold(15))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 13)
+                                .background(.regularMaterial, in: Capsule())
+                                .padding(.horizontal, 40)
                         }
-                        
+
                     } else {
                         // Photo Picker
                         VStack(spacing: 24) {
                             Image(systemName: "person.crop.circle.fill.badge.plus")
-                                .font(.system(size: 100))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [Color.orange, Color(red: 1.0, green: 0.6, blue: 0.2)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                            
+                                .font(.systemScaled(100))
+                                .foregroundStyle(.secondary)
+
                             VStack(spacing: 12) {
                                 Text("Add Profile Photo")
-                                    .font(.custom("OpenSans-Bold", size: 24))
-                                    .foregroundStyle(.white)
-                                
+                                    .font(AMENFont.bold(24))
+                                    .foregroundStyle(.primary)
+
                                 Text("Choose a photo that represents you")
-                                    .font(.custom("OpenSans-Regular", size: 15))
-                                    .foregroundStyle(.white.opacity(0.7))
+                                    .font(AMENFont.regular(15))
+                                    .foregroundStyle(.secondary)
                                     .multilineTextAlignment(.center)
                             }
-                            
+
                             PhotosPicker(selection: $selectedItem, matching: .images) {
                                 HStack(spacing: 12) {
                                     Image(systemName: "photo.on.rectangle")
-                                        .font(.system(size: 18))
-                                    
+                                        .font(.systemScaled(18))
+
                                     Text("Choose Photo")
-                                        .font(.custom("OpenSans-Bold", size: 16))
+                                        .font(AMENFont.bold(16))
                                 }
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 18)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 28)
-                                        .fill(Color.white.opacity(0.15))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 28)
-                                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                        )
+                                .background(.ultraThinMaterial, in: Capsule())
+                                .overlay(
+                                    Capsule()
+                                        .stroke(.primary.opacity(0.12), lineWidth: 1)
                                 )
                             }
                             .padding(.horizontal, 40)
                         }
                     }
-                    
+
                     Spacer()
                 }
                 .padding(.top, 60)
@@ -150,8 +135,8 @@ struct ProfilePicturePicker: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(.white.opacity(0.7))
+                            .font(.systemScaled(28))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -201,6 +186,13 @@ struct ProfilePicturePicker: View {
     private func uploadImage() {
         guard let image = selectedImage else { return }
         
+        // Validate the image has valid data before attempting upload
+        guard image.cgImage != nil || image.ciImage != nil else {
+            errorMessage = "Invalid image format. Please try selecting a different photo."
+            showError = true
+            return
+        }
+        
         isUploading = true
         
         Task {
@@ -215,8 +207,16 @@ struct ProfilePicturePicker: View {
             } catch {
                 await MainActor.run {
                     isUploading = false
-                    errorMessage = error.localizedDescription
+                    // Provide user-friendly error messages
+                    if error.localizedDescription.contains("compression") {
+                        errorMessage = "Failed to process image. Please try a different photo or reduce the image size."
+                    } else if error.localizedDescription.contains("network") {
+                        errorMessage = "Network error. Please check your connection and try again."
+                    } else {
+                        errorMessage = error.localizedDescription
+                    }
                     showError = true
+                    dlog("❌ Profile picture upload failed: \(error)")
                 }
             }
         }

@@ -74,7 +74,7 @@ struct RecommendedSermonsView: View {
                 HStack(spacing: 8) {
                     ForEach(SermonTopic.allCases, id: \.self) { topic in
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                 selectedTopic = topic
                                 let haptic = UIImpactFeedbackGenerator(style: .light)
                                 haptic.impactOccurred()
@@ -214,7 +214,7 @@ struct ForYouSermonCard: View {
                     
                     // Play button overlay
                     Image(systemName: "play.circle.fill")
-                        .font(.system(size: 40))
+                        .font(.systemScaled(40))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
                 }
@@ -289,7 +289,7 @@ struct EnhancedSermonCard: View {
                     
                     // Play button
                     Image(systemName: "play.circle.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
                 }
@@ -313,7 +313,7 @@ struct EnhancedSermonCard: View {
                     HStack(spacing: 8) {
                         HStack(spacing: 4) {
                             Image(systemName: "play.circle")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                             Text("Watch")
                                 .font(.custom("OpenSans-SemiBold", size: 12))
                         }
@@ -334,14 +334,21 @@ struct EnhancedSermonCard: View {
                 Spacer()
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) {
                         isSaved.toggle()
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
                     }
+                    if isSaved {
+                        NotificationCenter.default.post(
+                            name: .init("sermonSaved"),
+                            object: nil,
+                            userInfo: ["sermonId": sermon.id.uuidString]
+                        )
+                    }
                 } label: {
                     Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(isSaved ? .purple : .secondary)
                 }
             }
@@ -481,7 +488,8 @@ struct SermonVideoPlayerView: View {
     @Environment(\.dismiss) var dismiss
     let sermon: Sermon
     let youtubeID: String
-    
+    @State private var isSaved = false
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -531,9 +539,7 @@ struct SermonVideoPlayerView: View {
                         
                         // Action buttons
                         HStack(spacing: 12) {
-                            Button {
-                                // Share action
-                            } label: {
+                            ShareLink(item: "\(sermon.title) by \(sermon.speaker) — via Amen") {
                                 HStack(spacing: 8) {
                                     Image(systemName: "square.and.arrow.up")
                                     Text("Share")
@@ -549,11 +555,21 @@ struct SermonVideoPlayerView: View {
                             }
                             
                             Button {
-                                // Save action
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                isSaved.toggle()
+                                if isSaved {
+                                    let key = "saved_sermon_\(sermon.youtubeID ?? sermon.title)"
+                                    UserDefaults.standard.set(true, forKey: key)
+                                    NotificationCenter.default.post(
+                                        name: .init("sermonSaved"),
+                                        object: nil,
+                                        userInfo: ["sermonId": sermon.id.uuidString]
+                                    )
+                                }
                             } label: {
                                 HStack(spacing: 8) {
-                                    Image(systemName: "bookmark")
-                                    Text("Save")
+                                    Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                                    Text(isSaved ? "Saved" : "Save")
                                         .font(.custom("OpenSans-Bold", size: 15))
                                 }
                                 .foregroundStyle(.white)
@@ -579,7 +595,7 @@ struct SermonVideoPlayerView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.secondary)
                     }
                 }

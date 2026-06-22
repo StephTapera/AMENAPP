@@ -23,7 +23,7 @@ struct ImageCropEditor: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             GeometryReader { geometry in
                 ZStack {
                     Color.black.ignoresSafeArea()
@@ -96,7 +96,7 @@ struct SaveTemplateSheet: View {
     @FocusState private var isFocused: Bool
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Save this post structure as a template for future use")
                     .font(.custom("OpenSans-Regular", size: 14))
@@ -198,7 +198,7 @@ struct PostThreadComposerView: View {
                         }
                     } label: {
                         Image(systemName: "chevron.left.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(currentIndex > 0 ? .blue : .gray.opacity(0.3))
                     }
                     .disabled(currentIndex == 0)
@@ -210,7 +210,7 @@ struct PostThreadComposerView: View {
                         }
                     } label: {
                         Image(systemName: "chevron.right.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(currentIndex < threadPosts.count - 1 ? .blue : .gray.opacity(0.3))
                     }
                     .disabled(currentIndex == threadPosts.count - 1)
@@ -222,7 +222,7 @@ struct PostThreadComposerView: View {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.green)
                     }
                 }
@@ -241,7 +241,7 @@ struct PostThreadComposerView: View {
                             text: threadPosts[index],
                             isActive: index == currentIndex,
                             onTap: {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                                     currentIndex = index
                                 }
                             },
@@ -282,7 +282,7 @@ struct ThreadPostPreviewCard: View {
                     onDelete()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(isActive ? .white.opacity(0.7) : .secondary)
                 }
             }
@@ -381,12 +381,12 @@ struct TemplatePickerSheet: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Group {
                 if categoryTemplates.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "doc.text.magnifyingglass")
-                            .font(.system(size: 60))
+                            .font(.systemScaled(60))
                             .foregroundStyle(.secondary)
                         
                         Text("No templates yet")
@@ -415,7 +415,7 @@ struct TemplatePickerSheet: View {
                                         Spacer()
                                         
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 14))
+                                            .font(.systemScaled(14))
                                             .foregroundStyle(.secondary)
                                     }
                                     

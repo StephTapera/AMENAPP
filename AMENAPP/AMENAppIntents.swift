@@ -7,6 +7,7 @@
 
 import AppIntents
 import SwiftUI
+import Combine
 
 // MARK: - Open Prayer Intent
 
@@ -220,22 +221,31 @@ private func siriEnabled() async -> Bool {
 private let siriDisabledDialog = IntentDialog("Siri integration is turned off. Enable it in AMEN Settings → Siri & Shortcuts.")
 
 // MARK: Post a Prayer Request
+//
+// PRIVACY: Prayer text is NOT accepted as an intent parameter.
+// Allowing Siri to receive, process, or store raw prayer content
+// would expose deeply personal spiritual requests to Apple's ML
+// pipeline. The intent opens the in-app composer instead, where
+// the user types their prayer privately.
 
 struct PostPrayerRequestIntent: AppIntent {
     static var title: LocalizedStringResource = "Post a Prayer Request"
-    static var description = IntentDescription("Share a prayer request with your AMEN community.")
+    static var description = IntentDescription("Open the prayer composer in AMEN to share a prayer request privately.")
     static var openAppWhenRun: Bool = true
 
-    @Parameter(title: "Prayer Request", description: "What would you like prayer for?")
-    var prayerText: String?
+    // prayerText parameter intentionally omitted — prayer content
+    // must never transit Siri system awareness or OS intent storage.
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard await siriEnabled() else { return .result(dialog: siriDisabledDialog) }
-        if let text = prayerText {
-            await MainActor.run { UserDefaults.standard.set(text, forKey: "siri_pending_prayer") }
+        // PRIVACY: do not pass any prayer text; open the composer empty.
+        // Remove any previously stored prayer text that may exist from
+        // an older build, to avoid lingering exposure.
+        await MainActor.run {
+            UserDefaults.standard.removeObject(forKey: "siri_pending_prayer")
+            NotificationCenter.default.post(name: .amenOpenPrayerComposer, object: nil)
         }
-        NotificationCenter.default.post(name: .amenOpenPrayerComposer, object: prayerText)
-        return .result(dialog: "Opening your prayer request in AMEN 🙏")
+        return .result(dialog: "Opening the prayer composer in AMEN")
     }
 }
 
@@ -254,7 +264,7 @@ struct ShareTestimonyIntent: AppIntent {
         if let text = testimonyText {
             await MainActor.run { UserDefaults.standard.set(text, forKey: "siri_pending_testimony") }
         }
-        NotificationCenter.default.post(name: .amenOpenTestimonyComposer, object: testimonyText)
+        await MainActor.run { NotificationCenter.default.post(name: .amenOpenTestimonyComposer, object: testimonyText) }
         return .result(dialog: "Opening your testimony in AMEN ✨")
     }
 }
@@ -274,7 +284,7 @@ struct RSVPEventIntent: AppIntent {
         if let name = eventName {
             await MainActor.run { UserDefaults.standard.set(name, forKey: "siri_pending_rsvp_event") }
         }
-        NotificationCenter.default.post(name: .amenOpenEvents, object: eventName)
+        await MainActor.run { NotificationCenter.default.post(name: .amenOpenEvents, object: eventName) }
         let msg = eventName.map { "Opening RSVP for \"\($0)\" 📅" } ?? "Opening Events in AMEN 📅"
         return .result(dialog: IntentDialog(stringLiteral: msg))
     }
@@ -289,7 +299,7 @@ struct DiscoverPrayerNeedsIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard await siriEnabled() else { return .result(dialog: siriDisabledDialog) }
-        NotificationCenter.default.post(name: .amenOpenPrayerFeed, object: nil)
+        await MainActor.run { NotificationCenter.default.post(name: .amenOpenPrayerFeed, object: nil) }
         return .result(dialog: "Opening the Prayer feed in AMEN 🙏")
     }
 }

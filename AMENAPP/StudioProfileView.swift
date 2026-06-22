@@ -144,9 +144,9 @@ struct StudioProfileView: View {
             if profile.isVerified, let badgeIcon = profile.verifiedAs.badge {
                 HStack(spacing: 4) {
                     Image(systemName: badgeIcon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                     Text(profile.verifiedAs.label)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 10)
@@ -171,7 +171,7 @@ struct StudioProfileView: View {
 
                 if profile.isVerified {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.90))
                 }
             }
@@ -210,7 +210,7 @@ struct StudioProfileView: View {
             if profile.locationVisible, let location = profile.location, !location.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: "mappin.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                     Text(location)
                         .font(.custom("OpenSans-Regular", size: 13))
@@ -287,7 +287,7 @@ struct StudioProfileView: View {
                     activeSheet = .earnings
                 } label: {
                     Image(systemName: "chart.bar.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.primary)
                         .frame(width: 44, height: 40)
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -313,7 +313,7 @@ struct StudioProfileView: View {
                         activeSheet = .booking
                     } label: {
                         Image(systemName: "calendar.badge.plus")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.primary)
                             .frame(width: 44, height: 40)
                             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -334,13 +334,13 @@ struct StudioProfileView: View {
             HStack(spacing: 4) {
                 ForEach(StudioTab.allCases) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             selectedTab = tab
                         }
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: tab.icon)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                             Text(tab.label)
                                 .font(.custom("OpenSans-SemiBold", size: 13))
                         }
@@ -395,7 +395,7 @@ struct StudioProfileView: View {
                 .fill(Color(red: 0.18, green: 0.62, blue: 0.36))
                 .frame(width: 7, height: 7)
             Text("Available for Work")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
         }
         .padding(.horizontal, 8)
@@ -407,9 +407,9 @@ struct StudioProfileView: View {
     private var commissionsBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: "pencil.line")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             Text("Open Commissions")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
         }
         .foregroundStyle(Color(red: 0.55, green: 0.25, blue: 0.88))
         .padding(.horizontal, 8)
@@ -452,7 +452,7 @@ struct StudioProfileView: View {
     private var studioNotFoundState: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.slash.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             Text("Studio Not Found")
                 .font(.custom("OpenSans-Bold", size: 18))
@@ -504,9 +504,9 @@ struct StudioCategoryChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: category.icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             Text(category.label)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
         }
         .foregroundStyle(category.color)
         .padding(.horizontal, 8)
@@ -548,7 +548,7 @@ struct StudioWorkGridView: View {
     private var emptyWorkState: some View {
         VStack(spacing: 16) {
             Image(systemName: "photo.on.rectangle.angled")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
             Text(isOwnProfile ? "Add your first work" : "No work yet")
                 .font(.custom("OpenSans-SemiBold", size: 16))
@@ -582,14 +582,14 @@ struct StudioWorkCell: View {
                     .fill(item.category.color.opacity(0.2))
                     .overlay(
                         Image(systemName: item.category.icon)
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(item.category.color)
                     )
             }
 
             if item.isFeatured {
                 Image(systemName: "star.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.yellow)
                     .padding(6)
                     .background(.ultraThinMaterial, in: Circle())
@@ -648,7 +648,7 @@ struct StudioWorkDetailView: View {
                             Divider()
                             HStack(spacing: 6) {
                                 Image(systemName: "building.2.fill")
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.secondary)
                                 Text("Client: \(clientName)")
                                     .font(.custom("OpenSans-Regular", size: 13))
@@ -706,10 +706,10 @@ struct StudioAboutView: View {
             if !profile.specialties.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     sectionHeader("Specialties")
-                    FlowLayout(spacing: 8) {
+                    AMENFlowLayout(spacing: 8) {
                         ForEach(profile.specialties, id: \.self) { specialty in
                             Text(specialty)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
@@ -779,10 +779,10 @@ struct StudioAboutView: View {
     private func availabilityItem(icon: String, label: String, color: Color) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(color)
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(color)
         }
         .padding(.horizontal, 10)
@@ -794,11 +794,11 @@ struct StudioAboutView: View {
     private func trustRow(icon: String, text: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
                 .frame(width: 16)
             Text(text)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
     }
@@ -824,7 +824,7 @@ struct StudioTestimonialCard: View {
                     .frame(width: 36, height: 36)
                     .overlay(
                         Text(String(testimonial.authorName.prefix(1)))
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.systemScaled(14, weight: .bold))
                             .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.90))
                     )
 
@@ -834,13 +834,13 @@ struct StudioTestimonialCard: View {
                             .font(.custom("OpenSans-SemiBold", size: 14))
                         if testimonial.isVerified {
                             Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(Color(red: 0.15, green: 0.45, blue: 0.90))
                         }
                     }
                     if let role = testimonial.authorRole {
                         Text(role)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                     }
                 }

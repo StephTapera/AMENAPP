@@ -558,7 +558,7 @@ struct FruitOfSpiritBannerView: View {
             // Eyebrow label
             HStack(spacing: 0) {
                 Text("TODAY'S FRUIT")
-                    .font(.system(size: BannerTokens.eyebrowSize, weight: .semibold, design: .default))
+                    .font(.systemScaled(BannerTokens.eyebrowSize, weight: .semibold, design: .default))
                     .kerning(2.0)
                     .foregroundStyle(primaryText.opacity(0.38))
                 Spacer()
@@ -568,7 +568,7 @@ struct FruitOfSpiritBannerView: View {
 
             // Large editorial fruit name
             Text(fruit.name)
-                .font(.system(size: BannerTokens.titleSize, weight: .heavy, design: .serif))
+                .font(.systemScaled(BannerTokens.titleSize, weight: .heavy, design: .serif))
                 .foregroundStyle(primaryText)
                 .tracking(-0.5)
                 .padding(.top, 4)
@@ -589,7 +589,7 @@ struct FruitOfSpiritBannerView: View {
             // Collapsed verse teaser (1 line, fades when expanded)
             if !isExpanded {
                 Text(shortVerse)
-                    .font(.system(size: BannerTokens.verseSize - 1, weight: .regular, design: .serif))
+                    .font(.systemScaled(BannerTokens.verseSize - 1, weight: .regular, design: .serif))
                     .italic()
                     .foregroundStyle(primaryText.opacity(0.50))
                     .lineLimit(1)
@@ -616,7 +616,7 @@ struct FruitOfSpiritBannerView: View {
 
             // Full short verse (2 lines max)
             Text("\u{201C}\(shortVerse)\u{201D}")
-                .font(.system(size: BannerTokens.verseSize, weight: .regular, design: .serif))
+                .font(.systemScaled(BannerTokens.verseSize, weight: .regular, design: .serif))
                 .italic()
                 .foregroundStyle(primaryText.opacity(0.72))
                 .lineSpacing(4)
@@ -628,7 +628,7 @@ struct FruitOfSpiritBannerView: View {
             // Reference
             HStack(spacing: 0) {
                 Text(fruit.scriptureRef)
-                    .font(.system(size: BannerTokens.refSize, weight: .semibold, design: .default))
+                    .font(.systemScaled(BannerTokens.refSize, weight: .semibold, design: .default))
                     .kerning(0.6)
                     .foregroundStyle(primaryText.opacity(0.38))
                 Spacer()
@@ -643,7 +643,7 @@ struct FruitOfSpiritBannerView: View {
                     }
                 } label: {
                     Text("EXPLORE")
-                        .font(.system(size: 8.5, weight: .semibold))
+                        .font(.systemScaled(8.5, weight: .semibold))
                         .kerning(1.4)
                         .foregroundStyle(primaryText.opacity(0.38))
                         .padding(.horizontal, 9)
@@ -665,7 +665,7 @@ struct FruitOfSpiritBannerView: View {
 
     private var chevronPill: some View {
         Image(systemName: "chevron.down")
-            .font(.system(size: 9, weight: .semibold))
+            .font(.systemScaled(9, weight: .semibold))
             .foregroundStyle(primaryText.opacity(0.30))
             .rotationEffect(.degrees(isExpanded ? -180 : 0))
             .animation(BannerTokens.expandSpring, value: isExpanded)
@@ -812,7 +812,7 @@ struct FruitOfSpiritDetailSheet: View {
                         Circle()
                             .strokeBorder(FT.dividerStrong, lineWidth: 1)
                         Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(FT.secondary)
                     }
                     .frame(width: 32, height: 32)
@@ -850,7 +850,7 @@ struct FruitOfSpiritDetailSheet: View {
 
             // Faint emoji watermark — decorative, editorial
             Text(fruit.emoji)
-                .font(.system(size: 140))
+                .font(.systemScaled(140))
                 .opacity(0.08)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 16)
@@ -860,7 +860,7 @@ struct FruitOfSpiritDetailSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Eyebrow
                 Text("GALATIANS 5:22–23")
-                    .font(.system(size: 9, weight: .semibold, design: .default))
+                    .font(.systemScaled(9, weight: .semibold, design: .default))
                     .tracking(2.5)
                     .foregroundStyle(FT.label)
 
@@ -872,20 +872,20 @@ struct FruitOfSpiritDetailSheet: View {
 
                 // Large editorial title
                 Text(fruit.name)
-                    .font(.system(size: 48, weight: .light, design: .default))
+                    .font(.systemScaled(48, weight: .light, design: .default))
                     .foregroundStyle(FT.primary)
                     .tracking(-0.5)
 
                 // Greek transliteration
                 HStack(spacing: 6) {
                     Text(fruit.greekWord)
-                        .font(.system(size: 13, weight: .regular, design: .default))
+                        .font(.systemScaled(13, weight: .regular, design: .default))
                         .italic()
                         .foregroundStyle(fruit.accentColor.opacity(0.85))
                     Text("·")
                         .foregroundStyle(FT.tertiary)
                     Text(fruit.greekPronunciation)
-                        .font(.system(size: 12, weight: .regular, design: .default))
+                        .font(.systemScaled(12, weight: .regular, design: .default))
                         .foregroundStyle(FT.tertiary)
                 }
             }
@@ -905,7 +905,7 @@ struct FruitOfSpiritDetailSheet: View {
                 } label: {
                     VStack(spacing: 6) {
                         Text(tab.rawValue.uppercased())
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .tracking(1.8)
                             .foregroundStyle(activeTab == tab ? FT.primary : FT.secondary)
 
@@ -935,7 +935,7 @@ struct FruitOfSpiritDetailSheet: View {
             // Definition block — large, editorial
             VStack(alignment: .leading, spacing: 12) {
                 Text(fruit.shortDefinition)
-                    .font(.system(size: 17, weight: .light, design: .default))
+                    .font(.systemScaled(17, weight: .light, design: .default))
                     .foregroundStyle(FT.primary)
                     .lineSpacing(6)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1009,18 +1009,18 @@ struct FruitOfSpiritDetailSheet: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("ASK BEREAN")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .tracking(1.8)
                         .foregroundStyle(FT.primary)
                     Text("Go deeper with scripture-grounded AI")
-                        .font(.system(size: 11, weight: .light))
+                        .font(.systemScaled(11, weight: .light))
                         .foregroundStyle(FT.secondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                     .foregroundStyle(FT.tertiary)
             }
             .padding(.horizontal, 24)
@@ -1049,14 +1049,14 @@ struct FruitOfSpiritDetailSheet: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("\u{201C}\(text)\u{201D}")
-                    .font(.system(size: 15, weight: .light, design: .default))
+                    .font(.systemScaled(15, weight: .light, design: .default))
                     .foregroundStyle(FT.primary.opacity(0.88))
                     .lineSpacing(5)
                     .fixedSize(horizontal: false, vertical: true)
                     .italic()
 
                 Text(reference.uppercased())
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .tracking(1.8)
                     .foregroundStyle(accent.opacity(0.75))
             }
@@ -1079,7 +1079,7 @@ struct FruitOfSpiritDetailSheet: View {
             } label: {
                 HStack(spacing: 0) {
                     Text(title)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .tracking(1.8)
                         .foregroundStyle(isOpen ? FT.primary : FT.secondary)
 
@@ -1087,7 +1087,7 @@ struct FruitOfSpiritDetailSheet: View {
 
                     // +/– indicator
                     Text(isOpen ? "–" : "+")
-                        .font(.system(size: 16, weight: .light))
+                        .font(.systemScaled(16, weight: .light))
                         .foregroundStyle(isOpen ? fruit.accentColor : FT.tertiary)
                         .frame(width: 20, height: 20)
                 }
@@ -1098,7 +1098,7 @@ struct FruitOfSpiritDetailSheet: View {
 
             if isOpen {
                 Text(content)
-                    .font(.system(size: 14, weight: .light, design: .default))
+                    .font(.systemScaled(14, weight: .light, design: .default))
                     .foregroundStyle(FT.secondary)
                     .lineSpacing(6)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1117,7 +1117,7 @@ struct FruitOfSpiritDetailSheet: View {
             // Overcomes
             VStack(alignment: .leading, spacing: 10) {
                 Text("OVERCOMES")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .tracking(2)
                     .foregroundStyle(FT.label)
 
@@ -1125,7 +1125,7 @@ struct FruitOfSpiritDetailSheet: View {
                     HStack(spacing: 8) {
                         ForEach(fruit.opposites, id: \.self) { opp in
                             Text(opp)
-                                .font(.system(size: 11, weight: .regular))
+                                .font(.systemScaled(11, weight: .regular))
                                 .foregroundStyle(FT.secondary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
@@ -1142,7 +1142,7 @@ struct FruitOfSpiritDetailSheet: View {
             // Grows alongside
             VStack(alignment: .leading, spacing: 10) {
                 Text("GROWS ALONGSIDE")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .tracking(2)
                     .foregroundStyle(FT.label)
 
@@ -1160,9 +1160,9 @@ struct FruitOfSpiritDetailSheet: View {
                                     }
                                 } label: {
                                     HStack(spacing: 5) {
-                                        Text(match.emoji).font(.system(size: 11))
+                                        Text(match.emoji).font(.systemScaled(11))
                                         Text(rel)
-                                            .font(.system(size: 11, weight: .regular))
+                                            .font(.systemScaled(11, weight: .regular))
                                             .foregroundStyle(match.accentColor)
                                     }
                                     .padding(.horizontal, 12)
@@ -1191,7 +1191,7 @@ struct FruitOfSpiritDetailSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Text("PRAYER")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .tracking(2)
                     .foregroundStyle(FT.label)
 
@@ -1201,7 +1201,7 @@ struct FruitOfSpiritDetailSheet: View {
             }
 
             Text(fruit.prayerPrompt)
-                .font(.system(size: 15, weight: .light, design: .default))
+                .font(.systemScaled(15, weight: .light, design: .default))
                 .foregroundStyle(FT.secondary)
                 .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1238,14 +1238,14 @@ struct FruitOfSpiritDetailSheet: View {
             HStack(spacing: 16) {
                 // Index number
                 Text(String(format: "%02d", index + 1))
-                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .font(.systemScaled(10, weight: .regular, design: .monospaced))
                     .foregroundStyle(FT.tertiary)
                     .frame(width: 22, alignment: .leading)
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 10) {
                         Text(f.name)
-                            .font(.system(size: 19, weight: isSelected ? .regular : .light))
+                            .font(.systemScaled(19, weight: isSelected ? .regular : .light))
                             .foregroundStyle(isSelected ? f.accentColor : FT.primary)
 
                         if isSelected {
@@ -1257,7 +1257,7 @@ struct FruitOfSpiritDetailSheet: View {
                     }
 
                     Text(f.shortDefinition)
-                        .font(.system(size: 11, weight: .light))
+                        .font(.systemScaled(11, weight: .light))
                         .foregroundStyle(FT.tertiary)
                         .lineLimit(1)
                 }
@@ -1265,7 +1265,7 @@ struct FruitOfSpiritDetailSheet: View {
                 Spacer()
 
                 Text(f.emoji)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .opacity(isSelected ? 1 : 0.35)
             }
             .padding(.horizontal, 24)
@@ -1294,19 +1294,19 @@ struct FruitOfSpiritDetailSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("SCRIPTURE QUIZ")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .tracking(2.5)
                     .foregroundStyle(FT.label)
 
                 Text("Fruit of\nthe Spirit")
-                    .font(.system(size: 36, weight: .light))
+                    .font(.systemScaled(36, weight: .light))
                     .foregroundStyle(FT.primary)
                     .lineSpacing(4)
 
                 fruit.accentColor.frame(height: 1).cornerRadius(1)
 
                 Text("Test your knowledge of the nine fruits from Galatians 5 — Greek meaning, biblical context, and application.")
-                    .font(.system(size: 14, weight: .light))
+                    .font(.systemScaled(14, weight: .light))
                     .foregroundStyle(FT.secondary)
                     .lineSpacing(5)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1340,12 +1340,12 @@ struct FruitOfSpiritDetailSheet: View {
             } label: {
                 HStack(spacing: 10) {
                     Text("BEGIN")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .tracking(2)
                         .foregroundStyle(FT.bg)
 
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(FT.bg)
                 }
                 .frame(maxWidth: .infinity)
@@ -1362,10 +1362,10 @@ struct FruitOfSpiritDetailSheet: View {
     private func quizStatItem(value: String, label: String) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 22, weight: .light))
+                .font(.systemScaled(22, weight: .light))
                 .foregroundStyle(FT.primary)
             Text(label)
-                .font(.system(size: 8, weight: .semibold))
+                .font(.systemScaled(8, weight: .semibold))
                 .tracking(1.5)
                 .foregroundStyle(FT.label)
         }
@@ -1395,16 +1395,16 @@ struct FruitOfSpiritDetailSheet: View {
             // Question counter
             HStack {
                 Text("\(currentQuestionIndex + 1) / \(quizQuestions.count)")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(FT.tertiary)
                     .tracking(1)
                 Spacer()
                 HStack(spacing: 5) {
                     Text("\(score)")
-                        .font(.system(size: 13, weight: .light, design: .monospaced))
+                        .font(.systemScaled(13, weight: .light, design: .monospaced))
                         .foregroundStyle(fruit.accentColor)
                     Text("pts")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                         .tracking(1.5)
                         .foregroundStyle(FT.label)
                 }
@@ -1415,9 +1415,9 @@ struct FruitOfSpiritDetailSheet: View {
             // Fruit tag
             if let match = allFruits.first(where: { $0.name == question.fruitName }) {
                 HStack(spacing: 6) {
-                    Text(match.emoji).font(.system(size: 12))
+                    Text(match.emoji).font(.systemScaled(12))
                     Text(question.fruitName.uppercased())
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                         .tracking(1.8)
                         .foregroundStyle(match.accentColor)
                 }
@@ -1427,7 +1427,7 @@ struct FruitOfSpiritDetailSheet: View {
 
             // Question text
             Text(question.question)
-                .font(.system(size: 20, weight: .light))
+                .font(.systemScaled(20, weight: .light))
                 .foregroundStyle(FT.primary)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1456,12 +1456,12 @@ struct FruitOfSpiritDetailSheet: View {
                             .fill(correct ? Color(red: 0.18, green: 0.78, blue: 0.42) : Color(red: 0.9, green: 0.28, blue: 0.28))
                             .frame(width: 6, height: 6)
                         Text(correct ? "CORRECT" : "INCORRECT")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                             .tracking(2)
                             .foregroundStyle(correct ? Color(red: 0.18, green: 0.78, blue: 0.42) : Color(red: 0.9, green: 0.28, blue: 0.28))
                     }
                     Text(question.explanation)
-                        .font(.system(size: 13, weight: .light))
+                        .font(.systemScaled(13, weight: .light))
                         .foregroundStyle(FT.secondary)
                         .lineSpacing(5)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1486,11 +1486,11 @@ struct FruitOfSpiritDetailSheet: View {
                 } label: {
                     HStack(spacing: 8) {
                         Text(currentQuestionIndex + 1 < quizQuestions.count ? "NEXT" : "RESULTS")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .tracking(2)
                             .foregroundStyle(FT.bg)
                         Image(systemName: "arrow.right")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(FT.bg)
                     }
                     .frame(maxWidth: .infinity)
@@ -1533,13 +1533,13 @@ struct FruitOfSpiritDetailSheet: View {
             HStack(spacing: 14) {
                 // Letter
                 Text(["A", "B", "C", "D"][index])
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                     .tracking(1)
                     .foregroundStyle(textColor.opacity(0.6))
                     .frame(width: 16)
 
                 Text(text)
-                    .font(.system(size: 14, weight: .light))
+                    .font(.systemScaled(14, weight: .light))
                     .foregroundStyle(textColor)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1548,11 +1548,11 @@ struct FruitOfSpiritDetailSheet: View {
 
                 if correct {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(Color(red: 0.18, green: 0.78, blue: 0.42))
                 } else if wrong {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(Color(red: 0.9, green: 0.28, blue: 0.28))
                 }
             }
@@ -1573,16 +1573,16 @@ struct FruitOfSpiritDetailSheet: View {
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("RESULTS")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .tracking(2.5)
                     .foregroundStyle(FT.label)
 
                 HStack(alignment: .lastTextBaseline, spacing: 6) {
                     Text("\(score)")
-                        .font(.system(size: 64, weight: .light))
+                        .font(.systemScaled(64, weight: .light))
                         .foregroundStyle(fruit.accentColor)
                     Text("/ \(quizQuestions.count)")
-                        .font(.system(size: 20, weight: .light))
+                        .font(.systemScaled(20, weight: .light))
                         .foregroundStyle(FT.tertiary)
                 }
 
@@ -1591,7 +1591,7 @@ struct FruitOfSpiritDetailSheet: View {
                 Text(perfect ? "Incredible. A deep knowledge of the fruits."
                      : great  ? "Well done. Keep exploring the teachings."
                               : "The fruits take a lifetime to grow.")
-                    .font(.system(size: 15, weight: .light))
+                    .font(.systemScaled(15, weight: .light))
                     .foregroundStyle(FT.secondary)
                     .lineSpacing(4)
             }
@@ -1638,12 +1638,12 @@ struct FruitOfSpiritDetailSheet: View {
         } label: {
             HStack {
                 Text(label)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .tracking(2)
                     .foregroundStyle(FT.secondary)
                 Spacer()
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(FT.tertiary)
             }
             .padding(.horizontal, 24)
@@ -1663,19 +1663,19 @@ private struct FruitRowCard: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 16) {
-                Text(fruit.emoji).font(.system(size: 24))
+                Text(fruit.emoji).font(.systemScaled(24))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(fruit.name)
-                        .font(.system(size: 17, weight: isSelected ? .regular : .light))
+                        .font(.systemScaled(17, weight: isSelected ? .regular : .light))
                         .foregroundStyle(isSelected ? fruit.accentColor : FT.primary)
                     Text(fruit.shortDefinition)
-                        .font(.system(size: 11, weight: .light))
+                        .font(.systemScaled(11, weight: .light))
                         .foregroundStyle(FT.tertiary)
                         .lineLimit(1)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                     .foregroundStyle(FT.tertiary)
             }
             .padding(.horizontal, 24)

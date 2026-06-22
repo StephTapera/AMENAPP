@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import FirebaseCore
 import FirebaseFirestore
 import FirebaseAuth
 import Combine
@@ -26,6 +27,10 @@ struct FirestorePost: Codable, Identifiable {
     var topicTag: String?
     var visibility: String  // "everyone", "followers", "community"
     var allowComments: Bool
+    // Granular comment permission level stored alongside allowComments.
+    // Values: "Everyone", "People I follow", "Mentioned only", "Comments off"
+    // Enforced server-side by Firestore Rules canCommentOnPost() and aclHelper.ts.
+    var commentPermissions: String?
     var imageURLs: [String]?
     var linkURL: String?
     var linkPreviewTitle: String?
@@ -37,6 +42,12 @@ struct FirestorePost: Codable, Identifiable {
     var verseText: String?
     var createdAt: Date
     var updatedAt: Date?
+    var editedAt: Date?
+    var wasEdited: Bool
+    var editVersion: Int
+    var editWindowExpiresAt: Date?
+    var editMetadata: PostEditMetadata?
+    var postUpdates: [PostUpdateItem]?
     
     // Interaction counts
     var amenCount: Int
@@ -56,9 +67,30 @@ struct FirestorePost: Codable, Identifiable {
     
     // Church note reference
     var churchNoteId: String?
-    
+
+    // Find a Church share snapshot
+    var isChurchShare: Bool = false
+    var sharedChurchName: String?
+    var sharedChurchDenomination: String?
+    var sharedChurchServiceTime: String?
+    var sharedChurchEventId: String?
+    var sharedChurchEventName: String?
+    var sharedChurchEventTime: String?
+
     // Content source label — set when user acknowledges pasted/AI content
     var contentSource: String?
+
+    // Quote metadata (highlight-to-quote)
+    var quote: PostQuoteMetadata?
+
+    // Topic Drill—Down — normalized topic keys for feed queries (System 11)
+    var normalizedTopicKeys: [String]?
+    var topicScoreMap: [String: Double]?
+    var primaryTopicKey: String?
+
+    // Moderation flags set by server-side Cloud Functions (moderatePost, imageModeration)
+    var flaggedForReview: Bool = false
+    var removed: Bool = false
 
     // Prayer Arc — testimony ↔ prayer link
     var linkedPrayerRequestId: String?  // Set on testimony posts to link to originating prayer
@@ -90,6 +122,7 @@ struct FirestorePost: Codable, Identifiable {
         case linkPreviewType, verseReference, verseText
         case createdAt
         case updatedAt
+        case editedAt, wasEdited, editVersion, editWindowExpiresAt, editMetadata, postUpdates
         case amenCount
         case lightbulbCount
         case commentCount
@@ -101,12 +134,17 @@ struct FirestorePost: Codable, Identifiable {
         case amenUserIds
         case lightbulbUserIds
         case churchNoteId
+        case isChurchShare, sharedChurchName, sharedChurchDenomination, sharedChurchServiceTime
+        case sharedChurchEventId, sharedChurchEventName, sharedChurchEventTime
         case contentSource
+        case quote
         case linkedPrayerRequestId
         case journeyDays
         case stoneCount
         case intercessorUids
         case bereanArcInsight
+        case normalizedTopicKeys, topicScoreMap, primaryTopicKey
+        case flaggedForReview, removed
     }
     
     init(from decoder: Decoder) throws {
@@ -134,6 +172,12 @@ struct FirestorePost: Codable, Identifiable {
         verseText = try container.decodeIfPresent(String.self, forKey: .verseText)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+        editedAt = try container.decodeIfPresent(Date.self, forKey: .editedAt)
+        wasEdited = try container.decodeIfPresent(Bool.self, forKey: .wasEdited) ?? false
+        editVersion = try container.decodeIfPresent(Int.self, forKey: .editVersion) ?? 0
+        editWindowExpiresAt = try container.decodeIfPresent(Date.self, forKey: .editWindowExpiresAt)
+        editMetadata = try container.decodeIfPresent(PostEditMetadata.self, forKey: .editMetadata)
+        postUpdates = try container.decodeIfPresent([PostUpdateItem].self, forKey: .postUpdates)
         amenCount = try container.decodeIfPresent(Int.self, forKey: .amenCount) ?? 0
         lightbulbCount = try container.decodeIfPresent(Int.self, forKey: .lightbulbCount) ?? 0
         commentCount = try container.decodeIfPresent(Int.self, forKey: .commentCount) ?? 0
@@ -145,14 +189,24 @@ struct FirestorePost: Codable, Identifiable {
         amenUserIds = try container.decodeIfPresent([String].self, forKey: .amenUserIds) ?? []
         lightbulbUserIds = try container.decodeIfPresent([String].self, forKey: .lightbulbUserIds) ?? []
         churchNoteId = try container.decodeIfPresent(String.self, forKey: .churchNoteId)
+        isChurchShare = try container.decodeIfPresent(Bool.self, forKey: .isChurchShare) ?? false
+        sharedChurchName = try container.decodeIfPresent(String.self, forKey: .sharedChurchName)
+        sharedChurchDenomination = try container.decodeIfPresent(String.self, forKey: .sharedChurchDenomination)
+        sharedChurchServiceTime = try container.decodeIfPresent(String.self, forKey: .sharedChurchServiceTime)
+        sharedChurchEventId = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventId)
+        sharedChurchEventName = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventName)
+        sharedChurchEventTime = try container.decodeIfPresent(String.self, forKey: .sharedChurchEventTime)
         contentSource = try container.decodeIfPresent(String.self, forKey: .contentSource)
+        quote = try container.decodeIfPresent(PostQuoteMetadata.self, forKey: .quote)
         linkedPrayerRequestId = try container.decodeIfPresent(String.self, forKey: .linkedPrayerRequestId)
         journeyDays = try container.decodeIfPresent(Int.self, forKey: .journeyDays)
         stoneCount = try container.decodeIfPresent(Int.self, forKey: .stoneCount)
         intercessorUids = try container.decodeIfPresent([String].self, forKey: .intercessorUids)
         bereanArcInsight = try container.decodeIfPresent(String.self, forKey: .bereanArcInsight)
+        flaggedForReview = try container.decodeIfPresent(Bool.self, forKey: .flaggedForReview) ?? false
+        removed = try container.decodeIfPresent(Bool.self, forKey: .removed) ?? false
     }
-    
+
     init(
         id: String? = nil,
         authorId: String,
@@ -169,6 +223,12 @@ struct FirestorePost: Codable, Identifiable {
         linkURL: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date? = nil,
+        editedAt: Date? = nil,
+        wasEdited: Bool = false,
+        editVersion: Int = 0,
+        editWindowExpiresAt: Date? = nil,
+        editMetadata: PostEditMetadata? = nil,
+        postUpdates: [PostUpdateItem]? = nil,
         amenCount: Int = 0,
         lightbulbCount: Int = 0,
         commentCount: Int = 0,
@@ -180,7 +240,15 @@ struct FirestorePost: Codable, Identifiable {
         amenUserIds: [String] = [],
         lightbulbUserIds: [String] = [],
         churchNoteId: String? = nil,
-        contentSource: String? = nil
+        isChurchShare: Bool = false,
+        sharedChurchName: String? = nil,
+        sharedChurchDenomination: String? = nil,
+        sharedChurchServiceTime: String? = nil,
+        sharedChurchEventId: String? = nil,
+        sharedChurchEventName: String? = nil,
+        sharedChurchEventTime: String? = nil,
+        contentSource: String? = nil,
+        quote: PostQuoteMetadata? = nil
     ) {
         self.id = id
         self.authorId = authorId
@@ -197,6 +265,12 @@ struct FirestorePost: Codable, Identifiable {
         self.linkURL = linkURL
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.editedAt = editedAt
+        self.wasEdited = wasEdited
+        self.editVersion = editVersion
+        self.editWindowExpiresAt = editWindowExpiresAt
+        self.editMetadata = editMetadata
+        self.postUpdates = postUpdates
         self.amenCount = amenCount
         self.lightbulbCount = lightbulbCount
         self.commentCount = commentCount
@@ -208,9 +282,17 @@ struct FirestorePost: Codable, Identifiable {
         self.amenUserIds = amenUserIds
         self.lightbulbUserIds = lightbulbUserIds
         self.churchNoteId = churchNoteId
+        self.isChurchShare = isChurchShare
+        self.sharedChurchName = sharedChurchName
+        self.sharedChurchDenomination = sharedChurchDenomination
+        self.sharedChurchServiceTime = sharedChurchServiceTime
+        self.sharedChurchEventId = sharedChurchEventId
+        self.sharedChurchEventName = sharedChurchEventName
+        self.sharedChurchEventTime = sharedChurchEventTime
         self.contentSource = contentSource
+        self.quote = quote
     }
-    
+
     // Convert to local Post model
     func toPost() -> Post {
         let postCategory: Post.PostCategory = {
@@ -242,14 +324,14 @@ struct FirestorePost: Codable, Identifiable {
         
         let timeAgo = FirestorePost.formatTimeAgo(from: createdAt)
         
-        return Post(
+        var post = Post(
             id: UUID(uuidString: id ?? UUID().uuidString) ?? UUID(),
             firebaseId: id,
             authorId: authorId,
             authorName: authorName,
             authorUsername: authorUsername,
             authorInitials: authorInitials,
-            authorProfileImageURL: authorProfileImageURL,  // ✅ FIX: Added profile image URL
+            authorProfileImageURL: authorProfileImageURL,
             timeAgo: timeAgo,
             content: content,
             category: postCategory,
@@ -266,6 +348,13 @@ struct FirestorePost: Codable, Identifiable {
             verseReference: verseReference,
             verseText: verseText,
             createdAt: createdAt,
+            updatedAt: updatedAt,
+            editedAt: editedAt,
+            wasEdited: wasEdited,
+            editVersion: editVersion,
+            editWindowExpiresAt: editWindowExpiresAt,
+            editMetadata: editMetadata,
+            postUpdates: postUpdates,
             amenCount: amenCount,
             lightbulbCount: lightbulbCount,
             commentCount: commentCount,
@@ -274,7 +363,8 @@ struct FirestorePost: Codable, Identifiable {
             originalAuthorName: originalAuthorName,
             originalAuthorId: originalAuthorId,
             churchNoteId: churchNoteId,
-            contentSource: contentSource
+            contentSource: contentSource,
+            quote: quote
         ).withPrayerArc(
             linkedPrayerRequestId: linkedPrayerRequestId,
             journeyDays: journeyDays,
@@ -282,8 +372,21 @@ struct FirestorePost: Codable, Identifiable {
             intercessorUids: intercessorUids,
             bereanArcInsight: bereanArcInsight
         )
+        post.isChurchShare = isChurchShare
+        post.sharedChurchName = sharedChurchName
+        post.sharedChurchDenomination = sharedChurchDenomination
+        post.sharedChurchServiceTime = sharedChurchServiceTime
+        post.sharedChurchEventId = sharedChurchEventId
+        post.sharedChurchEventName = sharedChurchEventName
+        post.sharedChurchEventTime = sharedChurchEventTime
+        post.normalizedTopicKeys = normalizedTopicKeys
+        post.topicScoreMap = topicScoreMap
+        post.primaryTopicKey = primaryTopicKey
+        post.flaggedForReview = flaggedForReview
+        post.removed = removed
+        return post
     }
-    
+
     // Helper function to format time ago
     static func formatTimeAgo(from date: Date) -> String {
         let now = Date()
@@ -331,8 +434,8 @@ class FirebasePostService: ObservableObject {
     private var lastDocuments: [String: DocumentSnapshot] = [:]  // Category -> last document
     private let pageSize = 25  // Load 25 posts per page
     
-    internal let firebaseManager = FirebaseManager.shared
-    internal let db = Firestore.firestore()
+    internal lazy var firebaseManager = FirebaseManager.shared
+    internal lazy var db = Firestore.firestore()
     private let realtimeService = RealtimeDatabaseService.shared
     private var listeners: [ListenerRegistration] = []
     private var realtimePostsHandle: UInt?
@@ -352,7 +455,25 @@ class FirebasePostService: ObservableObject {
     // P0 FIX: Add refresh flag for pull-to-refresh
     @Published var isRefreshing = false
     
+    // ✅ FIX CR-6: Computed properties that filter out blocked users
+    var filteredPosts: [Post] {
+        posts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+    }
+    
+    var filteredOpenTablePosts: [Post] {
+        openTablePosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+    }
+    
+    var filteredTestimoniesPosts: [Post] {
+        testimoniesPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+    }
+    
+    var filteredPrayerPosts: [Post] {
+        prayerPosts.filter { !BlockService.shared.blockedUsers.contains($0.authorId) }
+    }
+    
     private init() {
+        guard FirebaseApp.app() != nil else { return }
         setupRealtimeFeed()
     }
     
@@ -473,7 +594,19 @@ class FirebasePostService: ObservableObject {
         allowComments: Bool = true,
         imageURLs: [String]? = nil,
         linkURL: String? = nil,
-        churchNoteId: String? = nil
+        churchNoteId: String? = nil,
+        isChurchShare: Bool = false,
+        sharedChurchName: String? = nil,
+        sharedChurchDenomination: String? = nil,
+        sharedChurchServiceTime: String? = nil,
+        sharedChurchEventId: String? = nil,
+        sharedChurchEventName: String? = nil,
+        sharedChurchEventTime: String? = nil,
+        quote: PostQuoteMetadata? = nil,
+        verseReference: String? = nil,
+        verseText: String? = nil,
+        scriptureAttachment: ScriptureAttachment? = nil,
+        authenticitySignals: AuthenticitySignals? = nil
     ) async throws {
         #if DEBUG
         dlog("📝 Creating new post with INSTANT optimistic update...")
@@ -517,7 +650,18 @@ class FirebasePostService: ObservableObject {
                 allowComments: allowComments,
                 imageURLs: imageURLs,
                 linkURL: linkURL,
-                churchNoteId: churchNoteId
+                churchNoteId: churchNoteId,
+                isChurchShare: isChurchShare,
+                sharedChurchName: sharedChurchName,
+                sharedChurchDenomination: sharedChurchDenomination,
+                sharedChurchServiceTime: sharedChurchServiceTime,
+                sharedChurchEventId: sharedChurchEventId,
+                sharedChurchEventName: sharedChurchEventName,
+                sharedChurchEventTime: sharedChurchEventTime,
+                quote: quote,
+                verseReference: verseReference,
+                verseText: verseText,
+                scriptureAttachment: scriptureAttachment
             )
         }
         inflightPostCreations[idempotencyKey] = creationTask
@@ -535,7 +679,18 @@ class FirebasePostService: ObservableObject {
         allowComments: Bool = true,
         imageURLs: [String]? = nil,
         linkURL: String? = nil,
-        churchNoteId: String? = nil
+        churchNoteId: String? = nil,
+        isChurchShare: Bool = false,
+        sharedChurchName: String? = nil,
+        sharedChurchDenomination: String? = nil,
+        sharedChurchServiceTime: String? = nil,
+        sharedChurchEventId: String? = nil,
+        sharedChurchEventName: String? = nil,
+        sharedChurchEventTime: String? = nil,
+        quote: PostQuoteMetadata? = nil,
+        verseReference: String? = nil,
+        verseText: String? = nil,
+        scriptureAttachment: ScriptureAttachment? = nil
     ) async throws {
 
         // Rate-limit check for new accounts
@@ -548,6 +703,27 @@ class FirebasePostService: ObservableObject {
             )
         }
 
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Enforce max content length to match Firestore rules (500 chars)
+        guard trimmedContent.count <= 500 else {
+            throw NSError(
+                domain: "PostValidation",
+                code: 400,
+                userInfo: [NSLocalizedDescriptionKey: "Post text is too long. Maximum 500 characters allowed."]
+            )
+        }
+        let hasMedia = (imageURLs ?? []).contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let hasLink = !(linkURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let hasQuote = quote != nil
+        let hasPostBody = !trimmedContent.isEmpty || hasMedia || hasLink || churchNoteId != nil || isChurchShare || hasQuote
+        guard hasPostBody else {
+            throw NSError(
+                domain: "PostValidation",
+                code: 400,
+                userInfo: [NSLocalizedDescriptionKey: "Post can't be empty."]
+            )
+        }
+
         // 🚀 STEP 1: Get cached user data (INSTANT - no network call)
         let displayName = UserDefaults.standard.string(forKey: "currentUserDisplayName") ?? "You"
         let username = UserDefaults.standard.string(forKey: "currentUserUsername") ?? "you"
@@ -555,8 +731,8 @@ class FirebasePostService: ObservableObject {
         let profileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
         
         // 🤖 STEP 1.5: Check for AI-generated content
-        // Church-note shares are the user's own sermon notes — skip AI detection.
-        if churchNoteId == nil {
+        // Church-note and church shares are user-generated content — skip AI detection.
+        if churchNoteId == nil && !isChurchShare {
             let aiDetectionResult = await AIContentDetectionService.shared.detectAIContent(content)
 
             if aiDetectionResult.isAIGenerated {
@@ -599,9 +775,9 @@ class FirebasePostService: ObservableObject {
         
         // 🚀 STEP 2: Create optimistic post object with temporary ID
         let tempId = UUID()
-        let optimisticPost = Post(
+        var optimisticPost = Post(
             id: tempId,
-            firebaseId: nil, // Will be set when Firebase confirms
+            firebaseId: nil,
             authorId: userId,
             authorName: displayName,
             authorUsername: username,
@@ -625,6 +801,14 @@ class FirebasePostService: ObservableObject {
             originalAuthorId: nil,
             churchNoteId: churchNoteId
         )
+        optimisticPost.isChurchShare = isChurchShare
+        optimisticPost.sharedChurchName = sharedChurchName
+        optimisticPost.sharedChurchDenomination = sharedChurchDenomination
+        optimisticPost.sharedChurchServiceTime = sharedChurchServiceTime
+        optimisticPost.sharedChurchEventId = sharedChurchEventId
+        optimisticPost.sharedChurchEventName = sharedChurchEventName
+        optimisticPost.sharedChurchEventTime = sharedChurchEventTime
+        optimisticPost.quote = quote
         
         // 🚀 STEP 3: INSTANTLY notify ProfileView (UI updates IMMEDIATELY)
         await MainActor.run {
@@ -653,7 +837,15 @@ class FirebasePostService: ObservableObject {
             allowComments: allowComments,
             imageURLs: imageURLs,
             linkURL: linkURL,
-            churchNoteId: churchNoteId
+            churchNoteId: churchNoteId,
+            isChurchShare: isChurchShare,
+            sharedChurchName: sharedChurchName,
+            sharedChurchDenomination: sharedChurchDenomination,
+            sharedChurchServiceTime: sharedChurchServiceTime,
+            sharedChurchEventId: sharedChurchEventId,
+            sharedChurchEventName: sharedChurchEventName,
+            sharedChurchEventTime: sharedChurchEventTime,
+            quote: quote
         )
         
         // Background save - don't wait for it
@@ -662,6 +854,13 @@ class FirebasePostService: ObservableObject {
         Task(priority: .userInitiated) { @MainActor in
             do {
                 var postData = try Firestore.Encoder().encode(firestorePost)
+                // Remove legacy interaction arrays — interactions now live in subcollections
+                // (posts/{postId}/amens/{userId}, posts/{postId}/lightbulbs/{userId}).
+                // intercessorUids is tracked in RTDB prayerActivity/{postId}/prayingUsers/
+                // Keeping these arrays would create unbounded document growth at scale.
+                postData.removeValue(forKey: "amenUserIds")
+                postData.removeValue(forKey: "lightbulbUserIds")
+                postData.removeValue(forKey: "intercessorUids")
                 // P0 IDEMPOTENCY: Embed the key so Cloud Functions / security rules can
                 // detect and reject replayed writes server-side.
                 postData["idempotencyKey"] = _idempotencyKey
@@ -672,6 +871,23 @@ class FirebasePostService: ObservableObject {
                     .filter { $0.count >= 3 }
                 ).sorted()
                 postData["contentTokens"] = tokens
+
+                // Scripture attachment
+                if let verseReference, !verseReference.isEmpty {
+                    postData["verseReference"] = verseReference
+                    postData["verseText"] = verseText
+                }
+                if let scriptureAttachment {
+                    postData["scriptureAttachment"] = scriptureAttachment.firestoreData
+                }
+
+                // Topic enrichment — derive normalizedTopicKeys for array-contains queries
+                let enrichment = TopicEnrichmentService.shared.enrich(content: content)
+                let topicFields = TopicEnrichmentService.shared.firestoreFields(from: enrichment)
+                for (key, value) in topicFields {
+                    postData[key] = value
+                }
+
                 let _writeToken = PerfBegin("createPost_write")
                 let _traceToken = WriteOpTracer.begin("createPost", key: _idempotencyKey)
                 Breadcrumb.record("createPost_write_start")
@@ -710,35 +926,36 @@ class FirebasePostService: ObservableObject {
                 // Record action for rate-limit counter
                 await NewAccountRestrictionService.shared.recordAction(.post, userId: userId)
 
+                let confirmedPost = Post(
+                    id: tempId,
+                    firebaseId: docRef.documentID,
+                    authorId: userId,
+                    authorName: displayName,
+                    authorUsername: username,
+                    authorInitials: initials,
+                    authorProfileImageURL: profileImageURL,
+                    timeAgo: "Just now",
+                    content: content,
+                    category: category,
+                    topicTag: topicTag,
+                    visibility: visibility,
+                    allowComments: allowComments,
+                    imageURLs: imageURLs,
+                    linkURL: linkURL,
+                    createdAt: Date(),
+                    amenCount: 0,
+                    lightbulbCount: 0,
+                    commentCount: 0,
+                    repostCount: 0,
+                    isRepost: false,
+                    originalAuthorName: nil,
+                    originalAuthorId: nil,
+                    churchNoteId: churchNoteId,
+                    quote: quote
+                )
+
                 // ✅ Notify ProfileView that post was created successfully
                 await MainActor.run {
-                    // Create confirmed post with Firebase ID
-                    let confirmedPost = Post(
-                        id: tempId,
-                        firebaseId: docRef.documentID,
-                        authorId: userId,
-                        authorName: displayName,
-                        authorUsername: username,
-                        authorInitials: initials,
-                        authorProfileImageURL: profileImageURL,
-                        timeAgo: "Just now",
-                        content: content,
-                        category: category,
-                        topicTag: topicTag,
-                        visibility: visibility,
-                        allowComments: allowComments,
-                        imageURLs: imageURLs,
-                        linkURL: linkURL,
-                        createdAt: Date(),
-                        amenCount: 0,
-                        lightbulbCount: 0,
-                        commentCount: 0,
-                        repostCount: 0,
-                        isRepost: false,
-                        originalAuthorName: nil,
-                        originalAuthorId: nil,
-                        churchNoteId: churchNoteId
-                    )
                     
                     NotificationCenter.default.post(
                         name: .newPostCreated,
@@ -767,6 +984,14 @@ class FirebasePostService: ObservableObject {
                         postId: docRef.documentID,
                         postContent: content,
                         fromUserId: userId
+                    )
+                }
+
+                // Dark-shipped intelligent social pipeline.
+                Task { @MainActor in
+                    await IntelligentSocialPipeline.shared.handlePostCreated(
+                        post: confirmedPost,
+                        currentSurface: "post_creation"
                     )
                 }
                 
@@ -814,11 +1039,13 @@ class FirebasePostService: ObservableObject {
 
             do {
                 snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
+                    .whereField("visibility", isEqualTo: "everyone")
                     .order(by: "createdAt", descending: true)
                     .limit(to: limit)
                     .getDocuments(source: .cache)
             } catch {
                 snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
+                    .whereField("visibility", isEqualTo: "everyone")
                     .order(by: "createdAt", descending: true)
                     .limit(to: limit)
                     .getDocuments(source: .server)
@@ -828,10 +1055,10 @@ class FirebasePostService: ObservableObject {
                 var firestorePost = try doc.data(as: FirestorePost.self)
                 firestorePost.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
                 return firestorePost
-            }
-            
+            }.filter { !$0.removed }  // exclude soft-deleted posts
+
             var posts = firestorePosts.map { $0.toPost() }
-            
+
             // ✅ Automatically enrich posts with profile images if missing
             await enrichPostsWithProfileImages(&posts)
             
@@ -855,6 +1082,7 @@ class FirebasePostService: ObservableObject {
         do {
             // Load OpenTable posts from cache synchronously (most important)
             let query = db.collection(FirebaseManager.CollectionPath.posts)
+                .whereField("visibility", isEqualTo: "everyone")
                 .whereField("category", isEqualTo: "openTable")
                 .order(by: "createdAt", descending: true)
                 .limit(to: 50)
@@ -900,6 +1128,7 @@ class FirebasePostService: ObservableObject {
         
         do {
             var query = db.collection(FirebaseManager.CollectionPath.posts)
+                .whereField("visibility", isEqualTo: "everyone")
                 .whereField("category", isEqualTo: categoryString)
             
             // Apply topic tag filter if specified
@@ -940,19 +1169,42 @@ class FirebasePostService: ObservableObject {
             default:
                 query = query.order(by: "createdAt", descending: true)
             }
-            
+
+            // FIX: Apply server-side block filter when possible.
+            // Firestore's notIn operator supports up to 10 values and cannot be combined
+            // with an existing 'in' operator (used by the "following" filter). When there
+            // are 1–10 blocked users and the filter is not "following", push the exclusion
+            // to Firestore so blocked content never reaches the client binary. For larger
+            // block lists or the "following" filter, we fall through to client-side filtering
+            // below which is always applied as a secondary safety net.
+            let blockedUsers = Array(BlockService.shared.blockedUsers)
+            let canApplyServerBlockFilter = !blockedUsers.isEmpty
+                && blockedUsers.count <= 10
+                && filter.lowercased() != "following"
+            if canApplyServerBlockFilter {
+                query = query.whereField("authorId", notIn: blockedUsers)
+            }
+
             query = query.limit(to: limit)
-            
+
             let snapshot = try await query.getDocuments()
-            
+
             let firestorePosts = try snapshot.documents.compactMap { doc in
                 var firestorePost = try doc.data(as: FirestorePost.self)
                 firestorePost.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
                 return firestorePost
             }
-            
+
             var posts = firestorePosts.map { $0.toPost() }
-            
+
+            // Always apply client-side block filter as a secondary safety net.
+            // This catches cases where server-side filtering was skipped (>10 blocked users,
+            // "following" filter, or a user who patches the query).
+            if !blockedUsers.isEmpty {
+                let blockedSet = BlockService.shared.blockedUsers
+                posts = posts.filter { !blockedSet.contains($0.authorId) }
+            }
+
             // Client-side sorting for "popular" filter
             if filter.lowercased() == "popular" {
                 posts.sort { ($0.amenCount + $0.commentCount) > ($1.amenCount + $1.commentCount) }
@@ -968,14 +1220,28 @@ class FirebasePostService: ObservableObject {
         }
     }
     
-    /// Fetch posts by specific user
-    func fetchUserPosts(userId: String, limit: Int = 50, forceServerFetch: Bool = false) async throws -> [Post] {
-        dlog("📥 Fetching posts for user: \(userId)")
-        
-        let query = db.collection(FirebaseManager.CollectionPath.posts)
+    /// Fetch posts by specific user.
+    /// Pass `before` to fetch posts older than that date (cursor-based pagination).
+    func fetchUserPosts(userId: String, limit: Int = 20, before: Date? = nil, forceServerFetch: Bool = false) async throws -> [Post] {
+        dlog("📥 Fetching posts for user: \(userId) (limit: \(limit), before: \(String(describing: before)))")
+
+        let currentUserId = firebaseManager.currentUser?.uid
+        var baseQuery = db.collection(FirebaseManager.CollectionPath.posts)
             .whereField("authorId", isEqualTo: userId)
+
+        if currentUserId != userId {
+            baseQuery = baseQuery.whereField("visibility", isEqualTo: "everyone")
+        }
+
+        baseQuery = baseQuery
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
+
+        if let cursor = before {
+            baseQuery = baseQuery.whereField("createdAt", isLessThan: Timestamp(date: cursor))
+        }
+
+        let query = baseQuery
         let snapshot = try await (forceServerFetch
             ? query.getDocuments(source: .server)
             : query.getDocuments())
@@ -1056,11 +1322,13 @@ class FirebasePostService: ObservableObject {
             }()
             
             query = db.collection(FirebaseManager.CollectionPath.posts)
+                .whereField("visibility", isEqualTo: "everyone")
                 .whereField("category", isEqualTo: categoryString)
                 .order(by: "createdAt", descending: true)
                 .limit(to: 50)
         } else {
             query = db.collection(FirebaseManager.CollectionPath.posts)
+                .whereField("visibility", isEqualTo: "everyone")
                 .order(by: "createdAt", descending: true)
                 .limit(to: 100)
         }
@@ -1138,11 +1406,15 @@ class FirebasePostService: ObservableObject {
                     try? await Task.sleep(nanoseconds: 300_000_000)
                     guard !Task.isCancelled else { return }
 
+                    let blockedIds = BlockService.shared.blockedUsers
+
                     let firestorePosts = snapshot.documents.compactMap { doc -> FirestorePost? in
                         var firestorePost = try? doc.data(as: FirestorePost.self)
-                        firestorePost?.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
+                        firestorePost?.id = doc.documentID
                         return firestorePost
                     }
+                    .filter { !$0.removed }                           // P0-12: exclude soft-deleted posts
+                    .filter { !blockedIds.contains($0.authorId) }  // P0-11: exclude blocked users
 
                     // P1-1: Store last document for pagination
                     if let lastDoc = snapshot.documents.last {
@@ -1271,8 +1543,13 @@ class FirebasePostService: ObservableObject {
     func loadMorePosts(category: Post.PostCategory? = nil) async {
         let categoryKey = category?.rawValue ?? "all"
         
-        guard hasMorePosts, !isLoadingMore else {
-            dlog("⏭️ Skipping load more: hasMore=\(hasMorePosts), isLoading=\(isLoadingMore)")
+        // ✅ FIX CR-9: Check if refresh is in progress, cancel pagination if so
+        guard hasMorePosts, !isLoadingMore, !isRefreshing else {
+            if isRefreshing {
+                dlog("⏭️ Skipping load more: refresh in progress")
+            } else {
+                dlog("⏭️ Skipping load more: hasMore=\(hasMorePosts), isLoading=\(isLoadingMore)")
+            }
             return
         }
         
@@ -1331,19 +1608,24 @@ class FirebasePostService: ObservableObject {
             
             await MainActor.run {
                 if let category = category {
+                    // ✅ FIX CR-8: Apply deduplication before appending
                     switch category {
                     case .prayer:
                         prayerPosts.append(contentsOf: newPosts)
+                        prayerPosts = deduplicateAndSort(prayerPosts)
                     case .testimonies:
                         testimoniesPosts.append(contentsOf: newPosts)
+                        testimoniesPosts = deduplicateAndSort(testimoniesPosts)
                     case .openTable:
                         openTablePosts.append(contentsOf: newPosts)
+                        openTablePosts = deduplicateAndSort(openTablePosts)
                     case .tip, .funFact:
                         break
                     }
                     posts = prayerPosts + testimoniesPosts + openTablePosts
                 } else {
                     posts.append(contentsOf: newPosts)
+                    posts = deduplicateAndSort(posts)
                     updateCategoryArrays()
                 }
                 
@@ -1396,6 +1678,7 @@ class FirebasePostService: ObservableObject {
         if let index = posts.firstIndex(where: { $0.firebaseId == postId }) {
             var updatedPost = posts[index]
             updatedPost.content = newContent
+            updatedPost.updatedAt = Date()
             posts[index] = updatedPost
             updateCategoryArrays()
         }
@@ -1423,9 +1706,12 @@ class FirebasePostService: ObservableObject {
         
         try await db.collection(FirebaseManager.CollectionPath.posts)
             .document(postId)
-            .delete()
-        
-        dlog("✅ Post deleted successfully")
+            .updateData([
+                "isDeleted": true,
+                "deletedAt": FieldValue.serverTimestamp()
+            ])
+
+        dlog("✅ Post soft-deleted successfully")
         
         // Update user's post count
         try await db.collection(FirebaseManager.CollectionPath.users)
@@ -1445,78 +1731,61 @@ class FirebasePostService: ObservableObject {
     /// Toggle "Amen" on a post with INSTANT optimistic update
     func toggleAmen(postId: String) async throws {
         dlog("🙏 Toggling Amen on post (INSTANT): \(postId)")
-        
+
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
         }
-        
-        // 🚀 STEP 1: Check current state locally
+
         let postRef = db.collection(FirebaseManager.CollectionPath.posts).document(postId)
-        let postDoc = try await postRef.getDocument()
-        
-        guard let data = postDoc.data(),
-              var amenUserIds = data["amenUserIds"] as? [String] else {
-            throw FirebaseError.invalidData
-        }
-        
-        let hasAmened = amenUserIds.contains(userId)
+        // Subcollection document: posts/{postId}/amens/{userId}
+        let amenRef = postRef.collection("amens").document(userId)
+
+        // Determine current state from subcollection (single document fetch)
+        let amenDoc = try await amenRef.getDocument()
+        let hasAmened = amenDoc.exists
         let willAdd = !hasAmened
-        let postAuthorId = data["authorId"] as? String ?? ""
-        
-        // 🚀 STEP 2: Update UI INSTANTLY via RealtimePostService
-        // Note: Optimistic updates temporarily disabled
-        // await MainActor.run {
-        //     RealtimePostService.shared.updateReactionOptimistically(
-        //         postId: postId,
-        //         reactionType: .amen,
-        //         increment: willAdd
-        //     )
-        // }
-        
-        // 🚀 STEP 3: Update Firestore in background (non-blocking)
+
+        let postAuthorId: String
+        if willAdd {
+            let postDoc = try await postRef.getDocument()
+            postAuthorId = postDoc.data()?["authorId"] as? String ?? ""
+        } else {
+            postAuthorId = ""
+        }
+
+        // Update Firestore in background (non-blocking)
         Task.detached(priority: .userInitiated) {
             do {
                 if willAdd {
-                    // Add amen
-                    amenUserIds.append(userId)
+                    // Write subcollection document; no unbounded array touched
+                    try await amenRef.setData(["userId": userId, "createdAt": FieldValue.serverTimestamp()])
                     try await postRef.updateData([
                         "amenCount": FieldValue.increment(Int64(1)),
-                        "amenUserIds": amenUserIds,
                         "updatedAt": Date()
                     ])
-                    dlog("✅ Amen added to Firestore")
-                    
-                    // Create notification for post author (background)
-                    try? await self.createAmenNotification(
-                        postId: postId,
-                        postAuthorId: postAuthorId,
-                        postContent: data["content"] as? String ?? "",
-                        fromUserId: userId
-                    )
+                    dlog("✅ Amen added to Firestore subcollection")
+
+                    if !postAuthorId.isEmpty {
+                        try? await self.createAmenNotification(
+                            postId: postId,
+                            postAuthorId: postAuthorId,
+                            postContent: "",
+                            fromUserId: userId
+                        )
+                    }
                 } else {
-                    // Remove amen
-                    amenUserIds.removeAll { $0 == userId }
+                    try await amenRef.delete()
                     try await postRef.updateData([
                         "amenCount": FieldValue.increment(Int64(-1)),
-                        "amenUserIds": amenUserIds,
                         "updatedAt": Date()
                     ])
-                    dlog("✅ Amen removed from Firestore")
+                    dlog("✅ Amen removed from Firestore subcollection")
                 }
             } catch {
                 dlog("❌ Failed to update amen in Firestore: \(error)")
-                // Rollback optimistic update
-                // Note: Optimistic updates temporarily disabled
-                // await MainActor.run {
-                //     RealtimePostService.shared.updateReactionOptimistically(
-                //         postId: postId,
-                //         reactionType: .amen,
-                //         increment: !willAdd // Reverse the action
-                //     )
-                // }
             }
         }
-        
+
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
@@ -1670,7 +1939,8 @@ class FirebasePostService: ObservableObject {
                 //         increment: false
                 //     )
                 // }
-                throw error
+                // Error is logged above; this is a fire-and-forget background task
+                // so there is no caller to propagate to.
             }
         }
         
@@ -1684,36 +1954,28 @@ class FirebasePostService: ObservableObject {
     /// Check if current user has interacted with a post
     func hasUserAmened(postId: String) async -> Bool {
         guard let userId = firebaseManager.currentUser?.uid else { return false }
-        
         do {
-            let postDoc = try await db.collection(FirebaseManager.CollectionPath.posts)
+            let doc = try await db.collection(FirebaseManager.CollectionPath.posts)
                 .document(postId)
+                .collection("amens")
+                .document(userId)
                 .getDocument()
-            
-            guard let amenUserIds = postDoc.data()?["amenUserIds"] as? [String] else {
-                return false
-            }
-            
-            return amenUserIds.contains(userId)
+            return doc.exists
         } catch {
             dlog("❌ Error checking amen status: \(error)")
             return false
         }
     }
-    
+
     func hasUserLitLightbulb(postId: String) async -> Bool {
         guard let userId = firebaseManager.currentUser?.uid else { return false }
-        
         do {
-            let postDoc = try await db.collection(FirebaseManager.CollectionPath.posts)
+            let doc = try await db.collection(FirebaseManager.CollectionPath.posts)
                 .document(postId)
+                .collection("lightbulbs")
+                .document(userId)
                 .getDocument()
-            
-            guard let lightbulbUserIds = postDoc.data()?["lightbulbUserIds"] as? [String] else {
-                return false
-            }
-            
-            return lightbulbUserIds.contains(userId)
+            return doc.exists
         } catch {
             dlog("❌ Error checking lightbulb status: \(error)")
             return false
@@ -1723,41 +1985,34 @@ class FirebasePostService: ObservableObject {
     /// Toggle lightbulb (like) on a post - FULL FIREBASE IMPLEMENTATION
     func toggleLightbulb(postId: String) async throws {
         dlog("💡 Toggling lightbulb on post: \(postId)")
-        
+
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
         }
-        
+
         let postRef = db.collection(FirebaseManager.CollectionPath.posts).document(postId)
-        let postDoc = try await postRef.getDocument()
-        
-        guard let data = postDoc.data(),
-              var lightbulbUserIds = data["lightbulbUserIds"] as? [String] else {
-            throw FirebaseError.invalidData
-        }
-        
-        let hasLit = lightbulbUserIds.contains(userId)
-        
+        // Subcollection document: posts/{postId}/lightbulbs/{userId}
+        let lightbulbRef = postRef.collection("lightbulbs").document(userId)
+
+        let lightbulbDoc = try await lightbulbRef.getDocument()
+        let hasLit = lightbulbDoc.exists
+
         if hasLit {
-            // Remove lightbulb
-            lightbulbUserIds.removeAll { $0 == userId }
+            try await lightbulbRef.delete()
             try await postRef.updateData([
                 "lightbulbCount": FieldValue.increment(Int64(-1)),
-                "lightbulbUserIds": lightbulbUserIds,
                 "updatedAt": Date()
             ])
-            dlog("💡 Lightbulb removed")
+            dlog("💡 Lightbulb removed from subcollection")
         } else {
-            // Add lightbulb
-            lightbulbUserIds.append(userId)
+            try await lightbulbRef.setData(["userId": userId, "createdAt": FieldValue.serverTimestamp()])
             try await postRef.updateData([
                 "lightbulbCount": FieldValue.increment(Int64(1)),
-                "lightbulbUserIds": lightbulbUserIds,
                 "updatedAt": Date()
             ])
-            dlog("💡 Lightbulb lit!")
+            dlog("💡 Lightbulb lit via subcollection!")
         }
-        
+
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: hasLit ? .light : .medium)
         haptic.impactOccurred()
@@ -1885,7 +2140,18 @@ class FirebasePostService: ObservableObject {
                 dlog("")
                 dlog("   OR you can use the fallback query:")
                 dlog("   try await fetchUserOriginalPosts(userId: userId, useFallback: true)")
-                
+
+                // FIX: In debug builds, assert immediately so developers discover the missing
+                // index during testing rather than silently shipping degraded behavior.
+                // The fallback still runs below so the UI doesn't break during development.
+                #if DEBUG
+                assertionFailure(
+                    "[FirebasePostService] Missing Firestore composite index detected. " +
+                    "Create index: posts { authorId ASC, isRepost ASC, createdAt DESC }. " +
+                    "Go to Firebase Console → Firestore → Indexes to add it."
+                )
+                #endif
+
                 // Automatically retry with fallback if not already using it
                 if !useFallback {
                     dlog("🔄 Automatically retrying with fallback query...")
@@ -2188,7 +2454,7 @@ class FirebasePostService: ObservableObject {
     func migrateAllPostsWithProfileImages() async throws {
         dlog("🔄 Starting migration to add profile images to all posts...")
         
-        let db = Firestore.firestore()
+        lazy var db = Firestore.firestore()
         
         // Fetch all posts
         let snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
@@ -2283,7 +2549,11 @@ class FirebasePostService: ObservableObject {
         
         // Deterministic ID: amen_{postId}_{fromUserId} — overwrites on re-trigger
         let deterministicId = "amen_\(postId)_\(fromUserId)"
-        try await db.collection("notifications").document(deterministicId).setData(notification, merge: false)
+        try await db.collection("users")
+            .document(postAuthorId)
+            .collection("notifications")
+            .document(deterministicId)
+            .setData(notification, merge: false)
         dlog("✅ Amen notification created")
     }
     
@@ -2327,7 +2597,11 @@ class FirebasePostService: ObservableObject {
         // One notification per user per post; if they comment again the notification is refreshed
         // (keeping the feed clean) rather than adding duplicates.
         let deterministicId = "comment_\(postId)_\(fromUserId)"
-        try await db.collection("notifications").document(deterministicId).setData(notification, merge: false)
+        try await db.collection("users")
+            .document(postAuthorId)
+            .collection("notifications")
+            .document(deterministicId)
+            .setData(notification, merge: false)
         dlog("✅ Comment notification created")
     }
     
@@ -2383,7 +2657,11 @@ class FirebasePostService: ObservableObject {
             
             // Deterministic ID: mention_{postId}_{fromUserId}_{mentionedUserId}
             let deterministicId = "mention_\(postId)_\(fromUserId)_\(mentionedUserId)"
-            try await db.collection("notifications").document(deterministicId).setData(notification, merge: false)
+            try await db.collection("users")
+                .document(mentionedUserId)
+                .collection("notifications")
+                .document(deterministicId)
+                .setData(notification, merge: false)
             dlog("✅ Mention notification created for @\(mentionedUsername)")
         }
     }
@@ -2405,5 +2683,3 @@ class FirebasePostService: ObservableObject {
         }
     }
 }
-
-

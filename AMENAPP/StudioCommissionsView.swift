@@ -22,7 +22,7 @@ struct StudioCommissionsView: View {
                 if !commission.exampleWorkIds.isEmpty {
                     sectionHeader("Example Work")
                     Text("Examples loaded from portfolio.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 16)
                 }
@@ -92,7 +92,7 @@ struct StudioCommissionsView: View {
                           : Color(.systemGray5))
                     .frame(width: 40, height: 40)
                 Image(systemName: profile.isOpen ? "pencil.line" : "lock.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(profile.isOpen ? Color(red: 0.18, green: 0.62, blue: 0.36) : .secondary)
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -101,7 +101,7 @@ struct StudioCommissionsView: View {
                     .foregroundStyle(profile.isOpen ? Color(red: 0.18, green: 0.62, blue: 0.36) : .secondary)
                 if let note = profile.queueNote, !note.isEmpty {
                     Text(note)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -138,7 +138,7 @@ struct StudioCommissionsView: View {
 
             if let note = profile.priceNote, !note.isEmpty {
                 Text(note)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
             }
@@ -164,7 +164,7 @@ struct StudioCommissionsView: View {
                 }
                 .padding(.horizontal, 16)
                 Text("\(profile.currentQueueSize) of \(profile.maxQueueSize) slots filled")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
             }
@@ -228,7 +228,7 @@ struct StudioCommissionsView: View {
             .padding(.horizontal, 16)
 
             Text("You'll submit a request — the creator reviews and responds.")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -253,7 +253,7 @@ struct StudioCommissionsView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "pencil.line")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
             Text(isOwnProfile ? "Set up commissions" : "No commissions")
                 .font(.custom("OpenSans-SemiBold", size: 16))
@@ -274,7 +274,7 @@ struct StudioCommissionsView: View {
     @ViewBuilder
     private func commissionTypeChip(_ type: CommissionType) -> some View {
         Text(type.label)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundStyle(Color(red: 0.55, green: 0.25, blue: 0.88))
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
@@ -285,10 +285,10 @@ struct StudioCommissionsView: View {
     private func pricingCell(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(size: 14, weight: .bold))
+                .font(.systemScaled(14, weight: .bold))
                 .foregroundStyle(.primary)
         }
         .padding(10)
@@ -367,13 +367,13 @@ struct StudioCommissionRequestView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "shield.fill")
                                     .foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                 Text("Your inquiry is safe and moderated.")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.secondary)
                             }
                             Text("The creator will review your request and respond. No payment is required until they accept.")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -396,7 +396,7 @@ struct StudioCommissionRequestView: View {
     private var submittedState: some View {
         VStack(spacing: 20) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(Color(red: 0.18, green: 0.62, blue: 0.36))
 
             Text("Request Sent")

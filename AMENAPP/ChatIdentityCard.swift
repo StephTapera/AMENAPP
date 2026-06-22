@@ -53,6 +53,8 @@ struct ChatIdentityCard: View {
     let onFollow: () -> Void   // nil-safe: only active when follow action is available
     var onSendPrayer: (() -> Void)? = nil  // Quick prayer action
     var overridePhotoURL: String? = nil  // Live-fetched photo, takes precedence over stale conversation doc
+    
+    @State private var glowPhase: CGFloat = 0
 
     // Computed follow button label
     private var followButtonLabel: String {
@@ -90,6 +92,14 @@ struct ChatIdentityCard: View {
         .padding(.top, 28)
         .padding(.bottom, 24)
         .frame(maxWidth: .infinity)
+        .background(glassCardBackground)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+                glowPhase = .pi * 2
+            }
+        }
     }
 
     // MARK: Avatar
@@ -97,6 +107,13 @@ struct ChatIdentityCard: View {
     @ViewBuilder
     private var avatarView: some View {
         ZStack {
+            // Ambient glow
+            Circle()
+                .fill(Color.blue)
+                .opacity(0.08 + 0.04 * sin(Double(glowPhase)))
+                .blur(radius: 18)
+                .frame(width: 98, height: 98)
+            
             let effectivePhotoURL = (overridePhotoURL?.isEmpty == false ? overridePhotoURL : nil)
                                  ?? conversation.profilePhotoURL
             if let photoURL = effectivePhotoURL,
@@ -117,7 +134,12 @@ struct ChatIdentityCard: View {
                 fallbackAvatar
             }
         }
-        .shadow(color: .black.opacity(0.10), radius: 12, y: 4)
+        .overlay(
+            Circle()
+                .stroke(Color.white, lineWidth: 1)
+                .opacity(0.35)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 12, y: 6)
     }
 
     private var fallbackAvatar: some View {
@@ -134,8 +156,13 @@ struct ChatIdentityCard: View {
                     )
                 )
                 .frame(width: 76, height: 76)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white, lineWidth: 1)
+                        .opacity(0.35)
+                )
             Text(conversation.initials)
-                .font(.system(size: 28, weight: .bold))
+                .font(.systemScaled(28, weight: .bold))
                 .foregroundStyle(.white)
         }
     }
@@ -146,21 +173,21 @@ struct ChatIdentityCard: View {
         VStack(spacing: 5) {
             // Display name
             Text(conversation.name)
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
 
             // Username
             if let username = conversation.otherUserUsername, !username.isEmpty {
                 Text("@\(username)")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(.secondary)
             }
 
             // Bio preview (one line)
             if let bio = conversation.otherUserBio, !bio.isEmpty {
                 Text(bio)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -174,9 +201,9 @@ struct ChatIdentityCard: View {
     private var relationshipBadge: some View {
         HStack(spacing: 6) {
             Image(systemName: followRelationship.icon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
             Text(followRelationship.label)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
         }
         .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
@@ -184,7 +211,11 @@ struct ChatIdentityCard: View {
         .background(
             Capsule()
                 .fill(.ultraThinMaterial)
-                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.8))
+                .overlay(
+                    Capsule()
+                        .stroke(Color.white, lineWidth: 1)
+                        .opacity(0.25)
+                )
         )
     }
 
@@ -196,20 +227,24 @@ struct ChatIdentityCard: View {
             Button(action: onViewProfile) {
                 VStack(spacing: 5) {
                     Image(systemName: "person.circle")
-                        .font(.system(size: 22, weight: .regular))
+                        .font(.systemScaled(22, weight: .regular))
                         .foregroundStyle(.primary.opacity(0.75))
                         .frame(width: 44, height: 44)
                         .background(
                             Circle()
                                 .fill(.ultraThinMaterial)
-                                .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white, lineWidth: 1)
+                                        .opacity(0.25)
+                                )
                         )
                     Text("View Profile")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ScaleButtonStyle())
 
             // Follow / Follow Back — only shown when relevant
             if showFollowButton {
@@ -225,16 +260,16 @@ struct ChatIdentityCard: View {
                                     .scaleEffect(0.75)
                             } else {
                                 Image(systemName: "person.badge.plus")
-                                    .font(.system(size: 18, weight: .medium))
+                                    .font(.systemScaled(18, weight: .medium))
                                     .foregroundStyle(.white)
                             }
                         }
                         Text(followButtonLabel)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ScaleButtonStyle())
                 .disabled(isFollowLoading)
             }
 
@@ -243,22 +278,52 @@ struct ChatIdentityCard: View {
                 Button(action: onSendPrayer) {
                     VStack(spacing: 5) {
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 20, weight: .regular))
+                            .font(.systemScaled(20, weight: .regular))
                             .foregroundStyle(.primary.opacity(0.75))
                             .frame(width: 44, height: 44)
                             .background(
                                 Circle()
                                     .fill(.ultraThinMaterial)
-                                    .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white, lineWidth: 1)
+                                            .opacity(0.25)
+                                    )
                             )
                         Text("Send Prayer")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ScaleButtonStyle())
             }
         }
+    }
+    
+    private var glassCardBackground: some View {
+        RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.7),
+                                Color.white.opacity(0.2),
+                                Color.white.opacity(0.05)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Color.white)
+                    .opacity(0.35)
+            )
+            .shadow(color: Color.black.opacity(0.06), radius: 18, y: 10)
     }
 }
 
@@ -272,9 +337,9 @@ struct ChatSourceBanner: View {
         if source != .direct && !source.label.isEmpty {
             HStack(spacing: 7) {
                 Image(systemName: source.icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(source.label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(.secondary)
             .padding(.horizontal, 14)
@@ -320,9 +385,9 @@ struct ChatRequestBanner: View {
                 if followRelationship != .loading {
                     HStack(spacing: 5) {
                         Image(systemName: followRelationship.icon)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                         Text(followRelationship.label)
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.systemScaled(12, weight: .regular))
                     }
                     .foregroundStyle(.secondary)
                 }
@@ -331,9 +396,9 @@ struct ChatRequestBanner: View {
                 if conversation.source != .direct, !conversation.source.label.isEmpty {
                     HStack(spacing: 5) {
                         Image(systemName: conversation.source.icon)
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                         Text(conversation.source.label)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                     }
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
@@ -393,12 +458,12 @@ struct ChatRequestBanner: View {
             // Name + username
             VStack(alignment: .leading, spacing: 3) {
                 Text(conversation.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 if let username = conversation.otherUserUsername, !username.isEmpty {
                     Text("@\(username)")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -409,7 +474,7 @@ struct ChatRequestBanner: View {
             HStack(spacing: 8) {
                 Button(action: onViewProfile) {
                     Text("Profile")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.primary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -426,7 +491,7 @@ struct ChatRequestBanner: View {
                     showMoreMenu = true
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(.secondary)
                         .frame(width: 32, height: 32)
                 }
@@ -447,7 +512,7 @@ struct ChatRequestBanner: View {
                 )
                 .frame(width: 48, height: 48)
             Text(conversation.initials)
-                .font(.system(size: 18, weight: .bold))
+                .font(.systemScaled(18, weight: .bold))
                 .foregroundStyle(.white)
         }
     }
@@ -468,7 +533,7 @@ struct ChatRequestBanner: View {
                             .scaleEffect(0.8)
                     } else {
                         Text("Delete")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                     }
                 }
                 .foregroundStyle(Color(red: 0.75, green: 0.15, blue: 0.15))
@@ -498,7 +563,7 @@ struct ChatRequestBanner: View {
                             .scaleEffect(0.8)
                     } else {
                         Text("Accept")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                     }
                 }
                 .foregroundStyle(.white)
@@ -519,9 +584,9 @@ struct ChatRequestBanner: View {
     private var safetyNote: some View {
         HStack(spacing: 5) {
             Image(systemName: "shield.checkered")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             Text("Review before accepting. You can always block or report.")
-                .font(.system(size: 11, weight: .regular))
+                .font(.systemScaled(11, weight: .regular))
         }
         .foregroundStyle(.tertiary)
         .frame(maxWidth: .infinity)
@@ -539,14 +604,14 @@ struct ChatOutgoingPendingBanner: View {
         VStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
                 Text("Message request sent")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             Text("\(conversation.name) will see your message once they accept.")
-                .font(.system(size: 12, weight: .regular))
+                .font(.systemScaled(12, weight: .regular))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
         }
@@ -591,52 +656,20 @@ struct ChatEmptyState: View {
         }
     }
 
-    private var conversationStarters: [(emoji: String, text: String)] {
-        [
-            ("🙏", "I'll be praying for you"),
-            ("✝️", "Share a verse with \(firstName)"),
-            ("💬", "What are you believing God for?"),
-        ]
-    }
-
     var body: some View {
         VStack(spacing: 16) {
             // Subtle cross watermark
             Image(systemName: "cross.fill")
-                .font(.system(size: 40, weight: .ultraLight))
+                .font(.systemScaled(40, weight: .ultraLight))
                 .foregroundStyle(.primary.opacity(0.04))
                 .padding(.bottom, 4)
 
             Text(emptyPrompt)
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
-            // Faith-based conversation starters
-            VStack(spacing: 8) {
-                ForEach(conversationStarters, id: \.text) { starter in
-                    Button {
-                        onStarterTapped?("\(starter.emoji) \(starter.text)")
-                    } label: {
-                        HStack(spacing: 8) {
-                            Text(starter.emoji)
-                                .font(.system(size: 14))
-                            Text(starter.text)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.primary.opacity(0.6))
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(.ultraThinMaterial)
-                                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
@@ -651,7 +684,7 @@ struct ChatSystemMessageRow: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 12, weight: .medium))
+            .font(.systemScaled(12, weight: .medium))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 16)
             .padding(.vertical, 6)

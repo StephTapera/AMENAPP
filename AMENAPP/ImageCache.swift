@@ -24,6 +24,7 @@ class ImageCache {
 
     // Background queue for image resizing
     private let resizeQueue = DispatchQueue(label: "com.amen.imageResize", qos: .userInitiated)
+    private var notificationTokens: [NSObjectProtocol] = []
 
     private init() {
         // Configure cache limits
@@ -31,17 +32,22 @@ class ImageCache {
         cache.totalCostLimit = 75 * 1024 * 1024  // 75MB memory limit
 
         // Clear cache on memory warning
-        NotificationCenter.default.addObserver(
+        let token = NotificationCenter.default.addObserver(
             forName: UIApplication.didReceiveMemoryWarningNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             dlog("⚠️ Memory warning - clearing image cache")
             // Hop to MainActor to satisfy @MainActor isolation on `cache`
-            Task { @MainActor [weak self] in
+            Task { @MainActor in
                 self?.cache.removeAllObjects()
             }
         }
+        notificationTokens.append(token)
+    }
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     /// Load image from URL with caching and automatic resizing
@@ -75,8 +81,8 @@ class ImageCache {
                 guard let image = UIImage(data: data) else { return nil }
 
                 // Resize on background thread to avoid blocking main thread
-                let resized = await Task.detached(priority: .userInitiated) { [weak self] in
-                    self?.resize(image: image, to: size)
+                let resized = await Task.detached(priority: .userInitiated) {
+                    self.resize(image: image, to: size)
                 }.value
 
                 guard let resized = resized else { return nil }
@@ -105,9 +111,12 @@ class ImageCache {
     }
 
     /// Preload image into cache without returning it
-    /// Useful for preloading images before they're needed
+    /// Useful for preloading images before they're needed.
+    /// NG-2: speculative prefetch must not stage media that has not cleared the scan
+    /// pipeline. Fails closed via MediaScanGate (no-op while scanning is unavailable).
     func preloadImage(url: String?, size: CGSize) {
         Task {
+            guard await MediaScanGate.mayPrefetchMedia() else { return }
             _ = await loadImage(url: url, size: size)
         }
     }
@@ -129,6 +138,21 @@ class ImageCache {
     nonisolated private func resize(image: UIImage, to size: CGSize) -> UIImage? {
         // Use preparingThumbnail for efficient resizing
         return image.preparingThumbnail(of: size)
+    }
+}
+
+// MARK: - NG-2 Media Scan Gate
+
+/// NG-2 (latent NO-GO): speculative prefetch/caching of media must not stage bytes that
+/// have not cleared the scan pipeline (MEDIA-GATE / PhotoDNA-NCMEC). Until per-asset scan
+/// verdicts are plumbed through the media models, this fails **closed** — speculative media
+/// prefetch is permitted only when the scan pipeline is live (`isMediaScanningAvailable`,
+/// currently hard-false). This MUST remain in force before uploads are ever enabled; the
+/// moment uploads turn on without a per-asset verdict, this gate is the only thing keeping
+/// unscanned bytes off the device.
+enum MediaScanGate {
+    static func mayPrefetchMedia() async -> Bool {
+        await AmenSafetyModerationCoordinator.shared.isMediaScanningAvailable
     }
 }
 
