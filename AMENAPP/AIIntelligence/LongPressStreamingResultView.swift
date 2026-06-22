@@ -11,6 +11,7 @@
 
 import SwiftUI
 import Foundation
+import FirebaseAuth
 
 struct LongPressStreamingResultView: View {
 
@@ -209,31 +210,47 @@ struct LongPressStreamingResultView: View {
         streamTask?.cancel()
 
         streamTask = Task {
-            // TODO(wave2-deploy): wire BereanSSEClient for real server-sent events.
-            // For now, simulate streaming with chunk delivery using Task.sleep.
-            let chunks = simulatedChunks(for: action, context: context, depth: depthState.effectiveDepth)
-            isLoading = false
-
-            for chunk in chunks {
+            // LIVE: real Berean Constitutional Pipeline (deployed `bereanPipeline` callable).
+            // No simulation. Errors surface honestly — never fabricated content.
+            do {
+                let pipelineQuery = BereanPipelineClient.BereanQuery(
+                    query: Self.buildQuery(action: action, context: context),
+                    mode: Self.pipelineMode(for: action),
+                    userId: Auth.auth().currentUser?.uid ?? "anonymous",
+                    conversationHistory: nil
+                )
+                let response = try await BereanPipelineClient.shared.sendQuery(pipelineQuery)
                 guard !Task.isCancelled else { return }
-
-                // If this chunk contains a scripture-style reference and action requires
-                // citation integrity, gate it before appending to the stream.
-                if action.requiresCitationIntegrity, looksLikeScriptureRef(chunk) {
-                    let (_, shouldBlock) = await BereanCitationGate.guardedEmit(
-                        reference: chunk,
-                        quotation: chunk,
-                        depth: depthState.effectiveDepth
-                    )
-                    if shouldBlock {
-                        streamedText += "[Citation unverified] "
-                        continue
-                    }
-                }
-
-                streamedText += chunk
-                try? await Task.sleep(nanoseconds: 45_000_000) // 45ms between chunks
+                isLoading = false
+                await streamOut(response.answer)
+            } catch {
+                guard !Task.isCancelled else { return }
+                isLoading = false
+                streamedText = (error as? LocalizedError)?.errorDescription
+                    ?? "Berean is unavailable right now. Please try again."
             }
+        }
+    }
+
+    /// Streams real answer text word-by-word for the typewriter effect, gating any
+    /// scripture-like token through the citation gate before it is shown.
+    private func streamOut(_ answer: String) async {
+        let words = answer.split(separator: " ", omittingEmptySubsequences: false).map(String.init)
+        for word in words {
+            guard !Task.isCancelled else { return }
+            if action.requiresCitationIntegrity, looksLikeScriptureRef(word) {
+                let (_, shouldBlock) = await BereanCitationGate.guardedEmit(
+                    reference: word,
+                    quotation: word,
+                    depth: depthState.effectiveDepth
+                )
+                if shouldBlock {
+                    streamedText += "[citation unverified] "
+                    continue
+                }
+            }
+            streamedText += word + " "
+            try? await Task.sleep(nanoseconds: 18_000_000) // 18ms — typewriter cadence over real text
         }
     }
 
@@ -242,21 +259,26 @@ struct LongPressStreamingResultView: View {
         startStreaming()
     }
 
-    // MARK: - Simulation
+    // MARK: - Query Construction
 
-    private func simulatedChunks(
-        for action: IntelligenceAction,
-        context: BereanObjectContext,
-        depth: BereanDepth
-    ) -> [String] {
-        // Produces plausible streaming chunks. Replace with BereanSSEClient output in prod.
-        let base = "Based on your \(context.objectType.rawValue.replacingOccurrences(of: "_", with: " ")), "
-        let depthNote = "at \(depth.displayLabel) depth, "
-        let actionNote = "here is what Berean found for \"\(action.label)\": "
-        let body = "This is a streamed Berean response. Real content will be delivered via SSE when the backend pipeline is wired. The response will respect the token ceiling (~\(depth.tokenCeiling / 1000)k tokens) and latency budget (≤\(depth.latencyBudgetMs / 1000)s) for this depth level."
-        let fullText = base + depthNote + actionNote + body
-        // Split by words for chunk simulation
-        return fullText.components(separatedBy: " ").map { $0 + " " }
+    /// Maps the action's posture mode to the pipeline's wire enum (defaults to Ask).
+    private static func pipelineMode(for action: IntelligenceAction) -> BereanPipelineClient.BereanMode {
+        switch action.bereanMode {
+        case .some(.ask):     return .ask
+        case .some(.discern): return .discern
+        case .some(.build):   return .build
+        case .some(.guard):   return .guard_
+        case .some(.reflect): return .reflect
+        case .none:           return .ask
+        }
+    }
+
+    /// Builds the natural-language query from the action label + captured object context.
+    private static func buildQuery(action: IntelligenceAction, context: BereanObjectContext) -> String {
+        let subject = context.payloadReference
+            ?? context.payloadText
+            ?? context.objectType.rawValue.replacingOccurrences(of: "_", with: " ")
+        return "\(action.label). Regarding: \(subject)"
     }
 
     /// Rough heuristic — real citation extraction happens server-side.
