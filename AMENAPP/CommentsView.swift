@@ -1449,7 +1449,6 @@ struct CommentsView: View {
                         bereanSuggestion = suggestion
                         isLoadingBereanSuggestion = false
                     }
-                    let haptic = UIImpactFeedbackGenerator(style: .soft)
                     HapticManager.impact(style: .light)
                 }
             } catch {
@@ -2633,6 +2632,8 @@ private struct PostCommentRow: View {
                             ToastManager.shared.success("User blocked")
                         } catch {
                             dlog("❌ Failed to block user: \(error)")
+                            // Don't leave the user falsely confident they're protected.
+                            ToastManager.shared.failure("Couldn’t block this user. Please try again.")
                         }
                     }
                 } label: {
@@ -2647,6 +2648,7 @@ private struct PostCommentRow: View {
                             ToastManager.shared.success("User muted")
                         } catch {
                             dlog("❌ Failed to mute user: \(error)")
+                            ToastManager.shared.failure("Couldn’t mute this user. Please try again.")
                         }
                     }
                 } label: {

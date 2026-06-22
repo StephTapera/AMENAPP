@@ -22,4 +22,11 @@ extension ToastManager {
     func info(_ message: String) {
         showInfo(message)
     }
+
+    /// Show a failure message (convenience wrapper). The audit's canonical cure
+    /// for swallowed errors (try? / catch { dlog } / unrendered errorMessage):
+    /// call this instead of logging silently. Optional retry surfaces a button.
+    func failure(_ message: String, retry: (() -> Void)? = nil) {
+        showError(message, retry: retry)
+    }
 }

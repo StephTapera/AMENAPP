@@ -472,13 +472,15 @@ extension Notification.Name {
 // coordinator) so it lands in an indexed in-target file rather than an
 // unverified new synced-folder file.
 //
-//   • ToastCoordinator — one app-wide toast queue. Motivated by the pervasive
-//     "silent failure" finding (try? / catch { dlog } / errorMessage never
-//     rendered). Lightweight feedback belongs here, not in a full modal.
 //   • ModalCoordinator — one-active-at-a-time modal arbitration. Motivated by
 //     the modal-stacking / recursive-sheet findings.
 //   • AmenInteractionStateMachine — the reusable control lifecycle from §4,
 //     with valid-transition enforcement so UI never desyncs from backend.
+//
+// Toasts: the app already has a canonical toast system (`ToastManager` +
+// `ToastManagerExtensions`, mounted app-wide). Per "extend, don't fork" we use
+// THAT for lightweight feedback (`ToastManager.shared.failure(_:retry:)`), not a
+// second queue.
 //
 // Pure infrastructure: changes no behavior until a surface consumes it
 // (Phase C). Names are unique app-wide (verified — no shadowing).
@@ -546,79 +548,6 @@ public final class AmenInteractionStateMachine: ObservableObject {
     public func reset() { state = .idle }
 
     public var isBusy: Bool { state == .loading || state == .expanding || state == .collapsing }
-}
-
-// MARK: Toast Coordinator
-
-public struct AmenToastModel: Identifiable, Equatable {
-    public enum Kind: Equatable {
-        case info       // neutral
-        case success    // green = state/status (two-accent contract)
-        case failure    // calm, non-punitive — never playful on errors
-    }
-    public let id = UUID()
-    public let kind: Kind
-    public let message: String
-    public let actionTitle: String?
-
-    public init(kind: Kind, message: String, actionTitle: String? = nil) {
-        self.kind = kind
-        self.message = message
-        self.actionTitle = actionTitle
-    }
-
-    public static func == (lhs: AmenToastModel, rhs: AmenToastModel) -> Bool { lhs.id == rhs.id }
-}
-
-/// App-wide single toast queue. Use for lightweight feedback (success, recoverable
-/// failure) instead of a modal. Replaces the scattered silent-failure pattern.
-@MainActor
-public final class ToastCoordinator: ObservableObject {
-    public static let shared = ToastCoordinator()
-
-    @Published public private(set) var current: AmenToastModel?
-    private var queue: [AmenToastModel] = []
-    private var dismissTask: Task<Void, Never>?
-    private let visibleDuration: Duration = .seconds(3)
-
-    private init() {}
-
-    public func show(_ toast: AmenToastModel) {
-        if current == nil {
-            present(toast)
-        } else if current != toast {
-            queue.append(toast)
-        }
-    }
-
-    /// Convenience for the most common case the audit calls for.
-    public func failure(_ message: String, actionTitle: String? = nil) {
-        show(AmenToastModel(kind: .failure, message: message, actionTitle: actionTitle))
-    }
-
-    public func success(_ message: String) {
-        show(AmenToastModel(kind: .success, message: message))
-    }
-
-    public func dismissCurrent() {
-        dismissTask?.cancel()
-        dismissTask = nil
-        current = nil
-        if !queue.isEmpty {
-            present(queue.removeFirst())
-        }
-    }
-
-    private func present(_ toast: AmenToastModel) {
-        current = toast
-        dismissTask?.cancel()
-        let duration = visibleDuration
-        dismissTask = Task { [weak self] in
-            try? await Task.sleep(for: duration)
-            guard !Task.isCancelled else { return }
-            self?.dismissCurrent()
-        }
-    }
 }
 
 // MARK: Modal Coordinator
