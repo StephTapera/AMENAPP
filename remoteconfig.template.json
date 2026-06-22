@@ -1,5 +1,103 @@
 {
   "parameters": {
+    "trust_ai_receipt_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: AI Receipt over real Berean responses (Wave 1).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_uncertainty_mode_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: Uncertainty Mode disclosure (Wave 1).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_constitutional_moderation_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: Constitutional moderation receipts (Wave 2).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_moderation_audit_trail_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: Moderation audit timeline + appeals (Wave 2).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_memory_ledger_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: Berean Memory Ledger management UI (Wave 3).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_data_vault_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: Data Vault export/delete surface (Wave 3).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_ai_permissions_hub_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: AI Permissions Hub (Wave 3).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_provenance_labels_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: Provenance labels (human / AI-assisted / AI-generated) on content (Wave 4).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_flourishing_metrics_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: Flourishing Metrics (anti-engagement) (Wave 5).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_focus_modes_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: Focus / Sabbath modes (Wave 5).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_child_safety_surface_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: Child-Safety controls surface (Wave 6).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_red_team_surface_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: Red-Team report surface (Wave 6).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_recommendation_transparency_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: 'Why am I seeing this' recommendation transparency (Wave 6).",
+      "valueType": "BOOLEAN"
+    },
+    "trust_truthfulness_lab_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Trust/Transparency OS: Truthfulness Lab surface (Wave 6).",
+      "valueType": "BOOLEAN"
+    },
     "accessibility_intelligence_enabled": {
       "defaultValue": {
         "value": "true"

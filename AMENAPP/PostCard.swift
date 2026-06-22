@@ -2756,6 +2756,14 @@ struct PostCard: View {
                 // D-031: context label improvement tracked — add author name when API is available
                 .accessibilityLabel("Show more")
             }
+
+            // Trust Wave 4: provenance label derived from the canonical True Source
+            // record (human / AI-assisted / AI-generated). Compact chip in feed.
+            if AMENFeatureFlags.shared.provenanceLabelsEnabled,
+               let provenance = post?.trustProvenanceLabel {
+                TrustProvenanceBadge(label: provenance, allowsHistory: false)
+                    .padding(.top, 4)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.top, 0)
@@ -4935,13 +4943,19 @@ private struct PostCardSheetsModifier: ViewModifier {
             .presentationCornerRadius(24)
             .presentationBackground(.regularMaterial)
         case .whyThisPost(let post):
-            // SELAH W4: use V2 explanation sheet when feedWhyAmISeeingThis flag is ON;
-            // fall back to V1 (GlobalResilience) so existing behavior is preserved.
-            if AMENFeatureFlags.shared.feedWhyAmISeeingThis,
-               let postId = post.firebaseId ?? (post.firestoreId.isEmpty ? nil : post.firestoreId) {
-                WhyAmISeeingThisSheetV2(feedItemId: postId)
-            } else {
-                WhyAmISeeingThisSheet(post: post, reasons: feedReasonsBuilder(post))
+            // Trust Wave 6: prefer the recommendation-transparency surface (real
+            // server FeedExplanation) when enabled. Falls through to the existing
+            // native sheets — V2 when feedWhyAmISeeingThis is on, else V1 — so the
+            // user always sees an honest explanation.
+            TrustWhySeeingThisSheet(
+                feedItemId: post.firebaseId ?? (post.firestoreId.isEmpty ? nil : post.firestoreId)
+            ) {
+                if AMENFeatureFlags.shared.feedWhyAmISeeingThis,
+                   let postId = post.firebaseId ?? (post.firestoreId.isEmpty ? nil : post.firestoreId) {
+                    WhyAmISeeingThisSheetV2(feedItemId: postId)
+                } else {
+                    WhyAmISeeingThisSheet(post: post, reasons: feedReasonsBuilder(post))
+                }
             }
         case .userProfile(let userId):
             UserProfileView(userId: userId, showsDismissButton: true)
