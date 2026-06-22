@@ -1132,10 +1132,18 @@ struct CompletionCelebrationView: View {
                         .fill(Color(red: 0.4, green: 0.85, blue: 0.7).opacity(0.15))
                         .frame(width: 100, height: 100)
                     
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.systemScaled(60))
-                        .foregroundStyle(Color(red: 0.4, green: 0.85, blue: 0.7))
-                        .symbolEffect(.bounce)
+                    Group {
+                        if #available(iOS 18.0, *) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.systemScaled(60))
+                                .foregroundStyle(Color(red: 0.4, green: 0.85, blue: 0.7))
+                                .symbolEffect(.bounce)
+                        } else {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.systemScaled(60))
+                                .foregroundStyle(Color(red: 0.4, green: 0.85, blue: 0.7))
+                        }
+                    }
                 }
                 
                 VStack(spacing: 8) {
@@ -1581,8 +1589,12 @@ struct PrayerPostCard: View {
             EditPostSheet(post: post)
         }
         .sheet(isPresented: $showFullCommentSheet) {
-            CommentsView(post: post)
-                .environmentObject(UserService())
+            // Smart Comments drop-in: identical to CommentsView while
+            // smartCommentsEnabled is OFF; upgrades to the smart sheet when ON.
+            SmartCommentsSheet(postId: post.firestoreId) {
+                CommentsView(post: post)
+                    .environmentObject(UserService())
+            }
         }
         .alert("Delete Post", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }

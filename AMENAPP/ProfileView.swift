@@ -2536,7 +2536,10 @@ struct ProfilePostCard: View {
         .sheet(item: $activePostCardSheet) { sheet in
             switch sheet {
             case .edit:    EditPostSheet(post: post)
-            case .comments: CommentsView(post: post)
+            case .comments:
+                // Smart Comments drop-in: identical to CommentsView while
+                // smartCommentsEnabled is OFF; upgrades to the smart sheet when ON.
+                SmartCommentsSheet(postId: post.firestoreId) { CommentsView(post: post) }
             }
         }
         .alert("Delete Post", isPresented: $showingDeleteAlert) {
@@ -4994,7 +4997,7 @@ struct ProfileFeatureRow: View {
     }
 }
 
-struct SettingsRow: View {
+struct ProfileSettingsRow: View {
     let icon: String
     let title: String
     let color: Color
@@ -5712,7 +5715,7 @@ struct ProfileInfoRow: View {
 
 // MARK: - Appearance Settings View
 
-struct AppearanceSettingsView: View {
+struct ProfileAppearanceSettingsView: View {
     @Environment(\.dismiss) var dismiss
     @AppStorage("appTheme") private var appTheme: String = "auto"
     @AppStorage("fontSize") private var fontSize: String = "medium"

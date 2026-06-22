@@ -478,7 +478,11 @@ struct PostDetailView: View {
             case .quoteComposer(let context):
                 QuoteComposerView(context: context)
             case .commentsWithQuote(let text):
-                CommentsView(post: post, prefillText: text)
+                // Smart Comments drop-in: identical to CommentsView while
+                // smartCommentsEnabled is OFF; upgrades to the smart sheet when ON.
+                SmartCommentsSheet(postId: post.firestoreId) {
+                    CommentsView(post: post, prefillText: text)
+                }
             case .shareExcerpt(let text):
                 ShareSheet(items: [text])
             }

@@ -32,6 +32,9 @@ struct CreatorProfileView: View {
     @State private var collapseProgress: Double = 0
     @State private var loadError: String?
     @State private var didStartLoad = false
+    /// Creator Spotlight (App-Store-style public page) entry. Flag-gated OFF — the
+    /// button and sheet never appear unless creatorSpotlightEnabled is true.
+    @State private var showSpotlight = false
 
     @Namespace private var pillNamespace
     @Environment(\.dismiss) private var dismiss
@@ -94,6 +97,32 @@ struct CreatorProfileView: View {
         .coordinateSpace(name: "creatorScroll")
         .task { await startLoadIfNeeded() }
         .overlay(alignment: .top) { errorBanner }
+        .overlay(alignment: .topTrailing) { spotlightButton }
+        .sheet(isPresented: $showSpotlight) {
+            CreatorSpotlightView(creatorId: creatorId)
+        }
+    }
+
+    // MARK: Creator Spotlight entry (flag-gated)
+
+    /// Opens the App-Store-style public Creator Page. Hidden entirely unless
+    /// creatorSpotlightEnabled is ON — so this is inert in the current build.
+    @ViewBuilder
+    private var spotlightButton: some View {
+        if AMENFeatureFlags.shared.creatorSpotlightEnabled {
+            Button {
+                showSpotlight = true
+            } label: {
+                Image(systemName: "sparkles.rectangle.stack")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 36, height: 36)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .padding(.top, 8)
+            .padding(.trailing, 16)
+            .accessibilityLabel("Open creator spotlight page")
+        }
     }
 
     // MARK: Scroll offset → collapseProgress

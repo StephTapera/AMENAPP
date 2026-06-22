@@ -25,7 +25,10 @@ struct LongPressableModifier: ViewModifier {
         }
         return AnyView(
             content
-                .onLongPressGesture(minimumDuration: 0) {
+                // Real long-press (matches the iOS system hold duration). NOT 0 —
+                // a 0 duration fires on a plain tap and would hijack navigation taps
+                // on every wired surface the moment this flag is flipped ON.
+                .onLongPressGesture(minimumDuration: 0.5) {
                     presentIntelligenceMenu()
                 }
                 .accessibilityElement(children: .contain)

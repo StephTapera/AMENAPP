@@ -40,6 +40,16 @@ struct AIPermissionsHubView: View {
                     Label("Journal access for AI", systemImage: "book.closed")
                 }
                 .tint(.blue)
+
+                // Inspect/delete Berean's stored memory (PRIVACY-CORE: prayer memory
+                // is high-zone, encrypted at rest). Gated OFF in the current build.
+                if AMENFeatureFlags.shared.bereanSpiritualMemoryEnabled {
+                    NavigationLink {
+                        BereanMemoryInspectView()
+                    } label: {
+                        Label("Review & delete memory", systemImage: "list.bullet.rectangle")
+                    }
+                }
             } header: {
                 Text("In-app (you control these here)")
             } footer: {

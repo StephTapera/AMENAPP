@@ -2229,6 +2229,20 @@ struct PostCard: View {
 
     var body: some View {
         cardWithActionPill
+            // Long-Press Intelligence ("Press to Ask Berean"). Self-gates: when
+            // longPressIntelligenceEnabled is OFF (current build) this adds nothing.
+            // TODO(longpress-w2): route onAction into the streaming result surface.
+            .longPressIntelligence(
+                objectType: .post,
+                objectId: post?.firestoreId ?? "",
+                surface: .feed,
+                payload: .post(PostPayload(
+                    text: content,
+                    authorId: post?.authorId ?? "",
+                    communityId: nil
+                )),
+                onAction: { _ in }
+            )
             .opacity(isDeletingPost ? 0 : 1)
             .scaleEffect(isDeletingPost ? 0.96 : 1)
             .zIndex(isActionMenuPresented ? 1000 : 0)
