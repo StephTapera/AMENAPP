@@ -883,7 +883,7 @@ struct ProfilePhotoEditView: View {
 
         do {
             try handler.perform([request])
-                        let faces = request.results as? [VNFaceObservation] ?? []
+                        let faces = request.results ?? []
             await MainActor.run {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                     faceDetectionState = faces.isEmpty ? .noFace : .faceFound

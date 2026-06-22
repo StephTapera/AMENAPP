@@ -18,6 +18,7 @@ import Combine
 
 // MARK: - CommentServiceProtocol
 
+@MainActor
 protocol CommentServiceProtocol: AnyObject, ObservableObject {
     var comments: [String: [Comment]] { get }
     var commentReplies: [String: [Comment]] { get }
@@ -40,6 +41,7 @@ protocol CommentServiceProtocol: AnyObject, ObservableObject {
 
 // MARK: - PostInteractionsServiceProtocol
 
+@MainActor
 protocol PostInteractionsServiceProtocol: AnyObject, ObservableObject {
     var userAmenedPosts: Set<String> { get }
     var userLightbulbedPosts: Set<String> { get }
@@ -68,6 +70,7 @@ protocol PostInteractionsServiceProtocol: AnyObject, ObservableObject {
 
 // MARK: - FollowServiceProtocol
 
+@MainActor
 protocol FollowServiceProtocol: AnyObject, ObservableObject {
     var following: Set<String> { get }
     var followers: Set<String> { get }
@@ -97,6 +100,7 @@ protocol FollowServiceProtocol: AnyObject, ObservableObject {
 
 // MARK: - NotificationServiceProtocol
 
+@MainActor
 protocol NotificationServiceProtocol: AnyObject, ObservableObject {
     var notifications: [AppNotification] { get }
     var unreadCount: Int { get }

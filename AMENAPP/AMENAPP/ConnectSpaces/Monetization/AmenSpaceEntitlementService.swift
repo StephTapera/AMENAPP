@@ -6,6 +6,7 @@
 // Written: 2026-06-02
 
 import Foundation
+import FirebaseAuth
 import FirebaseFunctions
 
 // MARK: - Access Matrix Constants
@@ -32,6 +33,8 @@ private enum AccessMatrix {
 @MainActor
 final class AmenSpaceEntitlementService: ObservableObject {
 
+    static let shared = AmenSpaceEntitlementService()
+
     @Published var currentEntitlement: AmenSpaceEntitlement?
     @Published var isLoading: Bool = false
     @Published var entitlementError: String?
@@ -42,6 +45,11 @@ final class AmenSpaceEntitlementService: ObservableObject {
     private let cacheTTL: TimeInterval = 300 // 5 minutes
 
     // MARK: - Public API
+
+    func checkEntitlement(spaceId: String) async throws -> Bool {
+        guard let userId = Auth.auth().currentUser?.uid else { return false }
+        return await checkEntitlement(userId: userId, spaceId: spaceId)?.isActive ?? false
+    }
 
     func checkEntitlement(userId: String, spaceId: String) async -> AmenSpaceEntitlement? {
         let fetchKey = "\(userId):\(spaceId)"

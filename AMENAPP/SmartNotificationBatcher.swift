@@ -123,7 +123,7 @@ class SmartNotificationBatcher: ObservableObject {
         let grouped = Dictionary(grouping: notifications, by: { $0.category })
 
         var summaryParts: [String] = []
-        var totalCount = notifications.count
+        let totalCount = notifications.count
 
         // Format summary by category
         for (category, items) in grouped.sorted(by: { $0.value.count > $1.value.count }) {

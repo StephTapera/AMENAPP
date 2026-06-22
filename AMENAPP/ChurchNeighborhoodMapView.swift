@@ -46,7 +46,7 @@ final class ChurchNeighborhoodService: ObservableObject {
         defer { isLoading = false }
         do {
             let snap = try await db.collection("churches/\(churchId)/memberZips").getDocuments()
-            var entries: [(zip: String, count: Int)] = snap.documents.compactMap { doc in
+            let entries: [(zip: String, count: Int)] = snap.documents.compactMap { doc in
                 guard let count = doc.data()["count"] as? Int else { return nil }
                 return (zip: doc.documentID, count: count)
             }
@@ -145,13 +145,15 @@ struct ChurchNeighborhoodMapView: View {
                 .padding(.horizontal, 20)
 
                 // Map
-                Map(coordinateRegion: $region, annotationItems: service.zipData) { entry in
-                    MapAnnotation(coordinate: entry.coordinate) {
-                        let maxCount = service.zipData.max(by: { $0.count < $1.count })?.count ?? 1
-                        let size     = CGFloat(60 + (entry.count * 40 / maxCount))
-                        Circle()
-                            .fill(Color.accentColor.opacity(0.3))
-                            .frame(width: size, height: size)
+                Map(initialPosition: .region(region)) {
+                    ForEach(service.zipData) { entry in
+                        Annotation("", coordinate: entry.coordinate) {
+                            let maxCount = service.zipData.max(by: { $0.count < $1.count })?.count ?? 1
+                            let size     = CGFloat(60 + (entry.count * 40 / maxCount))
+                            Circle()
+                                .fill(Color.accentColor.opacity(0.3))
+                                .frame(width: size, height: size)
+                        }
                     }
                 }
                 .frame(height: 200)

@@ -70,6 +70,67 @@ struct ProfileDescriptor: Codable, Identifiable, Sendable {
     let trustTier: TrustTier                // reuses existing top-level TrustTier (StudioModels)
     let capabilities: Set<ProfileCapability>
     let e2eeKeyRef: KeyRef?                 // loaded post-step-up only (D4)
+
+    nonisolated init(
+        id: ProfileID,
+        identityId: VerifiedIdentityID,
+        type: ProfileType,
+        handle: String,
+        displayName: String,
+        avatarRef: AssetRef?,
+        trustTier: TrustTier,
+        capabilities: Set<ProfileCapability>,
+        e2eeKeyRef: KeyRef?
+    ) {
+        self.id = id
+        self.identityId = identityId
+        self.type = type
+        self.handle = handle
+        self.displayName = displayName
+        self.avatarRef = avatarRef
+        self.trustTier = trustTier
+        self.capabilities = capabilities
+        self.e2eeKeyRef = e2eeKeyRef
+    }
+
+    nonisolated init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(ProfileID.self, forKey: .id)
+        identityId = try container.decode(VerifiedIdentityID.self, forKey: .identityId)
+        type = try container.decode(ProfileType.self, forKey: .type)
+        handle = try container.decode(String.self, forKey: .handle)
+        displayName = try container.decode(String.self, forKey: .displayName)
+        avatarRef = try container.decodeIfPresent(AssetRef.self, forKey: .avatarRef)
+        let trustTierRawValue = try container.decode(String.self, forKey: .trustTier)
+        trustTier = TrustTier(rawValue: trustTierRawValue) ?? .new
+        capabilities = try container.decode(Set<ProfileCapability>.self, forKey: .capabilities)
+        e2eeKeyRef = try container.decodeIfPresent(KeyRef.self, forKey: .e2eeKeyRef)
+    }
+
+    nonisolated func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(identityId, forKey: .identityId)
+        try container.encode(type, forKey: .type)
+        try container.encode(handle, forKey: .handle)
+        try container.encode(displayName, forKey: .displayName)
+        try container.encodeIfPresent(avatarRef, forKey: .avatarRef)
+        try container.encode(trustTier.rawValue, forKey: .trustTier)
+        try container.encode(capabilities, forKey: .capabilities)
+        try container.encodeIfPresent(e2eeKeyRef, forKey: .e2eeKeyRef)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case identityId
+        case type
+        case handle
+        case displayName
+        case avatarRef
+        case trustTier
+        case capabilities
+        case e2eeKeyRef
+    }
 }
 
 // MARK: - Remembered State (L1 — ProfileSessionStore)
@@ -115,7 +176,7 @@ struct ProfileSessionState: Codable, Sendable {
     var badgeSnapshot: BadgeCounts
     var updatedAt: Date
 
-    static let empty = ProfileSessionState(
+    nonisolated static let empty = ProfileSessionState(
         composerDrafts: [:],
         bereanThreadDrafts: [:],
         readCursors: [:],
@@ -124,6 +185,56 @@ struct ProfileSessionState: Codable, Sendable {
         badgeSnapshot: .zero,
         updatedAt: .distantPast
     )
+
+    nonisolated init(
+        composerDrafts: [SurfaceID: DraftSnapshot],
+        bereanThreadDrafts: [ThreadID: String],
+        readCursors: [SurfaceID: ReadCursor],
+        scrollPositions: [SurfaceID: ScrollAnchor],
+        lastActiveSurface: SurfaceID?,
+        badgeSnapshot: BadgeCounts,
+        updatedAt: Date
+    ) {
+        self.composerDrafts = composerDrafts
+        self.bereanThreadDrafts = bereanThreadDrafts
+        self.readCursors = readCursors
+        self.scrollPositions = scrollPositions
+        self.lastActiveSurface = lastActiveSurface
+        self.badgeSnapshot = badgeSnapshot
+        self.updatedAt = updatedAt
+    }
+
+    nonisolated init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        composerDrafts = try container.decode([SurfaceID: DraftSnapshot].self, forKey: .composerDrafts)
+        bereanThreadDrafts = try container.decode([ThreadID: String].self, forKey: .bereanThreadDrafts)
+        readCursors = try container.decode([SurfaceID: ReadCursor].self, forKey: .readCursors)
+        scrollPositions = try container.decode([SurfaceID: ScrollAnchor].self, forKey: .scrollPositions)
+        lastActiveSurface = try container.decodeIfPresent(SurfaceID.self, forKey: .lastActiveSurface)
+        badgeSnapshot = try container.decode(BadgeCounts.self, forKey: .badgeSnapshot)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+    }
+
+    nonisolated func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(composerDrafts, forKey: .composerDrafts)
+        try container.encode(bereanThreadDrafts, forKey: .bereanThreadDrafts)
+        try container.encode(readCursors, forKey: .readCursors)
+        try container.encode(scrollPositions, forKey: .scrollPositions)
+        try container.encodeIfPresent(lastActiveSurface, forKey: .lastActiveSurface)
+        try container.encode(badgeSnapshot, forKey: .badgeSnapshot)
+        try container.encode(updatedAt, forKey: .updatedAt)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case composerDrafts
+        case bereanThreadDrafts
+        case readCursors
+        case scrollPositions
+        case lastActiveSurface
+        case badgeSnapshot
+        case updatedAt
+    }
 }
 
 // MARK: - Prediction Signals (L2 — ThresholdRanker)
@@ -218,7 +329,7 @@ enum ReauthRequirement: Sendable, Equatable {
 protocol ReauthPolicy: Sendable {
     /// Returns the authentication requirement before switching into `profile`.
     /// A failed or cancelled step-up must leave the active profile unchanged.
-    func requirement(switchingTo profile: ProfileDescriptor) -> ReauthRequirement
+    nonisolated func requirement(switchingTo profile: ProfileDescriptor) -> ReauthRequirement
 }
 
 // MARK: - Feature Flags (default OFF — D6)

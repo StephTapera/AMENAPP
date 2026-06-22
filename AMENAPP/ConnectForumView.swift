@@ -436,7 +436,6 @@ struct ForumThreadDetailView: View {
         )
 
         replies.append(reply)
-        let text = replyText
         replyText = ""
 
         Task {

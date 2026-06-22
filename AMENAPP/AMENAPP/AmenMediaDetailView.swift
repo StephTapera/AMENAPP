@@ -403,6 +403,9 @@ struct AmenMediaDetailView: View {
     }
 
     private func prefetchHeroMedia() async {
+        // NG-2: fail closed — never speculatively fetch media bytes until the scan
+        // pipeline is live and the asset has cleared it.
+        guard await MediaScanGate.mayPrefetchMedia() else { return }
         guard let item = currentItem, let url = URL(string: item.thumbnailURL ?? item.url) else { return }
         _ = try? await URLSession.shared.data(from: url)
     }

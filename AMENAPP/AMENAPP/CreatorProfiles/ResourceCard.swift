@@ -15,7 +15,7 @@
 
 import SwiftUI
 
-struct ResourceCard: View {
+struct CreatorHubResourceCard: View {
     let resource: CreatorHubResource
     /// Invoked with a resolvable URL when the resource is openable.
     var onOpen: (URL) -> Void = { _ in }
@@ -199,13 +199,13 @@ struct ResourceCard: View {
 #Preview("ResourceCard") {
     ScrollView {
         VStack(spacing: 12) {
-            ResourceCard(resource: CreatorHubResource(
+            CreatorHubResourceCard(resource: CreatorHubResource(
                 id: "1", creatorId: "c", kind: .readingPlan,
                 title: "30-Day Psalms Reading Plan",
                 fileRef: nil, externalUrl: "https://example.com",
                 topics: ["Prayer", "Psalms", "Devotion"]
             ))
-            ResourceCard(resource: CreatorHubResource(
+            CreatorHubResourceCard(resource: CreatorHubResource(
                 id: "2", creatorId: "c", kind: .pdf,
                 title: "Study Guide (processing)",
                 fileRef: CreatorHubMediaRef(

@@ -200,7 +200,10 @@ struct AVPlayerControllerWrapper: View {
         timeObserverToken = avPlayer.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
             if !isDragging {
                 currentTime = time.seconds
-                vm.updateProgress(time.seconds / max(totalDuration, 1))
+                let progress = time.seconds / max(totalDuration, 1)
+                Task { @MainActor in
+                    vm.updateProgress(progress)
+                }
             }
         }
     }

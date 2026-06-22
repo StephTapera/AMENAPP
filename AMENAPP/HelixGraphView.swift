@@ -374,7 +374,7 @@ struct HelixGraphView: View {
         .sheet(isPresented: $showAddNode) {
             HelixAddNodeSheet(vm: vm, workspaceId: "default")
         }
-        .onChange(of: vm.nodes) { newNodes in
+        .onChange(of: vm.nodes) { _, newNodes in
             graphVM.load(nodes: newNodes)
         }
         .onAppear {

@@ -72,9 +72,10 @@ function storageAs(uid: string) {
 }
 
 function uploadAs(uid: string, storagePath: string, contentType: string, size = 8): Promise<unknown> {
-  return storageAs(uid)
+  const task = storageAs(uid)
     .ref(storagePath)
     .put(new Uint8Array(size), { contentType });
+  return new Promise((resolve, reject) => task.then(resolve, reject));
 }
 
 describe("Trust and Safety Firestore launch gates", () => {

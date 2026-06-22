@@ -18,7 +18,6 @@ struct MentorshipChatView: View {
 
     /// Build a ChatConversation suitable for UnifiedChatView
     private var conversation: ChatConversation {
-        let uid = Auth.auth().currentUser?.uid ?? ""
         return ChatConversation(
             id: chatId,
             name: mentorName,

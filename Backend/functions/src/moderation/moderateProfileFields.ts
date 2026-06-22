@@ -98,9 +98,7 @@ function bioRules(bio: string): { blocked: boolean; reason: string } {
     return screenText(bio);
 }
 
-export const moderateProfileFields = functions.onCall(
-    { region: "us-east1" },
-    async (request): Promise<ModerateProfileResult> => {
+export const moderateProfileFields = functions.onCall({ enforceAppCheck: true, region: "us-east1" }, async (request): Promise<ModerateProfileResult> => {
         if (!request.auth) {
             throw new functions.HttpsError("unauthenticated", "Auth required");
         }

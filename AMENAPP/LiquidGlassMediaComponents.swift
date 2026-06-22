@@ -348,9 +348,12 @@ class VideoPlayerViewModel: ObservableObject {
             object: player?.currentItem,
             queue: .main
         ) { [weak self] _ in
-            self?.player?.seek(to: .zero)
-            if self?.isPlaying == true {
-                self?.player?.play()
+            guard let self else { return }
+            Task { @MainActor in
+                self.player?.seek(to: .zero)
+                if self.isPlaying == true {
+                    self.player?.play()
+                }
             }
         }
     }

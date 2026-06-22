@@ -39,7 +39,7 @@ enum VerificationBadgeType: String, Codable, Equatable {
 
 /// A compact inline badge shown next to a creator name in feeds, profile headers,
 /// and catalog cards. Renders a small SF Symbol icon and optional short label.
-struct VerificationBadge: View {
+struct VerificationBadgeView: View {
     let type: VerificationBadgeType
 
     /// When `true`, shows the text label alongside the icon.
@@ -472,7 +472,7 @@ enum VerificationError: LocalizedError {
             .verifiedChurch,
             .verifiedBusiness,
         ], id: \.rawValue) { type in
-            VerificationBadge(type: type)
+            VerificationBadgeView(type: type)
         }
     }
     .padding()

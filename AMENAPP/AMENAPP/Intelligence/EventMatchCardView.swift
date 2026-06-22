@@ -38,7 +38,7 @@ protocol EventMatchCardDelegate: AnyObject {
 
 struct EventMatchCardView: View {
     let card: EventMatchCard
-    weak var delegate: (any EventMatchCardDelegate)?
+    var delegate: (any EventMatchCardDelegate)?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingWhySheet = false
@@ -252,6 +252,10 @@ private final class PreviewDelegate: EventMatchCardDelegate {
     func openEvent(eventId: String) {}
 }
 
+private enum EventMatchCardPreviewSupport {
+    static let delegate = PreviewDelegate()
+}
+
 #Preview {
     EventMatchCardView(
         card: EventMatchCard(
@@ -268,7 +272,7 @@ private final class PreviewDelegate: EventMatchCardDelegate {
             urgencyHigh: false,
             expiresAt: Date().addingTimeInterval(86400 * 7)
         ),
-        delegate: PreviewDelegate()
+        delegate: EventMatchCardPreviewSupport.delegate
     )
     .padding()
     .background(Color(uiColor: .systemGroupedBackground))

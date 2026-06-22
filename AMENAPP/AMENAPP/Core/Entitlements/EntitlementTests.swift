@@ -1,3 +1,4 @@
+#if canImport(Testing)
 // EntitlementTests.swift — AMEN Core/Entitlements
 // Swift Testing suite for EntitlementGate resolution logic.
 
@@ -146,4 +147,6 @@ struct EntitlementGateTests {
         #expect(first == second)
     }
 }
+#endif
+
 #endif

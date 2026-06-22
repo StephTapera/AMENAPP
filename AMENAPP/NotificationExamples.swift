@@ -12,6 +12,7 @@ import FirebaseAuth
 
 // MARK: - Notification Usage Examples
 
+@MainActor
 struct NotificationUsageExamples {
     
     let genkitService = NotificationGenkitService.shared

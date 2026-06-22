@@ -46,9 +46,7 @@ async function assertVerifiedGuardian(
 // ── requestGuardianLink ─────────────────────────────────────────────
 // Always creates/returns a PENDING link. Verification is intentionally NOT done here.
 
-export const requestGuardianLink = functions.onCall(
-  { region: "us-east1", timeoutSeconds: 15, memory: "256MiB" },
-  async (request): Promise<RequestGuardianLinkResponse> => {
+export const requestGuardianLink = functions.onCall({ enforceAppCheck: true, region: "us-east1", timeoutSeconds: 15, memory: "256MiB" }, async (request): Promise<RequestGuardianLinkResponse> => {
     if (!request.auth?.uid) {
       throw new functions.HttpsError("unauthenticated", "Must be signed in.");
     }
@@ -96,9 +94,7 @@ export const requestGuardianLink = functions.onCall(
 // ── getChildCheckInStatus ───────────────────────────────────────────
 // 403 unless an ACTIVE verified guardian link exists. Guardian-only fields, never logged.
 
-export const getChildCheckInStatus = functions.onCall(
-  { region: "us-east1", timeoutSeconds: 15, memory: "256MiB" },
-  async (request): Promise<ChildStatus> => {
+export const getChildCheckInStatus = functions.onCall({ enforceAppCheck: true, region: "us-east1", timeoutSeconds: 15, memory: "256MiB" }, async (request): Promise<ChildStatus> => {
     if (!request.auth?.uid) {
       throw new functions.HttpsError("unauthenticated", "Must be signed in.");
     }

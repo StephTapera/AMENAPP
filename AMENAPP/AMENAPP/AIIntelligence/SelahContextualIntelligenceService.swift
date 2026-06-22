@@ -27,6 +27,8 @@ enum SelahContextualFeature: String, CaseIterable, Codable, Identifiable {
     case translationTraditionTuning
     case stressAwareSurfacing
 
+    var id: String { rawValue }
+
     var displayName: String {
         switch self {
         case .bulletinSlideCapture: return "Bulletin & Slide Capture"
@@ -350,18 +352,45 @@ struct SelahContextualIntelligenceService {
         }
 
         if let reflection = input.recentReflectionText?.trimmingCharacters(in: .whitespacesAndNewlines), !reflection.isEmpty {
+            let reflectionConfidence = input.signalConfidenceByFeature[.reflectionActionLoop] ?? 0.76
             candidates.append(SelahContextualSuggestion(
                 feature: .reflectionActionLoop,
                 surface: .queueForLater,
                 title: "Follow up on this reflection",
                 message: "Schedule one gentle check-in so insight can become practice.",
                 scriptureRefs: input.recentScriptureRefs.isEmpty ? ["James 1:22"] : Array(input.recentScriptureRefs.prefix(2)),
-                confidence: max(0.76, input.confidence(for: .reflectionActionLoop)),
+                confidence: reflectionConfidence,
+                createdAt: input.now
+            ))
+        }
+
+        let existingFeatures = Set(candidates.map(\.feature))
+        for (feature, confidence) in input.signalConfidenceByFeature where confidence > 0 && !existingFeatures.contains(feature) {
+            candidates.append(SelahContextualSuggestion(
+                feature: feature,
+                surface: defaultSurface(for: feature),
+                title: feature.displayName,
+                message: "Selah found a contextual signal that requires the right permission, confidence, and timing before it can surface.",
+                scriptureRefs: [],
+                confidence: confidence,
                 createdAt: input.now
             ))
         }
 
         return candidates
+    }
+
+    private func defaultSurface(for feature: SelahContextualFeature) -> SelahContextualSurface {
+        switch feature {
+        case .sabbathRestMode, .doomscrollInterceptor, .stressAwareSurfacing:
+            return .restScreen
+        case .reflectionActionLoop, .seriesAutoAssembly, .sermonMemory:
+            return .queueForLater
+        case .confidenceGatedSilence:
+            return .silent
+        default:
+            return .inline
+        }
     }
 
     private func threshold(for feature: SelahContextualFeature, tolerance: Double) -> Double {

@@ -1,3 +1,4 @@
+#if canImport(Testing)
 // CreatePostDraftPersistenceTests.swift
 // AMENAPPTests
 //
@@ -302,5 +303,7 @@ struct CreatePostDraftPersistenceTests {
         #expect(fetchedDraft.moderationPhaseRawValue == "blocked")
     }
 }
+
+#endif
 
 #endif

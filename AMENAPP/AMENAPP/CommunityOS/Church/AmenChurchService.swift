@@ -86,7 +86,7 @@ final class AmenChurchService: ObservableObject {
 
         let snapshot = try await firestoreQuery.limit(to: 50).getDocuments()
         var results: [ChurchOSProfile] = snapshot.documents.compactMap { doc in
-            guard let data = doc.data() as? [String: Any] else { return nil }
+            let data = doc.data()
             return Self.parseProfile(doc: doc, data: data)
         }
 
@@ -277,8 +277,8 @@ final class AmenChurchService: ObservableObject {
             .getDocuments()
 
         var results: [ChurchOSProfile] = snapshot.documents.compactMap { doc in
-            guard let data = doc.data() as? [String: Any],
-                  let lng = data["longitude"] as? Double,
+            let data = doc.data()
+            guard let lng = data["longitude"] as? Double,
                   lng >= minLng, lng <= maxLng else { return nil }
             return Self.parseProfile(doc: doc, data: data)
         }

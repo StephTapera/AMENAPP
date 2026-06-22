@@ -44,7 +44,11 @@ struct PrivacyControlsSettingsView: View {
                                     settings?.dmPermissionLevel = newValue
                                     Task {
                                         guard let userId = Auth.auth().currentUser?.uid else { return }
-                                        try await trustService.updateDMPermission(newValue, userId: userId)
+                                        do {
+                                            try await trustService.updateDMPermission(newValue, userId: userId)
+                                        } catch {
+                                            dlog("❌ Error updating DM permission: \(error)")
+                                        }
                                     }
                                 }
                             )) {
@@ -119,7 +123,11 @@ struct PrivacyControlsSettingsView: View {
                                     settings?.defaultCommentPermission = newValue
                                     Task {
                                         guard let userId = Auth.auth().currentUser?.uid else { return }
-                                        try await trustService.updateCommentPermission(newValue, userId: userId)
+                                        do {
+                                            try await trustService.updateCommentPermission(newValue, userId: userId)
+                                        } catch {
+                                            dlog("❌ Error updating comment permission: \(error)")
+                                        }
                                     }
                                 }
                             )) {
@@ -160,7 +168,11 @@ struct PrivacyControlsSettingsView: View {
                                     settings?.mentionPermissionLevel = newValue
                                     Task {
                                         guard let userId = Auth.auth().currentUser?.uid else { return }
-                                        try await trustService.updateMentionPermission(newValue, userId: userId)
+                                        do {
+                                            try await trustService.updateMentionPermission(newValue, userId: userId)
+                                        } catch {
+                                            dlog("❌ Error updating mention permission: \(error)")
+                                        }
                                     }
                                 }
                             )) {

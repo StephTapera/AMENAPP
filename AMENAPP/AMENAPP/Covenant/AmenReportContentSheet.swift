@@ -166,7 +166,9 @@ struct AmenReportContentSheet: View {
             "createdAt": Timestamp(date: Date())
         ]
         do {
-            try await Firestore.firestore().collection("reports").addDocument(data: data)
+            _ = try await Functions.functions()
+                .httpsCallable("submitTrustSafetyReport")
+                .call(data)
             submitted = true
         } catch {
             self.error = "Submission failed. Please try again."

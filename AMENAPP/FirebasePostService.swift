@@ -1939,7 +1939,8 @@ class FirebasePostService: ObservableObject {
                 //         increment: false
                 //     )
                 // }
-                throw error
+                // Error is logged above; this is a fire-and-forget background task
+                // so there is no caller to propagate to.
             }
         }
         

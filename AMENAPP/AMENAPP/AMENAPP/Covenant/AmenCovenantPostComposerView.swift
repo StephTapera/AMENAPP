@@ -83,10 +83,10 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
                 "visibility": visibilityOption.rawValue
             ]
             if !trimmedTitle.isEmpty { payload["title"] = trimmedTitle }
-            try await functions.httpsCallable("createCovenantPost").call(payload)
+            _ = try await functions.httpsCallable("createCovenantPost").call(payload)
 
         case .prayerRequest:
-            try await functions.httpsCallable("createCovenantMessage").call([
+            _ = try await functions.httpsCallable("createCovenantMessage").call([
                 "covenantId": covenantId,
                 "body": trimmedBody,
                 "messageType": "prayer_request",
@@ -102,7 +102,7 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
                 "visibility": visibilityOption.rawValue
             ]
             if !trimmedRef.isEmpty { payload["scriptureReference"] = trimmedRef }
-            try await functions.httpsCallable("createCovenantMessage").call(payload)
+            _ = try await functions.httpsCallable("createCovenantMessage").call(payload)
 
         case .testimony:
             var payload: [String: Any] = [
@@ -112,7 +112,7 @@ final class AmenCovenantPostComposerViewModel: ObservableObject {
                 "visibility": visibilityOption.rawValue
             ]
             if !trimmedRef.isEmpty { payload["scriptureReference"] = trimmedRef }
-            try await functions.httpsCallable("createCovenantMessage").call(payload)
+            _ = try await functions.httpsCallable("createCovenantMessage").call(payload)
         }
 
         sentSuccessfully = true

@@ -1105,9 +1105,9 @@ final class AMENShareCardRenderer: ObservableObject {
     @available(iOS 16.0, *)
     func exportAsImage(
         payload: AMENSharePayload,
-        size: CGSize = CGSize(width: ShareCardDimensions.width,
-                              height: ShareCardDimensions.height)
+        size: CGSize? = nil
     ) async -> UIImage? {
+        let size = size ?? CGSize(width: ShareCardDimensions.width, height: ShareCardDimensions.height)
         let view = renderCard(payload: payload)
         let renderer = ImageRenderer(
             content: view.frame(width: size.width, height: size.height)

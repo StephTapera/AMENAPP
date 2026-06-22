@@ -3,6 +3,7 @@ import SwiftUI
 struct PollComposerCard: View {
     @Binding var options: [String]
     @Binding var duration: CreatePostView.PollDuration
+    let draftText: String
     let onRemove: () -> Void
 
     @FocusState private var focusedIndex: Int?
@@ -72,6 +73,11 @@ struct PollComposerCard: View {
                 }
             }
 
+            if !suggestedOptionChips.isEmpty {
+                Divider().padding(.horizontal, 14)
+                suggestedOptionsRow
+            }
+
             if options.count < maxOptions {
                 Divider().padding(.horizontal, 14)
 
@@ -97,21 +103,44 @@ struct PollComposerCard: View {
 
             Divider().padding(.horizontal, 14)
 
-            HStack {
-                Image(systemName: "clock")
-                    .font(.systemScaled(13))
-                    .foregroundStyle(.secondary)
-                Text("Duration")
-                    .font(AMENFont.regular(14))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Picker("Duration", selection: $duration) {
-                    ForEach(CreatePostView.PollDuration.allCases) { d in
-                        Text(d.rawValue).tag(d)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "clock")
+                        .font(.systemScaled(13))
+                        .foregroundStyle(.secondary)
+                    Text("Duration")
+                        .font(AMENFont.regular(14))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Picker("Duration", selection: $duration) {
+                        ForEach(CreatePostView.PollDuration.allCases) { d in
+                            Text(d.rawValue).tag(d)
+                        }
                     }
+                    .pickerStyle(.menu)
+                    .font(AMENFont.regular(14))
                 }
-                .pickerStyle(.menu)
-                .font(AMENFont.regular(14))
+
+                if let suggestedDuration, suggestedDuration != duration {
+                    Button {
+                        withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.82))) {
+                            duration = suggestedDuration
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                                .font(.systemScaled(10, weight: .semibold))
+                            Text("Suggested: \(suggestedDuration.rawValue)")
+                                .font(AMENFont.semiBold(12))
+                            Text("Use")
+                                .font(AMENFont.semiBold(12))
+                                .foregroundStyle(.primary)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Use suggested poll duration \(suggestedDuration.rawValue)")
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -124,6 +153,88 @@ struct PollComposerCard: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(Color(.systemGray5), lineWidth: 1)
         )
+    }
+
+    private var suggestedOptionsRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(suggestedOptionChips, id: \.self) { suggestion in
+                    Button {
+                        applySuggestedOption(suggestion)
+                    } label: {
+                        Text(suggestion)
+                            .font(AMENFont.semiBold(12))
+                            .foregroundStyle(.primary.opacity(0.75))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(.thinMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Use suggested poll option \(suggestion)")
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+    }
+
+    private var suggestedOptionChips: [String] {
+        let lower = draftText.lowercased()
+        let filled = Set(options.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }.filter { !$0.isEmpty })
+        let candidates: [String]
+
+        if lower.contains("study") || lower.contains("bible") || lower.contains("series") {
+            candidates = ["Romans", "James", "Prayer", "Marriage"]
+        } else if lower.contains("serve") || lower.contains("volunteer") || lower.contains("outreach") {
+            candidates = ["Hospitality", "Kids", "Worship", "Outreach"]
+        } else if lower.contains("event") || lower.contains("rsvp") || lower.contains("meet") || lower.contains("wednesday") {
+            candidates = ["I can come", "Maybe", "Need childcare", "Pray for it"]
+        } else if lower.contains("pray") || lower.contains("prayer") {
+            candidates = ["Pray now", "Fast together", "Send encouragement", "Follow up"]
+        } else if lower.contains("worship") || lower.contains("song") {
+            candidates = ["Praise", "Lament", "Gratitude", "Hope"]
+        } else if filled.count == 1, let first = filled.first {
+            candidates = balancedOptions(for: first)
+        } else {
+            candidates = []
+        }
+
+        return candidates.filter { !filled.contains($0.lowercased()) }.prefix(4).map { $0 }
+    }
+
+    private var suggestedDuration: CreatePostView.PollDuration? {
+        let lower = draftText.lowercased()
+        if lower.contains("tonight") || lower.contains("tomorrow") || lower.contains("today") {
+            return .oneDay
+        }
+        if lower.contains("wednesday") || lower.contains("sunday") || lower.contains("this week") || lower.contains("rsvp") {
+            return .threeDays
+        }
+        if lower.contains("next week") || lower.contains("series") || lower.contains("study") {
+            return .oneWeek
+        }
+        return nil
+    }
+
+    private func applySuggestedOption(_ suggestion: String) {
+        if let emptyIndex = options.firstIndex(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+            options[emptyIndex] = suggestion
+        } else if options.count < maxOptions {
+            options.append(suggestion)
+        }
+    }
+
+    private func balancedOptions(for firstOption: String) -> [String] {
+        if firstOption.contains("yes") || firstOption.contains("come") {
+            return ["Yes", "No", "Maybe", "Need details"]
+        }
+        if firstOption.contains("romans") {
+            return ["Romans", "James", "Ephesians", "Psalms"]
+        }
+        if firstOption.contains("prayer") {
+            return ["Prayer", "Scripture", "Worship", "Service"]
+        }
+        return ["Agree", "Disagree", "Unsure", "Need context"]
     }
 
     private func optionLabel(_ index: Int) -> String {

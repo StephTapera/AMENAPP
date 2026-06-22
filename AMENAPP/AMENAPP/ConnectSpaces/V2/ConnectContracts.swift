@@ -80,8 +80,8 @@ struct ConnectResourceRef: Codable, Identifiable, Sendable {
     let mediaRef: String?
 }
 
-/// Mirrors the TS discriminated union `ConnectSection`.
-enum ConnectSection: Sendable {
+/// Mirrors the TS discriminated union `ConnectSection` for the home response payload.
+enum ConnectHomeSection: Sendable {
     case prayerUpdates([ConnectPrayerUpdate])
     case newSermon([ConnectSermonRef])
     case volunteerNeeds([ConnectVolunteerNeed])
@@ -102,7 +102,7 @@ struct ConnectHomeGreeting: Codable, Sendable {
 struct ConnectHomeResponse: Sendable {
     let greeting: ConnectHomeGreeting
     let upNext: [ConnectNextAction]
-    let sections: [ConnectSection]
+    let sections: [ConnectHomeSection]
     let calmCap: ConnectCalmCap
 }
 
@@ -190,6 +190,12 @@ struct RequestGuardianLinkRequest: Codable, Sendable {
     let churchId: String
     let childId: String
     let evidence: GuardianEvidence
+}
+
+/// requestGuardianLink always returns a pending shape; verification is async/server (§5.1).
+struct RequestGuardianLinkResponse: Codable, Sendable {
+    let linkId: String
+    let status: String                // always "pending"
 }
 
 /// Child status — returned ONLY to a verified guardian (function returns 403 otherwise).

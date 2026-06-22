@@ -59,9 +59,7 @@ function ageMinutesFromTimestamp(createdAt: Timestamp | undefined): number {
 
 // ── askStreamTranscript ───────────────────────────────────────────────────────
 
-export const askStreamTranscript = onCall(
-    { region: "us-central1" },
-    async (request): Promise<TranscriptAnswer> => {
+export const askStreamTranscript = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<TranscriptAnswer> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -100,9 +98,7 @@ export const askStreamTranscript = onCall(
 
 // ── getHostAssistantSignals ───────────────────────────────────────────────────
 
-export const getHostAssistantSignals = onCall(
-    { region: "us-central1" },
-    async (request): Promise<HostAssistantSignals> => {
+export const getHostAssistantSignals = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<HostAssistantSignals> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 

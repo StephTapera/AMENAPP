@@ -181,6 +181,8 @@ struct SkeletonPillBar: View {
             SkeletonPillBar()
         }
     }
-    .environment(\.accessibilityReduceMotion, true)
+    .transaction { transaction in
+        transaction.disablesAnimations = true
+    }
 }
 #endif

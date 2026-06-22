@@ -242,7 +242,7 @@ struct TimestampedCommentsView: View {
 
         Task {
             do {
-                try await Functions.functions()
+                _ = try await Functions.functions()
                     .httpsCallable("addTimestampedComment")
                     .call([
                         "postId": postId,

@@ -12,6 +12,7 @@
 		A1B2C3D4E5F60002AAAA0002 /* ResourcesContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60001AAAA0001 /* ResourcesContentView.swift */; };
 		C3BFEA2CA64C7985B1A8F32E /* AmenPrivacyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B99AD642F1F785E8EF3AA704 /* AmenPrivacyModels.swift */; };
 		C5CF83B80C9C10E255B415F1 /* AmenAudienceSimulatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2E5A5A901487C57606EFBBB /* AmenAudienceSimulatorView.swift */; };
+		D6619CFC37EB157EF32865C0 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C14001AC6F27C538DD56DD3 /* NotificationService.swift */; };
 		EF38A1212F2D114F004E694A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = EF38A1202F2D114F004E694A /* GoogleSignIn */; };
 		EF38A1232F2D114F004E694A /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EF38A1222F2D114F004E694A /* GoogleSignInSwift */; };
 		EF3AD06C2F32F5AD00596905 /* genkit-server-index.js in Resources */ = {isa = PBXBuildFile; fileRef = EF3AD06B2F32F5AD00596905 /* genkit-server-index.js */; };
@@ -119,6 +120,7 @@
 		223F2D8415E567AC6E7D342F /* AmenScamShieldAlertView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenScamShieldAlertView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Safety/AmenScamShieldAlertView.swift; sourceTree = "<group>"; };
 		2503EE5A0FE117709DC424A7 /* AmenSpaceEntitlementService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceEntitlementService.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Monetization/AmenSpaceEntitlementService.swift; sourceTree = "<group>"; };
 		27CFD76466884F5BBD04A1F2 /* AmenSyncCaptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenSyncCaptionService.swift; sourceTree = "<group>"; };
+		2C14001AC6F27C538DD56DD3 /* NotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NotificationService.swift; path = AMENNotificationServiceExtension/NotificationService.swift; sourceTree = "<group>"; };
 		3120D71872D94559AEBE38F9 /* CreationPromptBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationPromptBar.swift; sourceTree = "<group>"; };
 		35FFF8CDEC8642A68C258780 /* CreationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationModels.swift; sourceTree = "<group>"; };
 		3FBDBF7B72E6781CA534E963 /* AmenUpcomingLiveChipView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenUpcomingLiveChipView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Events/AmenUpcomingLiveChipView.swift; sourceTree = "<group>"; };
@@ -498,6 +500,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				AMENBuildInfo.swift,
+				AMENNotificationServiceExtension/AMENNotificationContentHandler.swift,
 				Docs/Readiness/AMEN_OVERNIGHT_READINESS_E2E.md,
 				Docs/Readiness/DEEP_SAFETY_GAP_REPORT.md,
 				Docs/Readiness/DEPLOY_PLAN.md,
@@ -1051,6 +1054,7 @@
 				CB29FBBEBA6E9C34C0B8D533 /* AMENAPP */,
 				EF6A47C62FDA867300CC9956 /* MusicContentLayer 2 */,
 				EF6A47C72FDA868700CC9956 /* MusicContentLayer 3 */,
+				2C14001AC6F27C538DD56DD3 /* NotificationService.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -1446,6 +1450,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D6619CFC37EB157EF32865C0 /* NotificationService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1521,6 +1526,7 @@
 				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FGLL559H83;
+				ENABLE_CODE_COVERAGE = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AMENWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMENWidgetExtension;
@@ -1552,6 +1558,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = FGLL559H83;
+				ENABLE_CODE_COVERAGE = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AMENWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMENWidgetExtension;
@@ -1706,6 +1713,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = FGLL559H83;
+				ENABLE_CODE_COVERAGE = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AMENAPP/Info.plist;
@@ -1762,6 +1770,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = FGLL559H83;
+				ENABLE_CODE_COVERAGE = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AMENAPP/Info.plist;
@@ -1814,6 +1823,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = FGLL559H83;
+				ENABLE_CODE_COVERAGE = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AMENNotificationServiceExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1841,6 +1851,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = FGLL559H83;
+				ENABLE_CODE_COVERAGE = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AMENNotificationServiceExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;

@@ -204,7 +204,7 @@ final class ActionSuggestionEngine: ObservableObject {
 
     private func persistSuggestion(_ suggestion: ActionSuggestion) async throws {
         guard let userId = Auth.auth().currentUser?.uid else { return }
-        try await db.collection("users")
+        try db.collection("users")
             .document(userId)
             .collection("actionSuggestions")
             .document(suggestion.id)

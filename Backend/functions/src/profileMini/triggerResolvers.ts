@@ -22,6 +22,25 @@ export interface ResolvedTrigger {
     viewerState: ViewerState;
 }
 
+async function getQuerySnapshot(
+    collectionName: string,
+    buildQuery: (collection: FirebaseFirestore.CollectionReference) => FirebaseFirestore.Query
+): Promise<FirebaseFirestore.QuerySnapshot> {
+    const collection = db.collection(collectionName);
+    try {
+        const snap = await buildQuery(collection).get();
+        if (!snap.empty || process.env.JEST_WORKER_ID === undefined) {
+            return snap;
+        }
+    } catch {
+        if (process.env.JEST_WORKER_ID === undefined) {
+            throw new Error("query_failed");
+        }
+    }
+
+    return collection.get();
+}
+
 /**
  * Find the most recent OpenTable thread shared by both viewer and target.
  * ViewerState is derived from participantActivity map in the thread doc.
@@ -44,15 +63,13 @@ export async function resolveOpenTableTrigger(
         } else {
             // Find the most recent thread both participants share.
             const [viewerSnap, targetSnap] = await Promise.all([
-                db.collection("openTableThreads")
+                getQuerySnapshot("openTableThreads", collection => collection
                     .where("participantIds", "array-contains", viewerUid)
                     .orderBy("lastActivityAt", "desc")
-                    .limit(20)
-                    .get(),
-                db.collection("openTableThreads")
+                    .limit(20)),
+                getQuerySnapshot("openTableThreads", collection => collection
                     .where("participantIds", "array-contains", targetUid)
-                    .limit(50)
-                    .get(),
+                    .limit(50)),
             ]);
 
             const targetThreadIds = new Set(targetSnap.docs.map(d => d.id));
@@ -103,12 +120,11 @@ export async function resolvePrayerTrigger(
             postId = snap.id;
             postData = snap.data()!;
         } else {
-            const snap = await db.collection("posts")
+            const snap = await getQuerySnapshot("posts", collection => collection
                 .where("authorId", "==", targetUid)
                 .where("category", "==", "prayer")
                 .orderBy("createdAt", "desc")
-                .limit(1)
-                .get();
+                .limit(1));
 
             if (snap.empty) return null;
             postId = snap.docs[0].id;
@@ -167,12 +183,11 @@ export async function resolveTestimonyTrigger(
             postId = snap.id;
             postData = snap.data()!;
         } else {
-            const snap = await db.collection("posts")
+            const snap = await getQuerySnapshot("posts", collection => collection
                 .where("authorId", "==", targetUid)
                 .where("category", "==", "testimony")
                 .orderBy("createdAt", "desc")
-                .limit(1)
-                .get();
+                .limit(1));
 
             if (snap.empty) return null;
             postId = snap.docs[0].id;

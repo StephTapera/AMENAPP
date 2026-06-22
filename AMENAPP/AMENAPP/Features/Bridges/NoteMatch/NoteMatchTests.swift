@@ -1,3 +1,4 @@
+#if canImport(Testing)
 // NoteMatchTests.swift
 // AMEN — Features/Bridges/NoteMatch
 //
@@ -238,4 +239,6 @@ struct BridgeCapabilityTests {
         #expect(ConsentEdge.allCases.contains(.notesToGiving))
     }
 }
+#endif
+
 #endif

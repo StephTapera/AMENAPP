@@ -21,14 +21,25 @@ private enum SabbathRhythmTokens {
 
 // MARK: - In-rest surface (shown over Home while resting)
 
-/// The single calm surface presented during `.rest`. Its only required job is to
-/// hold the one-tap, guilt-free exit (Invariant I1).
+/// The single calm surface presented during the takeover states (`.rest` and the deeper
+/// `.holyGround`). Its only required job is to hold the one-tap, guilt-free exit (I1); it
+/// also offers a gentle path to deepen into prayer and back. Copy adapts to the active state.
 struct SabbathRestSurfaceView: View {
     @ObservedObject private var controller = SabbathRhythmController.shared
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
 
     private var reduceMotion: Bool {
         systemReduceMotion || controller.activePolicy.reduceMotion
+    }
+
+    private var isHolyGround: Bool { controller.state == .holyGround }
+
+    private var glyph: String { isHolyGround ? "sparkles" : "leaf" }
+    private var title: String { isHolyGround ? "Holy ground" : "Resting" }
+    private var subtitle: String {
+        isHolyGround
+            ? "Just stillness. Stay as long as you like."
+            : "Selah is quiet for now. Nothing here needs you."
     }
 
     var body: some View {
@@ -38,17 +49,17 @@ struct SabbathRestSurfaceView: View {
             VStack(spacing: 22) {
                 Spacer(minLength: 0)
 
-                Image(systemName: "leaf")
+                Image(systemName: glyph)
                     .font(.system(size: 34, weight: .light))
                     .foregroundStyle(SabbathRhythmTokens.secondaryInk)
                     .accessibilityHidden(true)
 
                 VStack(spacing: 10) {
-                    Text("Resting")
+                    Text(title)
                         .font(.custom("Georgia", size: 30))
                         .foregroundStyle(SabbathRhythmTokens.ink)
 
-                    Text("Selah is quiet for now. Nothing here needs you.")
+                    Text(subtitle)
                         .font(.system(size: 16))
                         .foregroundStyle(SabbathRhythmTokens.secondaryInk)
                         .multilineTextAlignment(.center)
@@ -56,7 +67,8 @@ struct SabbathRestSurfaceView: View {
                         .padding(.horizontal, 36)
                 }
 
-                if let intention = controller.currentIntention {
+                // `.holyGround` is single-surface by design — the named burden is hidden there.
+                if let intention = controller.currentIntention, !isHolyGround {
                     VStack(spacing: 5) {
                         Text("You set down")
                             .font(.system(size: 12, weight: .semibold))
@@ -76,6 +88,26 @@ struct SabbathRestSurfaceView: View {
                 }
 
                 Spacer(minLength: 0)
+
+                // Gentle deepen / return path between `.rest` and `.holyGround`. Optional,
+                // never required — the only *necessary* control is the exit below (I1).
+                if isHolyGround {
+                    Button { controller.returnToRest() } label: {
+                        Text("Return to rest")
+                            .font(.system(size: 15))
+                            .foregroundStyle(SabbathRhythmTokens.secondaryInk)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Eases back from prayer to ordinary rest")
+                } else {
+                    Button { controller.deepenToHolyGround() } label: {
+                        Label("Go deeper — prayer", systemImage: "sparkles")
+                            .font(.system(size: 15))
+                            .foregroundStyle(SabbathRhythmTokens.secondaryInk)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Enters a single, silent prayer surface")
+                }
 
                 // Invariant I1 — always-available, one-tap, guilt-free exit.
                 Button {
@@ -288,27 +320,81 @@ struct SabbathEnterRestPill: View {
     }
 }
 
+// MARK: - Presence banner (non-blocking)
+
+/// The `.presence` indicator. Unlike the takeover states, presence keeps navigation, so this
+/// is a slim, dismissable banner — quiet acknowledgement, not a wall. Tapping "Leave" exits.
+struct SabbathPresenceBanner: View {
+    @ObservedObject private var controller = SabbathRhythmController.shared
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "hands.and.sparkles")
+                .font(.system(size: 14, weight: .light))
+                .foregroundStyle(SabbathRhythmTokens.secondaryInk)
+                .accessibilityHidden(true)
+
+            Text("In worship — Selah is quiet")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(SabbathRhythmTokens.ink)
+
+            Spacer(minLength: 8)
+
+            Button("Leave") { controller.leaveRest() }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(SabbathRhythmTokens.ink)
+                .buttonStyle(.plain)
+                .accessibilityHint("Returns you to the full app")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            Capsule(style: .continuous)
+                .fill(SabbathRhythmTokens.canvas)
+                .overlay(Capsule(style: .continuous).stroke(SabbathRhythmTokens.hairline, lineWidth: 1))
+        )
+        .padding(.horizontal, 16)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("You are in worship. Selah is quiet.")
+    }
+}
+
 // MARK: - Host modifier
 
-/// Attach to the primary surface to (a) overlay the rest surface while `.rest`, and
-/// (b) present the begin / gentle-return thresholds. Inert unless Sabbath Mode is ON.
+/// Attach to the primary surface to (a) cover the app with the calm takeover surface during
+/// `.rest` / `.holyGround`, (b) show the non-blocking presence banner during `.presence`, and
+/// (c) present the begin / gentle-return thresholds. Inert unless Sabbath Mode is ON.
 private struct SabbathRhythmHost: ViewModifier {
     @ObservedObject private var controller = SabbathRhythmController.shared
     @ObservedObject private var flags = AMENFeatureFlags.shared
 
-    private var resting: Bool {
-        flags.sabbathModeEnabled && controller.state == .rest
+    /// Full-screen takeover states — the calm surface covers everything (single-surface).
+    private var isTakeover: Bool {
+        flags.sabbathModeEnabled && (controller.state == .rest || controller.state == .holyGround)
+    }
+
+    /// Presence keeps navigation; only a slim banner is shown.
+    private var isPresence: Bool {
+        flags.sabbathModeEnabled && controller.state == .presence
     }
 
     func body(content: Content) -> some View {
         content
             .overlay {
-                if resting {
+                if isTakeover {
                     SabbathRestSurfaceView()
                         .transition(.opacity)
                 }
             }
-            .animation(.easeInOut(duration: 0.25), value: resting)
+            .overlay(alignment: .top) {
+                if isPresence {
+                    SabbathPresenceBanner()
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.easeInOut(duration: 0.25), value: isTakeover)
+            .animation(.easeInOut(duration: 0.25), value: isPresence)
             .sheet(item: $controller.presentation) { presentation in
                 switch presentation {
                 case .beginThreshold:

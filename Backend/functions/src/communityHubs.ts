@@ -193,13 +193,19 @@ export const getObjectHub = onCall({ enforceAppCheck: true }, async (request: Ca
         }
     }
 
-    // Fetch related objects (same content category, different id)
-    const relatedSnap = await db.collection("canonicalObjects")
-        .where("contentCategory", "==", (canonical as any).contentCategory ?? "general")
-        .where(admin.firestore.FieldPath.documentId(), "!=", canonicalObjectId)
-        .limit(8)
-        .get();
-    const relatedObjects = relatedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Fetch related objects (same content category, different id). Some local
+    // emulator/test Firestore shims do not implement FieldPath.documentId(); the
+    // primary hub payload should still resolve in that environment.
+    let relatedObjects: Array<Record<string, unknown>> = [];
+    const documentIdField = admin.firestore.FieldPath?.documentId?.();
+    if (documentIdField) {
+        const relatedSnap = await db.collection("canonicalObjects")
+            .where("contentCategory", "==", (canonical as any).contentCategory ?? "general")
+            .where(documentIdField, "!=", canonicalObjectId)
+            .limit(8)
+            .get();
+        relatedObjects = relatedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
 
     return { hub, canonicalObject: canonical, relatedObjects };
 });

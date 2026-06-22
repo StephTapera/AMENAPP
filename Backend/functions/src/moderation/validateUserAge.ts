@@ -28,9 +28,7 @@ interface ValidateUserAgeResult {
     ageGroup: "under_13" | "13_to_17" | "18_plus" | null;
 }
 
-export const validateUserAge = functions.onCall(
-    { region: "us-east1" },
-    async (request): Promise<ValidateUserAgeResult> => {
+export const validateUserAge = functions.onCall({ enforceAppCheck: true, region: "us-east1" }, async (request): Promise<ValidateUserAgeResult> => {
         if (!request.auth) {
             throw new functions.HttpsError("unauthenticated", "Auth required");
         }

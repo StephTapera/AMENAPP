@@ -7,8 +7,8 @@ final class CreatorExportViewModel: ObservableObject {
 
     private let exportService: CreatorExportServicing
 
-    init(exportService: CreatorExportServicing = CreatorExportService()) {
-        self.exportService = exportService
+    init(exportService: CreatorExportServicing? = nil) {
+        self.exportService = exportService ?? CreatorExportService()
     }
 
     func render(projectID: String, preset: CreatorExportPreset) async {

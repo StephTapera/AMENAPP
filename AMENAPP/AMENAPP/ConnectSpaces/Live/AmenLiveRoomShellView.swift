@@ -67,7 +67,7 @@ struct AmenLiveRoomShellView: View {
                     displayName: room.participants.first(where: { $0.id == currentUserId })?.displayName ?? "",
                     mode: room.mode
                 )
-                try? await functions.httpsCallable(AmenSpacesPhase1Callable.joinLiveRoom.rawValue)
+                _ = try? await functions.httpsCallable(AmenSpacesPhase1Callable.joinLiveRoom.rawValue)
                     .call(["roomId": room.id, "userId": currentUserId])
             }
             // Calculate join latency for catch-me-up
@@ -262,7 +262,7 @@ struct AmenLiveRoomShellView: View {
                 // Call raiseHand CF to broadcast state to host
                 Task {
                     let functions = Functions.functions()
-                    try? await functions.httpsCallable("raiseHandInLiveRoom").call([
+                    _ = try? await functions.httpsCallable("raiseHandInLiveRoom").call([
                         "roomId": room.id,
                         "userId": currentUserId,
                         "raised": handRaised
@@ -354,7 +354,7 @@ struct AmenLiveRoomShellView: View {
     private func handleEndOrLeave() async {
         await provider.leaveRoom()
         if isHost {
-            try? await functions.httpsCallable(AmenSpacesPhase1Callable.endLiveRoom.rawValue)
+            _ = try? await functions.httpsCallable(AmenSpacesPhase1Callable.endLiveRoom.rawValue)
                 .call(["roomId": room.id])
         }
         onEnd()

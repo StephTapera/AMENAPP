@@ -1,6 +1,6 @@
 // CommunityMemoryView.swift — AMEN App
 import SwiftUI
-import FirebaseFirestore
+@preconcurrency import FirebaseFirestore
 import FirebaseRemoteConfig
 
 enum DiscussionOutcomeType: String, Codable, Sendable {

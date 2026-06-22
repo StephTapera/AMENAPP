@@ -67,7 +67,7 @@ function requireActive(m: CommunityMembership | null): CommunityMembership {
 // ════════════════════════════════════════════════════════════════════
 
 /** POST /communities/:id/invite — an active member invites another user (14-day expiry). */
-export const inviteToCommunity = onCall(callableOpts, async (request) => {
+export const inviteToCommunity = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);
@@ -100,7 +100,7 @@ export const inviteToCommunity = onCall(callableOpts, async (request) => {
 // ════════════════════════════════════════════════════════════════════
 
 /** POST /communities/:id/flair — set the caller's own flair (moderation-safe: trimmed + capped). */
-export const setCommunityFlair = onCall(callableOpts, async (request) => {
+export const setCommunityFlair = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);
@@ -122,7 +122,7 @@ export const setCommunityFlair = onCall(callableOpts, async (request) => {
 // ════════════════════════════════════════════════════════════════════
 
 /** POST /communities/:id/add-to-profile — set how this membership shows on the caller's profile. */
-export const addCommunityToProfile = onCall(callableOpts, async (request) => {
+export const addCommunityToProfile = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);
@@ -148,7 +148,7 @@ export const addCommunityToProfile = onCall(callableOpts, async (request) => {
 });
 
 /** DELETE /communities/:id/remove-from-profile — hide this membership from the caller's profile. */
-export const removeCommunityFromProfile = onCall(callableOpts, async (request) => {
+export const removeCommunityFromProfile = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);
@@ -178,7 +178,7 @@ interface MirrorRow {
 }
 
 /** GET /users/:id/communities — featured/created/joined/moderating, privacy-filtered for non-owners. */
-export const getUserCommunities = onCall(callableOpts, async (request) => {
+export const getUserCommunities = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);

@@ -439,7 +439,7 @@ class FollowRequestService {
     
     /// Send a follow request to a user with a private account
     func sendFollowRequest(toUserId: String) async throws {
-        guard let currentUserId = Auth.auth().currentUser?.uid else {
+        guard Auth.auth().currentUser?.uid != nil else {
             throw NSError(domain: "FollowRequestService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
         

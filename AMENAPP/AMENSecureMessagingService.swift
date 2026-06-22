@@ -117,7 +117,7 @@ final class AMENSecureMessagingService: ObservableObject {
     /// Only the COPPA hard-block tier is barred client-side; tierB/tierC minors are gated
     /// server-side by the mutual-follow minor-safe-DM rule. Legacy strings retained so any
     /// stale custom claim still fails closed.
-    static func isDMBlockedTier(_ ageTier: String) -> Bool {
+    nonisolated static func isDMBlockedTier(_ ageTier: String) -> Bool {
         return ["blocked", "under_minimum", "minor"].contains(ageTier)
     }
 

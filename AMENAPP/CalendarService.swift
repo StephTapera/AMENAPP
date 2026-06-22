@@ -51,7 +51,13 @@ final class CalendarService: NSObject, ObservableObject {
         let status = EKEventStore.authorizationStatus(for: .event)
 
         // If already decided, return immediately (.authorized is the pre-iOS-17 name for .fullAccess)
-        if status == .fullAccess || status == .authorized {
+        let alreadyAuthorized: Bool
+        if #available(iOS 17.0, *) {
+            alreadyAuthorized = status == .fullAccess
+        } else {
+            alreadyAuthorized = status == .authorized
+        }
+        if alreadyAuthorized {
             permissionState = .authorized
             return true
         }

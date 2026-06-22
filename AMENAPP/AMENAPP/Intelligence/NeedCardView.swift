@@ -62,7 +62,7 @@ protocol NeedCardDelegate: AnyObject {
 
 struct NeedCardView: View {
     let card: NeedCard
-    weak var delegate: (any NeedCardDelegate)?
+    var delegate: (any NeedCardDelegate)?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingAllActions = false
@@ -390,6 +390,10 @@ private final class PreviewDelegate: NeedCardDelegate {
     func handleNeedAction(handler: String, target: String) {}
 }
 
+private enum NeedCardPreviewSupport {
+    static let delegate = PreviewDelegate()
+}
+
 #Preview("Urgent Material Need") {
     NeedCardView(
         card: NeedCard(
@@ -417,7 +421,7 @@ private final class PreviewDelegate: NeedCardDelegate {
             createdAt: Date(),
             expiresAt: Date().addingTimeInterval(86400 * 14)
         ),
-        delegate: PreviewDelegate()
+        delegate: NeedCardPreviewSupport.delegate
     )
     .padding()
     .background(Color(uiColor: .systemGroupedBackground))
@@ -444,7 +448,7 @@ private final class PreviewDelegate: NeedCardDelegate {
             createdAt: Date(),
             expiresAt: Date().addingTimeInterval(86400 * 14)
         ),
-        delegate: PreviewDelegate()
+        delegate: NeedCardPreviewSupport.delegate
     )
     .padding()
     .background(Color(uiColor: .systemGroupedBackground))

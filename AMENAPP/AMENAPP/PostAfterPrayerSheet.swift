@@ -66,7 +66,7 @@ enum PostPublishTiming: String, CaseIterable, Identifiable {
 
     // Absolute publish date if scheduled
     func scheduledDate(from now: Date = Date()) -> Date? {
-        var cal = Calendar.current
+        let cal = Calendar.current
         switch self {
         case .tonight:
             return cal.nextDate(after: now,

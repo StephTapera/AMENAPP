@@ -136,7 +136,7 @@ class LiquidGlassVerseSearchService: ObservableObject {
     private func extractTopicFromNaturalLanguage(_ query: String) -> String {
         let q = query.lowercased()
         // Remove common phrase patterns
-        var topic = q
+        let topic = q
             .replacingOccurrences(of: "verse about ", with: "")
             .replacingOccurrences(of: "what does bible say about ", with: "")
             .replacingOccurrences(of: "what does the bible say about ", with: "")

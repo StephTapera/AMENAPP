@@ -269,7 +269,7 @@ class FirstVisitCompanionViewModel: ObservableObject {
             // 1. Create the note first, linked to the visit plan
             let note = ChurchNote(
                 userId: plan.userId,
-                title: "\(plan.churchName) — \(plan.serviceType ?? "Service")",
+                title: "\(plan.churchName) — \(plan.serviceType)",
                 churchName: plan.churchName,
                 churchId: plan.churchId,
                 pastor: nil,
@@ -288,7 +288,7 @@ class FirstVisitCompanionViewModel: ObservableObject {
             )
 
             // 3. Refresh the plan
-            if let church = selectedChurch {
+            if selectedChurch != nil {
                 visitPlan = try await visitPlanService.getVisitPlan(
                     userId: plan.userId,
                     churchId: plan.churchId,
@@ -312,7 +312,7 @@ class FirstVisitCompanionViewModel: ObservableObject {
         isLoading = true
         do {
             try await visitPlanService.markVisited(visitPlanId: planId, noteId: nil)
-            if let church = selectedChurch, let plan = visitPlan {
+            if selectedChurch != nil, let plan = visitPlan {
                 visitPlan = try await visitPlanService.getVisitPlan(
                     userId: plan.userId,
                     churchId: plan.churchId,

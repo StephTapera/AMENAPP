@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 
 /// Manages personalized greetings with priority-based logic and user permissions
+@MainActor
 class GreetingService: ObservableObject {
     static let shared = GreetingService()
     
@@ -175,7 +176,9 @@ class GreetingService: ObservableObject {
     private func startAutoUpdate() {
         // Update every hour to catch time-of-day transitions
         updateTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
-            self?.updateGreeting()
+            Task { @MainActor [weak self] in
+                self?.updateGreeting()
+            }
         }
     }
     

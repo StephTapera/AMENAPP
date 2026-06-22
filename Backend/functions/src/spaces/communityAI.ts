@@ -71,9 +71,7 @@ function validateSpaceId(spaceId: unknown): string {
 
 // ── getCommunityAIDigest ──────────────────────────────────────────────────────
 
-export const getCommunityAIDigest = onCall(
-    { region: "us-central1" },
-    async (request): Promise<CommunityAIDigest> => {
+export const getCommunityAIDigest = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<CommunityAIDigest> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -130,9 +128,7 @@ export const getCommunityAIDigest = onCall(
 
 // ── getMemberInsights ─────────────────────────────────────────────────────────
 
-export const getMemberInsights = onCall(
-    { region: "us-central1" },
-    async (request): Promise<MemberInsightRecord[]> => {
+export const getMemberInsights = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<MemberInsightRecord[]> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -173,9 +169,7 @@ export const getMemberInsights = onCall(
 
 // ── markMemberFollowedUp ──────────────────────────────────────────────────────
 
-export const markMemberFollowedUp = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ success: true }> => {
+export const markMemberFollowedUp = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ success: true }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -199,9 +193,7 @@ export const markMemberFollowedUp = onCall(
 
 // ── dismissCommunityInsight ───────────────────────────────────────────────────
 
-export const dismissCommunityInsight = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ success: true }> => {
+export const dismissCommunityInsight = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ success: true }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -225,9 +217,7 @@ export const dismissCommunityInsight = onCall(
 
 // ── getSpaceHealthMetrics ─────────────────────────────────────────────────────
 
-export const getSpaceHealthMetrics = onCall(
-    { region: "us-central1" },
-    async (request): Promise<SpaceHealthMetrics> => {
+export const getSpaceHealthMetrics = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<SpaceHealthMetrics> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 

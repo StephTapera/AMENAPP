@@ -167,8 +167,7 @@ struct BereanNotesEditorView: View {
 
     private func handleAIAction(_ action: BereanAIAction) {
         lastAIAction = action
-        let notesContent = "\(titleText)\n\(bodyText)"
-        // TODO: Route through BereanContextActionEngine.perform(action: action, payload: ["notes": notesContent])
+        // TODO: Route through BereanContextActionEngine.perform(action: action, payload: ["notes": "\(titleText)\n\(bodyText)"])
         //       or BereanStudyService for study-specific callables.
         //       action.routesTo → .ask/.discern/.build — determines callable.
         //       UGC (notes body) must pass through constitutional review before submission.

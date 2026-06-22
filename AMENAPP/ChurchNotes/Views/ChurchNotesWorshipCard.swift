@@ -7,13 +7,13 @@ struct ChurchNotesWorshipCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top) {
+            HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Music")
-                        .font(.systemScaled(17, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text("Keep one primary song connected to this note.")
-                        .font(.systemScaled(12))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
 
@@ -21,10 +21,14 @@ struct ChurchNotesWorshipCard: View {
 
                 Button(action: onAdd) {
                     Label(songs.isEmpty ? "Add" : "Replace", systemImage: songs.isEmpty ? "plus" : "arrow.triangle.2.circlepath")
-                        .font(.caption.weight(.semibold))
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(ChurchNotesDesignTokens.Colors.personalTint)
+                        .padding(.horizontal, 14)
+                        .frame(height: 44)
+                        .amenLiquidGlassCapsuleSurface(isSelected: false)
                 }
-                .buttonStyle(.bordered)
-                .tint(ChurchNotesDesignTokens.Colors.personalTint)
+                .buttonStyle(.plain)
+                .accessibilityLabel(songs.isEmpty ? "Add music" : "Replace music")
             }
 
             if songs.isEmpty {
@@ -38,10 +42,11 @@ struct ChurchNotesWorshipCard: View {
                             Button {
                                 onRemove(song.id)
                             } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.systemScaled(18, weight: .medium))
+                                Image(systemName: "xmark")
+                                    .font(.systemScaled(13, weight: .bold))
                                     .foregroundStyle(.secondary)
-                                    .frame(width: 32, height: 32)
+                                    .frame(width: 38, height: 38)
+                                    .amenLiquidGlassCapsuleSurface(isSelected: false)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Remove music attachment")
@@ -57,44 +62,32 @@ struct ChurchNotesWorshipCard: View {
     private var emptyState: some View {
         Button(action: onAdd) {
             HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.primary.opacity(0.05))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "music.note")
-                        .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(.primary.opacity(0.7))
-                }
+                Image(systemName: "music.note")
+                    .font(.systemScaled(18, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.72))
+                    .frame(width: 54, height: 54)
+                    .amenLiquidGlassCapsuleSurface(isSelected: false)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Attach Music")
-                        .font(.systemScaled(14, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text("Search, paste Apple Music, Spotify, or YouTube, then keep one primary song.")
-                        .font(.systemScaled(12))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
 
-                Image(systemName: "plus.circle.fill")
-                    .font(.systemScaled(20, weight: .medium))
-                    .foregroundStyle(ChurchNotesDesignTokens.Colors.personalTint)
+                Image(systemName: "plus")
+                    .font(.systemScaled(17, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 38, height: 38)
+                    .background(ChurchNotesDesignTokens.Colors.personalTint, in: Capsule(style: .continuous))
             }
             .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color(.systemBackground).opacity(0.58))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(ChurchNotesDesignTokens.Colors.neutralBorder, lineWidth: 0.8)
-                    )
-            )
+            .amenLiquidGlassCapsuleSurface(isSelected: false)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Attach music")

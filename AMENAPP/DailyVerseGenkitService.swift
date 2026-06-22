@@ -52,7 +52,7 @@ class DailyVerseGenkitService: ObservableObject {
     private var pendingContinuations: [CheckedContinuation<PersonalizedDailyVerse, Never>] = []
     private var isGeneratingInternally = false
     
-    nonisolated private lazy var db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     nonisolated private let functions = Functions.functions(region: "us-central1")
     nonisolated private let cacheKey = "cachedDailyVerse"
     nonisolated private let cacheDate = "cachedVerseDate"

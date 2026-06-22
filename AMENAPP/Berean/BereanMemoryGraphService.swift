@@ -125,9 +125,8 @@ final class BereanMemoryGraphService: ObservableObject {
             let createdAt     = d["createdAt"] as? TimeInterval
         else { return nil }
 
-        // Reconstruct using the memberwise fields; `userControlled` defaults true in the type.
-        var node = BereanMemoryNode(uid: uid, kind: kind, data: data, sensitivity: sensitivity)
-        // Override the auto-generated id/createdAt so the decoded value matches Firestore.
+        // Reconstruct with the Firestore id/createdAt so the decoded value matches.
+        // `userControlled` defaults true in the type.
         return BereanMemoryNode(
             id: id,
             uid: uid,

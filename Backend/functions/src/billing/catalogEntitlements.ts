@@ -196,9 +196,7 @@ interface CheckEntitlementOutput {
  * Deep-links (listen/buy/watch) are ALWAYS allowed — never gated.
  * free tier: catalog_read allowed; ask_creator allowed up to 3/day.
  */
-export const checkCatalogEntitlement = onCall(
-  { region: REGION, secrets: [] },
-  async (req): Promise<CheckEntitlementOutput> => {
+export const checkCatalogEntitlement = onCall({ enforceAppCheck: true, region: REGION, secrets: [] }, async (req): Promise<CheckEntitlementOutput> => {
     if (!req.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in.");
     }
@@ -306,12 +304,8 @@ interface CheckoutOutput {
  *   firebase functions:secrets:set STRIPE_PRICE_CREATOR_PRO    (Stripe price ID: price_xxx)
  *   firebase functions:secrets:set STRIPE_PRICE_CREATOR_STUDIO (Stripe price ID: price_xxx)
  */
-export const createCatalogCheckoutSession = onCall(
-  {
-    region: REGION,
-    secrets: [STRIPE_SECRET_KEY, STRIPE_PRICE_CREATOR_PRO, STRIPE_PRICE_CREATOR_STUDIO],
-  },
-  async (req): Promise<CheckoutOutput> => {
+export const createCatalogCheckoutSession = onCall({ enforceAppCheck: true, region: REGION,
+    secrets: [STRIPE_SECRET_KEY, STRIPE_PRICE_CREATOR_PRO, STRIPE_PRICE_CREATOR_STUDIO], }, async (req): Promise<CheckoutOutput> => {
     if (!req.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in.");
     }

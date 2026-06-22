@@ -12,6 +12,7 @@ import SwiftUI
 import Observation
 import FirebaseAuth
 
+@MainActor
 @Observable
 final class DevotionalGeneratorViewModel {
 
@@ -79,7 +80,6 @@ final class DevotionalGeneratorViewModel {
             return
         }
 
-        let userId = Auth.auth().currentUser?.uid ?? ""
         errorMessage = nil
         generatedDevotional = nil
         showGenerated = false
@@ -140,7 +140,7 @@ final class DevotionalGeneratorViewModel {
     func saveToNotes() async {
         guard let devotional = generatedDevotional else { return }
         do {
-            let noteId = try await generationService.saveToChurchNotes(devotional: devotional)
+            _ = try await generationService.saveToChurchNotes(devotional: devotional)
             // Update local copy to show saved state
             generatedDevotional = DevotionalResponse(
                 requestId: devotional.requestId,

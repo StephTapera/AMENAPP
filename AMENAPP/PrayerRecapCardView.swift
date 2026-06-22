@@ -55,7 +55,8 @@ final class PrayerRecapViewModel: ObservableObject {
                         return
                     }
                 }
-                self?.generate()
+                guard let self else { return }
+                Task { @MainActor in self.generate() }
             }
     }
 

@@ -55,7 +55,7 @@ struct CapabilityPickerView: View {
             await store.loadCapabilities(for: coordinator.surface)
         }
         // Reset focused index whenever the picker opens.
-        .onChange(of: coordinator.isPickerVisible) { visible in
+        .onChange(of: coordinator.isPickerVisible) { _, visible in
             if visible { focusedIndex = surfaceCapabilities.isEmpty ? nil : 0 }
         }
     }

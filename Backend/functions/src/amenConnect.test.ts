@@ -1,11 +1,27 @@
 import admin from "firebase-admin";
-import Stripe from "stripe";
+import StripeConstructor from "stripe";
 import {
     collectAuthorizedAIContext,
     createConnectStripeCheckoutSession,
     handleConnectStripeEvent,
     runConnectAI,
 } from "./amenConnect";
+
+type StripeClient = InstanceType<typeof StripeConstructor>;
+type StripeCheckoutSession = {
+    id: string;
+    object: "checkout.session";
+    mode: string;
+    subscription?: string;
+    customer?: string;
+    metadata?: Record<string, string>;
+};
+type StripeEvent = {
+    id: string;
+    object: "event";
+    type: string;
+    data: { object: unknown };
+};
 
 const mockAdmin = admin as unknown as {
     __mockDoc: {
@@ -24,7 +40,7 @@ const mockAdmin = admin as unknown as {
 const mockDoc = mockAdmin.__mockDoc;
 const mockQuery = mockAdmin.__mockQuery;
 const mockGetUser = mockAdmin.__mockGetUser;
-const mockSessionsCreate: jest.Mock = (Stripe as unknown as { __mockSessionsCreate: jest.Mock }).__mockSessionsCreate;
+const mockSessionsCreate: jest.Mock = (StripeConstructor as unknown as { __mockSessionsCreate: jest.Mock }).__mockSessionsCreate;
 
 function makeDb() {
     return admin.firestore();
@@ -120,9 +136,9 @@ describe("Amen Connect Stripe provider wiring", () => {
                         userId: "uid-member",
                         connectPaymentId: "payment-1",
                     },
-                } as Stripe.Checkout.Session,
+                } as StripeCheckoutSession,
             },
-        } as Stripe.Event, makeDb(), stripe as unknown as Pick<Stripe, "subscriptions">);
+        } as StripeEvent, makeDb(), stripe as unknown as Pick<StripeClient, "subscriptions">);
 
         expect(mockDoc.set).toHaveBeenCalledWith(expect.objectContaining({
             membershipStatus: "active",
@@ -149,9 +165,9 @@ describe("Amen Connect Stripe provider wiring", () => {
                         userId: "uid-member",
                         connectPaymentId: "payment-product",
                     },
-                } as Stripe.Checkout.Session,
+                } as StripeCheckoutSession,
             },
-        } as Stripe.Event, makeDb(), { subscriptions: { retrieve: jest.fn() } } as unknown as Pick<Stripe, "subscriptions">);
+        } as StripeEvent, makeDb(), { subscriptions: { retrieve: jest.fn() } } as unknown as Pick<StripeClient, "subscriptions">);
 
         expect(mockDoc.set).toHaveBeenCalledWith(expect.objectContaining({
             purchaseState: "active",

@@ -8,6 +8,7 @@ import Testing
 /// (real vocab: blocked / tierB / tierC / tierD). The gate was dead, so an
 /// under-13 'blocked' account could initiate DMs client-side. These tests pin
 /// the gate to each real tier string.
+@MainActor
 @Suite("Secure messaging — COPPA DM gate (P0-4)")
 struct SecureMessagingMinorGateTests {
 

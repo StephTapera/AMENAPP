@@ -115,7 +115,7 @@ final class ContentRouterImpl: ContentRouter {
                 "cardId":      card.id,
                 "sourceType":  card.sourceType.rawValue,
                 "audience":    card.originalAudience.rawValue,
-                "bodyPreview": String((card.body ?? "").prefix(500)),
+                "bodyPreview": String(card.body.prefix(500)),
                 "memberId":    context.memberId,
                 "memberRole":  context.memberRole.rawValue
             ])

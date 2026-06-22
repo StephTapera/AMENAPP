@@ -31,7 +31,7 @@ struct BereanPulseView: View {
 
                         BereanPulseHeaderView(
                             titleDate: Self.dateFormatter.string(from: Date()),
-                            intro: String(localized: "Continue the work Berean already understands, inspect the context being used, and turn the next best step into action."),
+                            intro: String(localized: "Scripture, prayer, wisdom, and what matters today."),
                             collapseProgress: collapseProgress
                         )
                         .padding(.horizontal, 20)
@@ -192,13 +192,79 @@ struct BereanPulseView: View {
             .liquidGlassPanel(glassBehavior, cornerRadius: 26, elevated: false)
         case .loaded, .offlineCached, .limitedPermissions, .refreshing, .permissionRequired, .permissionDenied:
             VStack(alignment: .leading, spacing: 24) {
+                pulseHeroSection
+                pulseQuickActionsSection
+                allCardsSection
                 contextTrustSection
                 continueWorkingSection
                 draftSection
                 artifactSection
-                suggestedActionSection
                 BereanPulseSignalPanel(signals: viewModel.signals, isCollapsed: $viewModel.signalsCollapsed)
-                allCardsSection
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var pulseHeroSection: some View {
+        if let card = topCard {
+            Button {
+                softHaptic()
+                viewModel.toggleExpanded(card.id)
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: card.mode.systemImage)
+                        .font(.systemScaled(23, weight: .semibold))
+                        .foregroundStyle(.primary.opacity(0.72))
+                        .frame(width: 62, height: 62)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.62), lineWidth: 0.75)
+                        )
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(card.title.isEmpty ? String(localized: "Today's Berean Pulse") : card.title)
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.86)
+
+                        Text(card.whyNow.isEmpty ? card.subtitle : card.whyNow)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineSpacing(2)
+                            .lineLimit(3)
+                    }
+
+                    Spacer(minLength: 4)
+
+                    Image(systemName: "chevron.right")
+                        .font(.systemScaled(18, weight: .semibold))
+                        .foregroundStyle(.secondary.opacity(0.72))
+                }
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .liquidGlassPanel(glassBehavior, cornerRadius: 28, elevated: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Open today's Berean Pulse card"))
+        }
+    }
+
+    private var pulseQuickActionsSection: some View {
+        BereanPulseWorkspaceSection(
+            title: String(localized: "Ask anything about your faith journey"),
+            subtitle: nil,
+            actionTitle: String(localized: "Curate"),
+            action: { viewModel.openCurate() }
+        ) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    BereanPulseActionChip(title: String(localized: "Ask Berean"), systemImage: "sparkles", action: askTopCard, isPrimary: topCard != nil, isDisabled: topCard == nil)
+                    BereanPulseActionChip(title: String(localized: "Refresh"), systemImage: "arrow.clockwise", action: { Task { await viewModel.refresh() } })
+                    BereanPulseActionChip(title: String(localized: "Context"), systemImage: "checkmark.shield", action: { viewModel.signalsCollapsed.toggle() })
+                    BereanPulseActionChip(title: String(localized: "Preferences"), systemImage: "slider.horizontal.3", action: { viewModel.openCurate() })
+                }
             }
         }
     }
@@ -321,8 +387,8 @@ struct BereanPulseView: View {
 
     private var allCardsSection: some View {
         BereanPulseWorkspaceSection(
-            title: String(localized: "Pulse cards"),
-            subtitle: String(localized: "Inspectable reasons, sources, permissions, feedback, and routed actions."),
+            title: String(localized: "Your Berean today"),
+            subtitle: String(localized: "Cards stay inspectable: reasons, sources, permissions, feedback, and routed actions."),
             actionTitle: nil,
             action: nil
         ) {

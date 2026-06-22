@@ -500,10 +500,9 @@ extension Notification.Name {
 struct FollowerSystemSetup {
     /// Initialize follower system on app launch
     static func initialize() {
-        let followService = FollowService.shared
-        
         // Start real-time listeners for current user
         Task { @MainActor in
+            let followService = FollowService.shared
             await followService.loadCurrentUserFollowing()
             await followService.loadCurrentUserFollowers()
             followService.startListening()
@@ -514,10 +513,11 @@ struct FollowerSystemSetup {
     
     /// Clean up on app termination
     static func cleanup() {
-        let followService = FollowService.shared
-        followService.stopListening()
-        
-        dlog("🔇 Follower system listeners stopped")
+        Task { @MainActor in
+            let followService = FollowService.shared
+            followService.stopListening()
+            dlog("🔇 Follower system listeners stopped")
+        }
     }
 }
 
@@ -565,7 +565,7 @@ extension UserModel {
 struct FollowerQuickActions {
     /// Quick follow a user
     static func followUser(userId: String) async throws {
-        let service = FollowService.shared
+        let service = await FollowService.shared
         try await service.followUser(userId: userId)
         
         // Post notification
@@ -574,7 +574,7 @@ struct FollowerQuickActions {
     
     /// Quick unfollow a user
     static func unfollowUser(userId: String) async throws {
-        let service = FollowService.shared
+        let service = await FollowService.shared
         try await service.unfollowUser(userId: userId)
         
         // Post notification
@@ -583,7 +583,7 @@ struct FollowerQuickActions {
     
     /// Check if following
     static func isFollowing(userId: String) async -> Bool {
-        let service = FollowService.shared
+        let service = await FollowService.shared
         return await service.isFollowing(userId: userId)
     }
 }

@@ -73,9 +73,7 @@ interface SummarizePromptResponse {
   studyAngles: string[];
 }
 
-export const bereanHelperSummarizePrompt = onCall(
-  { region: "us-central1", timeoutSeconds: 30 },
-  async (request) => {
+export const bereanHelperSummarizePrompt = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 30 }, async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
     }
@@ -146,9 +144,7 @@ interface AnalyzeLinkResponse {
   suggestedQuestion?: string;
 }
 
-export const bereanHelperAnalyzeLink = onCall(
-  { region: "us-central1", timeoutSeconds: 30 },
-  async (request) => {
+export const bereanHelperAnalyzeLink = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 30 }, async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
     }
@@ -236,9 +232,7 @@ interface ExternalContextResponse {
   scriptureAngles: string[];
 }
 
-export const bereanHelperExternalContext = onCall(
-  { region: "us-central1", timeoutSeconds: 30 },
-  async (request) => {
+export const bereanHelperExternalContext = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 30 }, async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
     }
@@ -323,9 +317,7 @@ interface StudyOutlineResponse {
   nextSteps: string[];
 }
 
-export const bereanHelperStudyOutline = onCall(
-  { region: "us-central1", timeoutSeconds: 30 },
-  async (request) => {
+export const bereanHelperStudyOutline = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 30 }, async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
     }

@@ -11,6 +11,7 @@ enum ContentPermissionEngine {
 
     // MARK: - Primary Gate
 
+    @MainActor
     static func evaluate(
         action: ContentAction,
         card: ContentCard,
@@ -198,6 +199,7 @@ enum ContentPermissionEngine {
     // MARK: - Available Actions
 
     /// Returns the ContentActions visible on the share sheet for this card + requestor context.
+    @MainActor
     static func availableActions(
         for card: ContentCard,
         requestorIsCreator: Bool,

@@ -121,7 +121,7 @@ export function summarizeSilentReactions(reactionTypes: string[]): { summaryText
     };
 }
 
-export const updatePresenceState = onCall(async (request) => {
+export const updatePresenceState = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -148,7 +148,7 @@ export const updatePresenceState = onCall(async (request) => {
     return { ok: true };
 });
 
-export const addSilentReaction = onCall(async (request) => {
+export const addSilentReaction = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -188,7 +188,7 @@ export const addSilentReaction = onCall(async (request) => {
     return { ok: true, reactionId };
 });
 
-export const getSilentReactionSummary = onCall(async (request) => {
+export const getSilentReactionSummary = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -219,7 +219,7 @@ export const getSilentReactionSummary = onCall(async (request) => {
     return summary;
 });
 
-export const checkComposeIntent = onCall(async (request) => {
+export const checkComposeIntent = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -248,7 +248,7 @@ export const checkComposeIntent = onCall(async (request) => {
     return result;
 });
 
-export const getSpiritualPriorityInbox = onCall(async (request) => {
+export const getSpiritualPriorityInbox = onCall({ enforceAppCheck: true }, async (request) => {
     const _data = request.data as any;
     const data = _data;
     const context = { auth: request.auth, app: request.app };
@@ -294,7 +294,7 @@ export const getSpiritualPriorityInbox = onCall(async (request) => {
     return { items: items.slice(0, 20) };
 });
 
-export const evaluateThreadLifecycle = onCall(async (request) => {
+export const evaluateThreadLifecycle = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -340,7 +340,7 @@ export const evaluateThreadLifecycle = onCall(async (request) => {
     };
 });
 
-export const getContextualMemoryLayer = onCall(async (request) => {
+export const getContextualMemoryLayer = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -373,7 +373,7 @@ export const getContextualMemoryLayer = onCall(async (request) => {
     return { scriptureRefs, relatedPostIds, relatedPrayerIds, savedNoteIds: [], bereanInsightIds: [] };
 });
 
-export const summonThreads = onCall(async (request) => {
+export const summonThreads = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);

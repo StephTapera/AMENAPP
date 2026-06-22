@@ -311,7 +311,7 @@ function composeGroundedAnswer(
     return parts.join(" ");
 }
 
-export const submitChurchVerificationRequest = onCall({region: "us-central1"}, async (request) => {
+export const submitChurchVerificationRequest = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
     const uid = requireAuth(request);
     const data = request.data as Record<string, unknown>;
     const churchId = typeof data.churchId === "string" ? data.churchId : "";
@@ -342,7 +342,7 @@ export const submitChurchVerificationRequest = onCall({region: "us-central1"}, a
     return {success: true, requestId};
 });
 
-export const submitChurchProfileUpdate = onCall({region: "us-central1"}, async (request) => {
+export const submitChurchProfileUpdate = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
     const uid = requireAuth(request);
     const data = request.data as Record<string, unknown>;
     const churchId = typeof data.churchId === "string" ? data.churchId : "";
@@ -371,7 +371,7 @@ export const submitChurchProfileUpdate = onCall({region: "us-central1"}, async (
     return {success: true};
 });
 
-export const reviewChurchModerationItem = onCall({region: "us-central1"}, async (request) => {
+export const reviewChurchModerationItem = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
     const uid = requireAuth(request);
     const data = request.data as Record<string, unknown>;
     const queueItemId = typeof data.queueItemId === "string" ? data.queueItemId : "";
@@ -395,7 +395,7 @@ export const reviewChurchModerationItem = onCall({region: "us-central1"}, async 
     return {success: true};
 });
 
-export const refreshChurchLivestreamState = onCall({region: "us-central1"}, async (request) => {
+export const refreshChurchLivestreamState = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
     requireAuth(request);
     const churchId = typeof request.data?.churchId === "string" ? request.data.churchId : "";
     if (!churchId) throw new HttpsError("invalid-argument", "churchId is required.");
@@ -425,7 +425,7 @@ export const refreshChurchLivestreamState = onCall({region: "us-central1"}, asyn
     return {success: true};
 });
 
-export const generateGroundedChurchAnswer = onCall({region: "us-central1"}, async (request) => {
+export const generateGroundedChurchAnswer = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
     requireAuth(request);
     const churchId = typeof request.data?.churchId === "string" ? request.data.churchId : "";
     const question = typeof request.data?.question === "string" ? request.data.question : "";
@@ -469,7 +469,7 @@ export const generateGroundedChurchAnswer = onCall({region: "us-central1"}, asyn
     };
 });
 
-export const moderateChurchMediaUpload = onCall({region: "us-central1"}, async (request) => {
+export const moderateChurchMediaUpload = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
     const uid = requireAuth(request);
     const data = request.data as Record<string, unknown>;
     const churchId = typeof data.churchId === "string" ? data.churchId : "";

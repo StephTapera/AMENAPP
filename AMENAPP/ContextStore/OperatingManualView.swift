@@ -159,7 +159,7 @@ struct OperatingManualView: View {
 
     private func loadIfNeeded() async {
         guard store.facets.isEmpty, !store.isLoading else { return }
-        try? await store.loadFacets()
+        _ = try? await store.loadFacets()
     }
 
     // MARK: - Projection (computed in-view; NO second store)

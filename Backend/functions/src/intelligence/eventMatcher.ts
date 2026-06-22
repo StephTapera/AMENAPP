@@ -86,7 +86,7 @@ export const matchEventsForUser = onCall(
   {
     timeoutSeconds: 30,
     memory: "256MiB",
-    enforceAppCheck: false, // App Check handled by caller context
+    enforceAppCheck: true,
   },
   async (request) => {
     // 1. Auth check

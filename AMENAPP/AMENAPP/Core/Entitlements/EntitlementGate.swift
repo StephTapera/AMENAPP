@@ -130,12 +130,6 @@ actor EntitlementGate: EntitlementGating {
 
     private func fetchStoreKitTier() async -> Tier {
         // StoreKit 2 — check active subscription status
-        let productIds: [String: Tier] = [
-            "com.amen.creator":  .creator,
-            "com.amen.church":   .church,
-            "com.amen.premium":  .premium
-        ]
-
         // Check in descending privilege order
         for (productId, tier) in [("com.amen.creator", Tier.creator),
                                    ("com.amen.church", Tier.church),

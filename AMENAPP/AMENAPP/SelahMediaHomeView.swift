@@ -395,7 +395,7 @@ struct SelahMediaHomeView: View {
             let suggestions = engine.generateContinuations(from: window, userId: "")
             Task {
                 for s in suggestions {
-                    try? await service.saveContinuation(s)
+                    _ = try? await service.saveContinuation(s)
                 }
             }
         }
@@ -645,7 +645,7 @@ struct SelahMediaUploadSheet: View {
 
         Task {
             do {
-                try await service.uploadPhoto(
+                _ = try await service.uploadPhoto(
                     imageData: data,
                     caption: caption,
                     meaningTags: tags,
@@ -745,7 +745,7 @@ struct SelahTrustCircleCreatorSheet: View {
                     Button("Create") {
                         isSaving = true
                         Task {
-                            try? await service.createTrustCircle(name: name, memberIds: [], emoji: emoji)
+                            _ = try? await service.createTrustCircle(name: name, memberIds: [], emoji: emoji)
                             isSaving = false
                             dismiss()
                         }

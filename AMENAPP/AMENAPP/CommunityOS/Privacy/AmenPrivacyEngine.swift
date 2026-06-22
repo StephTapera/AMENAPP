@@ -19,6 +19,7 @@
 //     the intent; it does NOT perform the HMAC or encryption itself.
 
 import Foundation
+import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -300,21 +301,10 @@ final class AmenPrivacyEngine: ObservableObject {
             senderIsMinor = try await fetchIsMinor(userId: senderId)
         }
 
-        // [MINOR] C5 §4b: If recipient is a minor, sender MUST be a mutual follow.
-        // SECURITY FIX (HIGH 2026-06-11): Replace unconditional return true with
-        // AmenChildSafetyService.shared.canDM(), which performs the mutual-follow check
-        // and fails closed on error. The comment "cannot resolve the social graph on-device"
-        // was incorrect — areMutualFollows() in AmenChildSafetyService does exactly this.
-        if recipIsMinor {
-            return try await AmenChildSafetyService.shared.canDM(from: senderId, to: recipientId)
-        }
-
-        // [MINOR] SECURITY FIX (HIGH 2026-06-11): If sender is a minor, apply the same
-        // mutual-follow + fail-closed treatment as the recipIsMinor branch above. The
-        // previous unconditional `return true` relied solely on the CF gate with no
-        // iOS-layer defense-in-depth. AmenChildSafetyService.canDM() fails closed on error.
-        if senderIsMinor {
-            return try await AmenChildSafetyService.shared.canDM(from: senderId, to: recipientId)
+        // [MINOR] C5 §4b: If either party is a minor, require the minor-safe DM guard.
+        // The guard checks mutual follows and fails closed on Firestore errors.
+        if recipIsMinor || senderIsMinor {
+            return try await canSendMinorSafeDM(from: senderId, to: recipientId)
         }
 
         // Standard adult-to-adult DM policy check
@@ -362,7 +352,53 @@ final class AmenPrivacyEngine: ObservableObject {
     private func fetchIsMinor(userId: String) async throws -> Bool {
         let doc = try await db.collection("users").document(userId).getDocument()
         let ageTier = doc.data()?["ageTier"] as? String
-        return AgeCategory.resolving(ageTier).isMinor
+        return ageTier != "tierD"
+    }
+
+    private func canSendMinorSafeDM(from senderId: String, to recipientId: String) async throws -> Bool {
+        do {
+            let isMutual = try await areMutualFollows(userId1: senderId, userId2: recipientId)
+            guard isMutual else { return false }
+
+            let recipientIsMinor = try await fetchIsMinor(userId: recipientId)
+            guard recipientIsMinor else { return true }
+
+            return try await isGuardianApprovedContact(minorId: recipientId, contactId: senderId)
+        } catch {
+            return false
+        }
+    }
+
+    private func areMutualFollows(userId1: String, userId2: String) async throws -> Bool {
+        let forward = try await db.collection("edges")
+            .whereField("fromUserId", isEqualTo: userId1)
+            .whereField("toUserId", isEqualTo: userId2)
+            .whereField("type", isEqualTo: "follow")
+            .limit(to: 1)
+            .getDocuments()
+
+        guard !forward.documents.isEmpty else { return false }
+
+        let reverse = try await db.collection("edges")
+            .whereField("fromUserId", isEqualTo: userId2)
+            .whereField("toUserId", isEqualTo: userId1)
+            .whereField("type", isEqualTo: "follow")
+            .limit(to: 1)
+            .getDocuments()
+
+        return !reverse.documents.isEmpty
+    }
+
+    private func isGuardianApprovedContact(minorId: String, contactId: String) async throws -> Bool {
+        let doc = try await db
+            .collection("guardianApprovedContacts")
+            .document(minorId)
+            .collection("contacts")
+            .document(contactId)
+            .getDocument()
+
+        guard doc.exists else { return false }
+        return doc.data()?["approved"] as? Bool ?? false
     }
 
     // MARK: - Firestore Encoding / Decoding
@@ -376,6 +412,42 @@ final class AmenPrivacyEngine: ObservableObject {
     private func decodeSettings(from data: [String: Any]) throws -> PrivacySettings {
         let decoder = Firestore.Decoder()
         return try decoder.decode(PrivacySettings.self, from: data)
+    }
+}
+
+// MARK: - Per-Field Profile Visibility (Trust & Safety item 21 follow-on)
+
+extension AmenPrivacyEngine {
+    /// Whether the currently-loaded user shows `field` on their profile.
+    /// Defaults to hidden when settings are not loaded.
+    func showsProfileField(_ field: ProfileContactField) -> Bool {
+        settings?.showsProfileField(field) ?? false
+    }
+
+    /// Sets the visibility of `field` for `userId` and persists it.
+    /// Uses `customOverrides`, so no Codable migration is involved.
+    /// [MINOR] No-op for minors (enforced in `settingProfileField`).
+    func setProfileField(
+        _ field: ProfileContactField,
+        visible: Bool,
+        for userId: String
+    ) async throws {
+        if settings == nil || settings?.userId != userId {
+            try await loadSettings(for: userId)
+        }
+        guard let current = settings else { return }
+        let updated = current.settingProfileField(field, visible: visible)
+        try await saveSettings(updated)
+    }
+
+    /// Whether `field` of `ownerSettings` should be shown to a viewer of `audience`.
+    /// Pure convenience wrapper around `PrivacySettings.isProfileField(_:visibleTo:)`.
+    func isProfileField(
+        _ field: ProfileContactField,
+        of ownerSettings: PrivacySettings,
+        visibleTo audience: AudienceType
+    ) -> Bool {
+        ownerSettings.isProfileField(field, visibleTo: audience)
     }
 }
 

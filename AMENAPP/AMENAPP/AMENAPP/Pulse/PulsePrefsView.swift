@@ -19,6 +19,11 @@ struct PulsePrefsView: View {
     @State private var prefs: PulsePrefs = .default
     @State private var isLoading = true
 
+    /// Fail-closed minor signal. `currentUserTier` defaults to `.teen` (minor) until age
+    /// assurance resolves, so the Local row stays hidden unless the account is a known adult.
+    @ObservedObject private var ageService = AgeAssuranceService.shared
+    private var isMinor: Bool { ageService.currentUserTier.isMinor }
+
     init() {}
 
     // The cap the user is steering. Defaults to the config maximum until prefs load.
@@ -110,12 +115,16 @@ struct PulsePrefsView: View {
             sourceToggle("Following", systemImage: "heart.fill", value: $prefs.sources.following)
             sourceToggle("Global", systemImage: "globe", value: $prefs.sources.global)
 
-            VStack(alignment: .leading, spacing: 4) {
-                sourceToggle("Local", systemImage: "location.fill", value: $prefs.sources.local)
-                Text("Adult accounts only")
-                    .font(.system(size: 12.5))
-                    .foregroundColor(Color(hex: "8A8A8E"))
-                    .padding(.leading, 30)
+            // Local is location-derived and structurally adult-only: the row is absent for
+            // minor accounts (server enforces minor-safety on cards regardless).
+            if !isMinor {
+                VStack(alignment: .leading, spacing: 4) {
+                    sourceToggle("Local", systemImage: "location.fill", value: $prefs.sources.local)
+                    Text("Adult accounts only")
+                        .font(.system(size: 12.5))
+                        .foregroundColor(Color(hex: "8A8A8E"))
+                        .padding(.leading, 30)
+                }
             }
         } header: {
             sectionHeader("Where Pulse looks")

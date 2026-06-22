@@ -130,7 +130,7 @@ final class LocalSelahSection {
 final class SelahLocalStore {
     static let shared = SelahLocalStore()
 
-    let container: ModelContainer
+    let container: ModelContainer?
 
     private init() {
         let schema = Schema([LocalSelahSession.self, LocalSelahSection.self])
@@ -139,12 +139,13 @@ final class SelahLocalStore {
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
             let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-            container = try! ModelContainer(for: schema, configurations: fallback)
+            container = try? ModelContainer(for: schema, configurations: fallback)
         }
     }
 
     /// Deletes all sessions owned by userId. Called from performFullSignOutCleanup().
     func cleanupSessions(forUserId userId: String) {
+        guard let container else { return }
         let context = ModelContext(container)
         let uid = userId
         let descriptor = FetchDescriptor<LocalSelahSession>(

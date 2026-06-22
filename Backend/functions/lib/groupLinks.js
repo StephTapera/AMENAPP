@@ -129,7 +129,7 @@ async function maybeAntiRaidPause(conversationId, linkId) {
     return true;
 }
 // ─── 1. createGroupWithLink ──────────────────────────────────────────
-exports.createGroupWithLink = (0, https_1.onCall)(async (request) => {
+exports.createGroupWithLink = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Auth required");
     }
@@ -208,7 +208,7 @@ exports.createGroupWithLink = (0, https_1.onCall)(async (request) => {
     };
 });
 // ─── 2. fetchGroupLinkPreview ────────────────────────────────────────
-exports.fetchGroupLinkPreview = (0, https_1.onCall)(async (request) => {
+exports.fetchGroupLinkPreview = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Auth required");
     }
@@ -251,7 +251,7 @@ exports.fetchGroupLinkPreview = (0, https_1.onCall)(async (request) => {
     };
 });
 // ─── 3. evaluateJoinViaLink ──────────────────────────────────────────
-exports.evaluateJoinViaLink = (0, https_1.onCall)(async (request) => {
+exports.evaluateJoinViaLink = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Auth required");
     }
@@ -330,7 +330,7 @@ exports.evaluateJoinViaLink = (0, https_1.onCall)(async (request) => {
     return { outcome: "allowed", conversationId, reason: null };
 });
 // ─── 4. joinGroupViaLink ─────────────────────────────────────────────
-exports.joinGroupViaLink = (0, https_1.onCall)(async (request) => {
+exports.joinGroupViaLink = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Auth required");
     }
@@ -422,7 +422,7 @@ exports.joinGroupViaLink = (0, https_1.onCall)(async (request) => {
     };
 });
 // ─── 5. requestJoinViaLink ───────────────────────────────────────────
-exports.requestJoinViaLink = (0, https_1.onCall)(async (request) => {
+exports.requestJoinViaLink = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Auth required");
     }
@@ -488,7 +488,7 @@ exports.requestJoinViaLink = (0, https_1.onCall)(async (request) => {
     return { ok: true, alreadyRequested: false, requestId: requestRef.id };
 });
 // ─── 6. adminRespondToJoinRequest ────────────────────────────────────
-exports.adminRespondToJoinRequest = (0, https_1.onCall)(async (request) => {
+exports.adminRespondToJoinRequest = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Auth required");
     }
@@ -585,7 +585,7 @@ exports.adminRespondToJoinRequest = (0, https_1.onCall)(async (request) => {
     return { ok: true, approved: approve };
 });
 // ─── 7. manageGroupLink ──────────────────────────────────────────────
-exports.manageGroupLink = (0, https_1.onCall)(async (request) => {
+exports.manageGroupLink = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Auth required");
     }

@@ -9,7 +9,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 const PROJECT_ID = "amen-rules-test-account-lifecycle";
-const RULES_PATH = path.resolve(__dirname, "../../AMENAPP/firestore 18.rules");
+const RULES_PATH = path.resolve(__dirname, "../../AMENAPP/firestore.deploy.rules");
 
 const OWNER_UID = "owner-account";
 const OTHER_UID = "other-account";

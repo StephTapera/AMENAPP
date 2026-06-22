@@ -36,8 +36,9 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.aggregateDiscernmentSignals = exports.generateGracefulRewrite = exports.scoreWeightOfWords = exports.analyzeTruthVsEmotion = exports.updateUserGrowthPattern = exports.savePostActionReflection = exports.createReflectionPrompt = exports.updateMomentLearning = exports.logMomentInterception = exports.evaluateMomentRisk = exports.generateReconciliationPrompt = exports.classifyRelationshipState = exports.updateRelationalGravity = exports.markSilenceSignalResolved = exports.resurfaceAvoidedItem = exports.detectSilencePatterns = exports.dismissDriftSignal = exports.generateBalancingScripture = exports.analyzeScriptureDrift = exports.resolveUnsentThought = exports.saveUnsentThought = exports.detectUnsentThoughtRisk = exports.modelRouter = exports.onChurchVerificationReviewed = exports.moderateChurchMediaUpload = exports.generateGroundedChurchAnswer = exports.refreshChurchLivestreamState = exports.reviewChurchModerationItem = exports.submitChurchProfileUpdate = exports.submitChurchVerificationRequest = exports.nisTopicReadModel = exports.nisMigrationStart = exports.nisResurfaceScheduler = exports.nisResolveDetection = exports.nisPromotePrayer = exports.nisDistillNote = exports.nisProcessNote = exports.updateAlignmentProfile = exports.getWeeklyAlignmentSummary = exports.voteKnowledgeIntegrity = exports.attachSharedKnowledgeIntegrity = exports.sendNotification = exports.indexPostIntoHub = exports.reportHubContent = exports.muteObjectHub = exports.recordObjectInteraction = exports.getRelatedObjectHubs = exports.getObjectHub = exports.createOrJoinObjectHub = exports.resolveCommunityObject = void 0;
-exports.onAccountPrivacyChange = exports.removeFollower = exports.cancelFollowRequest = exports.rejectFollowRequest = exports.acceptFollowRequest = exports.revokeNotificationsOnPostDelete = exports.revokeNotificationsOnCommentDelete = exports.reconcileFollowCounts = exports.aggregatePrayerCount = exports.incrementVolunteerSlot = exports.generateCalendarPayload = exports.unfurlLink = exports.getLivekitToken = exports.generateLiveKitToken = exports.onSabbathNotificationWrite = exports.syncFamilySabbathPresence = exports.setSabbathPreference = exports.evaluateSabbathMode = exports.matchNeedsToVolunteers = exports.classifyPostNeed = exports.onPrayerCreated = exports.matchPrayerSupport = exports.matchEventsForUser = exports.triggerIntelligenceBriefForUser = exports.buildIntelligenceBriefs = exports.buildGlobalCard = exports.generateWorldResponse = exports.submitWorldEvent = exports.getGlobalIntelligenceCards = exports.processGiving = exports.reportMedia = exports.triggerMediaModeration = exports.getAccountMediaRiskScore = exports.getPostModerationStatus = exports.submitMediaReviewDecision = exports.onPostMediaUpdatedRunModeration = exports.onPostCreatedRunMediaModeration = exports.evaluateTone = exports.getAILabelDetail = exports.recordPostAIUsage = exports.createWalkWithChristPathFromPattern = exports.generateMeaningPrompt = exports.updateEternalWeightAfterReflection = exports.calculateEternalWeight = exports.generateCommunityDiscernmentSummary = void 0;
+exports.createReflectionPrompt = exports.updateMomentLearning = exports.logMomentInterception = exports.evaluateMomentRisk = exports.generateReconciliationPrompt = exports.classifyRelationshipState = exports.updateRelationalGravity = exports.markSilenceSignalResolved = exports.resurfaceAvoidedItem = exports.detectSilencePatterns = exports.dismissDriftSignal = exports.generateBalancingScripture = exports.analyzeScriptureDrift = exports.resolveUnsentThought = exports.saveUnsentThought = exports.detectUnsentThoughtRisk = exports.modelRouter = exports.onChurchVerificationReviewed = exports.moderateChurchMediaUpload = exports.generateGroundedChurchAnswer = exports.refreshChurchLivestreamState = exports.reviewChurchModerationItem = exports.submitChurchProfileUpdate = exports.submitChurchVerificationRequest = exports.createRemixLineage = exports.generateC2PAManifest = exports.nisTopicReadModel = exports.nisMigrationStart = exports.nisResurfaceScheduler = exports.nisResolveDetection = exports.nisPromotePrayer = exports.nisDistillNote = exports.nisProcessNote = exports.updateAlignmentProfile = exports.getWeeklyAlignmentSummary = exports.voteKnowledgeIntegrity = exports.attachSharedKnowledgeIntegrity = exports.sendNotification = exports.getChildCheckInStatus = exports.requestGuardianLink = exports.searchDiscovery = exports.assembleDiscoveryFeed = exports.indexPostIntoHub = exports.reportHubContent = exports.muteObjectHub = exports.recordObjectInteraction = exports.getRelatedObjectHubs = exports.getObjectHub = exports.createOrJoinObjectHub = exports.resolveCommunityObject = void 0;
+exports.removeFollower = exports.cancelFollowRequest = exports.rejectFollowRequest = exports.acceptFollowRequest = exports.revokeNotificationsOnPostDelete = exports.revokeNotificationsOnCommentDelete = exports.reconcileFollowCounts = exports.aggregatePrayerCount = exports.incrementVolunteerSlot = exports.generateCalendarPayload = exports.unfurlLink = exports.getLivekitToken = exports.generateLiveKitToken = exports.onSabbathNotificationWrite = exports.syncFamilySabbathPresence = exports.setSabbathPreference = exports.evaluateSabbathMode = exports.matchNeedsToVolunteers = exports.classifyPostNeed = exports.onPrayerCreated = exports.matchPrayerSupport = exports.matchEventsForUser = exports.triggerIntelligenceBriefForUser = exports.buildIntelligenceBriefs = exports.buildGlobalCard = exports.generateWorldResponse = exports.submitWorldEvent = exports.getGlobalIntelligenceCards = exports.processGiving = exports.reportMedia = exports.triggerMediaModeration = exports.getAccountMediaRiskScore = exports.getPostModerationStatus = exports.submitMediaReviewDecision = exports.onPostMediaUpdatedRunModeration = exports.onPostCreatedRunMediaModeration = exports.evaluateTone = exports.getAILabelDetail = exports.recordPostAIUsage = exports.createWalkWithChristPathFromPattern = exports.generateMeaningPrompt = exports.updateEternalWeightAfterReflection = exports.calculateEternalWeight = exports.generateCommunityDiscernmentSummary = exports.aggregateDiscernmentSignals = exports.generateGracefulRewrite = exports.scoreWeightOfWords = exports.analyzeTruthVsEmotion = exports.updateUserGrowthPattern = exports.savePostActionReflection = void 0;
+exports.retrievePersonalContext = exports.generateDiscussionGuide = exports.sunsetTable = exports.closeTheLoopNudge = exports.assemblePrayerChain = exports.joinTable = exports.onAccountPrivacyChange = void 0;
 const admin = __importStar(require("firebase-admin"));
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -91,6 +92,9 @@ __exportStar(require("./smartAttachments"), exports);
 __exportStar(require("./noteShare"), exports);
 // Safety OS Reaction Engine
 __exportStar(require("./safetyOSReactionEngine"), exports);
+// Trust & Safety moderation mesh contracts — capability-first, provider-abstracted.
+// Wave 0 only: no provider implementation or autonomous action path.
+__exportStar(require("./moderationMeshContracts"), exports);
 // Community Hubs & Object Intelligence
 var communityHubs_1 = require("./communityHubs");
 Object.defineProperty(exports, "resolveCommunityObject", { enumerable: true, get: function () { return communityHubs_1.resolveCommunityObject; } });
@@ -155,12 +159,42 @@ __exportStar(require("./distinctives"), exports);
 // escalationTier and priority server-side. Direct client writes to userReports
 // are now blocked in Firestore rules (allow create: if false).
 __exportStar(require("./submitReport"), exports);
+// Insider-Threat Access-Control Spine — Trust & Safety Remediation item 21.
+// Immutable audit log of who accessed sensitive data (DMs, prayer, minors,
+// Tier-1 evidence) + enforcement of the existing dualApprovalRequired /
+// breakGlassRequiredForPrivateContent flags. Logging is always on; ENFORCEMENT
+// is gated by INSIDER_THREAT_ENFORCEMENT_ENABLED (default OFF). Additive — does
+// not modify submitReport's write path.
+__exportStar(require("./safety/insiderThreatAudit"), exports);
+// Inbound Block Signal — advisory "this account has been blocked by several
+// people" caution surfaced before opening a DM. Returns ONLY a coarse bucket
+// (never the raw count or blocker identities). Ships dark behind
+// INBOUND_BLOCK_WARNING_ENABLED (default OFF); fail-open (advisory, never gates
+// message delivery — that stays in antiHarassmentEnforcement.ts). Additive.
+__exportStar(require("./safety/inboundBlockSignal"), exports);
 // Comment Moderation Enforcement — server-authoritative moderationStatus writes to RTDB
 // Triggered on every new userReports document. For reports with contentType="comment",
 // aggregates report history and writes moderationStatus ("pending" | "hidden") to
 // /comments/{postId}/{commentId}/moderationStatus in RTDB based on tier/count thresholds.
 // Closes the audit gap: moderationStatus was previously client-written with no server enforcement.
 __exportStar(require("./commentModerationEnforcement"), exports);
+// Connect Discovery Engine — server-driven, formation-ranked discovery surface
+// assembleDiscoveryFeed: candidate generation → formation ranking → safety stamp → shelf assembly
+// searchDiscovery: suggested (pre-typing) + Algolia instant results (post-typing)
+// Region: us-east1 (us-central1 at quota; see CLAUDE.md §us-central1 Quota Warning)
+// ⚠️ FLAG PRECONDITION: connect_discovery_enabled must NOT be flipped until both CFs
+//    are deployed, safetyCache rules are live, and Firestore indexes are created.
+var assembleDiscoveryFeed_1 = require("./discovery/assembleDiscoveryFeed");
+Object.defineProperty(exports, "assembleDiscoveryFeed", { enumerable: true, get: function () { return assembleDiscoveryFeed_1.assembleDiscoveryFeed; } });
+var searchDiscovery_1 = require("./discovery/searchDiscovery");
+Object.defineProperty(exports, "searchDiscovery", { enumerable: true, get: function () { return searchDiscovery_1.searchDiscovery; } });
+// AMEN Connect V1 — Verified Guardian Link primitive (spec §5.1). THE safety foundation.
+// requestGuardianLink: creates a PENDING link only (verification is a separate server path).
+// getChildCheckInStatus: 403 unless an ACTIVE verified guardian link to that child exists.
+// Region: us-east1. No client flag gates the safety gate — it is enforced unconditionally.
+var guardianLink_1 = require("./connect/guardianLink");
+Object.defineProperty(exports, "requestGuardianLink", { enumerable: true, get: function () { return guardianLink_1.requestGuardianLink; } });
+Object.defineProperty(exports, "getChildCheckInStatus", { enumerable: true, get: function () { return guardianLink_1.getChildCheckInStatus; } });
 // Media Scanning — Cloud Vision SafeSearch on every Storage upload
 // HIGH-1: Scans images for CSAM/explicit/violence signals on onFinalize.
 // VERY_LIKELY → delete file + suspend account
@@ -230,6 +264,11 @@ __exportStar(require("./churchVisitLifecycle"), exports);
 __exportStar(require("./churchJourney"), exports);
 __exportStar(require("./churchDiscovery"), exports);
 __exportStar(require("./spiritualSystems"), exports);
+// Selah Safety & Transparency (System D: feedWhyAmISeeingThis + aegisC59 + youthMode)
+// generateFeedExplanation — warm-language feed explanation, cached at feedExplanations/{id}
+// enforceYouthDMPolicy   — C60 youth DM policy + C59 signal detection
+// detectAegisC59         — spiritual abuse pattern detection (Tier S/C only, never Tier P)
+__exportStar(require("./selahSafety"), exports);
 // Post Creation Finalizer — text moderation, status transition (publishing→published),
 // Algolia indexing. Feed fanout for followers-only posts is in feedBuilder.ts.
 // Exported as finalizePostOnCreate to avoid conflict with the onPostCreated
@@ -239,6 +278,8 @@ __exportStar(require("./onPostCreated"), exports);
 // index for profile "Photos & Videos" tab. Triggered on post create/update/delete.
 // Handles moderation state changes, visibility changes, and media schema evolution.
 __exportStar(require("./mediaPostIndex"), exports);
+// Berean Camera MEDIA-GATE Wave 0 — us-east1, fail-closed, provider-gated.
+__exportStar(require("./mediaGatePolicy"), exports);
 // Algolia sync — keeps "posts" index current on post edit and deletion
 __exportStar(require("./algoliaSync"), exports);
 // Scheduled maintenance — counter reconciliation, stale data pruning, token cleanup
@@ -324,6 +365,12 @@ Object.defineProperty(exports, "nisTopicReadModel", { enumerable: true, get: fun
 // Callables: evaluateRestMode, setRestModePolicy, resolvePostAILabel
 // Trigger:   onRestModePolicyWritten (restModePolicies/{userId})
 __exportStar(require("./restModeEvaluator"), exports);
+// Selah Creation — C2PA provenance manifest + remix lineage (us-east1, App Check required)
+// generateC2PAManifest — creates/idempotently returns a provenance manifest for a testimony
+// createRemixLineage   — transactional lineage write for remixed content
+var selahCreation_1 = require("./selahCreation");
+Object.defineProperty(exports, "generateC2PAManifest", { enumerable: true, get: function () { return selahCreation_1.generateC2PAManifest; } });
+Object.defineProperty(exports, "createRemixLineage", { enumerable: true, get: function () { return selahCreation_1.createRemixLineage; } });
 // Covenant OS — Paid Spiritual Community Operating System
 // Activity: createCovenantActivityEvent (callable, admin/server-only creation)
 // Threads:  createCovenantThreadReply, generateThreadSummary
@@ -346,10 +393,16 @@ __exportStar(require("./covenant/setCommunitySaved"), exports);
 __exportStar(require("./covenant/createCovenantThreadReply"), exports);
 __exportStar(require("./covenant/generateThreadSummary"), exports);
 __exportStar(require("./covenant/createPrayerRequestFromMessage"), exports);
-// createPrayerRequest suppressed: added in orphan sweep da327018 (2026-06-10),
-// never deployed; PRAYER_IDENTITY_ENCRYPTION_KEY secret not yet provisioned.
-// Restore this export only after the secret is set in Secret Manager.
-// export * from "./prayer/createPrayerRequest";
+// createPrayerRequest: restored 2026-06-10 after human authorization. Deploys to
+// us-east1 (us-central1 quota exhausted). Requires PRAYER_IDENTITY_ENCRYPTION_KEY
+// secret — set by human before deploy.
+__exportStar(require("./prayer/createPrayerRequest"), exports);
+// Smart Volunteer Board (Wave 0) — single-event volunteer scheduling. Deploys to us-east1.
+// assembleVolunteerBoard / signUpForSlot (transactional atomic fill) / leaderApprove /
+// getLeaderPrivateNote / setLeaderPrivateNote (access-logged) / scheduleVolunteerReminders
+// (push + email; NO SMS). All client surfaces gated OFF (see VolunteerFeatureFlags.swift).
+__exportStar(require("./volunteer/volunteerCallables"), exports);
+__exportStar(require("./volunteer/volunteerLifecycle"), exports);
 __exportStar(require("./covenant/generateCatchUpSummary"), exports);
 __exportStar(require("./covenant/calculateCovenantChurnRisk"), exports);
 __exportStar(require("./covenant/publishScheduledCovenantContent"), exports);
@@ -690,4 +743,41 @@ __exportStar(require("./composerAttachments"), exports);
 // Auth + App Check enforced. Idempotent sends (7-day TTL key). Privacy-aware FCM push.
 // Region: us-east1 (follow/privacy held at us-east1; globalResilience source at us-central1 pending quota; see docs/deploy-topology.md).
 __exportStar(require("./globalResilience/index"), exports);
+// Selah Connection OS — Tables (join/sunset), Commitments (close-the-loop nudge),
+// PrayerChains (assemble woven artifact).
+// Region: us-east1 (us-central1 quota exhausted 2026-06-14; see docs/deploy-topology.md).
+// Callables: joinTable, assemblePrayerChain
+// Scheduled: closeTheLoopNudge (every 6 hours), sunsetTable (every 24 hours)
+var selahConnection_1 = require("./selahConnection");
+Object.defineProperty(exports, "joinTable", { enumerable: true, get: function () { return selahConnection_1.joinTable; } });
+Object.defineProperty(exports, "assemblePrayerChain", { enumerable: true, get: function () { return selahConnection_1.assemblePrayerChain; } });
+Object.defineProperty(exports, "closeTheLoopNudge", { enumerable: true, get: function () { return selahConnection_1.closeTheLoopNudge; } });
+Object.defineProperty(exports, "sunsetTable", { enumerable: true, get: function () { return selahConnection_1.sunsetTable; } });
+// Selah Berean Intelligence — Wave 3 Berean Island callables
+// generateDiscussionGuide — group notebook discussion guide for a Table (us-east1)
+// retrievePersonalContext — server-side Tier S + C context retrieval (us-east1)
+// Tier P (private/E2EE) is structurally impossible in this file.
+var selahBerean_1 = require("./selahBerean");
+Object.defineProperty(exports, "generateDiscussionGuide", { enumerable: true, get: function () { return selahBerean_1.generateDiscussionGuide; } });
+Object.defineProperty(exports, "retrievePersonalContext", { enumerable: true, get: function () { return selahBerean_1.retrievePersonalContext; } });
+// ── Creator Profiles (ministry hubs) — all callables in us-east1 ──────────────
+// One-round-trip assembly + cursor paging + creator-scoped teaching search;
+// event CRUD/RSVP/replay; moderated prayer + community (pending-never-public);
+// grounded cited assistant (refuse-on-unsupported); teaching-media ingest;
+// derived Kingdom Metrics (server-write only); MEDIA-GATE quarantine entry.
+// Every function is gated by system/creatorProfileFlags (default OFF) — see
+// Backend/functions/src/creatorProfiles/WAVE0_FREEZE.md. No-ops/denies when OFF.
+__exportStar(require("./creatorProfiles/assembleCreatorProfile"), exports);
+__exportStar(require("./creatorProfiles/pageCreatorModule"), exports);
+__exportStar(require("./creatorProfiles/searchCreatorTeachings"), exports);
+__exportStar(require("./creatorProfiles/manageCreatorEvent"), exports);
+__exportStar(require("./creatorProfiles/rsvpCreatorEvent"), exports);
+__exportStar(require("./creatorProfiles/generateEventReplayPackage"), exports);
+__exportStar(require("./creatorProfiles/submitPrayerRequest"), exports);
+__exportStar(require("./creatorProfiles/submitCommunityPost"), exports);
+__exportStar(require("./creatorProfiles/moderateCreatorContent"), exports);
+__exportStar(require("./creatorProfiles/askCreatorAssistant"), exports);
+__exportStar(require("./creatorProfiles/processTeachingMedia"), exports);
+__exportStar(require("./creatorProfiles/computeKingdomMetrics"), exports);
+__exportStar(require("./creatorProfiles/enqueueCreatorMedia"), exports);
 //# sourceMappingURL=index.js.map

@@ -56,10 +56,10 @@ final class BereanVoiceViewModel: ObservableObject {
         }
 
         // Microphone permission check
-        let status = AVAudioSession.sharedInstance().recordPermission
-        guard status == .granted else {
-            if status == .undetermined {
-                AVAudioSession.sharedInstance().requestRecordPermission { _ in }
+        let status = AVAudioApplication.shared.recordPermission
+        guard status == AVAudioApplication.recordPermission.granted else {
+            if status == AVAudioApplication.recordPermission.undetermined {
+                AVAudioApplication.requestRecordPermission { _ in }
             }
             errorMessage = BereanVoiceError.micPermissionDenied.localizedDescription
             voiceState = .error

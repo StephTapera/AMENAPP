@@ -74,7 +74,7 @@ function nameKeywords(displayName: string): string[] {
     }))).slice(0, 80);
 }
 
-export const createAmenUserProfile = onCall(async (request) => {
+export const createAmenUserProfile = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAppAuth(context);
@@ -158,7 +158,7 @@ export const createAmenUserProfile = onCall(async (request) => {
     return { success: true, uid, username };
 });
 
-export const deactivateAccount = onCall(async (request) => {
+export const deactivateAccount = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAppAuth(context);
@@ -176,7 +176,7 @@ export const deactivateAccount = onCall(async (request) => {
     return { success: true };
 });
 
-export const reactivateAccount = onCall(async (request) => {
+export const reactivateAccount = onCall({ enforceAppCheck: true }, async (request) => {
     const _data = request.data as any;
     const data = _data;
     const context = { auth: request.auth, app: request.app };
@@ -195,7 +195,7 @@ export const reactivateAccount = onCall(async (request) => {
     return { success: true };
 });
 
-export const requestAccountDeletion = onCall(async (request) => {
+export const requestAccountDeletion = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAppAuth(context);
@@ -217,4 +217,50 @@ export const requestAccountDeletion = onCall(async (request) => {
         }, { merge: true });
     });
     return { success: true, requestId: requestRef.id, status: "requested" };
+});
+
+export const checkPhoneVerificationRateLimit = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data as any;
+    const uid = requireAppAuth({ auth: request.auth, app: request.app });
+    const phoneNumber = typeof data?.phoneNumber === "string" ? data.phoneNumber.trim() : "";
+    if (!phoneNumber) {
+        throw new HttpsError("invalid-argument", "phoneNumber is required.");
+    }
+
+    const windowStart = admin.firestore.Timestamp.fromMillis(Date.now() - 15 * 60 * 1000);
+    const recentFailures = await db
+        .collection("phoneVerificationFailures")
+        .where("uid", "==", uid)
+        .where("phoneNumber", "==", phoneNumber)
+        .where("createdAt", ">", windowStart)
+        .get();
+    const attempts = recentFailures.size ?? recentFailures.docs?.length ?? 0;
+    const remainingAttempts = Math.max(0, 5 - attempts);
+
+    return {
+        allowed: remainingAttempts > 0,
+        attempts,
+        remainingAttempts,
+        retryAfterSeconds: remainingAttempts > 0 ? 0 : 15 * 60,
+    };
+});
+
+export const reportPhoneVerificationFailure = onCall({ enforceAppCheck: true }, async (request) => {
+    const data = request.data as any;
+    const uid = requireAppAuth({ auth: request.auth, app: request.app });
+    const phoneNumber = typeof data?.phoneNumber === "string" ? data.phoneNumber.trim() : "";
+    const reason = typeof data?.reason === "string" ? data.reason.slice(0, 120) : "verification_failed";
+    if (!phoneNumber) {
+        throw new HttpsError("invalid-argument", "phoneNumber is required.");
+    }
+
+    const ref = db.collection("phoneVerificationFailures").doc();
+    await ref.set({
+        uid,
+        phoneNumber,
+        reason,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { success: true, failureId: ref.id };
 });

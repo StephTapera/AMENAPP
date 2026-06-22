@@ -1,3 +1,4 @@
+#if canImport(Testing)
 // PostCardRenderModelTests.swift
 // AMENAPPTests
 //
@@ -148,5 +149,7 @@ struct PostCardRenderModelTests {
         // compile-time proof: this file would fail to build if those were accessed.
     }
 }
+
+#endif
 
 #endif

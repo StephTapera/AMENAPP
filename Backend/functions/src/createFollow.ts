@@ -91,7 +91,7 @@ async function enforceFollowRateLimit(followerId: string): Promise<void> {
     });
 }
 
-export const createFollow = onCall({ region: "us-east1" }, async (request) => {
+export const createFollow = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -238,7 +238,7 @@ export const createFollow = onCall({ region: "us-east1" }, async (request) => {
 
 // ─── createUnfollow ───────────────────────────────────────────────────────────
 
-export const createUnfollow = onCall({ region: "us-east1" }, async (request) => {
+export const createUnfollow = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

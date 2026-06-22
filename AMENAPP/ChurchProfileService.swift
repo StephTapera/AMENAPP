@@ -52,15 +52,11 @@ final class ChurchProfileService: ObservableObject {
         error = nil
         defer { isLoading = false }
 
-        do {
-            // Firestore fetch:
-            // let doc = try await db.collection("churchProfiles").document(churchId).getDocument()
-            // guard let data = doc.data() else { throw ChurchProfileError.notFound }
-            // self.profile = try Firestore.Decoder().decode(ChurchProfile.self, from: data)
-            _ = churchId // suppress unused-variable warning until Firestore is wired
-        } catch {
-            self.error = error
-        }
+        // Firestore fetch:
+        // let doc = try await db.collection("churchProfiles").document(churchId).getDocument()
+        // guard let data = doc.data() else { throw ChurchProfileError.notFound }
+        // self.profile = try Firestore.Decoder().decode(ChurchProfile.self, from: data)
+        _ = churchId // suppress unused-variable warning until Firestore is wired
     }
 
     // MARK: - Writes

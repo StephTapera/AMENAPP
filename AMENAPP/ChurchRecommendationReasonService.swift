@@ -24,7 +24,6 @@ final class ChurchRecommendationReasonService {
 
         // Distance / proximity
         if match.geoScore > 0 {
-            let distanceMiles = match.church.distance(from: CLLocation(latitude: 0, longitude: 0))
             let short: String
             let long: String
             if match.geoScore >= 0.8 {

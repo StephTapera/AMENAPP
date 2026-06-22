@@ -371,7 +371,7 @@ final class MediaMetadataPersistenceService {
             "keyMomentsGenerationState": item.generationStatus.keyMoments.rawValue,
             "featuredFrameGenerationState": item.generationStatus.featuredFrame.rawValue,
             "frameCaption": item.effectiveFrameCaption as Any,
-            "audioBed": audioBedDocument(for: item.audioBed),
+            "audioBed": audioBedDocument(for: item.audioBed) as Any,
             "userEditedMetadata": item.userEditedMetadata ?? false,
             "updatedAt": Timestamp(date: Date())
         ]

@@ -264,7 +264,6 @@ struct ChurchCommunityProfileView: View {
                             event.title = "\(church.name) — \(service.name)"
                             event.location = church.address
                             event.calendar = store.defaultCalendarForNewEvents
-                            let comps = Calendar.current.dateComponents([.weekday, .hour, .minute], from: Date())
                             event.startDate = Calendar.current.nextDate(
                                 after: Date(),
                                 matching: DateComponents(hour: 9, minute: 0),

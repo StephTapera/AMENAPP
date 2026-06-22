@@ -37,15 +37,34 @@ async function enforceSelahRateLimit(userId: string, key: string, max = 20) {
   });
 }
 
+async function writeSelahAuditLog(
+  userId: string,
+  action: string,
+  status: "success" | "error",
+  metadata: Record<string, unknown> = {}
+) {
+  try {
+    await db.collection("selah_audit_logs").add({
+      userId,
+      action,
+      status,
+      metadata,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch {
+    // Audit logging must never throw; primary Selah flows own the user result.
+  }
+}
+
 // MARK: - Feed
 
 /**
  * getSelahFeed — returns a ranked list of selah_media items for the calling user.
  * Applies basic intent signal and meaning tag scoring server-side.
  */
-export const getSelahFeed = onCall(async (request) => {
-  const uid = requireAuth(request.auth);
+export const getSelahFeed = onCall({ enforceAppCheck: true }, async (request) => {
   requireAppCheck(request.app);
+  const uid = requireAuth(request.auth);
   await enforceSelahRateLimit(uid, "getSelahFeed");
 
   const { mode = "media", limit = 30 } = request.data ?? {};
@@ -93,9 +112,9 @@ export const getSelahFeed = onCall(async (request) => {
 /**
  * updateSelahSession — records session activity and returns an updated context window.
  */
-export const updateSelahSession = onCall(async (request) => {
-  const uid = requireAuth(request.auth);
+export const updateSelahSession = onCall({ enforceAppCheck: true }, async (request) => {
   requireAppCheck(request.app);
+  const uid = requireAuth(request.auth);
   await enforceSelahRateLimit(uid, "updateSelahSession", 60);
 
   const {
@@ -164,36 +183,59 @@ function buildSessionSummary(viewed: number, category: string | null): string {
  * saveSelahMemory — server-authoritative write for selah_memories.
  * Enforces userId ownership and rate limit.
  */
-export const saveSelahMemory = onCall(async (request) => {
-  const uid = requireAuth(request.auth);
+export const saveSelahMemory = onCall({ enforceAppCheck: true }, async (request) => {
   requireAppCheck(request.app);
+  const uid = requireAuth(request.auth);
   await enforceSelahRateLimit(uid, "saveSelahMemory", 30);
 
-  const { title, bodyText, linkedMediaIds = [], linkedScriptureRefs = [], meaningTags = [], intentSignal = "reflecting" } = request.data ?? {};
+  const {
+    title,
+    bodyText,
+    primaryMediaId,
+    linkedMediaIds = [],
+    linkedScriptureRefs = [],
+    meaningTags = [],
+    intentSignal = "reflecting",
+  } = request.data ?? {};
 
   if (!title || typeof title !== "string" || title.trim().length === 0) {
     throw new HttpsError("invalid-argument", "title is required");
   }
 
-  const ref = await db.collection("users").doc(uid)
-    .collection("selah_memories")
-    .add({
+  const memoryCollection = db.collection("users").doc(uid)
+    .collection("selah_memories");
+  const memoryId = primaryMediaId ? `${uid}_${primaryMediaId}` : memoryCollection.doc().id;
+  const ref = memoryCollection.doc(memoryId);
+
+  try {
+    await ref.set({
       userId: uid,
       title: String(title).trim().slice(0, 100),
       bodyText: String(bodyText ?? "").trim().slice(0, 2000),
-      linkedMediaIds: (linkedMediaIds as string[]).slice(0, 20),
+      primaryMediaId: primaryMediaId ?? null,
+      linkedMediaIds: (primaryMediaId
+        ? [String(primaryMediaId), ...(linkedMediaIds as string[])]
+        : (linkedMediaIds as string[])).slice(0, 20),
       linkedScriptureRefs: (linkedScriptureRefs as string[]).slice(0, 10),
       meaningTags: (meaningTags as unknown[]).slice(0, 12),
       intentSignal,
       aiSummary: null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    await writeSelahAuditLog(uid, "saveSelahMemory", "success", { memoryId: ref.id });
+
+    // Kick off async AI enrichment
+    enrichMemoryWithAI(uid, ref.id, title, bodyText ?? "").catch(() => {});
+
+    return { ok: true, memoryId: ref.id };
+  } catch (error) {
+    await writeSelahAuditLog(uid, "saveSelahMemory", "error", {
+      message: error instanceof Error ? error.message : String(error),
     });
-
-  // Kick off async AI enrichment
-  enrichMemoryWithAI(uid, ref.id, title, bodyText ?? "").catch(() => {});
-
-  return { ok: true, memoryId: ref.id };
+    throw error;
+  }
 });
 
 async function enrichMemoryWithAI(uid: string, memoryId: string, title: string, body: string) {
@@ -227,9 +269,9 @@ async function enrichMemoryWithAI(uid: string, memoryId: string, title: string, 
 /**
  * askBereanAboutSelahMedia — AI-powered question about a specific media item.
  */
-export const askBereanAboutSelahMedia = onCall(async (request) => {
-  const uid = requireAuth(request.auth);
+export const askBereanAboutSelahMedia = onCall({ enforceAppCheck: true }, async (request) => {
   requireAppCheck(request.app);
+  const uid = requireAuth(request.auth);
   await enforceSelahRateLimit(uid, "askBerean", 10);
 
   const { mediaItemId, question } = request.data ?? {};
@@ -260,29 +302,42 @@ export const askBereanAboutSelahMedia = onCall(async (request) => {
     tags.length && `Themes: ${tags.join(", ")}`,
   ].filter(Boolean).join("\n");
 
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!anthropicKey) {
-    throw new HttpsError("internal", "AI service not configured.");
-  }
+  try {
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (!anthropicKey) {
+      throw new HttpsError("internal", "AI service not configured.");
+    }
 
-  const client = new Anthropic({ apiKey: anthropicKey });
-  const systemPrompt = `You are Berean, a warm and theologically careful AI companion within the AMEN spiritual community app.
+    const client = new Anthropic({ apiKey: anthropicKey });
+    const systemPrompt = `You are Berean, a warm and theologically careful AI companion within the AMEN spiritual community app.
 A user is reflecting on a meaningful visual moment and has a question.
 ${context ? `Context about the moment:\n${context}` : ""}
+Never quote or cite scripture verses unless they appear verbatim in the provided context.
 Answer in 2-4 sentences. Be grounded, pastoral, and encouraging.`;
 
-  const message = await client.messages.create({
-    model: "claude-opus-4-7",
-    max_tokens: 400,
-    system: systemPrompt,
-    messages: [{ role: "user", content: String(question).slice(0, 500) }],
-  });
+    const message = await client.messages.create({
+      model: "claude-opus-4-7",
+      max_tokens: 400,
+      system: systemPrompt,
+      messages: [{ role: "user", content: String(question).slice(0, 500) }],
+    });
 
-  const response = (message.content[0] as { type: string; text: string }).type === "text"
-    ? (message.content[0] as { type: string; text: string }).text
-    : "";
+    const response = (message.content[0] as { type: string; text: string }).type === "text"
+      ? (message.content[0] as { type: string; text: string }).text
+      : "";
 
-  return { response };
+    await writeSelahAuditLog(uid, "askBereanAboutSelahMedia", "success", {
+      mediaItemId: mediaItemId ?? null,
+    });
+
+    return { response };
+  } catch (error) {
+    await writeSelahAuditLog(uid, "askBereanAboutSelahMedia", "error", {
+      mediaItemId: mediaItemId ?? null,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 });
 
 // MARK: - Continuations
@@ -290,9 +345,9 @@ Answer in 2-4 sentences. Be grounded, pastoral, and encouraging.`;
 /**
  * createSelahContinuation — server-side creation of a next-best-action prompt.
  */
-export const createSelahContinuation = onCall(async (request) => {
-  const uid = requireAuth(request.auth);
+export const createSelahContinuation = onCall({ enforceAppCheck: true }, async (request) => {
   requireAppCheck(request.app);
+  const uid = requireAuth(request.auth);
   await enforceSelahRateLimit(uid, "createContinuation", 20);
 
   const {
@@ -337,9 +392,9 @@ export const createSelahContinuation = onCall(async (request) => {
 /**
  * createSelahOutcome — records a completed spiritual action outcome.
  */
-export const createSelahOutcome = onCall(async (request) => {
-  const uid = requireAuth(request.auth);
+export const createSelahOutcome = onCall({ enforceAppCheck: true }, async (request) => {
   requireAppCheck(request.app);
+  const uid = requireAuth(request.auth);
   await enforceSelahRateLimit(uid, "createOutcome", 20);
 
   const { continuationId, noteText, scriptureRef } = request.data ?? {};
@@ -354,6 +409,17 @@ export const createSelahOutcome = onCall(async (request) => {
   const snap = await contRef.get();
   if (!snap.exists || snap.data()?.userId !== uid) {
     throw new HttpsError("not-found", "Continuation not found.");
+  }
+
+  const dayBucket = new Date().toISOString().slice(0, 10);
+  const idempotencyKey = `${uid}:${continuationId}:${dayBucket}`;
+  const existingOutcome = await db.collection("users").doc(uid)
+    .collection("selah_outcomes")
+    .where("idempotencyKey", "==", idempotencyKey)
+    .limit(1)
+    .get();
+  if (!existingOutcome.empty) {
+    return { ok: true, outcomeId: existingOutcome.docs[0].id, idempotent: true };
   }
 
   const batch = db.batch();
@@ -372,6 +438,8 @@ export const createSelahOutcome = onCall(async (request) => {
     action: snap.data()?.action ?? "reflect",
     noteText: noteText ? String(noteText).slice(0, 500) : null,
     scriptureRef: scriptureRef ?? null,
+    idempotencyKey,
+    dayBucket,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 

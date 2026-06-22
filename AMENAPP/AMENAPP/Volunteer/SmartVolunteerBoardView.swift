@@ -40,6 +40,13 @@ struct SmartVolunteerBoardView: View {
             VStack(alignment: .leading, spacing: 16) {
                 header
 
+                if let board {
+                    AmenConnectReadinessPillGate(
+                        readiness: AmenConnectReadinessService().makeReadinessView(event: event, board: board),
+                        label: event.title
+                    )
+                }
+
                 if let banner {
                     Text(banner)
                         .font(.subheadline)

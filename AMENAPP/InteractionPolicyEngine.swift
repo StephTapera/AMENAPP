@@ -602,7 +602,6 @@ final class InteractionPolicyEngine {
             }
 
             // Check recent DM request volume (rate limit)
-            let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
             let recentRequests = try await db.collection("conversations")
                 .whereField("requesterId", isEqualTo: senderID)
                 .whereField("status", isEqualTo: "pending")

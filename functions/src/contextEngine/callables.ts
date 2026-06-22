@@ -46,10 +46,10 @@ function isValidPolicy(p: unknown): p is ContextPolicy {
 // ── contextEngine_getGrants ───────────────────────────────────────────────────
 // Returns all 8 current grant states for the authenticated user.
 // Missing sources are returned with policy "never" and version 0.
-// No App Check enforcement — grants UI must work even if App Check fails.
+// App Check is required for authenticated context grants.
 
 export const contextEngine_getGrants = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request): Promise<GetGrantsResponse> => {
     if (!request.auth) {
       throw new functions.HttpsError("unauthenticated", "Authentication required");
@@ -158,10 +158,10 @@ export const contextEngine_setGrant = functions.onCall(
 
 // ── contextEngine_getAuditLog ─────────────────────────────────────────────────
 // Paginated audit log for the authenticated user only.
-// No App Check enforcement — must work in settings UI.
+// App Check is required for authenticated settings audit reads.
 
 export const contextEngine_getAuditLog = functions.onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request): Promise<GetAuditLogResponse> => {
     if (!request.auth) {
       throw new functions.HttpsError("unauthenticated", "Authentication required");

@@ -53,6 +53,7 @@ private func parseHex(_ hex: String) -> (r: Int, g: Int, b: Int)? {
 // MARK: - Computus Tests
 
 @Suite("LiturgicalSeason — Computus Algorithm")
+@MainActor
 struct ComputusTests {
 
     @Test("Easter 2026 = April 5")
@@ -80,6 +81,7 @@ struct ComputusTests {
 // MARK: - Derived Movable Feast Tests
 
 @Suite("LiturgicalSeason — Movable Feasts")
+@MainActor
 struct MovableFeastTests {
 
     private let cal = Calendar(identifier: .gregorian)
@@ -103,6 +105,7 @@ struct MovableFeastTests {
 // MARK: - Advent Start Tests
 
 @Suite("LiturgicalSeason — Advent Start")
+@MainActor
 struct AdventStartTests {
 
     @Test("Advent start 2026 = November 29")
@@ -140,6 +143,7 @@ struct AdventStartTests {
 // MARK: - Season Boundary Tests
 
 @Suite("LiturgicalSeason — season(for:) boundaries")
+@MainActor
 struct SeasonBoundaryTests {
 
     private func date(year: Int, month: Int, day: Int) -> Date {
@@ -208,9 +212,10 @@ struct SeasonBoundaryTests {
 // MARK: - Theme Registry Tests
 
 @Suite("LiturgicalSeason — SeasonTheme registry")
+@MainActor
 struct SeasonThemeRegistryTests {
 
-    private let allSeasons: [LiturgicalSeason] = [
+    private let allSeasons: [LiturgicalThemeSeason] = [
         .advent, .christmas, .epiphany, .lent, .holyWeek,
         .easter, .pentecost, .ordinaryTime
     ]
@@ -260,6 +265,7 @@ struct SeasonThemeRegistryTests {
 // MARK: - WCAG AA Contrast Tests
 
 @Suite("LiturgicalSeason — WCAG AA contrast for glassTintHex")
+@MainActor
 struct WCAGContrastTests {
 
     /// Luminance of pure white (#FFFFFF).
@@ -268,7 +274,7 @@ struct WCAGContrastTests {
     /// Luminance of pure black (#000000).
     private let blackLuminance: Double = 0.0
 
-    private let allSeasons: [LiturgicalSeason] = [
+    private let allSeasons: [LiturgicalThemeSeason] = [
         .advent, .christmas, .epiphany, .lent, .holyWeek,
         .easter, .pentecost, .ordinaryTime
     ]
@@ -302,9 +308,7 @@ struct WCAGContrastTests {
 
             #expect(
                 passes,
-                "Season \(season.rawValue) glassTintHex \(theme.glassTintHex) fails WCAG AA: "
-                + "vs white=\(String(format: "%.2f", ratioVsWhite)):1, "
-                + "vs black=\(String(format: "%.2f", ratioVsBlack)):1"
+                "Season \(season.rawValue) glassTintHex \(theme.glassTintHex) fails WCAG AA: vs white=\(String(format: "%.2f", ratioVsWhite)):1, vs black=\(String(format: "%.2f", ratioVsBlack)):1"
             )
         }
     }

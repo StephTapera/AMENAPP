@@ -158,6 +158,7 @@ struct AmenMediaAttachmentPickerView: View {
                         smartAction: nil,
                         onTap: {}
                     )
+                    .allowsHitTesting(false)
 
                     if attachment.type == .song || attachment.type == .album {
                         attachButton(for: attachment, label: "Attach \(attachment.type == .song ? "Song" : "Album")")

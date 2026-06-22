@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
-export const enforceCreatorEntitlement = onCall(async (request) => {
+export const enforceCreatorEntitlement = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

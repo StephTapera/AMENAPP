@@ -258,7 +258,7 @@ struct VergeRoomView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
             }
-            .onChange(of: messagesVM.messages.count) { _ in
+            .onChange(of: messagesVM.messages.count) {
                 if let last = messagesVM.messages.last?.id {
                     withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                         proxy.scrollTo(last, anchor: .bottom)
@@ -440,7 +440,7 @@ private class VergeMessagesViewModel: ObservableObject {
     ) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let displayName = Auth.auth().currentUser?.displayName ?? "Member"
-        try? await db.collection("vergeMessages").addDocument(data: [
+        _ = try? await db.collection("vergeMessages").addDocument(data: [
             "roomId":      roomId,
             "workspaceId": workspaceId,
             "authorId":    uid,

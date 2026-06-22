@@ -156,7 +156,7 @@ async function isRateLimited(reporterId) {
  *
  * Output: { reportId: string }
  */
-exports.submitReport = (0, https_1.onCall)(async (request) => {
+exports.submitReport = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     // ── Auth check ─────────────────────────────────────────────────────────
@@ -229,9 +229,28 @@ exports.submitReport = (0, https_1.onCall)(async (request) => {
     // ── Compute escalation tier and priority server-side ───────────────────
     const escalationTier = computeEscalationTier(reason);
     const priority = computePriority(escalationTier);
-    // ── Write report document ──────────────────────────────────────────────
+    // ===================================================================
+    // FEDERAL LAW GATE (18 U.S.C. §2258A) — DO NOT IMPROVISE
+    // All four conditions required before automatedCyberTipSubmitted=true
+    // or hashScanEnabled=true:
+    // 1. NCMEC ESP registration complete (legal/business step)
+    // 2. Hash provider (PhotoDNA/Thorn/NCMEC) contracted + secrets loaded
+    // 3. Written legal sign-off from counsel on CSAM reporting procedure
+    // 4. Non-engineer review of complete CSAM pipeline
+    // Media uploads STAY FAIL-CLOSED until all four are true.
+    // ===================================================================
+    // ── Write report + Tier-1 artifacts ATOMICALLY ─────────────────────────
+    // All severe-report records (report doc, moderation queue/case, audit event,
+    // evidence vault, NCMEC ledger) are committed in a single WriteBatch. This is
+    // critical: if any write failed mid-sequence, the function would reject, the
+    // client would retry, and the 24h dedup guard above would short-circuit the
+    // retry — permanently dropping the evidence-preservation artifacts the whole
+    // block exists to guarantee. A batch makes it all-or-nothing, so a retry
+    // either finds a complete record set or re-creates it cleanly.
     const reportId = db.collection("userReports").doc().id;
-    await db.collection("userReports").doc(reportId).set({
+    const ts = admin.firestore.FieldValue.serverTimestamp();
+    const batch = db.batch();
+    batch.set(db.collection("userReports").doc(reportId), {
         reportId,
         reporterId, // Always the authenticated UID — cannot be spoofed
         reportedUserId, // Validated to exist
@@ -242,26 +261,93 @@ exports.submitReport = (0, https_1.onCall)(async (request) => {
         evidenceMessageIds: verifiedEvidenceIds, // Verified to exist in the conversation
         additionalContext,
         status: "pending_review",
-        submittedAt: admin.firestore.FieldValue.serverTimestamp(),
+        submittedAt: ts,
         reviewedAt: null,
         reviewerId: null,
         actionTaken: null,
+        // NCMEC launch-readiness scaffold fields
+        ncmecReadiness: "STUB_NOT_REGISTERED", // HUMAN: replace with ESP registration ID
+        automatedCyberTipSubmitted: false, // MUST stay false until 4-part legal gate
+        evidenceVault: null, // HUMAN: configure after legal sign-off
+        hashScanEnabled: false, // MUST stay false until 4-part legal gate
+        reportVersion: "1.0.0-scaffold",
     });
-    functions.logger.info(`[SubmitReport] Report ${reportId} created: ${reporterId} → ${reportedUserId}, ` +
-        `reason=${reason}, tier=${escalationTier}, priority=${priority}`);
-    // ── Tier-1: immediate escalation queue entry ───────────────────────────
+    // ── Tier-1: immediate escalation + evidence preservation scaffold ───────
     if (escalationTier === 1) {
-        await db.collection("moderationQueue").add({
+        // Tier-1 spans child_safety, grooming_or_trafficking, threat_or_blackmail
+        // and sextortion. isChildSafetyCategory is the narrower subset that maps to
+        // a potential NCMEC CyberTip — threat_or_blackmail is Tier-1 but NOT child
+        // safety, so it is intentionally excluded here.
+        const isChildSafetyCategory = reason === "child_safety" || reason === "grooming_or_trafficking" || reason === "sextortion";
+        // Immediate escalation queue entry (deterministic ID for batch + idempotent retry).
+        batch.set(db.collection("moderationQueue").doc(reportId), {
             type: "tier1_user_report",
             reportId,
             reporterId,
             reportedUserId,
             reason,
             priority: "immediate",
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: ts,
             policyVersion: "2026-03-06",
         });
-        functions.logger.warn(`[SubmitReport] TIER-1 report ${reportId} — ${reason} — queued for immediate review.`);
+        // 1. Moderation case — the unit of human review work.
+        batch.set(db.collection("moderationCases").doc(reportId), {
+            caseId: reportId,
+            reportId,
+            reportedUserId,
+            reason,
+            escalationTier,
+            status: "awaiting_trained_reviewer",
+            requiresEvidencePreservation: true,
+            dualApprovalRequired: true,
+            breakGlassRequiredForPrivateContent: true,
+            needs_trained_reviewer_assessment: true,
+            isChildSafetyCategory,
+            createdAt: ts,
+        });
+        // 2. Trust & safety event — immutable audit-trail entry.
+        batch.set(db.collection("trustSafetyEvents").doc(reportId), {
+            type: "severe_report_received",
+            reportId,
+            reportedUserId,
+            reporterId,
+            reason,
+            escalationTier,
+            requiresEvidencePreservation: true,
+            createdAt: ts,
+        });
+        // 3. Evidence vault — preserves the referenced evidence so it cannot be
+        //    lost or tampered with while review is pending (legal hold).
+        batch.set(db.collection("evidenceVault").doc(reportId), {
+            reportId,
+            reportedUserId,
+            conversationId: conversationId || null,
+            evidenceMessageIds: verifiedEvidenceIds,
+            requiresEvidencePreservation: true,
+            breakGlassRequiredForPrivateContent: true,
+            legalHold: true,
+            preservedAt: ts,
+        });
+        // 4. NCMEC readiness ledger — records that a reportable category was seen
+        //    but that automated reporting is NOT yet live. A human must complete
+        //    the 4-part federal gate before any CyberTip is generated.
+        batch.set(db.collection("ncmecReadiness").doc(reportId), {
+            reportId,
+            reportedUserId,
+            isChildSafetyCategory,
+            automatedCyberTipSubmitted: false, // MUST stay false until 4-part legal gate
+            dualApprovalRequired: true,
+            needs_trained_reviewer_assessment: true,
+            cyberTipStatus: "STUB_NOT_REGISTERED",
+            recordedAt: ts,
+        });
+    }
+    await batch.commit();
+    functions.logger.info(`[SubmitReport] Report ${reportId} created: ${reporterId} → ${reportedUserId}, ` +
+        `reason=${reason}, tier=${escalationTier}, priority=${priority}`);
+    if (escalationTier === 1) {
+        functions.logger.warn(`[SubmitReport] TIER-1 report ${reportId} — ${reason} — queued for immediate review; ` +
+            `evidence preserved, dual-approval + break-glass required, NCMEC submission held pending legal gate.`);
     }
     // ── Optional immediate block ───────────────────────────────────────────
     if (blockImmediately) {

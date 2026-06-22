@@ -105,7 +105,7 @@ async function decrementUnseenCount(userId, amount) {
  * Input: { notificationIds: string[] }
  * Output: { markedCount: number }
  */
-exports.markNotificationsSeen = (0, https_1.onCall)(async (request) => {
+exports.markNotificationsSeen = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -167,7 +167,7 @@ exports.markNotificationsSeen = (0, https_1.onCall)(async (request) => {
  * Input: { notificationId: string }
  * Output: { success: boolean }
  */
-exports.markNotificationOpened = (0, https_1.onCall)(async (request) => {
+exports.markNotificationOpened = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -225,7 +225,7 @@ exports.markNotificationOpened = (0, https_1.onCall)(async (request) => {
  * Input: { notificationId: string }
  * Output: { success: boolean }
  */
-exports.markNotificationDismissed = (0, https_1.onCall)(async (request) => {
+exports.markNotificationDismissed = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -264,7 +264,7 @@ exports.markNotificationDismissed = (0, https_1.onCall)(async (request) => {
  * Input: {} (no args)
  * Output: { previousCount: number, actualCount: number, corrected: boolean }
  */
-exports.reconcileNotificationCount = (0, https_1.onCall)(async (request) => {
+exports.reconcileNotificationCount = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const _data = data;
     const context = { auth: request.auth, app: request.app };

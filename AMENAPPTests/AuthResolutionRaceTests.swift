@@ -105,6 +105,7 @@ struct AuthResolutionRaceTests {
 /// stuck-screen fix depends on: timeout → network-specific copy, anything else
 /// → generic verification copy.
 @Suite("AuthResolution error mapping")
+@MainActor
 struct AuthResolutionErrorMappingTests {
 
     private let timeoutMessage =

@@ -166,12 +166,8 @@ interface WrapAffiliateLinkOutput {
  * regardless of tier. No sponsored insertion — links are only wrapped with
  * creator-configured affiliate IDs, never platform-side ad tags.
  */
-export const wrapAffiliateLink = onCall(
-  {
-    region: REGION,
-    secrets: [AMAZON_ASSOCIATES_TAG, BOOKSHOP_AFFILIATE_ID],
-  },
-  async (req): Promise<WrapAffiliateLinkOutput> => {
+export const wrapAffiliateLink = onCall({ enforceAppCheck: true, region: REGION,
+    secrets: [AMAZON_ASSOCIATES_TAG, BOOKSHOP_AFFILIATE_ID], }, async (req): Promise<WrapAffiliateLinkOutput> => {
     if (!req.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in.");
     }

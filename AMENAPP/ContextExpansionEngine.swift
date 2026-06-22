@@ -92,7 +92,7 @@ final class ContextExpansionEngine: ObservableObject {
     }
 
     private func loadLayer(id: Int, verse: String) async {
-        guard var layer = layers.first(where: { $0.id == id }), layer.content.isEmpty else { return }
+        guard let layer = layers.first(where: { $0.id == id }), layer.content.isEmpty else { return }
         let idx = id
 
         layers[idx].isLoading = true

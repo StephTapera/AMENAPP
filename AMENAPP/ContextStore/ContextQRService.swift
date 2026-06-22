@@ -97,16 +97,17 @@ final class ContextQRService: ObservableObject {
 
     // MARK: - Dependencies
 
-    private let store: ContextStoreService
+    private var _store: ContextStoreService?
+    private var store: ContextStoreService { _store ?? ContextStoreService.shared }
     private let aegis: AegisEnforcementService
     private lazy var db = Firestore.firestore()
     private lazy var functions = Functions.functions()
 
     private init(
-        store: ContextStoreService = .shared,
+        store: ContextStoreService? = nil,
         aegis: AegisEnforcementService = .shared
     ) {
-        self.store = store
+        self._store = store
         self.aegis = aegis
     }
 

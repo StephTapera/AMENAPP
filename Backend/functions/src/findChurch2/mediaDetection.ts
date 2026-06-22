@@ -220,7 +220,7 @@ interface DetectMediaRequest {
 }
 
 export const detectChurchMedia = onCall(
-    { region: REGION, enforceAppCheck: !IS_EMULATOR },
+    { region: REGION, enforceAppCheck: true },
     async (request: CallableRequest<DetectMediaRequest>): Promise<DetectMediaResponse> => {
         requireAuth(request);
         requireAppCheck(request);

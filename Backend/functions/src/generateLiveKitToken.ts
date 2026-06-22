@@ -24,7 +24,7 @@ const livekitServerUrl = defineSecret("LIVEKIT_SERVER_URL");
 
 export const generateLiveKitToken = onCall(
     {
-        enforceAppCheck: false, // LiveKit join does not require App Check
+        enforceAppCheck: true,
         secrets: [livekitApiKey, livekitApiSecret, livekitServerUrl],
     },
     async (request) => {

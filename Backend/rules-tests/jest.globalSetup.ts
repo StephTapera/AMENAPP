@@ -11,24 +11,19 @@
  *     needs to run — instead of letting every test fail with a
  *     confusing `ECONNREFUSED 127.0.0.1:8080`.
  *
- *  3. Regenerate AMENAPP/firestore.deploy.rules from the canonical
- *     source AMENAPP/firestore 18.rules by running scripts/strip-rules.js.
- *     This guarantees the rules tests always exercise the same rules
- *     content that `firebase deploy` will publish — closing the
- *     "tests pass but deploy fails because deploy.rules is stale" gap.
+ *  3. Refresh AMENAPP/firestore.deploy.rules from root firestore.rules.
+ *     This guarantees the rules tests exercise the same rules content
+ *     that `firebase deploy` will publish.
  *
  * Phase P1-5: all rules tests target firestore.deploy.rules going
  * forward, and this hook keeps the artifact fresh.
  */
 
-import { execFileSync } from "child_process";
 import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
 
 const REPO_ROOT = path.resolve(__dirname, "../..");
-const STRIP_SCRIPT = path.join(REPO_ROOT, "scripts", "strip-rules.js");
-const SRC_RULES = path.join(REPO_ROOT, "AMENAPP", "firestore 18.rules");
 const DST_RULES = path.join(REPO_ROOT, "AMENAPP", "firestore.deploy.rules");
 const ROOT_RULES = path.join(REPO_ROOT, "firestore.rules");
 
@@ -96,23 +91,11 @@ export default async function globalSetup() {
     process.env.FIREBASE_STORAGE_EMULATOR_HOST = `${EMULATOR_HOST}:${STORAGE_PORT}`;
 
     // ── 1. Verify the rules source exists and refresh test artifact. ──
-    if (fs.existsSync(SRC_RULES)) {
-        if (!fs.existsSync(STRIP_SCRIPT)) {
-            throw new Error(
-                `Rules strip script not found at ${STRIP_SCRIPT}. ` +
-                    `Cannot regenerate firestore.deploy.rules from source.`
-            );
-        }
-
-        execFileSync("node", [STRIP_SCRIPT], {
-            cwd: REPO_ROOT,
-            stdio: "inherit",
-        });
-    } else if (fs.existsSync(ROOT_RULES)) {
+    if (fs.existsSync(ROOT_RULES)) {
         fs.copyFileSync(ROOT_RULES, DST_RULES);
     } else {
         throw new Error(
-            `Canonical rules source not found at ${SRC_RULES} or ${ROOT_RULES}.`
+            `Canonical rules source not found at ${ROOT_RULES}.`
         );
     }
 

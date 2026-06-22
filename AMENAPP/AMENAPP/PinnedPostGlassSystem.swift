@@ -579,8 +579,6 @@ struct PinnedPostGlassContainer<Content: View>: View {
 
     @ViewBuilder
     private var pinnedMediaOverlay: some View {
-        let transitionID = "pinned-media-\(resolvedPostID)-\(selectedMediaIndex)"
-
         ZStack(alignment: .topTrailing) {
             Rectangle()
                 .fill(.white.opacity(0.36))

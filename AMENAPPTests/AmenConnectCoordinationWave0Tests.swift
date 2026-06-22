@@ -35,8 +35,8 @@ struct AmenConnectCoordinationWave0Tests {
         let organization = AmenConnectOrganization(id: "org-1", name: "Grace", orgType: .church)
         let teams = [AmenConnectTeam(id: "team-kids", orgId: organization.id, name: "Kids")]
         let roles = [
-            AmenConnectRole(id: "role-checkin", teamId: "team-kids", name: "Check-in", countNeeded: 2),
-            AmenConnectRole(id: "role-room", teamId: "team-kids", name: "Room Lead", countNeeded: 1),
+            AmenConnectCoordinationRole(id: "role-checkin", teamId: "team-kids", name: "Check-in", countNeeded: 2),
+            AmenConnectCoordinationRole(id: "role-room", teamId: "team-kids", name: "Room Lead", countNeeded: 1),
         ]
         let assignments = [
             AmenConnectAssignment(id: "a1", eventOrShiftId: "sunday", roleId: "role-checkin", personId: "p1", status: .confirmed),
@@ -91,5 +91,26 @@ struct AmenConnectCoordinationWave0Tests {
         #expect(model.label == "Sunday Service")
         #expect(model.coverage == readiness.coverage)
         #expect(model.worstOpenGap?.displayName == "Kids · Check-in")
+    }
+
+    @Test("VolunteerBoard bridges into generic readiness model")
+    func volunteerBoardReadinessBridge() {
+        let event = ServiceEvent(
+            id: "sunday",
+            title: "Sunday Service",
+            startUTC: "2026-06-28T16:00:00Z",
+            timezone: "America/Chicago",
+            location: "Sanctuary"
+        )
+        let board = VolunteerBoard(eventId: "sunday", roles: [
+            VolunteerBoardRole(role: "Kids", filled: 3, needed: 4, status: .open),
+            VolunteerBoardRole(role: "Worship", filled: 2, needed: 2, status: .full),
+        ])
+
+        let readiness = AmenConnectReadinessService().makeReadinessView(event: event, board: board)
+
+        #expect(readiness.organizationCoverage.countNeeded == 6)
+        #expect(readiness.organizationCoverage.filledCount == 5)
+        #expect(readiness.worstOpenGap?.roleName == "Kids")
     }
 }

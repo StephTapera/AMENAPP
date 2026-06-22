@@ -294,7 +294,7 @@ struct ShareToMessagesSheet: View {
         isSending = true
         
         Task {
-            guard let currentUserId = Auth.auth().currentUser?.uid else {
+            guard Auth.auth().currentUser?.uid != nil else {
                 await MainActor.run {
                     errorMessage = "Not authenticated"
                     isSending = false
@@ -350,7 +350,7 @@ struct ShareToMessagesSheet: View {
         
         \(post.content)
         
-        — @\(post.authorUsername)
+        — @\(post.authorUsername ?? "unknown")
         
         View in AMEN: \(postLink)
         """

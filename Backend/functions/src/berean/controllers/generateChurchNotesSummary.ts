@@ -23,9 +23,7 @@ type LLMNotesSummary = {
   repeatedScriptures?: Array<{ reference: string; book?: string; timesAttached: number }>;
 };
 
-export const bereanGenerateChurchNotesSummary = onCall(
-  { region: "us-central1", timeoutSeconds: 45, secrets: [anthropicApiKey] },
-  async (request) => {
+export const bereanGenerateChurchNotesSummary = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 45, secrets: [anthropicApiKey] }, async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
     }

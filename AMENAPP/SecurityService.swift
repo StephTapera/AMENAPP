@@ -322,7 +322,7 @@ class SecurityService: ObservableObject {
         dlog("🔔 Security Alert: \(type) - \(details)")
         guard let uid = Auth.auth().currentUser?.uid else { return }
         // Write a Firestore security_alert document; a Cloud Function fan-out handles push + email.
-        try? await db.collection("users").document(uid)
+        _ = try? await db.collection("users").document(uid)
             .collection("security_alerts")
             .addDocument(data: [
                 "type": "\(type)",

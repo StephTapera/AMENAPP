@@ -145,9 +145,9 @@ class PrayerEchoService {
 
         // Update RTDB echo state — no unbounded array on the Firestore document.
         if alreadyEchoed {
-            try? await prayerRef.removeValue()
+            _ = try? await prayerRef.removeValue()
         } else {
-            try? await prayerRef.setValue(true)
+            _ = try? await prayerRef.setValue(true)
         }
 
         // Keep the Firestore stoneCount counter (a simple Int field, not an array).
@@ -522,7 +522,7 @@ class PrayerRoomService: ObservableObject {
 
     func create(title: String, scheduledAt: Date, durationMinutes: Int, churchId: String?, linkedPostIds: [String]) async {
         guard let uid = Auth.auth().currentUser?.uid,
-              let name = LegacyUserService.shared.currentUser?.displayName else { return }
+              let name = await LegacyUserService.shared.currentUser?.displayName else { return }
         let room: [String: Any] = [
             "title": title,
             "hostId": uid,
@@ -536,7 +536,7 @@ class PrayerRoomService: ObservableObject {
             "participantCount": 0,
             "createdAt": FieldValue.serverTimestamp()
         ]
-        try? await Firestore.firestore().collection("prayerRooms").addDocument(data: room)
+        _ = try? await Firestore.firestore().collection("prayerRooms").addDocument(data: room)
     }
 }
 
@@ -796,7 +796,7 @@ class FastingChainService: ObservableObject {
             "duration": duration,
             "startedAt": FieldValue.serverTimestamp()
         ]
-        try? await Firestore.firestore()
+        _ = try? await Firestore.firestore()
             .collection("posts").document(postId)
             .collection("fasts").addDocument(data: entry)
 

@@ -300,7 +300,7 @@ struct SelahDeepModeView: View {
             meaningTags: item.meaningTags
         )
         Task {
-            try? await SelahMediaService.shared.saveMemory(memory)
+            _ = try? await SelahMediaService.shared.saveMemory(memory)
             withAnimation { savedToMemory = true }
         }
     }

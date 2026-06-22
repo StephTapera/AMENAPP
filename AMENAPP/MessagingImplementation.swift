@@ -317,7 +317,7 @@ extension FirebaseMessagingService {
         // ── LOCAL CRISIS PRE-SCAN: instant, no network required ──────────────────
         if CrisisDetectionService.shared.hasLocalCrisisSignal(in: text) {
             NotificationCenter.default.post(
-                name: Notification.Name("showCrisisResources"),
+                name: .showCrisisResources,
                 object: nil,
                 userInfo: [:]
             )
@@ -334,7 +334,7 @@ extension FirebaseMessagingService {
             // Crisis resources must be shown — message is still delivered
             // (crisisEscalations/ was already written server-side)
             NotificationCenter.default.post(
-                name: Notification.Name("showCrisisResources"),
+                name: .showCrisisResources,
                 object: nil,
                 userInfo: ["resources": safetyResult.crisisResources ?? []]
             )

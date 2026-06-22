@@ -222,7 +222,10 @@ final class BereanTheologyBoundaryService {
 
         // Log safety rewrite if it happened
         if rewritten {
-            AMENAnalyticsService.shared.track(.bereanSafetyRewrite(trigger: "theology_boundary_\(detected.count)"))
+            let detectedCount = detected.count
+            Task { @MainActor in
+                AMENAnalyticsService.shared.track(.bereanSafetyRewrite(trigger: "theology_boundary_\(detectedCount)"))
+            }
         }
 
         return BereanBoundaryResult(

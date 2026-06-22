@@ -45,7 +45,7 @@ const ALGOLIA_APP_ID = "182SCN7O9S";
 
 // Region: us-east1 — us-central1 is at quota (999/1000). Explicit region is
 // mandatory per docs/deploy-topology.md RULE 1. See Interim Region Table.
-export const userAccountDeletionCascade = onCall({ region: "us-east1" }, async (request) => {
+export const userAccountDeletionCascade = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
     const _data = request.data as any;
     const data = _data;
     const context = { auth: request.auth, app: request.app };

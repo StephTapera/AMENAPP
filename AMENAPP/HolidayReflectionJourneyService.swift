@@ -282,8 +282,6 @@ final class HolidayReflectionJourneyService: ObservableObject {
     // MARK: - Entry Builders
 
     private func buildEntries(for type: ReflectionJourneyType, startDate: Date) -> [JourneyDayEntry] {
-        let cal = Calendar.current
-
         switch type {
         case .holyWeek:
             return buildHolyWeekEntries(startDate: startDate)
@@ -316,7 +314,6 @@ final class HolidayReflectionJourneyService: ObservableObject {
     }
 
     private func buildHolyWeekEntries(startDate: Date) -> [JourneyDayEntry] {
-        let cal = Calendar.current
         let days: [(title: String, theme: String, scripture: String, reflection: String, action: String, prayer: String)] = [
             ("Palm Sunday", "Triumphal Entry", "Matthew 21:1-11",
              "The crowds shouted Hosanna — but some would turn away. Where does your heart stand with Jesus today?",

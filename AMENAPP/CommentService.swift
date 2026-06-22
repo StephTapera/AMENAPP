@@ -1253,9 +1253,7 @@ class CommentService: ObservableObject {
         
         // Reference to the comment's like status
         let commentRef = ref.child("postInteractions").child(postId).child("comments").child(commentId)
-        let userLikeRef = commentRef.child("likedBy").child(userId)
-        let likesCountRef = commentRef.child("likes")
-        
+
         // ✅ FIX CR-10: Use single transaction to atomically update both likedBy and count
         // This prevents race condition where two simultaneous likes can cause desync
         try await commentRef.runTransactionBlock { currentData in
@@ -1361,7 +1359,7 @@ class CommentService: ObservableObject {
                     }
                     
                     // ✅ FIX CR-6: Filter out blocked users
-                    if await BlockService.shared.blockedUsers.contains(authorId) {
+                    if BlockService.shared.blockedUsers.contains(authorId) {
                         continue
                     }
 

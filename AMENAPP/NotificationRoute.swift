@@ -33,6 +33,7 @@ enum NotificationRoute: Equatable {
     // AMEN-specific
     case prayer(prayerID: String)
     case churchNote(noteID: String)
+    case walkWithChrist
 
     // Failure states
     case unavailable(reason: String)
@@ -60,6 +61,8 @@ enum NotificationRoute: Equatable {
         case .prayer:
             return .fallback
         case .churchNote:
+            return .fallback
+        case .walkWithChrist:
             return .fallback
         case .followRequests, .unavailable, .fallback:
             return .fallback
@@ -175,6 +178,8 @@ enum NotificationRouteResolver {
         case "church_note":
             guard let noteId = payload["noteId"], !noteId.isEmpty else { return nil }
             return .churchNote(noteID: noteId)
+        case "walk_with_christ":
+            return .walkWithChrist
         case "notifications_inbox":
             return .fallback
         default:
@@ -307,6 +312,10 @@ final class NotificationTapHandler {
         case .churchNote(let noteID):
             NotificationDeepLinkRouter.shared.navigate(to: .churchNote(noteId: noteID))
 
+        // ── Walk With Christ (cross-tab) ──────────────────────────────────
+        case .walkWithChrist:
+            NotificationCenter.default.post(name: .openWalkWithChristFromNotification, object: nil)
+
         // ── Unavailable content ────────────────────────────────────────────
         case .unavailable(let reason):
             dlog("⚠️ [ROUTE] Content unavailable: \(reason)")
@@ -360,4 +369,5 @@ final class CommentFocusCoordinator: ObservableObject {
 extension Notification.Name {
     static let amenShowFollowRequests         = Notification.Name("amen.showFollowRequests")
     static let amenNotificationRouteUnavailable = Notification.Name("amen.notificationRouteUnavailable")
+    static let openWalkWithChristFromNotification = Notification.Name("amen.openWalkWithChrist")
 }

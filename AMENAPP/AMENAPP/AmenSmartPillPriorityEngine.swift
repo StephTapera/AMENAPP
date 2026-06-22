@@ -11,6 +11,7 @@ struct AmenSmartPillPriorityEngine {
     static let longThreadThreshold = 50
     static let longMessageCharThreshold = 200
 
+    @MainActor
     static func eligiblePills(
         for context: AmenSmartPillEligibilityContext,
         flags: AMENFeatureFlags

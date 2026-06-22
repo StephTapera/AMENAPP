@@ -69,7 +69,7 @@ exports.bereanGenerateStructuredResponse = (0, https_1.onCall)({
     timeoutSeconds: 90,
     memory: "512MiB",
     // 5.1 FIX: Reject calls from clients without a valid App Check token.
-    enforceAppCheck: false,
+    enforceAppCheck: true,
 }, async (request) => {
     // Auth check
     if (!request.auth) {

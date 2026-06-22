@@ -45,9 +45,9 @@ final class ChurchPulseViewModel: ObservableObject {
 
     // MARK: - Init
 
-    init(churchId: String, service: ChurchPulseService = .shared) {
+    init(churchId: String, service: ChurchPulseService? = nil) {
         self.churchId = churchId
-        self.service = service
+        self.service = service ?? ChurchPulseService.shared
     }
 
     // MARK: - Load

@@ -42,7 +42,7 @@ protocol PrayerGraphCardDelegate: AnyObject {
 
 struct PrayerGraphCardView: View {
     let card: PrayerGraphCard
-    weak var delegate: (any PrayerGraphCardDelegate)?
+    var delegate: (any PrayerGraphCardDelegate)?
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -283,6 +283,10 @@ private final class PreviewDelegate: PrayerGraphCardDelegate {
     func openPrayer(prayerRequestId: String) {}
 }
 
+private enum PrayerGraphCardPreviewSupport {
+    static let delegate = PreviewDelegate()
+}
+
 #Preview("Standard Prayer Card") {
     PrayerGraphCardView(
         card: PrayerGraphCard(
@@ -297,7 +301,7 @@ private final class PreviewDelegate: PrayerGraphCardDelegate {
             createdAt: Date(),
             expiresAt: Date().addingTimeInterval(86400 * 7)
         ),
-        delegate: PreviewDelegate()
+        delegate: PrayerGraphCardPreviewSupport.delegate
     )
     .padding()
     .background(Color(uiColor: .systemGroupedBackground))
@@ -317,7 +321,7 @@ private final class PreviewDelegate: PrayerGraphCardDelegate {
             createdAt: Date(),
             expiresAt: Date().addingTimeInterval(86400 * 7)
         ),
-        delegate: PreviewDelegate()
+        delegate: PrayerGraphCardPreviewSupport.delegate
     )
     .padding()
     .background(Color(uiColor: .systemGroupedBackground))

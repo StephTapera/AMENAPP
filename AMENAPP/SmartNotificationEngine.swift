@@ -244,12 +244,12 @@ final class SmartNotificationEngine {
     // MARK: - Persistence
     
     private func loadEngagementData() {
-        if let data = UserDefaults.standard.data(forKey: "notificationEngagementScores"),
+        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.NotificationEngagement.scores),
            let scores = try? JSONDecoder().decode([String: Double].self, from: data) {
             userEngagementScores = scores
         }
-        
-        if let data = UserDefaults.standard.data(forKey: "notificationInteractionHistory"),
+
+        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.NotificationEngagement.interactionHistory),
            let history = try? JSONDecoder().decode([String: [Date]].self, from: data) {
             notificationInteractionHistory = history
         }
@@ -257,11 +257,11 @@ final class SmartNotificationEngine {
     
     private func saveEngagementData() {
         if let data = try? JSONEncoder().encode(userEngagementScores) {
-            UserDefaults.standard.set(data, forKey: "notificationEngagementScores")
+            UserDefaults.standard.set(data, forKey: UserDefaultsKeys.NotificationEngagement.scores)
         }
-        
+
         if let data = try? JSONEncoder().encode(notificationInteractionHistory) {
-            UserDefaults.standard.set(data, forKey: "notificationInteractionHistory")
+            UserDefaults.standard.set(data, forKey: UserDefaultsKeys.NotificationEngagement.interactionHistory)
         }
     }
     

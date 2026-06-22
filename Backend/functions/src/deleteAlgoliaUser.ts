@@ -87,7 +87,7 @@ async function algoliaDeleteByFilter(
 
 // ── Cloud Function ────────────────────────────────────────────────────────────
 
-export const deleteAlgoliaUser = onCall({ secrets: [algoliaAdminKey] }, async (request) => {
+export const deleteAlgoliaUser = onCall({ enforceAppCheck: true, secrets: [algoliaAdminKey] }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

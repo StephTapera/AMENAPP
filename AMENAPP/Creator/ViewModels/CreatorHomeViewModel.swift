@@ -12,14 +12,14 @@ final class CreatorHomeViewModel: ObservableObject {
     private let templateService: CreatorTemplateServicing
     private let entitlementService: CreatorEntitlementServicing
 
-    @MainActor init(
-        projectService: CreatorProjectServicing = CreatorProjectService(),
-        templateService: CreatorTemplateServicing = CreatorTemplateService(),
-        entitlementService: CreatorEntitlementServicing = CreatorEntitlementService()
+    init(
+        projectService: CreatorProjectServicing? = nil,
+        templateService: CreatorTemplateServicing? = nil,
+        entitlementService: CreatorEntitlementServicing? = nil
     ) {
-        self.projectService = projectService
-        self.templateService = templateService
-        self.entitlementService = entitlementService
+        self.projectService = projectService ?? CreatorProjectService()
+        self.templateService = templateService ?? CreatorTemplateService()
+        self.entitlementService = entitlementService ?? CreatorEntitlementService()
     }
 
     func load(ownerID: String) async {

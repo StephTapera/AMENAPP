@@ -326,8 +326,8 @@ class MessageSettingsService: ObservableObject {
     }
     
     deinit {
-        Task { @MainActor in
-            stopListening()
+        Task { @MainActor [weak self] in
+            self?.stopListening()
         }
     }
 }

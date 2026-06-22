@@ -151,46 +151,40 @@ struct AmenAudienceFirstPickerView: View {
     // MARK: - Audience list page
 
     private var audienceList: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Who is this for?")
-                    .font(AMENFont.bold(22))
-                    .foregroundStyle(.primary)
-                Text("You can always change this while writing.")
-                    .font(AMENFont.regular(14))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 24)
-            .padding(.bottom, 16)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Who is this for?")
+                        .font(AMENFont.bold(26))
+                        .foregroundStyle(.primary)
+                    Text("Choose where this post should begin.")
+                        .font(AMENFont.regular(15))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 8)
 
-            VStack(spacing: 0) {
-                ForEach(Array(AmenPostAudience.allCases.enumerated()), id: \.element.id) { index, audience in
-                    AudienceOptionRow(
-                        audience: audience,
-                        isVisible: rowsVisible,
-                        delay: Double(index) * 0.045,
-                        trailingIcon: audience == .space ? "chevron.right" : "chevron.right"
-                    ) {
-                        handleTap(audience)
-                    }
-                    if index < AmenPostAudience.allCases.count - 1 {
-                        Divider().padding(.leading, 60).opacity(0.25)
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 142), spacing: 12, alignment: .top)],
+                    alignment: .leading,
+                    spacing: 12
+                ) {
+                    ForEach(Array(AmenPostAudience.allCases.enumerated()), id: \.element.id) { index, audience in
+                        AudienceOptionRow(
+                            audience: audience,
+                            isVisible: rowsVisible,
+                            delay: Double(index) * 0.045,
+                            trailingIcon: audience == .space ? "chevron.right" : "arrow.up.forward"
+                        ) {
+                            handleTap(audience)
+                        }
                     }
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .strokeBorder(Color.black.opacity(0.07), lineWidth: 0.6)
-                    )
-            )
-            .padding(.horizontal, 16)
-
-            Spacer(minLength: 20)
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+            .padding(.bottom, 28)
         }
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     // MARK: - Tap handler
@@ -232,21 +226,26 @@ private struct AmenSpacePickerSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header with back button
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
                         .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
                 }
+                .buttonStyle(.plain)
+                .background { Circle().fill(Color(.systemBackground).opacity(0.35)) }
+                .amenGlassEffect(in: Circle())
                 .accessibilityLabel("Back")
                 .accessibilityHint("Return to audience selection")
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Choose a Space")
-                        .font(AMENFont.bold(20))
+                        .font(AMENFont.bold(24))
                         .foregroundStyle(.primary)
                     Text("Your post will be shared to this Space.")
-                        .font(AMENFont.regular(13))
+                        .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -274,92 +273,71 @@ private struct AmenSpacePickerSheet: View {
     // MARK: States
 
     private var spaceLoadingView: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             ForEach(0..<4, id: \.self) { _ in
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                Capsule(style: .continuous)
                     .fill(.ultraThinMaterial)
-                    .frame(height: 60)
+                    .frame(height: 64)
                     .shimmering()
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 20)
     }
 
     private func spaceErrorView(_ msg: String) -> some View {
-        Text(msg)
-            .font(AMENFont.regular(14))
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 32)
-            .frame(maxWidth: .infinity)
+        VStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.systemScaled(22, weight: .semibold))
+                .foregroundStyle(.orange)
+            Text(msg)
+                .font(AMENFont.regular(14))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 22)
+        .frame(maxWidth: .infinity)
+        .background { Capsule(style: .continuous).fill(Color(.systemBackground).opacity(0.35)) }
+        .amenGlassEffect(in: Capsule(style: .continuous))
+        .padding(.horizontal, 20)
     }
 
     private var spaceEmptyView: some View {
         VStack(spacing: 10) {
             Image(systemName: "building.2")
-                .font(.systemScaled(36))
+                .font(.systemScaled(28, weight: .semibold))
                 .foregroundStyle(.tertiary)
             Text("You haven't joined any Spaces yet.")
                 .font(AMENFont.regular(15))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
-        .padding(.top, 24)
-        .padding(.horizontal, 32)
+        .background { Capsule(style: .continuous).fill(Color(.systemBackground).opacity(0.35)) }
+        .amenGlassEffect(in: Capsule(style: .continuous))
+        .padding(.horizontal, 20)
     }
 
     private var spaceListView: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                ForEach(Array(spaces.enumerated()), id: \.element.id) { index, space in
-                    Button {
+        ScrollView(showsIndicators: false) {
+            LazyVStack(spacing: 12) {
+                ForEach(spaces) { space in
+                    SpaceOptionPill(
+                        space: space,
+                        icon: iconFor(spaceType: space.spaceType),
+                        subtitle: displayType(space.spaceType)
+                    ) {
                         HapticManager.impact(style: .light)
                         onSpaceSelected(space)
-                    } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: iconFor(spaceType: space.spaceType))
-                                .font(.systemScaled(18, weight: .semibold))
-                                .foregroundStyle(Color.accentColor)
-                                .frame(width: 32, height: 32)
-                                .background(Circle().fill(Color.accentColor.opacity(0.12)))
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(space.name)
-                                    .font(AMENFont.semiBold(15))
-                                    .foregroundStyle(.primary)
-                                Text(displayType(space.spaceType))
-                                    .font(AMENFont.regular(12))
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: "checkmark.circle")
-                                .font(.systemScaled(18))
-                                .foregroundStyle(.tertiary)
-                        }
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 60)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(space.name)
-                    .accessibilityHint("Post to \(space.name)")
-
-                    if index < spaces.count - 1 {
-                        Divider().padding(.leading, 60).opacity(0.25)
                     }
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .strokeBorder(Color.black.opacity(0.07), lineWidth: 0.6)
-                    )
-            )
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 28)
         }
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     // MARK: Firestore fetch
@@ -446,51 +424,113 @@ private struct AudienceOptionRow: View {
     let trailingIcon: String
     let onTap: () -> Void
 
-    @State private var isPressed = false
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center, spacing: 10) {
+                    Image(systemName: audience.icon)
+                        .font(.systemScaled(19, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 38, height: 38)
+                        .background { Circle().fill(Color.accentColor.opacity(0.13)) }
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: trailingIcon)
+                        .font(.systemScaled(13, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 24, height: 24)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(audience.displayName)
+                        .font(AMENFont.semiBold(16))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                    Text(audience.subtitle)
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+            .contentShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(GlassPillPressStyle())
+        .accessibilityLabel(audience.displayName)
+        .accessibilityHint(audience.subtitle)
+        .opacity(isVisible ? 1 : 0)
+        .offset(y: isVisible ? 0 : 10)
+        .animation(.amenSpringEntry.delay(delay), value: isVisible)
+    }
+}
+
+private struct SpaceOptionPill: View {
+    let space: AmenSpaceListItem
+    let icon: String
+    let subtitle: String
+    let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 14) {
-                Image(systemName: audience.icon)
-                    .font(.systemScaled(20, weight: .semibold))
+                Image(systemName: icon)
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
-                    .frame(width: 32, height: 32)
-                    .background(Circle().fill(Color.accentColor.opacity(0.12)))
+                    .frame(width: 42, height: 42)
+                    .background { Circle().fill(Color.accentColor.opacity(0.13)) }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(audience.displayName)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(space.name)
                         .font(AMENFont.semiBold(16))
                         .foregroundStyle(.primary)
-                    Text(audience.subtitle)
-                        .font(AMENFont.regular(13))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                    Text(space.memberCount > 0 ? "\(subtitle) - \(space.memberCount) members" : subtitle)
+                        .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
 
-                Spacer()
+                Spacer(minLength: 10)
 
-                Image(systemName: trailingIcon)
-                    .font(.systemScaled(13, weight: .semibold))
+                Image(systemName: "checkmark.circle")
+                    .font(.systemScaled(19, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 16)
-            .frame(minHeight: 56)
-            .contentShape(Rectangle())
+            .frame(maxWidth: .infinity, minHeight: 66)
+            .contentShape(Capsule(style: .continuous))
         }
-        .buttonStyle(.plain)
-        .background(isPressed ? Color.primary.opacity(0.06) : Color.clear)
-        .scaleEffect(isPressed ? 0.98 : 1.0)
-        .animation(.amenEaseQuick, value: isPressed)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded   { _ in isPressed = false }
-        )
-        .opacity(isVisible ? 1 : 0)
-        .offset(y: isVisible ? 0 : 10)
-        .animation(.amenSpringEntry.delay(delay), value: isVisible)
-        .accessibilityLabel(audience.displayName)
-        .accessibilityHint(audience.subtitle)
-        .accessibilityAddTraits(.isButton)
+        .buttonStyle(GlassPillPressStyle())
+        .accessibilityLabel(space.name)
+        .accessibilityValue(subtitle)
+        .accessibilityHint("Post to \(space.name)")
+    }
+}
+
+private struct GlassPillPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                if reduceTransparency {
+                    Capsule(style: .continuous)
+                        .fill(Color(.systemBackground))
+                } else {
+                    Capsule(style: .continuous)
+                        .fill(Color(.systemBackground).opacity(configuration.isPressed ? 0.44 : 0.30))
+                }
+            }
+            .shadow(color: .black.opacity(configuration.isPressed ? 0.04 : 0.09), radius: configuration.isPressed ? 8 : 18, x: 0, y: configuration.isPressed ? 3 : 10)
+            .scaleEffect(configuration.isPressed ? 0.975 : 1)
+            .amenGlassEffect(in: Capsule(style: .continuous))
+            .animation(.amenEaseQuick, value: configuration.isPressed)
     }
 }
 

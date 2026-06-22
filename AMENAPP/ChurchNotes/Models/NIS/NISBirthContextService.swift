@@ -51,7 +51,7 @@ final class NISBirthContextService: NSObject {
     /// This method is a no-op when `nisBirthContextEnabled` is false.
     /// Must be called as `Task { await NISBirthContextService.shared.capture(...) }`.
     func capture(noteId: String, authorUID: String) async {
-        guard AMENFeatureFlags.shared.nisBirthContextEnabled else { return }
+        guard await AMENFeatureFlags.shared.nisBirthContextEnabled else { return }
 
         let createdAt = Date()
         let location = await readLocationWithTimeout()

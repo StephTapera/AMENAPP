@@ -209,8 +209,8 @@ struct ToneSelectorView: View {
     @ObservedObject var manager: StudyToneManager
     let compact: Bool
 
-    init(manager: StudyToneManager = .shared, compact: Bool = false) {
-        self.manager = manager
+    init(manager: StudyToneManager? = nil, compact: Bool = false) {
+        self.manager = manager ?? StudyToneManager.shared
         self.compact = compact
     }
 
@@ -417,12 +417,7 @@ struct IntentAwareStudySheet: View {
         response = ""
 
         let userContext = await BereanUserContextProvider.shared.getContextBlock()
-        let modeAddition = toneManager.systemPromptAddition(for: query)
-
-        let systemPrompt = """
-        You are Berean, a faith-aligned AI companion.
-        \(modeAddition)
-        """
+        _ = toneManager.systemPromptAddition(for: query)
 
         let prompt = """
         \(userContext)

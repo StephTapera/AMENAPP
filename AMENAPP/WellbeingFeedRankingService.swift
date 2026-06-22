@@ -39,7 +39,7 @@ enum WellbeingImpact: String, Codable {
         dlog("[WellbeingFeedRankingService] reportPostImpact postId=\(postId) impact=\(impact.rawValue)")
         let payload: [String: Any] = ["postId": postId, "impact": impact.rawValue]
         do {
-            try await Functions.functions().httpsCallable("reportPostWellbeingImpact").call(payload)
+            _ = try await Functions.functions().httpsCallable("reportPostWellbeingImpact").call(payload)
         } catch {
             dlog("[WellbeingFeedRankingService] reportPostImpact error: \(error)")
         }

@@ -26,13 +26,13 @@ enum BereanMode: String, Codable, CaseIterable, Identifiable {
     case ask
     case discern
     case build
-    case guard
+    case `guard`
     case reflect
 
     var id: String { rawValue }
 }
 
-struct ScriptureRef: Codable, Equatable, Hashable, Identifiable {
+struct MultilingualScriptureRef: Codable, Equatable, Hashable, Identifiable {
     let book: String
     let chapter: Int
     let verseStart: Int
@@ -110,7 +110,7 @@ enum LicenseTag: Codable, Equatable, Hashable {
 }
 
 struct VerseText: Codable, Equatable, Identifiable {
-    let ref: ScriptureRef
+    let ref: MultilingualScriptureRef
     let translationId: String
     let languageCode: LanguageCode
     let text: String
@@ -125,7 +125,7 @@ struct VerseText: Codable, Equatable, Identifiable {
     }
 
     init(
-        ref: ScriptureRef,
+        ref: MultilingualScriptureRef,
         translationId: String,
         languageCode: LanguageCode,
         text: String,
@@ -230,13 +230,13 @@ struct Citation: Codable, Equatable, Identifiable {
 }
 
 struct Explanation: Codable, Equatable {
-    let sourceRefs: [ScriptureRef]
+    let sourceRefs: [MultilingualScriptureRef]
     let languageCode: LanguageCode
     let body: String
     let citations: [Citation]
     let generatedByModel: Bool
 
-    init(sourceRefs: [ScriptureRef], languageCode: LanguageCode, body: String, citations: [Citation]) throws {
+    init(sourceRefs: [MultilingualScriptureRef], languageCode: LanguageCode, body: String, citations: [Citation]) throws {
         guard SupportedLanguages.isSupported(languageCode) else {
             throw BereanMultilingualContractViolation.unsupportedLanguage(languageCode)
         }
@@ -261,14 +261,14 @@ struct MultilingualRequest: Codable, Equatable {
     let inputText: String
     let inputLanguage: LanguageCode
     let targetLanguage: LanguageCode
-    let refs: [ScriptureRef]?
+    let refs: [MultilingualScriptureRef]?
 
     init(
         mode: BereanMode,
         inputText: String,
         inputLanguage: LanguageCode,
         targetLanguage: LanguageCode,
-        refs: [ScriptureRef]? = nil
+        refs: [MultilingualScriptureRef]? = nil
     ) throws {
         guard SupportedLanguages.isSupported(inputLanguage) else {
             throw BereanMultilingualContractViolation.unsupportedLanguage(inputLanguage)

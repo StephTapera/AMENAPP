@@ -923,7 +923,7 @@ struct HiddenWordsEditorView: View {
     }
 
     private func removeWord(at index: Int) {
-        withAnimation(Motion.adaptive(.easeInOut(duration: 0.2))) {
+        _ = withAnimation(Motion.adaptive(.easeInOut(duration: 0.2))) {
             hiddenWords.remove(at: index)
         }
         HapticManager.impact(style: .light)

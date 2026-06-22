@@ -10,6 +10,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Block User Button
 
@@ -235,8 +236,6 @@ struct ReportAndBlockSheet: View {
     }
     
     private func submitReportToFirestore() async throws {
-        lazy var db = Firestore.firestore()
-        
         guard let currentUserId = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "ReportError", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
@@ -251,7 +250,9 @@ struct ReportAndBlockSheet: View {
             "status": "pending"
         ]
         
-        try await db.collection("reports").addDocument(data: report)
+        _ = try await Functions.functions()
+            .httpsCallable("submitTrustSafetyReport")
+            .call(report)
         
         dlog("✅ Report submitted successfully")
     }

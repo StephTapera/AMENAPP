@@ -1,5 +1,5 @@
 // AmenConnectV2View.swift
-// AMEN Connect — Waves 1 · 2 · 3
+// AMEN Connect — Waves 1 · 2 · 3 · 4 · 5
 //
 // W1 (ff: connectLayoutV2Enabled):
 //   GlassEffectContainer section bar + FAB glassEffectUnion, NavigationStack large title,
@@ -9,6 +9,10 @@
 //   ⓘ disclosure chip, ambient offline status chip, grid breathing room, .secondary contrast
 // W3 (ff: connectEmptyStatesEnabled):
 //   ConnectEmptyStateView on Spaces, grid tiles, Discover rails; ConnectSkeletonRail loading
+// W4 (ff: connectSmartBereanEnabled):
+//   Context-aware Berean bar with instant intent routing and callable-backed answers
+// W5 (ff: connectOfflineQueueEnabled):
+//   Offline status chip and persisted queued-draft sync surface
 
 import SwiftUI
 import FirebaseAuth
@@ -882,7 +886,7 @@ private struct ConnectScrollOffsetKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
-// MARK: - W1 · W2 · W3 Total Control Wiring Certificate
+// MARK: - W1 · W2 · W3 · W4 · W5 Total Control Wiring Certificate
 //
 // Surface                            Flag                        Status
 // AmenConnectRootView flag gate      connectLayoutV2Enabled      Wired (AmenConnectView.swift edit)
@@ -894,6 +898,8 @@ private struct ConnectScrollOffsetKey: PreferenceKey {
 // ConnectV2SectionGrid empty tiles   connectEmptyStatesEnabled   Wired via flag checks
 // ConnectV2SpacesSection empty       connectEmptyStatesEnabled   Wired via ConnectEmptyStateView
 // ConnectV2DiscoverView skeleton     connectEmptyStatesEnabled   Wired via ConnectSkeletonRail
+// ConnectSmartBereanBar              connectSmartBereanEnabled   Wired in bottom chrome
+// ConnectOfflineStatusChip           connectOfflineQueueEnabled  Wired in bottom chrome
 // Canonical disclosure string C-2    (unconditional fix)         Wired — AmenConnectView.swift edit
 // Chrome bottom inset C-1            connectLayoutV2Enabled      Wired — .contentMargins bottomInset
 // No glass-on-glass                  (invariant)                 Verified — all glass is chrome over matte

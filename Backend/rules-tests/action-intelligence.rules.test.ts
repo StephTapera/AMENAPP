@@ -21,7 +21,7 @@ import { firestoreEmulator } from "./emulatorConfig";
  *
  * NOTE ON RULES SOURCE: this suite loads the repo-root `firestore.rules` —
  * the file `firebase.json` actually deploys (tracked, AI collections present).
- * The rest of this harness strips `AMENAPP/firestore 18.rules` into
+ * The rest of this harness refreshes `AMENAPP/firestore.deploy.rules` from
  * firestore.deploy.rules, but that source is UNTRACKED and currently lacks the
  * AI collections, so it would false-fail every owner-read here. Reconciling the
  * two rules files is the rules claimant's task (logged in AGENT_LANES.md).

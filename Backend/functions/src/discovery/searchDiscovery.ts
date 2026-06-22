@@ -23,9 +23,7 @@ interface SearchRequest {
   limit?: number;
 }
 
-export const searchDiscovery = functions.onCall(
-  { region: "us-east1", timeoutSeconds: 10, memory: "256MiB" },
-  async (request): Promise<DiscoverySearchResult> => {
+export const searchDiscovery = functions.onCall({ enforceAppCheck: true, region: "us-east1", timeoutSeconds: 10, memory: "256MiB" }, async (request): Promise<DiscoverySearchResult> => {
     if (!request.auth?.uid) {
       throw new functions.HttpsError("unauthenticated", "Must be signed in.");
     }

@@ -143,7 +143,7 @@ class ChurchLiveModeViewModel: ObservableObject {
     func flagMessage(id: String, churchId: String) {
         chatMessages.removeAll { $0.id == id }
         Task {
-            try? await Functions.functions(region: "us-central1")
+            _ = try? await Functions.functions(region: "us-central1")
                 .httpsCallable("flagLiveContent")
                 .call([
                     "churchId": churchId,
@@ -529,7 +529,7 @@ struct ChurchLiveModeView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                 }
-                .onChange(of: vm.chatMessages.count) { _ in
+                .onChange(of: vm.chatMessages.count) {
                     if let last = vm.chatMessages.last {
                         withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                     }

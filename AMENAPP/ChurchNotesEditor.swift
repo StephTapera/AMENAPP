@@ -1788,7 +1788,7 @@ class SermonTranscriptionManager: NSObject, ObservableObject {
 
     func requestPermissions() {
         SFSpeechRecognizer.requestAuthorization { _ in }
-        AVAudioSession.sharedInstance().requestRecordPermission { _ in }
+        AVAudioApplication.requestRecordPermission { _ in }
     }
 
     func start() {

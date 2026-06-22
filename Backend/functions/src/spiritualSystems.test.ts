@@ -43,7 +43,11 @@ const noAppCheck = (uid = "uid-alice"): CallContext => ({ auth: { uid }, app: un
 
 // Type-erased callable invoker (mock makes onCall a passthrough).
 function call<T>(callable: unknown, data: unknown, ctx: CallContext): Promise<T> {
-    return (callable as (d: unknown, c: CallContext) => Promise<T>)(data, ctx);
+    return (callable as (request: { data: unknown; auth: CallContext["auth"]; app: CallContext["app"] }) => Promise<T>)({
+        data,
+        auth: ctx.auth,
+        app: ctx.app,
+    });
 }
 
 describe("spiritualSystems", () => {

@@ -326,7 +326,7 @@ async function transcribeStoragePath(storagePath: string): Promise<{ text: strin
 
 // ─── createVoicePrayerUploadSession ──────────────────────────────────────────
 
-export const createVoicePrayerUploadSession = onCall(async (request) => {
+export const createVoicePrayerUploadSession = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -392,7 +392,7 @@ export const createVoicePrayerUploadSession = onCall(async (request) => {
 
 // ─── finalizeVoicePrayerComment ───────────────────────────────────────────────
 
-export const finalizeVoicePrayerComment = onCall(async (request) => {
+export const finalizeVoicePrayerComment = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -498,7 +498,7 @@ export const finalizeVoicePrayerComment = onCall(async (request) => {
 
 // ─── deleteVoicePrayerComment ─────────────────────────────────────────────────
 
-export const deleteVoicePrayerComment = onCall(async (request) => {
+export const deleteVoicePrayerComment = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -550,7 +550,7 @@ export const deleteVoicePrayerComment = onCall(async (request) => {
 
 const REPORT_THRESHOLD_HIDE = 5;
 
-export const reportVoicePrayerComment = onCall(async (request) => {
+export const reportVoicePrayerComment = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -597,7 +597,7 @@ export const reportVoicePrayerComment = onCall(async (request) => {
 const ALLOWED_REACTIONS = ["prayed", "amen", "encourage"] as const;
 type Reaction = typeof ALLOWED_REACTIONS[number];
 
-export const reactToVoicePrayerComment = onCall(async (request) => {
+export const reactToVoicePrayerComment = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -644,7 +644,7 @@ export const reactToVoicePrayerComment = onCall(async (request) => {
 // Returns a short-lived signed URL (15 minutes) so clients never access Storage
 // paths directly (no public read).
 
-export const getVoicePrayerPlaybackURL = onCall(async (request) => {
+export const getVoicePrayerPlaybackURL = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);

@@ -13,7 +13,7 @@ final class FeedRankingContextManager: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+            Task { @MainActor [weak self] in self?.refresh() }
         }
         notificationTokens.append(token)
     }

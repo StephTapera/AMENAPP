@@ -6,7 +6,7 @@
  *   2. firebase emulators:start --only firestore   (separate terminal)
  *   3. npm test
  *
- * Rules file under test: AMENAPP/firestore 18.rules
+ * Rules file under test: AMENAPP/firestore.deploy.rules
  * Tests cover Branch 5 (users/{userId} update) + validatePinnedPostWrite().
  */
 
@@ -21,7 +21,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 const PROJECT_ID = "amen-rules-test";
-const RULES_PATH = path.resolve(__dirname, "../../AMENAPP/firestore 18.rules");
+const RULES_PATH = path.resolve(__dirname, "../../AMENAPP/firestore.deploy.rules");
 
 let testEnv: RulesTestEnvironment;
 

@@ -57,9 +57,7 @@ interface CreateJourneyRequest {
 // 8.1 createChurchJourney — callable
 // ============================================================================
 
-export const createChurchJourney = onCall(
-    { region: "us-central1" },
-    async (request) => {
+export const createChurchJourney = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
         requireAppCheck(request);
 
         const uid = request.auth?.uid;
@@ -147,9 +145,7 @@ export const createChurchJourney = onCall(
 // Recomputes reminder windows when service time or options change.
 // ============================================================================
 
-export const updateChurchJourneyTiming = onCall(
-    { region: "us-central1" },
-    async (request) => {
+export const updateChurchJourneyTiming = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
         requireAppCheck(request);
 
         const uid = request.auth?.uid;
@@ -244,9 +240,7 @@ export const promoteJourneyToPrepActive = onSchedule(
 // 8.4 promoteJourneyToArrived — callable (user manual check-in)
 // ============================================================================
 
-export const promoteJourneyToArrived = onCall(
-    { region: "us-central1" },
-    async (request) => {
+export const promoteJourneyToArrived = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
         requireAppCheck(request);
 
         const uid = request.auth?.uid;
@@ -327,9 +321,7 @@ export const promoteJourneyToArrived = onCall(
 // Summarizes note session content and writes a reflection seed.
 // ============================================================================
 
-export const generateReflectionSeedFromNotes = onCall(
-    { region: "us-central1" },
-    async (request) => {
+export const generateReflectionSeedFromNotes = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
         requireAppCheck(request);
 
         const uid = request.auth?.uid;
@@ -406,9 +398,7 @@ export const generateReflectionSeedFromNotes = onCall(
 // 8.6 scheduleMidweekReflectionReminder — callable
 // ============================================================================
 
-export const scheduleMidweekReflectionReminder = onCall(
-    { region: "us-central1" },
-    async (request) => {
+export const scheduleMidweekReflectionReminder = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
         requireAppCheck(request);
 
         const uid = request.auth?.uid;
@@ -604,9 +594,7 @@ export const cleanupStaleChurchJourneys = onSchedule(
 // 8.9 generatePrepSuggestions — callable
 // ============================================================================
 
-export const generatePrepSuggestions = onCall(
-    { region: "us-central1" },
-    async (request) => {
+export const generatePrepSuggestions = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
         requireAppCheck(request);
 
         const uid = request.auth?.uid;

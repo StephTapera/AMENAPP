@@ -77,7 +77,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.disable2FASession = exports.verify2FAOTP = exports.request2FAOTP = void 0;
+exports.verifyBackupCode = exports.regenerateBackupCodes = exports.generateBackupCodes = exports.disableTwoFactor = exports.enableTwoFactor = exports.disable2FASession = exports.verify2FAOTP = exports.request2FAOTP = void 0;
 const functions = __importStar(require("firebase-functions"));
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
@@ -93,6 +93,31 @@ const OTP_RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 function hashCode(code, salt) {
     return crypto.createHash("sha256").update(code + salt).digest("hex");
 }
+function requireAppAuth(request) {
+    if (!request.auth) {
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in.");
+    }
+    if (request.app == undefined) {
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    }
+    return request.auth.uid;
+}
+function newBackupCode() {
+    return crypto.randomBytes(5).toString("hex").toUpperCase();
+}
+function hashBackupCode(plain, backupCodeSalt) {
+    return crypto.createHash("sha256").update(`${backupCodeSalt}:${plain}`).digest("hex");
+}
+function buildBackupCodes(count = 10) {
+    const backupCodeSalt = crypto.randomBytes(16).toString("hex");
+    const plainCodes = Array.from({ length: count }, () => newBackupCode());
+    const hashedCodes = plainCodes.map((plain) => ({
+        codeHash: hashBackupCode(plain, backupCodeSalt),
+        used: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    }));
+    return { backupCodeSalt, plainCodes, hashedCodes };
+}
 function maskEmail(email) {
     const [local, domain] = email.split("@");
     if (!local || !domain)
@@ -101,7 +126,7 @@ function maskEmail(email) {
     return `${visible}***@${domain}`;
 }
 // ─── request2FAOTP ────────────────────────────────────────────────────────────
-exports.request2FAOTP = (0, https_1.onCall)(async (request) => {
+exports.request2FAOTP = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -178,7 +203,7 @@ exports.request2FAOTP = (0, https_1.onCall)(async (request) => {
     };
 });
 // ─── verify2FAOTP ─────────────────────────────────────────────────────────────
-exports.verify2FAOTP = (0, https_1.onCall)(async (request) => {
+exports.verify2FAOTP = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -250,7 +275,7 @@ exports.verify2FAOTP = (0, https_1.onCall)(async (request) => {
 // When 2FA is disabled for an account, set twoFaSessionExpiry = -1 (sentinel
 // for "2FA not enabled") so caller2FASessionValid() passes without a Firestore
 // read. Called by TwoFactorAuthService.swift when the user disables 2FA.
-exports.disable2FASession = (0, https_1.onCall)(async (request) => {
+exports.disable2FASession = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -272,5 +297,83 @@ exports.disable2FASession = (0, https_1.onCall)(async (request) => {
     });
     functions.logger.info(`[disable2FASession] 2FA session cleared for ${uid}`);
     return { success: true };
+});
+exports.enableTwoFactor = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
+    const uid = requireAppAuth(request);
+    const { backupCodeSalt, plainCodes, hashedCodes } = buildBackupCodes();
+    await db.collection("userSecurity").doc(uid).set({
+        twoFactorEnabled: true,
+        backupCodeSalt,
+        backupCodes: hashedCodes,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    await db.collection("users").doc(uid).set({
+        twoFactorEnabled: true,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return { success: true, backupCodes: plainCodes };
+});
+exports.disableTwoFactor = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
+    const uid = requireAppAuth(request);
+    await db.collection("userSecurity").doc(uid).set({
+        twoFactorEnabled: false,
+        backupCodeSalt: admin.firestore.FieldValue.delete(),
+        backupCodes: [],
+        session2FAActive: false,
+        session2FAExpiresAt: admin.firestore.Timestamp.fromMillis(0),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    await db.collection("users").doc(uid).set({
+        twoFactorEnabled: false,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    await auth.setCustomUserClaims(uid, {
+        ...(await auth.getUser(uid)).customClaims,
+        twoFaSessionExpiry: -1,
+    });
+    return { success: true };
+});
+exports.generateBackupCodes = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
+    const uid = requireAppAuth(request);
+    const { backupCodeSalt, plainCodes, hashedCodes } = buildBackupCodes();
+    await db.collection("userSecurity").doc(uid).set({
+        backupCodeSalt,
+        backupCodes: hashedCodes,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return { success: true, backupCodes: plainCodes };
+});
+exports.regenerateBackupCodes = exports.generateBackupCodes;
+exports.verifyBackupCode = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
+    const uid = requireAppAuth(request);
+    const submitted = typeof request.data?.backupCode === "string"
+        ? request.data.backupCode.trim().toUpperCase()
+        : "";
+    if (!submitted) {
+        throw new https_1.HttpsError("invalid-argument", "backupCode is required.");
+    }
+    const securityRef = db.collection("userSecurity").doc(uid);
+    const securitySnap = await securityRef.get();
+    if (!securitySnap.exists) {
+        throw new https_1.HttpsError("failed-precondition", "Two-factor authentication is not configured.");
+    }
+    const security = securitySnap.data() ?? {};
+    const backupCodeSalt = String(security.backupCodeSalt ?? "");
+    const backupCodes = Array.isArray(security.backupCodes) ? security.backupCodes : [];
+    const codeHash = hashBackupCode(submitted, backupCodeSalt);
+    const index = backupCodes.findIndex((entry) => entry.codeHash === codeHash && entry.used !== true);
+    if (index < 0) {
+        throw new https_1.HttpsError("unauthenticated", "Invalid backup code.");
+    }
+    const updatedCodes = backupCodes.map((entry, entryIndex) => entryIndex === index
+        ? { ...entry, used: true, usedAt: admin.firestore.FieldValue.serverTimestamp() }
+        : entry);
+    await securityRef.set({
+        backupCodes: updatedCodes,
+        session2FAActive: true,
+        session2FAExpiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + SESSION_TTL_MS),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return { success: true, verified: true };
 });
 //# sourceMappingURL=twoFactorAuth.js.map

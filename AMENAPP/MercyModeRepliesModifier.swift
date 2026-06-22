@@ -21,7 +21,7 @@ struct MercyModeRepliesModifier: ViewModifier {
         }
         return AnyView(
             content
-                .onChange(of: isFlagged) { flagged in
+                .onChange(of: isFlagged) { _, flagged in
                     if flagged { showSheet = true }
                 }
                 .sheet(isPresented: $showSheet) {

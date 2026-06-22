@@ -113,7 +113,7 @@ function validateRequest(raw: unknown): SendNotificationRequest {
 
 // ─── Callable ────────────────────────────────────────────────────────
 
-export const sendNotification = onCall(async (request) => {
+export const sendNotification = onCall({ enforceAppCheck: true }, async (request) => {
     // 1. Auth gate
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Must be signed in to send notifications.");

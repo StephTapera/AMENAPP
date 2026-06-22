@@ -134,7 +134,7 @@ describe("follows_index data reality", () => {
     expect(backendCreateFollow).toContain("follows_index");
     expect(backendCreateFollow).toContain("batch.set(indexDocRef");
     expect(iosFollowService).toContain("follows_index");
-    expect(iosFollowService).toContain("setData");
+    expect(iosFollowService).toContain("httpsCallable(\"createFollow\")");
   });
 });
 

@@ -186,7 +186,7 @@ struct AmenConnectSpacesHubView: View {
                 AmenSpiritualPresencePickerView()
             }
             .sheet(isPresented: $showVolunteerHub) {
-                VolunteerHubView(currentUserId: currentUserId)
+                VolunteerBoardHubView(currentUserId: currentUserId)
             }
             .onAppear {
                 Analytics.logEvent("spaces_hub_viewed", parameters: [:])

@@ -312,7 +312,7 @@ class PhoneVerificationViewModel: ObservableObject {
                 self.resendCountdown -= 1
                 if self.resendCountdown <= 0 {
                     self.canResend = true
-                    timer.invalidate()
+                    self.resendTimer?.invalidate()
                 }
             }
         }

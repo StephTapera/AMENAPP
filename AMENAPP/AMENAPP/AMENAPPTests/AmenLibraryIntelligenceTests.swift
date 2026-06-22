@@ -1,3 +1,4 @@
+#if canImport(Testing)
 // AmenLibraryIntelligenceTests.swift
 // AMENAPPTests
 //
@@ -325,5 +326,7 @@ final class LibraryUserIsolationTests: XCTestCase {
         XCTAssertFalse(unrelated.contains { $0.bookId == uniqueId })
     }
 }
+
+#endif
 
 #endif

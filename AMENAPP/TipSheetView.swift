@@ -185,7 +185,7 @@ struct TipSheetView: View {
                 .font(AMENFont.semiBold(18))
                 .foregroundStyle(.white)
                 .keyboardType(.decimalPad)
-                .onChange(of: customAmountText) { val in
+                .onChange(of: customAmountText) { _, val in
                     if !val.isEmpty {
                         withAnimation { selectedAmount = -1 }
                     } else {

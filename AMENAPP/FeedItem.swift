@@ -116,7 +116,7 @@ indirect enum FeedItem: Identifiable {
     /// Whether this item can appear in the public home feed
     var isPublicFeedEligible: Bool {
         switch self {
-        case .post(let p):       return p.visibility == .everyone || p.visibility == nil
+        case .post(let p):       return p.visibility == .everyone
         case .prayer(let p):     return p.isPublic ?? false
         case .testimony:         return true // Testimonies are public by default
         case .repost:            return true
@@ -139,7 +139,7 @@ indirect enum FeedItem: Identifiable {
 
     var isFlagged: Bool {
         switch self {
-        case .post(let p):       return p.flaggedForReview ?? false
+        case .post(let p):       return p.flaggedForReview
         case .prayer:            return false
         case .testimony:         return false // Testimonies use reportCount instead
         case .repost:            return false

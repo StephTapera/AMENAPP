@@ -82,7 +82,7 @@ class SpacesViewModel: ObservableObject {
         let spaceRef = db.collection("spaces").document(spaceId)
 
         if joinedSpaceIds.contains(spaceId) {
-            SwiftUI.withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
+            _ = SwiftUI.withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 joinedSpaceIds.remove(spaceId)
             }
             try? await ref.delete()
@@ -91,14 +91,15 @@ class SpacesViewModel: ObservableObject {
             // Entitlement gate: verify server-side before writing to Firestore.
             // Free-tier users attempting to join a paid Space are shown a paywall
             // and the join is aborted without any Firestore write.
-            let hasEntitlement = (try? await AmenSpaceEntitlementService.shared
-                .checkEntitlement(spaceId: spaceId)) ?? false
+            let entitlement = await AmenSpaceEntitlementService()
+                .checkEntitlement(userId: Auth.auth().currentUser?.uid ?? "", spaceId: spaceId)
+            let hasEntitlement = entitlement?.isActive ?? false
             guard hasEntitlement else {
                 showPaywall = true
                 return
             }
 
-            SwiftUI.withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
+            _ = SwiftUI.withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 joinedSpaceIds.insert(spaceId)
             }
             try? await ref.setData([
@@ -133,7 +134,7 @@ class SpacesViewModel: ObservableObject {
         } catch {
             print("SpacesViewModel: failed to auto-join creator to space — \(error.localizedDescription)")
         }
-        await MainActor.run {
+        _ = await MainActor.run {
             joinedSpaceIds.insert(ref.documentID)
         }
         return ref.documentID
@@ -187,7 +188,7 @@ class SpaceFeedViewModel: ObservableObject {
     func startListening(spaceId: String) {
         guard listener == nil else { return }
         isLoading = true
-        var query: Query = db.collection("spacePosts")
+        let query: Query = db.collection("spacePosts")
             .whereField("spaceId", isEqualTo: spaceId)
             .order(by: "createdAt", descending: true)
             .limit(to: 50)

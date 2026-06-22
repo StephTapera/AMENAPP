@@ -128,7 +128,7 @@ final class FiniteMediaQueueService: ObservableObject {
 
         dlog("[FiniteMediaQueueService] Marking complete — postId: \(postId)")
         do {
-            try await functions
+            _ = try await functions
                 .httpsCallable("markQueueItemComplete")
                 .call(["postId": postId])
         } catch {

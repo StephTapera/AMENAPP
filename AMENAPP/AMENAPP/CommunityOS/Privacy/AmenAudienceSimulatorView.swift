@@ -84,7 +84,7 @@ struct AmenAudienceSimulatorView: View {
     private var headerRow: some View {
         HStack(spacing: 10) {
             Image(systemName: "eye.circle.fill")
-                .font(.systemScaled(18))
+                .font(.system(size: 18))
                 .foregroundStyle(Color.accentColor)
                 .accessibilityHidden(true)
 
@@ -124,7 +124,7 @@ private struct AudienceRow: View {
         HStack(spacing: 12) {
             // Viewer type icon
             Image(systemName: simulation.viewerType.systemImage)
-                .font(.systemScaled(16))
+                .font(.system(size: 16))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
                 .frame(width: 28, height: 28)
                 .accessibilityHidden(true)
@@ -162,7 +162,7 @@ private struct AudienceRow: View {
     private func capabilityChip(label: String, allowed: Bool) -> some View {
         HStack(spacing: 3) {
             Image(systemName: allowed ? "checkmark" : "xmark")
-                .font(.systemScaled(9, weight: .bold))
+                .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(allowed ? Color.accentColor : Color(uiColor: .tertiaryLabel))
             Text(label)
                 .font(.caption2)
@@ -207,7 +207,7 @@ private struct SimulatorLegend: View {
     private func legendItem(icon: String, label: String, tint: Color) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.systemScaled(10, weight: .bold))
+                .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(tint)
             Text(label)
                 .font(.caption2)

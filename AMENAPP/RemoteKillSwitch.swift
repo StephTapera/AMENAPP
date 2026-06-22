@@ -17,6 +17,7 @@ import Combine
 import FirebaseCore
 import FirebaseRemoteConfig
 import FirebaseFirestore
+import FirebaseAuth
 
 @MainActor
 class RemoteKillSwitch: ObservableObject {
@@ -38,9 +39,17 @@ class RemoteKillSwitch: ObservableObject {
 
     // H-33: Firestore listener for systemStatus/berean (SLO kill switch)
     private var bereanStatusListener: ListenerRegistration?
+    private var authStateHandle: AuthStateDidChangeListenerHandle?
 
     private init() {
         loadFlags()
+    }
+
+    deinit {
+        if let authStateHandle {
+            Auth.auth().removeStateDidChangeListener(authStateHandle)
+        }
+        bereanStatusListener?.remove()
     }
 
     func loadFlags() {
@@ -74,10 +83,25 @@ class RemoteKillSwitch: ObservableObject {
         // 2. H-33: Firestore real-time listener — reacts immediately to SLO breaches
         //    written by bereanSLOCheck Cloud Function. This runs independently of
         //    the Remote Config cycle and provides sub-second kill latency.
-        attachBereanStatusListener()
+        startAuthWatcherIfNeeded()
     }
 
     // MARK: - H-33 Firestore SLO listener
+
+    private func startAuthWatcherIfNeeded() {
+        guard authStateHandle == nil else { return }
+        authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if user == nil {
+                    self.bereanStatusListener?.remove()
+                    self.bereanStatusListener = nil
+                    return
+                }
+                self.attachBereanStatusListener()
+            }
+        }
+    }
 
     /// Attaches a snapshot listener to `systemStatus/berean`.
     /// When `status == "degraded"` the listener sets `bereanEnabled = false`.
@@ -91,6 +115,12 @@ class RemoteKillSwitch: ObservableObject {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     if let error {
+                        let nsError = error as NSError
+                        if nsError.code == FirestoreErrorCode.permissionDenied.rawValue {
+                            self.bereanStatusListener?.remove()
+                            self.bereanStatusListener = nil
+                            return
+                        }
                         print("[RemoteKillSwitch] systemStatus/berean listener error: \(error.localizedDescription)")
                         return
                     }

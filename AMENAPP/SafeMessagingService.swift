@@ -137,7 +137,7 @@ class SafeMessagingService: ObservableObject {
 
         case "blocked":
             // Message blocked
-            await MainActor.run {
+            _ = await MainActor.run {
                 pendingMessages.removeValue(forKey: localId)
             }
 
@@ -155,7 +155,7 @@ class SafeMessagingService: ObservableObject {
                 warningType: safetyResult.warningType
             )
 
-            await MainActor.run {
+            _ = await MainActor.run {
                 pendingMessages.removeValue(forKey: localId)
             }
 
@@ -168,7 +168,7 @@ class SafeMessagingService: ObservableObject {
                 message: message
             )
 
-            await MainActor.run {
+            _ = await MainActor.run {
                 pendingMessages.removeValue(forKey: localId)
             }
 

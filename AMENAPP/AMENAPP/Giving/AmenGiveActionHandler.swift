@@ -54,7 +54,7 @@ final class AmenGiveActionHandler: ObservableObject {
                 self.isPendingGive = true
 
                 // Schedule the deferred commit: open donation URL after window elapses.
-                cancellationTask = Task { [weak self] in
+                cancellationTask = Task {
                     do {
                         try await Task.sleep(for: .seconds(6.0))
                     } catch {
@@ -62,7 +62,7 @@ final class AmenGiveActionHandler: ObservableObject {
                         return
                     }
 
-                    guard !wasCancelled, let self else { return }
+                    guard !wasCancelled else { return }
 
                     await MainActor.run {
                         self.isPendingGive = false

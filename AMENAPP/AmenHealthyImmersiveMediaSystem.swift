@@ -418,7 +418,7 @@ final class AmenMediaPlayerViewModel: ObservableObject {
 
 enum AmenMediaAnalytics {
     static func record(_ eventName: String, postId: String? = nil, mediaId: String? = nil, sessionId: String? = nil, metadata: [String: Any] = [:]) async {
-        guard AMENFeatureFlags.shared.analyticsEnabled else { return }
+        guard await AMENFeatureFlags.shared.analyticsEnabled else { return }
         var payload: [String: Any] = ["eventName": eventName, "metadata": metadata]
         if let postId { payload["postId"] = postId }
         if let mediaId { payload["mediaId"] = mediaId }

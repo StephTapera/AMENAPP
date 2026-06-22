@@ -1,3 +1,4 @@
+#if canImport(Testing)
 // VerseResonanceTests.swift — AMEN Features/Bridges/VerseResonance
 // Swift Testing suite for VerseResonanceService gate logic.
 //
@@ -242,4 +243,6 @@ struct VerseResonanceTests {
                 "ResonantVerse.id must be a unique UUID per instance")
     }
 }
+#endif
+
 #endif

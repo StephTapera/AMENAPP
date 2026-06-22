@@ -202,7 +202,7 @@ final class ArkService {
             .document(userId)
 
         let doc = try await memberRef.getDocument()
-        guard var member = try? doc.data(as: ArkMember.self) else { return }
+        guard let member = try? doc.data(as: ArkMember.self) else { return }
 
         var breakdown = member.arkScoreBreakdown
         let delta = event.delta

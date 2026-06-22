@@ -7,8 +7,8 @@ final class CreatorProjectViewModel: ObservableObject {
 
     private let projectService: CreatorProjectServicing
 
-    init(projectService: CreatorProjectServicing = CreatorProjectService()) {
-        self.projectService = projectService
+    init(projectService: CreatorProjectServicing? = nil) {
+        self.projectService = projectService ?? CreatorProjectService()
     }
 
     func load(projectID: String) async {

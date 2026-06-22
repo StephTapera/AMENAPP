@@ -49,7 +49,7 @@ async function enforceLivingEntryRateLimit(userId: string, key: string, maxReque
 
 const livingEntryAISecrets = [openaiLivingEntriesApiKey, anthropicLivingEntriesApiKey];
 
-export const classifyLivingEntry = onCall({ secrets: livingEntryAISecrets }, async (request) => {
+export const classifyLivingEntry = onCall({ enforceAppCheck: true, secrets: livingEntryAISecrets }, async (request) => {
   const data = request.data as any;
   const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
@@ -58,7 +58,7 @@ export const classifyLivingEntry = onCall({ secrets: livingEntryAISecrets }, asy
   return classifyWithFallback(data ?? {}, openAIClassification, claudeClassification);
 });
 
-export const evaluateLivingEntryContext = onCall(async (request) => {
+export const evaluateLivingEntryContext = onCall({ enforceAppCheck: true }, async (request) => {
   const data = request.data as any;
   const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
@@ -67,7 +67,7 @@ export const evaluateLivingEntryContext = onCall(async (request) => {
   return evaluateContext(data ?? {});
 });
 
-export const calculateIntentGravity = onCall(async (request) => {
+export const calculateIntentGravity = onCall({ enforceAppCheck: true }, async (request) => {
   const data = request.data as any;
   const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
@@ -78,7 +78,7 @@ export const calculateIntentGravity = onCall(async (request) => {
   };
 });
 
-export const calculateRegretRisk = onCall(async (request) => {
+export const calculateRegretRisk = onCall({ enforceAppCheck: true }, async (request) => {
   const data = request.data as any;
   const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
@@ -95,7 +95,7 @@ export const calculateRegretRisk = onCall(async (request) => {
   };
 });
 
-export const completeLivingEntryWithReflection = onCall({ secrets: livingEntryAISecrets }, async (request) => {
+export const completeLivingEntryWithReflection = onCall({ enforceAppCheck: true, secrets: livingEntryAISecrets }, async (request) => {
   const data = request.data as any;
   const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
@@ -143,7 +143,7 @@ export const completeLivingEntryWithReflection = onCall({ secrets: livingEntryAI
   return { ok: true, reflectionId: reflectionRef.id };
 });
 
-export const evolveLivingEntries = onCall({ secrets: livingEntryAISecrets }, async (request) => {
+export const evolveLivingEntries = onCall({ enforceAppCheck: true, secrets: livingEntryAISecrets }, async (request) => {
     const _data = request.data as any;
     const data = _data;
     const context = { auth: request.auth, app: request.app };

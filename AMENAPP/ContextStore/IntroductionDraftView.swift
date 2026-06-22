@@ -46,14 +46,15 @@ final class IntroductionDraftViewModel: ObservableObject {
     @Published private(set) var eligibleFacetCount: Int = 0
 
     private let communityId: String
-    private let store: ContextStoreService
+    private var _store: ContextStoreService?
+    private var store: ContextStoreService { _store ?? ContextStoreService.shared }
     private let functions: Functions
 
     init(communityId: String,
-         store: ContextStoreService = .shared,
+         store: ContextStoreService? = nil,
          functions: Functions = Functions.functions()) {
         self.communityId = communityId
-        self.store = store
+        self._store = store
         self.functions = functions
     }
 

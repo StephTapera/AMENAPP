@@ -8,6 +8,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Message Requests Extension
 
@@ -18,7 +19,7 @@ extension FirebaseMessagingService {
     /// Check if two users follow each other
     /// UPDATED: Use /follows collection instead of subcollections
     func checkFollowStatus(userId1: String, userId2: String) async throws -> (user1FollowsUser2: Bool, user2FollowsUser1: Bool) {
-        lazy var db = Firestore.firestore()
+        let db = Firestore.firestore()
         
         // Check if user1 follows user2
         async let user1FollowsQuery = db.collection("follows")
@@ -455,10 +456,7 @@ extension FirebaseMessagingService {
             throw FirebaseMessagingError.notAuthenticated
         }
         
-        let reportRef = db.collection("reports").document()
-        
         let report: [String: Any] = [
-            "id": reportRef.documentID,
             "reporterId": currentUserId,
             "reportedUserId": userId,
             "reason": reason,
@@ -467,7 +465,9 @@ extension FirebaseMessagingService {
             "createdAt": Timestamp(date: Date())
         ]
         
-        try await reportRef.setData(report)
+        _ = try await Functions.functions()
+            .httpsCallable("submitTrustSafetyReport")
+            .call(report)
         
         // Auto-block if spam report (optional)
         if reason.lowercased().contains("spam") {
@@ -581,4 +581,3 @@ struct BlockedUserInfo: Identifiable, Codable {
     let avatarUrl: String?
     let blockedAt: Date
 }
-

@@ -116,10 +116,12 @@ final class SafetyOrchestrator: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             // Active spiritual engagement is a positive signal — lower urgency if scrolling distress
-            if self?.supportState == .gentleCheckIn {
-                self?.supportState = .awarenessActive
-            } else if self?.supportState == .awarenessActive {
-                self?.supportState = .normal
+            Task { @MainActor [weak self] in
+                if self?.supportState == .gentleCheckIn {
+                    self?.supportState = .awarenessActive
+                } else if self?.supportState == .awarenessActive {
+                    self?.supportState = .normal
+                }
             }
         }
         notificationTokens.append(token)

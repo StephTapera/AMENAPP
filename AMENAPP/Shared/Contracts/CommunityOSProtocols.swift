@@ -124,7 +124,7 @@ final class StubPermissionGate: PermissionGate {
         requestorIsTrustedMember: Bool,
         targetSurface: ContentSurface
     ) async -> ContentPermissionOutcome {
-        ContentPermissionEngine.evaluate(
+        await ContentPermissionEngine.evaluate(
             action: action,
             card: card,
             requestorIsCreator: requestorIsCreator,

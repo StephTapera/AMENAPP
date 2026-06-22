@@ -638,7 +638,7 @@ class PrayerWallViewModel: ObservableObject {
                 await MainActor.run {
                     // Post a notification that the crisis UI layer listens to
                     NotificationCenter.default.post(
-                        name: Notification.Name("showCrisisResources"),
+                        name: .showCrisisResources,
                         object: nil,
                         userInfo: ["resources": safetyResult.crisisResources ?? []]
                     )

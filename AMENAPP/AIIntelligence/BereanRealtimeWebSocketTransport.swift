@@ -45,6 +45,7 @@ final class BereanRealtimeWebSocketTransport: ObservableObject {
     private var retryCount = 0
     private let maxRetries = 4
     private let maxBufferedAudioBytes = 384_000
+    private let openAIRealtimeFallbackEndpoint = "wss://api.openai.com/v1/realtime"
 
     func connect(
         clientSecret: BereanRealtimeClientSecret,
@@ -140,6 +141,7 @@ final class BereanRealtimeWebSocketTransport: ObservableObject {
 
         var request = URLRequest(url: url)
         request.setValue("Bearer \(clientSecret.value)", forHTTPHeaderField: "Authorization")
+        request.setValue("realtime=v1", forHTTPHeaderField: "OpenAI-Beta")
 
         let webSocketTask = URLSession.shared.webSocketTask(with: request)
         task = webSocketTask

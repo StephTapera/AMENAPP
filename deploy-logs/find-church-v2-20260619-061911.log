@@ -1,0 +1,32 @@
+
+=== Deploying to 'amen-5e359'...
+
+i  deploying functions
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build:context
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build:sanctuary
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build:moment
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build:church
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+Running command: cd "$RESOURCE_DIR/berean" && npx tsc
+✔  functions: Finished running predeploy script.
+✔  functions: Finished running predeploy script.
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+✔  functions: Finished running predeploy script.
+i  functions: preparing codebase default for deployment
+i  functions: ensuring required API cloudfunctions.googleapis.com is enabled...
+i  functions: ensuring required API cloudbuild.googleapis.com is enabled...
+i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled...
+i  functions: Loading and analyzing source code for codebase default to determine what to deploy
+Serving at port 8445
+
+The VertexAI class and all its dependencies are deprecated as of June 24, 2025 and will be removed on June 24, 2026. Please use the Google Gen AI SDK (https://www.npmjs.com/package/@google/genai) to access Gemini features. For details, see https://cloud.google.com/vertex-ai/generative-ai/docs/deprecations/genai-vertexai-sdk.
+
+i  extensions: ensuring required API firebaseextensions.googleapis.com is enabled...
+i  functions: Loaded environment variables from .env, .env.amen-5e359.
+
+Error: In non-interactive mode but have no value for the following environment variables: deepen_actions_enabled, moment_system_enabled, gather_live_enabled, gather_compliance_gate_cleared
+To continue, either run `firebase deploy` with an interactive terminal, or add values to a dotenv file. For information regarding how to use dotenv files, see https://firebase.google.com/docs/functions/config-env

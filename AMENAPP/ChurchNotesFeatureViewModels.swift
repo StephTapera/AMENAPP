@@ -572,12 +572,13 @@ final class GrowthArcViewModel: ObservableObject {
         let target = vocabularyScore
         let step = max(1, target / 40)
         scoreTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] timer in
+            guard self != nil else { timer.invalidate(); return }
             Task { @MainActor [weak self] in
-                guard let self else { timer.invalidate(); return }
+                guard let self else { return }
                 if self.animatedScore < target {
                     self.animatedScore = min(self.animatedScore + step, target)
                 } else {
-                    timer.invalidate()
+                    self.scoreTimer?.invalidate()
                 }
             }
         }

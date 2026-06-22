@@ -157,9 +157,7 @@ interface GetSignedUrlOutput {
  *   embed uid/email into PDF or video assets so leaked URLs can be traced.
  *   Until implemented, access is still logged and urls are time-limited.
  */
-export const getSignedUrl = onCall(
-  { region: REGION, secrets: [] },
-  async (req): Promise<GetSignedUrlOutput> => {
+export const getSignedUrl = onCall({ enforceAppCheck: true, region: REGION, secrets: [] }, async (req): Promise<GetSignedUrlOutput> => {
     if (!req.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in.");
     }

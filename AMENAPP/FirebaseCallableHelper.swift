@@ -21,7 +21,9 @@
 //  the next suspension point after the Firebase call completes.
 //
 
-import FirebaseFunctions
+@preconcurrency import FirebaseFunctions
+
+extension HTTPSCallableResult: @retroactive @unchecked Sendable {}
 
 extension HTTPSCallable {
     /// Call this Firebase Cloud Function safely, isolating it from Swift
@@ -31,6 +33,7 @@ extension HTTPSCallable {
     /// which appeared to guard against cancellation but actually did nothing — the empty
     /// `onCancel` fired as a notification only, and cancellation continued propagating
     /// into Firebase's internal async-let, causing a fatal Swift Concurrency abort.
+    @MainActor
     @preconcurrency func safeCall(_ data: Any? = nil) async throws -> HTTPSCallableResult {
         // Task.init creates an UNSTRUCTURED task:
         //   - Inherits current actor (stays on MainActor if called from @MainActor)

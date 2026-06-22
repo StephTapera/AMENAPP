@@ -19,7 +19,7 @@ struct ThinkFirstGuard: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onChange(of: decision?.action) { newAction in
+            .onChange(of: decision?.action) { _, newAction in
                 if newAction == .promptBeforePost {
                     showSheet = true
                 }

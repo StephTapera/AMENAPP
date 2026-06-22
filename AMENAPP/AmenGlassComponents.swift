@@ -300,7 +300,7 @@ struct BereanMicButton: View {
             .buttonStyle(GlassPressStyle())
             .scaleEffect(coreScale)
         }
-        .onChange(of: isRecording) { recording in
+        .onChange(of: isRecording) { _, recording in
             if recording {
                 startPulse()
             } else {

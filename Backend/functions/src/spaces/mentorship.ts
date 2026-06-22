@@ -30,9 +30,7 @@ interface MentorMatchResult {
     availabilityNote: string;
 }
 
-export const findMentorMatches = onCall(
-    { region: "us-central1" },
-    async (request): Promise<MentorMatchResult[]> => {
+export const findMentorMatches = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<MentorMatchResult[]> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -73,9 +71,7 @@ export const findMentorMatches = onCall(
     }
 );
 
-export const requestMentorship = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ success: boolean }> => {
+export const requestMentorship = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ success: boolean }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 

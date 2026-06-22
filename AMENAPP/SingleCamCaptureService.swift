@@ -22,7 +22,7 @@ enum SingleCamCaptureError: LocalizedError {
     }
 }
 
-final class SingleCamCaptureService: NSObject {
+final class SingleCamCaptureService: NSObject, @unchecked Sendable {
     let session = AVCaptureSession()
     let sessionQueue = DispatchQueue(label: "amen.witness.singlecam.session", qos: .userInitiated)
 
@@ -98,8 +98,8 @@ final class SingleCamCaptureService: NSObject {
                 self.recordingURL = outputURL
 
                 if let connection = self.movieOutput.connection(with: .video),
-                   connection.isVideoOrientationSupported {
-                    connection.videoOrientation = .portrait
+                   connection.isVideoRotationAngleSupported(90) {
+                    connection.videoRotationAngle = 90
                 }
 
                 self.movieOutput.startRecording(to: outputURL, recordingDelegate: self)
@@ -172,7 +172,9 @@ final class SingleCamCaptureService: NSObject {
             throw SingleCamCaptureError.cameraUnavailable
         }
         session.addOutput(photoOutput)
-        photoOutput.isHighResolutionCaptureEnabled = true
+        if let maxDimensions = device.activeFormat.supportedMaxPhotoDimensions.last {
+            photoOutput.maxPhotoDimensions = maxDimensions
+        }
 
         if session.canAddOutput(movieOutput) {
             session.addOutput(movieOutput)

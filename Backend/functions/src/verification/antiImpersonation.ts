@@ -422,9 +422,7 @@ export async function handleImpersonationReport(
  *   targetId: string — the legitimate profile being impersonated
  *   evidence: { description: string; screenshotUrls?: string[]; links?: string[] }
  */
-export const reportImpersonationClaim = onCall(
-    { region: "us-east1" },
-    async (request) => {
+export const reportImpersonationClaim = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
         const reporterId = requireAuth(request);
 
         const { suspectedProfileId, targetId, evidence } = request.data as {
@@ -458,9 +456,7 @@ export const reportImpersonationClaim = onCall(
  *   action: 'remove_badge' | 'suspend' | 'dismiss'
  *   adminNote?: string
  */
-export const handleImpersonationReportClaim = onCall(
-    { region: "us-east1" },
-    async (request) => {
+export const handleImpersonationReportClaim = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
         const adminId = requireAdmin(request);
 
         const { reportId, action, adminNote } = request.data as {
@@ -490,9 +486,7 @@ export const handleImpersonationReportClaim = onCall(
  *
  * Input: { profileId: string; targetId: string }
  */
-export const detectImpersonationCheck = onCall(
-    { region: "us-east1" },
-    async (request) => {
+export const detectImpersonationCheck = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
         requireAdmin(request);
 
         const { profileId, targetId } = request.data as {

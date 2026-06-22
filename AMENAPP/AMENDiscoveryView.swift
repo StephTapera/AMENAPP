@@ -35,6 +35,14 @@ enum DiscoverMode: String, CaseIterable {
     }
 }
 
+private struct AmenDiscoveryScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct AMENDiscoveryView: View {
 
     @StateObject private var service = DiscoveryService.shared
@@ -56,6 +64,13 @@ struct AMENDiscoveryView: View {
     @AppStorage("hasSeenAISearchHint") private var hasSeenAISearchHint = false
     @State private var showAISearchHint = false
     @State private var isSearchDimmed = false
+    @State private var rotatingPlaceholderIndex = 0
+    @State private var discoverToast: String?
+    @State private var discoverToastTask: Task<Void, Never>?
+    @Namespace private var searchMorphNamespace
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     // Search bar visibility — separate from focus so the TextField enters the
     // hierarchy before @FocusState is applied (avoids focus-on-transition failure)
@@ -98,65 +113,9 @@ struct AMENDiscoveryView: View {
                 VStack(spacing: 0) {
                     // Header: pill UI on landing, real search bar while searching/on subpages
                     if case .landing = service.searchState, !searchBarVisible, !isSearchFocused, searchText.isEmpty {
-                        // Premium header: eyebrow + search pill + Ask Berean + topic pills
-                        VStack(spacing: 0) {
-                            HStack {
-                                Text("AMEN DISCOVER")
-                                    .font(.systemScaled(12, weight: .semibold))
-                                    .foregroundStyle(.secondary)
-                                    .tracking(1.4)
-                                Spacer()
-                                Button {
-                                    HapticManager.impact(style: .light)
-                                    showBereanPulse = true
-                                } label: {
-                                    Image(systemName: "waveform.path.ecg")
-                                        .font(.systemScaled(18, weight: .medium))
-                                        .foregroundStyle(Color.accentColor)
-                                }
-                                .accessibilityLabel("Berean Pulse")
-                                .accessibilityHint("Open spiritual intelligence dashboard")
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 10)
-                            .padding(.bottom, 4)
-
-                            AmenDiscoverPillsRow(
-                                searchPlaceholder: searchPlaceholder,
-                                onSearchTap: {
-                                    HapticManager.impact(style: .light)
-                                    // Step 1: show the real search bar (TextField enters hierarchy)
-                                    searchBarVisible = true
-                                    // Step 2: apply focus on the next run-loop tick once TextField exists
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                        isSearchFocused = true
-                                    }
-                                },
-                                onAskBereanTap: {
-                                    HapticManager.impact(style: .light)
-                                    showBereanAI = true
-                                },
-                                topics: DiscoverMode.allCases.map { mode in
-                                    AmenDiscoverPillItem(
-                                        title: mode.rawValue,
-                                        systemImage: mode.icon,
-                                        isActive: selectedMode == mode,
-                                        action: {
-                                            HapticManager.impact(style: .light)
-                                            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
-                                                selectedMode = mode
-                                            }
-                                            if mode == .media { showMediaViewer = true }
-                                        }
-                                    )
-                                }
-                            )
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                        }
-                        .background(.ultraThinMaterial)
-                        .zIndex(10)
-                        .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+                        discoverLandingHeader
+                            .zIndex(10)
+                            .transition(.opacity.animation(.easeInOut(duration: 0.2)))
                     } else {
                         // Real search bar — active while typing or on results/topic subpages
                         searchBarSection
@@ -240,6 +199,10 @@ struct AMENDiscoveryView: View {
                     onDismiss: { showMediaViewer = false },
                     onAskBerean: { showMediaViewer = false; showBereanAI = true }
                 )
+            }
+            .overlay(alignment: .top) {
+                discoverGlassToast
+                    .padding(.top, 8)
             }
             .onChange(of: isSearchFocused) { _, focused in
                 withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
@@ -333,6 +296,7 @@ struct AMENDiscoveryView: View {
                 style: .discover,
                 isFocused: $isSearchFocused,
                 onSubmit: {
+                    showDiscoverToast("Searching AMEN")
                     Task { await service.submitSearch(searchText) }
                     searchVM.scheduleSearch(query: searchText)
                 },
@@ -343,6 +307,7 @@ struct AMENDiscoveryView: View {
                     isSearchFocused = false
                 }
             )
+            .matchedGeometryEffect(id: "discover_search_capsule", in: searchMorphNamespace)
             // Lower layout priority so the Ask Berean button is never clipped at the trailing edge
             .layoutPriority(0)
             .onChange(of: searchText) { _, newValue in
@@ -429,7 +394,154 @@ struct AMENDiscoveryView: View {
     }
 
     private var searchPlaceholder: String {
-        "Verses, people, news, videos, studies..."
+        searchPlaceholderOptions[rotatingPlaceholderIndex % searchPlaceholderOptions.count]
+    }
+
+    private var searchPlaceholderOptions: [String] {
+        [
+            "Verses, people, news, videos...",
+            "Churches, groups, events...",
+            "Sermons, studies, podcasts...",
+            "People, prayers, resources..."
+        ]
+    }
+
+    private var headerProgress: CGFloat {
+        min(max(-scrollOffset / 140, 0), 1)
+    }
+
+    private var discoverLandingHeader: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(headerProgress > 0.62 ? "Discover" : "AMEN DISCOVER")
+                    .font(.systemScaled(headerProgress > 0.62 ? 17 : 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .tracking(headerProgress > 0.62 ? 0 : 1.4)
+                    .animation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.86)), value: headerProgress > 0.62)
+
+                Spacer()
+
+                Button {
+                    HapticManager.impact(style: .light)
+                    showBereanPulse = true
+                } label: {
+                    Image(systemName: "waveform.path.ecg")
+                        .font(.systemScaled(18, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+                        .symbolEffect(.pulse, options: .speed(0.55), value: Int(headerProgress * 10))
+                }
+                .accessibilityLabel("Berean Pulse")
+                .accessibilityHint("Open spiritual intelligence dashboard")
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 10 - (headerProgress * 3))
+            .padding(.bottom, 4 - (headerProgress * 2))
+
+            AmenDiscoverPillsRow(
+                searchPlaceholder: searchPlaceholder,
+                compactProgress: headerProgress,
+                searchMorphNamespace: searchMorphNamespace,
+                onSearchTap: {
+                    HapticManager.impact(style: .light)
+                    showDiscoverToast("Search AMEN")
+                    searchBarVisible = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        isSearchFocused = true
+                    }
+                },
+                onAskBereanTap: {
+                    HapticManager.impact(style: .light)
+                    showDiscoverToast("Opening Berean")
+                    showBereanAI = true
+                },
+                topics: DiscoverMode.allCases.map { mode in
+                    AmenDiscoverPillItem(
+                        title: mode.rawValue,
+                        systemImage: mode.icon,
+                        isActive: selectedMode == mode,
+                        action: {
+                            HapticManager.impact(style: .light)
+                            withAnimation(Motion.adaptive(.spring(response: 0.38, dampingFraction: 0.72))) {
+                                selectedMode = mode
+                            }
+                            if mode == .media { showMediaViewer = true }
+                        }
+                    )
+                }
+            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12 - (headerProgress * 5))
+        }
+        .background {
+            ZStack(alignment: .bottom) {
+                if !reduceTransparency {
+                    Rectangle().fill(.ultraThinMaterial)
+                }
+
+                Rectangle()
+                    .fill(Color(.systemBackground).opacity(reduceTransparency ? 1 : 0.70 + (0.18 * headerProgress)))
+
+                Rectangle()
+                    .fill(Color.primary.opacity(0.05 + (0.08 * headerProgress)))
+                    .frame(height: 0.5)
+            }
+        }
+        .shadow(color: .black.opacity(0.04 * headerProgress), radius: 14, x: 0, y: 8)
+        .animation(Motion.adaptive(.spring(response: 0.34, dampingFraction: 0.86)), value: headerProgress)
+        .task {
+            guard !reduceMotion else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 4_000_000_000)
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    rotatingPlaceholderIndex = (rotatingPlaceholderIndex + 1) % searchPlaceholderOptions.count
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var discoverGlassToast: some View {
+        if let discoverToast {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.systemScaled(12, weight: .semibold))
+                Text(discoverToast)
+                    .font(.systemScaled(13, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background {
+                Capsule(style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .fill(Color(.systemBackground).opacity(reduceTransparency ? 0.96 : 0.62))
+                    }
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.48), lineWidth: 0.6)
+                    }
+            }
+            .shadow(color: .black.opacity(0.12), radius: 18, x: 0, y: 8)
+            .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.96)))
+            .zIndex(30)
+        }
+    }
+
+    private func showDiscoverToast(_ message: String) {
+        discoverToastTask?.cancel()
+        withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.82))) {
+            discoverToast = message
+        }
+        discoverToastTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_450_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.22)) {
+                discoverToast = nil
+            }
+        }
     }
 
     // MARK: - Content Area
@@ -505,6 +617,12 @@ struct AMENDiscoveryView: View {
 
     private var landingView: some View {
         ScrollView {
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(key: AmenDiscoveryScrollOffsetKey.self, value: proxy.frame(in: .named("amen_discovery_landing_scroll")).minY)
+            }
+            .frame(height: 0)
+
             LazyVStack(alignment: .leading, spacing: 28) {
                 // ── Discovery rails (Netflix/Apple TV horizontal rails) ──
                 AmenDiscoveryRailsView(
@@ -681,6 +799,11 @@ struct AMENDiscoveryView: View {
                 Spacer().frame(height: 100)
             }
             .padding(.top, 8)
+        }
+        .coordinateSpace(name: "amen_discovery_landing_scroll")
+        .amenTabBarScrollTracking(coordinateSpaceName: "amen_discovery_landing_scroll")
+        .onPreferenceChange(AmenDiscoveryScrollOffsetKey.self) { value in
+            scrollOffset = value
         }
         .scrollDismissesKeyboard(.interactively)
         .refreshable {
@@ -1412,6 +1535,9 @@ private struct DiscoverHeroStack: View {
     @Binding var currentIndex: Int
     let onAskBerean: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var animateBereanCard = false
+
     var body: some View {
         TabView(selection: $currentIndex) {
             heroAskBereanCard
@@ -1432,17 +1558,42 @@ private struct DiscoverHeroStack: View {
         .frame(height: 240)
         .tabViewStyle(.page(indexDisplayMode: .automatic))
         .padding(.horizontal, 16)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 24).repeatForever(autoreverses: true)) {
+                animateBereanCard = true
+            }
+        }
     }
 
     private var heroAskBereanCard: some View {
         Button(action: onAskBerean) {
             ZStack {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(LinearGradient(
-                        colors: [Color.black.opacity(0.9), Color.black.opacity(0.7)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ))
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.black.opacity(0.92),
+                                Color(white: animateBereanCard && !reduceMotion ? 0.24 : 0.17),
+                                Color.black.opacity(0.74)
+                            ],
+                            startPoint: animateBereanCard && !reduceMotion ? .topTrailing : .topLeading,
+                            endPoint: animateBereanCard && !reduceMotion ? .bottomLeading : .bottomTrailing
+                        )
+                    )
+
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.24), Color.white.opacity(0.06), Color.clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .blendMode(.screen)
+                    .opacity(0.42)
+                    .offset(x: animateBereanCard && !reduceMotion ? 34 : -22, y: animateBereanCard && !reduceMotion ? -8 : 12)
+
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Ask Berean AI")
                         .font(AMENFont.semiBold(20))
@@ -1454,6 +1605,8 @@ private struct DiscoverHeroStack: View {
                     HStack {
                         Image(systemName: "sparkles")
                             .font(.systemScaled(14, weight: .semibold))
+                            .offset(x: animateBereanCard && !reduceMotion ? 1 : 0, y: animateBereanCard && !reduceMotion ? -1 : 0)
+                            .symbolEffect(.pulse, options: .speed(0.35), value: animateBereanCard)
                         Text("Start a conversation")
                             .font(AMENFont.semiBold(14))
                     }
@@ -1461,6 +1614,19 @@ private struct DiscoverHeroStack: View {
                 }
                 .padding(18)
             }
+            .overlay(alignment: .bottomTrailing) {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 54, height: 54)
+                    .overlay {
+                        Image(systemName: "plus")
+                            .font(.systemScaled(24, weight: .semibold))
+                            .foregroundStyle(.black)
+                    }
+                    .shadow(color: .black.opacity(0.16), radius: 16, x: 0, y: 8)
+                    .offset(x: animateBereanCard && !reduceMotion ? -16 : -18, y: animateBereanCard && !reduceMotion ? -16 : -14)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -1884,32 +2050,90 @@ struct DiscoveryTopicGridCard: View {
 // MARK: - Skeleton Views
 
 struct DiscoveryTrendSkeletonCard: View {
-    @State private var opacity: Double = 0.4
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shimmerOffset: CGFloat = -180
+
     var body: some View {
-        RoundedRectangle(cornerRadius: 14)
-            .fill(Color.primary.opacity(0.06))
-            .frame(height: 80)
-            .opacity(opacity)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
-                    opacity = 0.9
-                }
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.primary.opacity(0.045))
             }
+            .overlay {
+                shimmer(cornerRadius: 14)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.32), lineWidth: 0.6)
+            }
+            .frame(height: 80)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .onAppear(perform: startShimmer)
+    }
+
+    private func shimmer(cornerRadius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [Color.clear, Color.white.opacity(0.34), Color.clear],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 120)
+            .offset(x: reduceMotion ? 0 : shimmerOffset)
+            .blendMode(.screen)
+    }
+
+    private func startShimmer() {
+        guard !reduceMotion else { return }
+        shimmerOffset = -180
+        withAnimation(.linear(duration: 1.35).repeatForever(autoreverses: false)) {
+            shimmerOffset = 360
+        }
     }
 }
 
 struct FollowSuggestionSkeletonCard: View {
-    @State private var opacity: Double = 0.4
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shimmerOffset: CGFloat = -160
+
     var body: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(Color.primary.opacity(0.06))
-            .frame(width: 140, height: 180)
-            .opacity(opacity)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
-                    opacity = 0.9
-                }
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.primary.opacity(0.045))
             }
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.clear, Color.white.opacity(0.34), Color.clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 100)
+                    .offset(x: reduceMotion ? 0 : shimmerOffset)
+                    .blendMode(.screen)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.32), lineWidth: 0.6)
+            }
+            .frame(width: 140, height: 180)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .onAppear(perform: startShimmer)
+    }
+
+    private func startShimmer() {
+        guard !reduceMotion else { return }
+        shimmerOffset = -160
+        withAnimation(.linear(duration: 1.35).repeatForever(autoreverses: false)) {
+            shimmerOffset = 300
+        }
     }
 }
 

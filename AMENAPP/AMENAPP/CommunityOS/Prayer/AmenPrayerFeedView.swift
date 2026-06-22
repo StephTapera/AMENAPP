@@ -346,13 +346,18 @@ struct AmenPrayerCard: View {
                 Task { await prayForThis() }
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: hasPrayed ? "hands.sparkles.fill" : "hands.sparkles")
-                        .font(.systemScaled(14))
-                        .symbolEffect(
-                            .bounce,
-                            options: .nonRepeating,
-                            isActive: hasPrayed && !reduceMotion
-                        )
+                    if #available(iOS 18.0, *) {
+                        Image(systemName: hasPrayed ? "hands.sparkles.fill" : "hands.sparkles")
+                            .font(.systemScaled(14))
+                            .symbolEffect(
+                                .bounce,
+                                options: .nonRepeating,
+                                isActive: hasPrayed && !reduceMotion
+                            )
+                    } else {
+                        Image(systemName: hasPrayed ? "hands.sparkles.fill" : "hands.sparkles")
+                            .font(.systemScaled(14))
+                    }
                     Text(hasPrayed ? "Praying" : "Pray with them")
                         .font(.footnote)
                         .fontWeight(.semibold)

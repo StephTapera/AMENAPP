@@ -62,8 +62,10 @@ enum AmenImmersiveMediaAnalyticsEvent: String {
 
 enum AmenImmersiveMediaAnalytics {
     static func track(_ event: AmenImmersiveMediaAnalyticsEvent, params: [String: Any] = [:]) {
-        guard AMENFeatureFlags.shared.analyticsEnabled else { return }
-        dlog("[ImmersiveAnalytics] \(event.rawValue)\(params.isEmpty ? "" : " \(params)")")
+        Task { @MainActor in
+            guard AMENFeatureFlags.shared.analyticsEnabled else { return }
+            dlog("[ImmersiveAnalytics] \(event.rawValue)\(params.isEmpty ? "" : " \(params)")")
+        }
     }
 }
 

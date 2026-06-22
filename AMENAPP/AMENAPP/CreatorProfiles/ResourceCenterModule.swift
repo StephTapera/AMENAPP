@@ -38,7 +38,7 @@ struct ResourceCenterModule: View {
                 emptyState
             } else {
                 ForEach(resources) { resource in
-                    ResourceCard(resource: resource, onOpen: onOpenResource)
+                    CreatorHubResourceCard(resource: resource, onOpen: onOpenResource)
                 }
                 footer
             }

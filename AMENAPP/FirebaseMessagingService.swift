@@ -140,7 +140,9 @@ public class FirebaseMessagingService: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.processRetryQueue()
+            Task { @MainActor [weak self] in
+                self?.processRetryQueue()
+            }
         }
     }
 
@@ -263,7 +265,9 @@ public class FirebaseMessagingService: ObservableObject {
 
     private func startRetryTimer() {
         retryTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
-            self?.processRetryQueue()
+            Task { @MainActor [weak self] in
+                self?.processRetryQueue()
+            }
         }
     }
 
@@ -1175,7 +1179,7 @@ public class FirebaseMessagingService: ObservableObject {
                     guard let firebaseMessage = try? doc.data(as: FirebaseMessage.self) else {
                         return nil
                     }
-                    var msg = firebaseMessage.toMessage(currentUserId: self.currentUserId)
+                    let msg = firebaseMessage.toMessage(currentUserId: self.currentUserId)
                     // Feature 1: Decode amenReactions (dynamic string-keyed dict, not Codable-friendly)
                     if let amenRaw = doc.data()["amenReactions"] as? [String: [String]] {
                         msg.amenReactions = amenRaw
@@ -1248,7 +1252,7 @@ public class FirebaseMessagingService: ObservableObject {
                 guard let firebaseMessage = try? doc.data(as: FirebaseMessage.self) else {
                     return nil
                 }
-                var msg = firebaseMessage.toMessage(currentUserId: self.currentUserId)
+                let msg = firebaseMessage.toMessage(currentUserId: self.currentUserId)
                 if let amenRaw = doc.data()["amenReactions"] as? [String: [String]] {
                     msg.amenReactions = amenRaw
                 }
@@ -1396,14 +1400,17 @@ public class FirebaseMessagingService: ObservableObject {
             }
 
             // ── TEXT SAFETY GATEWAY ────────────────────────────────────────────
-            // For 1:1 DMs: evaluate before Firestore write.
-            // For group chats: skip per-recipient gateway — the pattern-of-behavior
-            // engine models 1:1 exploitation and doesn't apply to groups. Content
-            // safety is handled by ThinkFirstGuardrailsService in UnifiedChatView
-            // and by post-delivery moderation queue scanning.
+            // NG-1 (2026-06-19): runs for BOTH 1:1 and group chats before the Firestore
+            // write. 1:1 DMs use the full relationship/pattern engine. Group chats run the
+            // same CONTENT classifier so harmful message content is blocked/held before
+            // delivery to other members — the 1:1 pattern-of-behavior signals simply don't
+            // escalate for groups (no single recipient / empty context). This closes the
+            // previous group skip where unmoderated content reached members pre-review.
             // ──────────────────────────────────────────────────────────────────
-            if !conversation.isGroup {
-                let recipientId = conversation.participantIds.first(where: { $0 != currentUserId }) ?? ""
+            do {
+                let recipientId = conversation.isGroup
+                    ? ""
+                    : (conversation.participantIds.first(where: { $0 != currentUserId }) ?? "")
                 let safetyDecision = await MessageSafetyGateway.shared.evaluate(
                     text: text,
                     senderId: currentUserId,
@@ -1430,7 +1437,7 @@ public class FirebaseMessagingService: ObservableObject {
                 case .freezeAccount(_, _, let reason):
                     throw FirebaseMessagingError.invalidInput(reason)
                 case .holdForReview:
-                    // Message written to held_messages subcollection; not delivered to recipient.
+                    // Message written to held_messages subcollection; not delivered.
                     let heldRef = db.collection("conversations")
                         .document(conversationId)
                         .collection("held_messages")
@@ -1440,7 +1447,8 @@ public class FirebaseMessagingService: ObservableObject {
                         "senderId": currentUserId,
                         "timestamp": Timestamp(date: Date()),
                         "reason": "safety_hold",
-                        "messageId": messageId
+                        "messageId": messageId,
+                        "isGroup": conversation.isGroup
                     ])
                     dlog("⚠️ [Safety] Message held for review: \(messageId)")
                     return
@@ -1885,7 +1893,7 @@ public class FirebaseMessagingService: ObservableObject {
             .collection("messages")
             .document(messageId)
 
-        var optionsData: [[String: Any]] = poll.options.map { opt in
+        let optionsData: [[String: Any]] = poll.options.map { opt in
             ["id": opt.id, "text": opt.text, "votes": opt.votes]
         }
 
@@ -1949,7 +1957,7 @@ public class FirebaseMessagingService: ObservableObject {
         // Firestore's internal queue and must not access @MainActor-isolated state.
         let userId = currentUserId
 
-        try await db.runTransaction { transaction, errorPointer in
+        _ = try await db.runTransaction { transaction, errorPointer in
             let doc: DocumentSnapshot
             do {
                 doc = try transaction.getDocument(messageRef)

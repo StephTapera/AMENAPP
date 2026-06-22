@@ -7,8 +7,8 @@ final class CreatorBrandKitViewModel: ObservableObject {
 
     private let brandKitService: CreatorBrandKitServicing
 
-    @MainActor init(brandKitService: CreatorBrandKitServicing = CreatorBrandKitService()) {
-        self.brandKitService = brandKitService
+    init(brandKitService: CreatorBrandKitServicing? = nil) {
+        self.brandKitService = brandKitService ?? CreatorBrandKitService()
     }
 
     func load(ownerID: String) async {

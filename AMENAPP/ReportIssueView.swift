@@ -223,10 +223,16 @@ struct ReportIssueView: View {
                     )
                     .frame(width: 140, height: 140)
                 
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.systemScaled(70))
-                    .foregroundStyle(Color.green)
-                    .symbolEffect(.bounce)
+                if #available(iOS 18.0, *) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.systemScaled(70))
+                        .foregroundStyle(Color.green)
+                        .symbolEffect(.bounce)
+                } else {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.systemScaled(70))
+                        .foregroundStyle(Color.green)
+                }
             }
             
             VStack(spacing: 12) {

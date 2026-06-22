@@ -72,7 +72,7 @@ actor AmenIntegrationEventService {
     func sendFollowUp(eventId: String) async throws {
         guard isEnabled else { return }
         let payload: [String: Any] = ["eventId": eventId]
-        try await functions.httpsCallable("sendEventFollowUpNotification").call(payload)
+        _ = try await functions.httpsCallable("sendEventFollowUpNotification").call(payload)
     }
 
     // MARK: - Attendees

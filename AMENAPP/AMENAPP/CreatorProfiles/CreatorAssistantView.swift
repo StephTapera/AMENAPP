@@ -29,7 +29,7 @@ struct CreatorAssistantView: View {
     @State private var queryText: String = ""
     @State private var state: AssistantState = .idle
 
-    private enum AssistantState: Equatable {
+    private enum AssistantState {
         case idle
         case loading
         case grounded(answer: String, citations: [CreatorHubCitation])
@@ -39,6 +39,11 @@ struct CreatorAssistantView: View {
 
     private var trimmed: String {
         queryText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isLoading: Bool {
+        if case .loading = state { return true }
+        return false
     }
 
     var body: some View {
@@ -247,7 +252,7 @@ struct CreatorAssistantView: View {
                                      : AmenTheme.Colors.textPrimary)
             }
             .buttonStyle(.plain)
-            .disabled(trimmed.isEmpty || state == .loading)
+            .disabled(trimmed.isEmpty || isLoading)
             .accessibilityLabel("Ask")
             .padding(.trailing, 8)
         }

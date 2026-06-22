@@ -43,51 +43,40 @@ final class SpotlightPrayerDonationTests: XCTestCase {
         )
     }
 
-    // Test that a prayer Post is filtered out by indexPosts (returns early on empty).
+    // Test that a prayer category is filtered out by the index guard.
     func testIndexPostsFiltersOutPrayerCategory() {
-        // Build a minimal prayer Post.
-        var prayer = Post()
-        prayer.category = .prayer
-        prayer.authorName = "Alice"
-        prayer.content = "Lord, please heal my mother."
+        // The Spotlight index guard keys purely off the post category, so we
+        // exercise the filter logic directly against the category enum.
+        let categories: [Post.PostCategory] = [.prayer, .testimonies]
 
-        // Build a non-prayer post.
-        var testimony = Post()
-        testimony.category = .testimonies
-        testimony.authorName = "Bob"
-        testimony.content = "God provided for me this week!"
-
-        // After filtering, only the testimony should remain.
-        let filtered = [prayer, testimony].filter { $0.category != .prayer }
+        // After filtering, only the testimony category should remain.
+        let filtered = categories.filter { $0 != .prayer }
         XCTAssertEqual(filtered.count, 1)
-        XCTAssertEqual(filtered.first?.category, .testimonies)
+        XCTAssertEqual(filtered.first, .testimonies)
     }
 
     // Test that a lone prayer post list produces an empty array after filtering.
     func testIndexPostsWithOnlyPrayersProducesEmptyList() {
-        var p1 = Post(); p1.category = .prayer
-        var p2 = Post(); p2.category = .prayer
+        let categories: [Post.PostCategory] = [.prayer, .prayer]
 
-        let eligible = [p1, p2].filter { $0.category != .prayer }
+        let eligible = categories.filter { $0 != .prayer }
         XCTAssertTrue(eligible.isEmpty, "Prayer-only batch must yield no eligible items")
     }
 
     // Test that indexSavedPost guard condition holds for prayer category.
     func testSavedPrayerPostIsBlockedByGuard() {
-        var prayer = Post()
-        prayer.category = .prayer
+        let category: Post.PostCategory = .prayer
 
         // Guard condition mirrors what's in indexSavedPost.
-        let shouldIndex = prayer.category != .prayer
+        let shouldIndex = category != .prayer
         XCTAssertFalse(shouldIndex, "Prayer saved posts must not reach Spotlight index")
     }
 
     // Test that non-prayer posts pass the guard.
     func testNonPrayerPostPassesGuard() {
-        var post = Post()
-        post.category = .openTable
+        let category: Post.PostCategory = .openTable
 
-        let shouldIndex = post.category != .prayer
+        let shouldIndex = category != .prayer
         XCTAssertTrue(shouldIndex, "Non-prayer posts must be allowed through the guard")
     }
 }

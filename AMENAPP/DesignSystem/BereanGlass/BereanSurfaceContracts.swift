@@ -183,14 +183,6 @@ enum BereanSpeaker {
     case berean
 }
 
-/// A single prayer journal entry.
-struct BereanPrayerEntry: Identifiable {
-    let id: UUID
-    var text: String
-    var isAnswered: Bool
-    var dateCreated: Date
-}
-
 // MARK: - C-9: Screen ViewModel Protocols
 
 @MainActor

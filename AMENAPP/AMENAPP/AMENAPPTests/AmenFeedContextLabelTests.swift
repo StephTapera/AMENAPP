@@ -1,3 +1,4 @@
+#if canImport(Testing)
 import Foundation
 
 #if canImport(Testing)
@@ -150,4 +151,6 @@ struct AmenFeedContextLabelTests {
         #expect(card.analyticsEventName(for: .hideAll) == "context_label_hide_all")
     }
 }
+#endif
+
 #endif

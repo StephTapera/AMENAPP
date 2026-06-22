@@ -59,9 +59,7 @@ function validateSpaceId(spaceId: unknown): string {
 
 // ── broadcastSpaceEvent ───────────────────────────────────────────────────────
 
-export const broadcastSpaceEvent = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ eventId: string }> => {
+export const broadcastSpaceEvent = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ eventId: string }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -93,9 +91,7 @@ export const broadcastSpaceEvent = onCall(
 
 // ── broadcastSpaceAnnouncement ────────────────────────────────────────────────
 
-export const broadcastSpaceAnnouncement = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ announcementId: string; memberCount: number }> => {
+export const broadcastSpaceAnnouncement = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ announcementId: string; memberCount: number }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 

@@ -13,7 +13,7 @@ import FirebaseFirestore
 /// Utility to seed Firebase with essential Christian books
 class BooksDataSeeder {
     static let shared = BooksDataSeeder()
-    private let apiService = FirebaseBooksService.shared
+    @MainActor private lazy var apiService = FirebaseBooksService.shared
     
     private init() {}
     

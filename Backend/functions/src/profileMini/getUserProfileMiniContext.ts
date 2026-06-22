@@ -63,7 +63,7 @@ const CACHE_TTL_MS = 60_000; // 60 seconds
 
 // ─── Callable ────────────────────────────────────────────────────────
 
-export const getUserProfileMiniContext = onCall(async (request) => {
+export const getUserProfileMiniContext = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
         // Auth guard

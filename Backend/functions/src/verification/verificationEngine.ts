@@ -585,9 +585,7 @@ export async function transferOrgAdmin(
  * Input: { method: VerificationMethod; evidence: Record<string, unknown> }
  * Output: { claimId, status, challenge? }
  */
-export const submitVerificationClaim = onCall(
-    { region: "us-east1", secrets: [ANTHROPIC_API_KEY] },
-    async (request) => {
+export const submitVerificationClaim = onCall({ enforceAppCheck: true, region: "us-east1", secrets: [ANTHROPIC_API_KEY] }, async (request) => {
         const creatorId = requireAuth(request);
 
         const { method, evidence } = request.data as {
@@ -630,9 +628,7 @@ export const submitVerificationClaim = onCall(
  * Input: { claimId: string; confirmed?: boolean }
  * Output: { success: boolean; badge: VerificationBadgeType }
  */
-export const approveVerificationClaim = onCall(
-    { region: "us-east1" },
-    async (request) => {
+export const approveVerificationClaim = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
         const adminId = requireAdmin(request);
 
         const { claimId, confirmed } = request.data as {
@@ -655,9 +651,7 @@ export const approveVerificationClaim = onCall(
  * Input: { claimId: string; reason: string }
  * Output: { success: boolean }
  */
-export const revokeVerificationClaim = onCall(
-    { region: "us-east1" },
-    async (request) => {
+export const revokeVerificationClaim = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
         const adminId = requireAdmin(request);
 
         const { claimId, reason } = request.data as {
@@ -680,9 +674,7 @@ export const revokeVerificationClaim = onCall(
  * Input: { orgId: string; toAdminId: string; confirmed: boolean }
  * Output: { success: boolean }
  */
-export const transferOrgAdminClaim = onCall(
-    { region: "us-east1" },
-    async (request) => {
+export const transferOrgAdminClaim = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
         const fromAdminId = requireAuth(request);
 
         const { orgId, toAdminId, confirmed } = request.data as {
@@ -707,9 +699,7 @@ export const transferOrgAdminClaim = onCall(
  * Input: { claimId: string; domain: string }
  * Output: { verified: boolean; reason?: string }
  */
-export const checkDomainVerification = onCall(
-    { region: "us-east1" },
-    async (request) => {
+export const checkDomainVerification = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
         const creatorId = requireAuth(request);
 
         const { claimId, domain } = request.data as {
@@ -749,9 +739,7 @@ export const checkDomainVerification = onCall(
  * Input: { email: string; otp: string }
  * Output: { verified: boolean; reason?: string }
  */
-export const verifyEmailOTP = onCall(
-    { region: "us-east1" },
-    async (request) => {
+export const verifyEmailOTP = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
         const creatorId = requireAuth(request);
 
         const { email, otp } = request.data as { email: string; otp: string };

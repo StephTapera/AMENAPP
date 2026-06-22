@@ -61,17 +61,12 @@ final class HapticManager {
     /// `.heavy` and `.rigid` are capped to `.medium` — keep the experience calm.
     static func impact(style: UIImpactFeedbackGenerator.FeedbackStyle) {
         guard canFire(key: "impact-\(style.rawValue)") else { return }
-        
-        // ✅ FIX: Wrap haptic calls in do-catch to prevent CoreHaptics crashes
-        do {
-            switch style {
-            case .light:  lightImpact.impactOccurred();  lightImpact.prepare()
-            case .medium: mediumImpact.impactOccurred(); mediumImpact.prepare()
-            case .soft:   softImpact.impactOccurred();   softImpact.prepare()
-            default:      mediumImpact.impactOccurred(); mediumImpact.prepare()
-            }
-        } catch {
-            // Silently fail - haptics are non-critical
+
+        switch style {
+        case .light:  lightImpact.impactOccurred();  lightImpact.prepare()
+        case .medium: mediumImpact.impactOccurred(); mediumImpact.prepare()
+        case .soft:   softImpact.impactOccurred();   softImpact.prepare()
+        default:      mediumImpact.impactOccurred(); mediumImpact.prepare()
         }
     }
 
@@ -79,27 +74,17 @@ final class HapticManager {
     /// Do NOT use for routine row taps or filter changes.
     static func notification(type: UINotificationFeedbackGenerator.FeedbackType) {
         guard canFire(key: "notification-\(type.rawValue)") else { return }
-        
-        // ✅ FIX: Wrap haptic calls in do-catch to prevent CoreHaptics crashes
-        do {
-            notificationGenerator.notificationOccurred(type)
-            notificationGenerator.prepare()
-        } catch {
-            // Silently fail - haptics are non-critical
-        }
+
+        notificationGenerator.notificationOccurred(type)
+        notificationGenerator.prepare()
     }
 
     /// Use only for meaningful segmented-control or picker changes.
     static func selection() {
         guard canFire(key: "selection") else { return }
-        
-        // ✅ FIX: Wrap haptic calls in do-catch to prevent CoreHaptics crashes
-        do {
-            selectionGenerator.selectionChanged()
-            selectionGenerator.prepare()
-        } catch {
-            // Silently fail - haptics are non-critical
-        }
+
+        selectionGenerator.selectionChanged()
+        selectionGenerator.prepare()
     }
 
     // MARK: - Pre-warm on launch

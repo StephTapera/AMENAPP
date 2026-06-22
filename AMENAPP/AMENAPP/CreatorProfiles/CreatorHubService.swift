@@ -13,6 +13,9 @@
 
 import Foundation
 import FirebaseFunctions
+import FirebaseFirestore
+import FirebaseAuth
+import FirebaseMessaging
 
 // MARK: - In-file response shapes (not part of the frozen contract surface)
 
@@ -147,25 +150,47 @@ final class CreatorHubService {
         let result = try await callable.call([
             "creatorId": creatorId,
             "eventId": eventId,
-            "going": going,
+            "rsvp": going,                 // backend rsvpCreatorEvent expects `rsvp: Bool`
         ])
         return try decodeResult(result.data, as: CreatorHubRsvpResult.self)
     }
 
     // MARK: - Follow / subscription
+    // No follow Cloud Function exists: the security rules permit a client to write its
+    // own creatorHubFollows/{uid}_{creatorId} doc directly. Granular categories also map
+    // to per-category FCM topics (precise opt-in), subscribed best-effort here.
 
     func setFollow(creatorId: String, categories: [CreatorHubFollowCategory]) async throws {
-        let callable = functions.httpsCallable("setCreatorFollow")
-        _ = try await callable.call([
-            "creatorId": creatorId,
-            "categories": categories.map { $0.rawValue },
-        ])
+        guard let uid = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "CreatorHub", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "Must be signed in to follow."])
+        }
+        let ref = Firestore.firestore().collection("creatorHubFollows").document("\(uid)_\(creatorId)")
+        if categories.isEmpty {
+            try await ref.delete()
+        } else {
+            try await ref.setData([
+                "userId": uid,
+                "creatorId": creatorId,
+                "categories": categories.map { $0.rawValue },
+            ])
+        }
+        // Granular smart-follow → FCM topics (opt-in per category; unsubscribe the rest).
+        let all: [CreatorHubFollowCategory] = [.teachings, .events, .prayer, .resources, .music, .courses, .livestreams]
+        for category in all {
+            let topic = "creator_\(creatorId)_\(category.rawValue)"
+            if categories.contains(category) {
+                try? await Messaging.messaging().subscribe(toTopic: topic)
+            } else {
+                try? await Messaging.messaging().unsubscribe(fromTopic: topic)
+            }
+        }
     }
 
     // MARK: - Prayer board
 
     func submitPrayer(creatorId: String, body: String, isPrivate: Bool) async throws {
-        let callable = functions.httpsCallable("submitCreatorPrayer")
+        let callable = functions.httpsCallable("submitPrayerRequest")
         _ = try await callable.call([
             "creatorId": creatorId,
             "body": body,
@@ -173,10 +198,18 @@ final class CreatorHubService {
         ])
     }
 
+    /// "I prayed" — rules permit any signed-in user to +1 prayedCount on an approved public request.
+    func markPrayed(creatorId: String, prayerId: String) async throws {
+        let ref = Firestore.firestore()
+            .collection("creatorHubs").document(creatorId)
+            .collection("prayerRequests").document(prayerId)
+        try await ref.updateData(["prayedCount": FieldValue.increment(Int64(1))])
+    }
+
     // MARK: - Community
 
     func submitCommunity(creatorId: String, kind: CreatorHubCommunityKind, body: String) async throws {
-        let callable = functions.httpsCallable("submitCreatorCommunity")
+        let callable = functions.httpsCallable("submitCommunityPost")
         _ = try await callable.call([
             "creatorId": creatorId,
             "kind": kind.rawValue,
@@ -199,7 +232,7 @@ final class CreatorHubService {
     // MARK: - Kingdom Metrics
 
     func metrics(creatorId: String) async throws -> CreatorHubMetrics {
-        let callable = functions.httpsCallable("getCreatorMetrics")
+        let callable = functions.httpsCallable("computeKingdomMetrics")
         let result = try await callable.call(["creatorId": creatorId])
         return try decodeResult(result.data, as: CreatorHubMetrics.self)
     }

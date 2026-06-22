@@ -89,7 +89,7 @@ final class AmenCovenantRoomDetailViewModel: ObservableObject {
         messages.append(optimistic)
 
         do {
-            try await functions.httpsCallable("createCovenantMessage").call([
+            _ = try await functions.httpsCallable("createCovenantMessage").call([
                 "covenantId": covenantId,
                 "roomId": roomId,
                 "body": trimmed,
@@ -103,7 +103,7 @@ final class AmenCovenantRoomDetailViewModel: ObservableObject {
 
     func deleteMessage(covenantId: String, messageId: String) async {
         do {
-            try await functions.httpsCallable("deleteCovenantMessage").call([
+            _ = try await functions.httpsCallable("deleteCovenantMessage").call([
                 "covenantId": covenantId,
                 "messageId": messageId
             ])

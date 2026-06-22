@@ -65,16 +65,28 @@ struct NotificationPermissionView: View {
                             .frame(width: 120, height: 120)
                         
                         // Bell icon
-                        Image(systemName: "bell.badge.fill")
-                            .font(.systemScaled(50))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.blue, .purple],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                        if #available(iOS 18.0, *) {
+                            Image(systemName: "bell.badge.fill")
+                                .font(.systemScaled(50))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.blue, .purple],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
-                            .symbolEffect(.bounce, options: .repeating.speed(0.5))
+                                .symbolEffect(.bounce, options: .repeating.speed(0.5))
+                        } else {
+                            Image(systemName: "bell.badge.fill")
+                                .font(.systemScaled(50))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.blue, .purple],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
                     }
                     .padding(.bottom, 8)
                     

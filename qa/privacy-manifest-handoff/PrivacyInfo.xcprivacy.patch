@@ -1,0 +1,172 @@
+diff --git a/AMENAPP/PrivacyInfo.xcprivacy b/AMENAPP/PrivacyInfo.xcprivacy
+index 6ffa4622..d51b2b44 100644
+--- a/AMENAPP/PrivacyInfo.xcprivacy
++++ b/AMENAPP/PrivacyInfo.xcprivacy
+@@ -16,6 +16,7 @@
+             <key>NSPrivacyAccessedAPITypeReasons</key>
+             <array>
+                 <string>CA92.1</string>
++                <string>1C8F.1</string>
+             </array>
+         </dict>
+         <dict>
+@@ -27,21 +28,12 @@
+                 <string>3B52.1</string>
+             </array>
+         </dict>
+-        <dict>
+-            <key>NSPrivacyAccessedAPIType</key>
+-            <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+-            <key>NSPrivacyAccessedAPITypeReasons</key>
+-            <array>
+-                <string>35F9.1</string>
+-            </array>
+-        </dict>
+         <dict>
+             <key>NSPrivacyAccessedAPIType</key>
+             <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+             <key>NSPrivacyAccessedAPITypeReasons</key>
+             <array>
+                 <string>E174.1</string>
+-                <string>85F4.1</string>
+             </array>
+         </dict>
+     </array>
+@@ -79,7 +71,7 @@
+             <key>NSPrivacyCollectedDataType</key>
+             <string>NSPrivacyCollectedDataTypePhoneNumber</string>
+             <key>NSPrivacyCollectedDataTypeLinked</key>
+-            <false/>
++            <true/>
+             <key>NSPrivacyCollectedDataTypeTracking</key>
+             <false/>
+             <key>NSPrivacyCollectedDataTypePurposes</key>
+@@ -118,7 +110,7 @@
+             <key>NSPrivacyCollectedDataType</key>
+             <string>NSPrivacyCollectedDataTypeAudioData</string>
+             <key>NSPrivacyCollectedDataTypeLinked</key>
+-            <false/>
++            <true/>
+             <key>NSPrivacyCollectedDataTypeTracking</key>
+             <false/>
+             <key>NSPrivacyCollectedDataTypePurposes</key>
+@@ -127,37 +119,13 @@
+             </array>
+         </dict>
+ 
+-        <dict>
+-            <key>NSPrivacyCollectedDataType</key>
+-            <string>NSPrivacyCollectedDataTypeContacts</string>
+-            <key>NSPrivacyCollectedDataTypeLinked</key>
+-            <false/>
+-            <key>NSPrivacyCollectedDataTypeTracking</key>
+-            <false/>
+-            <key>NSPrivacyCollectedDataTypePurposes</key>
+-            <array>
+-                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+-            </array>
+-        </dict>
+ 
+-        <dict>
+-            <key>NSPrivacyCollectedDataType</key>
+-            <string>NSPrivacyCollectedDataTypePreciseLocation</string>
+-            <key>NSPrivacyCollectedDataTypeLinked</key>
+-            <false/>
+-            <key>NSPrivacyCollectedDataTypeTracking</key>
+-            <false/>
+-            <key>NSPrivacyCollectedDataTypePurposes</key>
+-            <array>
+-                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+-            </array>
+-        </dict>
+ 
+         <dict>
+             <key>NSPrivacyCollectedDataType</key>
+             <string>NSPrivacyCollectedDataTypeCoarseLocation</string>
+             <key>NSPrivacyCollectedDataTypeLinked</key>
+-            <false/>
++            <true/>
+             <key>NSPrivacyCollectedDataTypeTracking</key>
+             <false/>
+             <key>NSPrivacyCollectedDataTypePurposes</key>
+@@ -166,31 +134,7 @@
+             </array>
+         </dict>
+ 
+-        <dict>
+-            <key>NSPrivacyCollectedDataType</key>
+-            <string>NSPrivacyCollectedDataTypeHealth</string>
+-            <key>NSPrivacyCollectedDataTypeLinked</key>
+-            <false/>
+-            <key>NSPrivacyCollectedDataTypeTracking</key>
+-            <false/>
+-            <key>NSPrivacyCollectedDataTypePurposes</key>
+-            <array>
+-                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+-            </array>
+-        </dict>
+ 
+-        <dict>
+-            <key>NSPrivacyCollectedDataType</key>
+-            <string>NSPrivacyCollectedDataTypeFitness</string>
+-            <key>NSPrivacyCollectedDataTypeLinked</key>
+-            <false/>
+-            <key>NSPrivacyCollectedDataTypeTracking</key>
+-            <false/>
+-            <key>NSPrivacyCollectedDataTypePurposes</key>
+-            <array>
+-                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+-            </array>
+-        </dict>
+ 
+         <dict>
+             <key>NSPrivacyCollectedDataType</key>
+@@ -211,7 +155,7 @@
+             <key>NSPrivacyCollectedDataTypeLinked</key>
+             <true/>
+             <key>NSPrivacyCollectedDataTypeTracking</key>
+-            <true/>
++            <false/>
+             <key>NSPrivacyCollectedDataTypePurposes</key>
+             <array>
+                 <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+@@ -225,7 +169,7 @@
+             <key>NSPrivacyCollectedDataTypeLinked</key>
+             <true/>
+             <key>NSPrivacyCollectedDataTypeTracking</key>
+-            <true/>
++            <false/>
+             <key>NSPrivacyCollectedDataTypePurposes</key>
+             <array>
+                 <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+@@ -237,7 +181,7 @@
+             <key>NSPrivacyCollectedDataType</key>
+             <string>NSPrivacyCollectedDataTypeCrashData</string>
+             <key>NSPrivacyCollectedDataTypeLinked</key>
+-            <false/>
++            <true/>
+             <key>NSPrivacyCollectedDataTypeTracking</key>
+             <false/>
+             <key>NSPrivacyCollectedDataTypePurposes</key>
+@@ -300,6 +244,21 @@
+             </array>
+         </dict>
+ 
++        <!-- Sensitive Info: prayer/faith content reveals religious belief;
++             safety/CSAM reports. Added to match APP_STORE_PRIVACY_LABEL_MAPPING.md. -->
++        <dict>
++            <key>NSPrivacyCollectedDataType</key>
++            <string>NSPrivacyCollectedDataTypeSensitiveInfo</string>
++            <key>NSPrivacyCollectedDataTypeLinked</key>
++            <true/>
++            <key>NSPrivacyCollectedDataTypeTracking</key>
++            <false/>
++            <key>NSPrivacyCollectedDataTypePurposes</key>
++            <array>
++                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
++            </array>
++        </dict>
++
+     </array>
+ </dict>
+ </plist>

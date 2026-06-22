@@ -340,24 +340,26 @@ final class DocumentScannerCoordinator: NSObject, VNDocumentCameraViewController
         controller.dismiss(animated: true)
 
         Task.detached(priority: .userInitiated) { [weak self] in
-            guard let self else { return }
-            var allText = ""
-            var pages: [UIImage] = []
+            guard self != nil else { return }
+            var accumulatedText = ""
+            var collectedPages: [UIImage] = []
 
             for i in 0..<scan.pageCount {
                 let image = scan.imageOfPage(at: i)
-                pages.append(image)
+                collectedPages.append(image)
 
                 if let cg = image.cgImage {
-                    let service = ChurchNotesAttachmentService.shared
+                    let service = await ChurchNotesAttachmentService.shared
                     let text    = await service.extractText(from: cg)
                     if !text.isEmpty {
-                        allText += (allText.isEmpty ? "" : "\n\n") + text
+                        accumulatedText += (accumulatedText.isEmpty ? "" : "\n\n") + text
                     }
                 }
             }
+            let finalText = accumulatedText
+            let finalPages = collectedPages
             await MainActor.run { [weak self] in
-                self?.onCompletion?(allText, pages)
+                self?.onCompletion?(finalText, finalPages)
             }
         }
     }

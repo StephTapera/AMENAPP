@@ -177,6 +177,6 @@ final class BereanGivingService: ObservableObject {
             "recommendedDestinationIds": destIds,
             "createdAt": FieldValue.serverTimestamp()
         ]
-        try? await db.collection("berean_giving_sessions").addDocument(data: data)
+        _ = try? await db.collection("berean_giving_sessions").addDocument(data: data)
     }
 }

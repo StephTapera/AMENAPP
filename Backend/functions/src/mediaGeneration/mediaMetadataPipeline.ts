@@ -101,7 +101,7 @@ export const retryMediaGeneration = onCall(
         secrets: [openaiApiKey, anthropicApiKey],
         timeoutSeconds: 540,
         memory: "512MiB",
-        enforceAppCheck: false,
+        enforceAppCheck: true,
     },
     async (request) => {
         if (!request.auth) {

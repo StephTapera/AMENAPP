@@ -106,7 +106,10 @@ struct AIReceipt: Codable, Sendable, Identifiable, Equatable {
 // COMPLEMENTS the existing append-only ModerationAuditEntry (ModerationAuditLog.swift)
 // and ModerationAppeal. User-facing projection that names the principle invoked.
 
-enum ModerationAction: String, Codable, Sendable {
+// Names are Trust-prefixed to avoid collision with the existing top-level
+// ModerationAction (ImageModerationService.swift) and AppealStatus
+// (AmenModerationModels.swift).
+enum TrustModerationAction: String, Codable, Sendable {
     case hidden
     case downranked
     case warned
@@ -114,7 +117,7 @@ enum ModerationAction: String, Codable, Sendable {
     case allowed
 }
 
-enum AppealStatus: String, Codable, Sendable {
+enum TrustAppealStatus: String, Codable, Sendable {
     case none
     case available
     case submitted
@@ -126,14 +129,14 @@ enum AppealStatus: String, Codable, Sendable {
 struct ModerationReceipt: Codable, Sendable, Identifiable, Equatable {
     var id: String { eventId }
     let eventId: String
-    let action: ModerationAction
+    let action: TrustModerationAction
     let principleInvoked: ConstitutionalPrinciple
     let confidence: ReceiptConfidence
     /// Real model identifier used for the decision, e.g. "nemo-guard" / "vision-llm".
     let modelUsed: String
     /// The concrete rule that triggered, from the existing policy framework.
     let ruleTriggered: String
-    let appealStatus: AppealStatus
+    let appealStatus: TrustAppealStatus
     let humanReviewAvailable: Bool
 }
 

@@ -1,6 +1,9 @@
 # Berean Voice OS — Wave 0 (Contracts & Recon)
 
-**Status: ⛔ FREEZE GATE — awaiting human reconciliation & freeze of §4. Do NOT start Wave 1.**
+**Status: 🟡 PARTIAL FREEZE (2026-06-17).** D1–D3 ratified & frozen; D4 (transport/provider)
+and D5 (PRIV-005/E2EE) RESERVED for founder — they block Wave 1. P1 kill-switch
+migration DONE. Voice decoupled from submission (ships flag-OFF, fast-follow). See
+`FREEZE_RATIFICATION.md`. **Do NOT start Wave 1 voice transport until D4/D5 land.**
 
 Wave 0 reconciled the proposed §4 contracts against the **real** AMEN codebase
 (8-agent recon, read-only). The headline finding: **a substantial Berean voice +

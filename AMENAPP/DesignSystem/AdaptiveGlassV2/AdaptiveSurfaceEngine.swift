@@ -135,13 +135,17 @@ public final class AdaptiveSurfaceEngine {
             forName: UIResponder.keyboardDidShowNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
-            self?.updateKeyboard(visible: true)
+            Task { @MainActor [weak self] in
+                self?.updateKeyboard(visible: true)
+            }
         }
         let hide = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardDidHideNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
-            self?.updateKeyboard(visible: false)
+            Task { @MainActor [weak self] in
+                self?.updateKeyboard(visible: false)
+            }
         }
         keyboardObservers = [show, hide]
     }

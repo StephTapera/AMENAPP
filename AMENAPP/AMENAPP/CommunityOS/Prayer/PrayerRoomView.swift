@@ -418,7 +418,7 @@ struct PrayerRoomView: View {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isPraying = true
         do {
-            try await AmenEdgeService().createEdge(
+            _ = try await AmenEdgeService().createEdge(
                 fromRef: "users/\(uid)",
                 fromType: .user,
                 toRef: "prayerRequests/\(prayer.id)",

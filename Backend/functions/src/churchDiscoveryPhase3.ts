@@ -182,7 +182,7 @@ function buildGroundedSummary(churchId: string, churchData: FirebaseFirestore.Do
     };
 }
 
-export const submitChurchVerificationClaim = onCall({ region: REGION }, async (request) => {
+export const submitChurchVerificationClaim = onCall({ enforceAppCheck: true, region: REGION }, async (request) => {
     requireAppCheck(request as CallableRequest);
     const uid = requireAuth(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
@@ -240,7 +240,7 @@ export const submitChurchVerificationClaim = onCall({ region: REGION }, async (r
     };
 });
 
-export const reviewChurchVerificationClaim = onCall({ region: REGION }, async (request) => {
+export const reviewChurchVerificationClaim = onCall({ enforceAppCheck: true, region: REGION }, async (request) => {
     requireAppCheck(request as CallableRequest);
     const reviewerId = requireAdmin(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
@@ -298,7 +298,7 @@ export const reviewChurchVerificationClaim = onCall({ region: REGION }, async (r
     };
 });
 
-export const submitChurchProfileEdit = onCall({ region: REGION }, async (request) => {
+export const submitChurchProfileEdit = onCall({ enforceAppCheck: true, region: REGION }, async (request) => {
     requireAppCheck(request as CallableRequest);
     const uid = requireAuth(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
@@ -339,7 +339,7 @@ export const submitChurchProfileEdit = onCall({ region: REGION }, async (request
     return { churchId, queuedEditId: queueRef.id, moderationState: "needsReview" };
 });
 
-export const queueChurchMediaModeration = onCall({ region: REGION }, async (request) => {
+export const queueChurchMediaModeration = onCall({ enforceAppCheck: true, region: REGION }, async (request) => {
     requireAppCheck(request as CallableRequest);
     const uid = requireAuth(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
@@ -383,7 +383,7 @@ export const queueChurchMediaModeration = onCall({ region: REGION }, async (requ
     return { itemId: queueRef.id, moderationState: decision.moderationState, escalated: decision.escalated };
 });
 
-export const reviewChurchModerationItem = onCall({ region: REGION }, async (request) => {
+export const reviewChurchModerationItem = onCall({ enforceAppCheck: true, region: REGION }, async (request) => {
     requireAppCheck(request as CallableRequest);
     const reviewerId = requireAdmin(request as CallableRequest);
     const itemId = String(request.data?.itemId ?? "").trim();
@@ -415,7 +415,7 @@ export const reviewChurchModerationItem = onCall({ region: REGION }, async (requ
     return { itemId, moderationState, reviewedBy: reviewerId };
 });
 
-export const refreshChurchLivestreamState = onCall({ region: REGION }, async (request) => {
+export const refreshChurchLivestreamState = onCall({ enforceAppCheck: true, region: REGION }, async (request) => {
     requireAppCheck(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
     const churchSnapshot = await loadChurch(churchId);
@@ -460,7 +460,7 @@ export const refreshChurchLivestreamState = onCall({ region: REGION }, async (re
     return { churchId, streamId, liveNow, ingestConfidence };
 });
 
-export const syncYouTubeChurchStreams = onCall({ region: REGION }, async (request) => {
+export const syncYouTubeChurchStreams = onCall({ enforceAppCheck: true, region: REGION }, async (request) => {
     requireAppCheck(request as CallableRequest);
     requireAdmin(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
@@ -485,7 +485,7 @@ export const syncYouTubeChurchStreams = onCall({ region: REGION }, async (reques
     };
 });
 
-export const updateChurchLiveSignals = onCall({ region: REGION }, async (request) => {
+export const updateChurchLiveSignals = onCall({ enforceAppCheck: true, region: REGION }, async (request) => {
     requireAppCheck(request as CallableRequest);
     requireAdmin(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
@@ -515,7 +515,7 @@ export const updateChurchLiveSignals = onCall({ region: REGION }, async (request
     return { churchId, title, confidence };
 });
 
-export const regenerateChurchGroundedSummary = onCall({ region: REGION }, async (request) => {
+export const regenerateChurchGroundedSummary = onCall({ enforceAppCheck: true, region: REGION }, async (request) => {
     requireAppCheck(request as CallableRequest);
     requireAdmin(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);
@@ -539,7 +539,7 @@ export const regenerateChurchGroundedSummary = onCall({ region: REGION }, async 
     };
 });
 
-export const generateGroundedChurchResponse = onCall({ region: REGION }, async (request) => {
+export const generateGroundedChurchResponse = onCall({ enforceAppCheck: true, region: REGION }, async (request) => {
     requireAppCheck(request as CallableRequest);
     requireAuth(request as CallableRequest);
     const churchId = readChurchId(request as CallableRequest);

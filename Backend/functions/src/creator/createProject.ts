@@ -2,7 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { CreatorProjectPayload } from "./creatorTypes";
 
-export const createProject = onCall(async (request) => {
+export const createProject = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

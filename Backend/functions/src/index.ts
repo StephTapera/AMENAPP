@@ -146,6 +146,21 @@ export * from "./distinctives";
 // are now blocked in Firestore rules (allow create: if false).
 export * from "./submitReport";
 
+// Insider-Threat Access-Control Spine — Trust & Safety Remediation item 21.
+// Immutable audit log of who accessed sensitive data (DMs, prayer, minors,
+// Tier-1 evidence) + enforcement of the existing dualApprovalRequired /
+// breakGlassRequiredForPrivateContent flags. Logging is always on; ENFORCEMENT
+// is gated by INSIDER_THREAT_ENFORCEMENT_ENABLED (default OFF). Additive — does
+// not modify submitReport's write path.
+export * from "./safety/insiderThreatAudit";
+
+// Inbound Block Signal — advisory "this account has been blocked by several
+// people" caution surfaced before opening a DM. Returns ONLY a coarse bucket
+// (never the raw count or blocker identities). Ships dark behind
+// INBOUND_BLOCK_WARNING_ENABLED (default OFF); fail-open (advisory, never gates
+// message delivery — that stays in antiHarassmentEnforcement.ts). Additive.
+export * from "./safety/inboundBlockSignal";
+
 // Comment Moderation Enforcement — server-authoritative moderationStatus writes to RTDB
 // Triggered on every new userReports document. For reports with contentType="comment",
 // aggregates report history and writes moderationStatus ("pending" | "hidden") to
@@ -161,6 +176,12 @@ export * from "./commentModerationEnforcement";
 //    are deployed, safetyCache rules are live, and Firestore indexes are created.
 export { assembleDiscoveryFeed } from "./discovery/assembleDiscoveryFeed";
 export { searchDiscovery } from "./discovery/searchDiscovery";
+
+// AMEN Connect V1 — Verified Guardian Link primitive (spec §5.1). THE safety foundation.
+// requestGuardianLink: creates a PENDING link only (verification is a separate server path).
+// getChildCheckInStatus: 403 unless an ACTIVE verified guardian link to that child exists.
+// Region: us-east1. No client flag gates the safety gate — it is enforced unconditionally.
+export { requestGuardianLink, getChildCheckInStatus } from "./connect/guardianLink";
 
 // Media Scanning — Cloud Vision SafeSearch on every Storage upload
 // HIGH-1: Scans images for CSAM/explicit/violence signals on onFinalize.
@@ -260,6 +281,9 @@ export * from "./onPostCreated";
 // index for profile "Photos & Videos" tab. Triggered on post create/update/delete.
 // Handles moderation state changes, visibility changes, and media schema evolution.
 export * from "./mediaPostIndex";
+
+// Berean Camera MEDIA-GATE Wave 0 — us-east1, fail-closed, provider-gated.
+export * from "./mediaGatePolicy";
 
 // Algolia sync — keeps "posts" index current on post edit and deletion
 export * from "./algoliaSync";
@@ -387,6 +411,14 @@ export * from "./covenant/createPrayerRequestFromMessage";
 // us-east1 (us-central1 quota exhausted). Requires PRAYER_IDENTITY_ENCRYPTION_KEY
 // secret — set by human before deploy.
 export * from "./prayer/createPrayerRequest";
+
+// Smart Volunteer Board (Wave 0) — single-event volunteer scheduling. Deploys to us-east1.
+// assembleVolunteerBoard / signUpForSlot (transactional atomic fill) / leaderApprove /
+// getLeaderPrivateNote / setLeaderPrivateNote (access-logged) / scheduleVolunteerReminders
+// (push + email; NO SMS). All client surfaces gated OFF (see VolunteerFeatureFlags.swift).
+export * from "./volunteer/volunteerCallables";
+export * from "./volunteer/volunteerLifecycle";
+
 export * from "./covenant/generateCatchUpSummary";
 export * from "./covenant/calculateCovenantChurnRisk";
 export * from "./covenant/publishScheduledCovenantContent";
@@ -776,3 +808,24 @@ export { joinTable, assemblePrayerChain, closeTheLoopNudge, sunsetTable } from "
 // retrievePersonalContext — server-side Tier S + C context retrieval (us-east1)
 // Tier P (private/E2EE) is structurally impossible in this file.
 export { generateDiscussionGuide, retrievePersonalContext } from "./selahBerean";
+
+// ── Creator Profiles (ministry hubs) — all callables in us-east1 ──────────────
+// One-round-trip assembly + cursor paging + creator-scoped teaching search;
+// event CRUD/RSVP/replay; moderated prayer + community (pending-never-public);
+// grounded cited assistant (refuse-on-unsupported); teaching-media ingest;
+// derived Kingdom Metrics (server-write only); MEDIA-GATE quarantine entry.
+// Every function is gated by system/creatorProfileFlags (default OFF) — see
+// Backend/functions/src/creatorProfiles/WAVE0_FREEZE.md. No-ops/denies when OFF.
+export * from "./creatorProfiles/assembleCreatorProfile";
+export * from "./creatorProfiles/pageCreatorModule";
+export * from "./creatorProfiles/searchCreatorTeachings";
+export * from "./creatorProfiles/manageCreatorEvent";
+export * from "./creatorProfiles/rsvpCreatorEvent";
+export * from "./creatorProfiles/generateEventReplayPackage";
+export * from "./creatorProfiles/submitPrayerRequest";
+export * from "./creatorProfiles/submitCommunityPost";
+export * from "./creatorProfiles/moderateCreatorContent";
+export * from "./creatorProfiles/askCreatorAssistant";
+export * from "./creatorProfiles/processTeachingMedia";
+export * from "./creatorProfiles/computeKingdomMetrics";
+export * from "./creatorProfiles/enqueueCreatorMedia";

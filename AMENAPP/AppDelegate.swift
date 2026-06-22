@@ -120,18 +120,21 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         dlog("✅ Crashlytics initialized (crash reporting active)")
         
         // Pre-warm App Check token at launch so it's ready by the time user taps sign up.
-        // This moves the attestation delay (can be several seconds) out of the auth flow.
+        // On simulator, the debug provider already prints the registration token; forcing
+        // a token exchange before that token is registered creates a known 403 log with
+        // no user benefit.
+#if DEBUG && targetEnvironment(simulator)
+        dlog("⏭️ App Check pre-warm skipped on simulator until debug token is registered")
+#else
         Task {
             do {
                 let token = try await AppCheck.appCheck().token(forcingRefresh: false)
                 dlog("✅ App Check token pre-warmed: \(token.token.prefix(20))...")
             } catch {
-                // Non-fatal — SDK will fall back to placeholder token when unenforced
-                // NOTE: HTTP 403 on simulator is EXPECTED until debug token is registered in Firebase Console
-                // Go to: Firebase Console → App Check → Apps → Register debug token from logs
-                dlog("⚠️ App Check pre-warm failed (expected on first simulator run): \(error.localizedDescription)")
+                dlog("⚠️ App Check pre-warm failed; Firebase SDK will retry when needed: \(error.localizedDescription)")
             }
         }
+#endif
         
         // Configure Firestore settings IMMEDIATELY after Firebase.configure()
         // This must happen before any Firestore access
@@ -170,6 +173,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         setupPushNotifications()
 
         // Subscribe to disaster alert FCM topics (idempotent — safe to call on every launch)
+        #if targetEnvironment(simulator)
+        dlog("⏭️ Skipping disaster FCM topic subscription on simulator (APNS not available)")
+        #else
         Messaging.messaging().subscribe(toTopic: "disasters_general") { error in
             if let error { dlog("⚠️ FCM disaster_general subscribe: \(error.localizedDescription)") }
             else { dlog("✅ FCM subscribed: disasters_general") }
@@ -178,6 +184,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             if let error { dlog("⚠️ FCM disaster_critical subscribe: \(error.localizedDescription)") }
             else { dlog("✅ FCM subscribed: disasters_critical") }
         }
+        #endif
 
         // ── QUICK ACTIONS: Cold launch ───────────────────────────────────────────
         // When the user long-presses the app icon and taps a shortcut while the app
@@ -271,8 +278,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
         
         // ✅ PHASE 1: Register for remote notifications
+        #if targetEnvironment(simulator)
+        dlog("⏭️ Skipping remote notification registration on simulator (APNS not available)")
+        #else
         UIApplication.shared.registerForRemoteNotifications()
         dlog("✅ Registered for remote notifications")
+        #endif
     }
     
     // MARK: - Handle Remote Notifications

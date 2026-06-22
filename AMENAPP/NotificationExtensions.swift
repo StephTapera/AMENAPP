@@ -83,4 +83,9 @@ extension Notification.Name {
     /// Posted when a deep link resolves to a specific post.
     /// UserInfo: ["postId": String]
     static let navigateToPost = Notification.Name("navigateToPost")
+
+    /// Posted when crisis-support resources should be surfaced to the user.
+    /// Safety-critical: posted from message/prayer pre-scans and moderation escalations.
+    /// UserInfo (optional): ["resources": [CrisisResource]]
+    static let showCrisisResources = Notification.Name("showCrisisResources")
 }

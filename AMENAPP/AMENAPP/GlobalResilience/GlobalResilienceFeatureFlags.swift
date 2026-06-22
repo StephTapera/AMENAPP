@@ -78,6 +78,9 @@ final class GlobalResilienceFeatureFlags: ObservableObject {
             switch status {
             case .successFetchedFromRemote, .successUsingPreFetchedData:
                 applyFlags(from: config)
+            case .error:
+                // No-op: defaults remain.
+                break
             @unknown default:
                 // No-op: defaults remain.
                 break

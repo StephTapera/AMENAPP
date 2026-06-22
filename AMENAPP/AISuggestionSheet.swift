@@ -90,7 +90,7 @@ struct AISuggestionSheet: View {
                                                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
                                         )
                                 )
-                                .onChange(of: customPrompt) { val in
+                                .onChange(of: customPrompt) { _, val in
                                     if !val.isEmpty { selectedPreset = nil }
                                 }
                         }

@@ -1,0 +1,3 @@
+Command line invocation:
+    /Applications/Xcode-beta.app/Contents/Developer/usr/bin/xcodebuild -scheme AMENAPP -destination generic/platform=iOS build -clonedSourcePackagesDirPath ./SourcePackages.nosync -derivedDataPath ./DerivedData.nosync
+

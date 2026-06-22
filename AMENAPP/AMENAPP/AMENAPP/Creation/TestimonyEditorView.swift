@@ -330,7 +330,7 @@ private struct TestimonyEditorContent: View {
         isPublishing = true
         defer { isPublishing = false }
 
-        var testimony = buildTestimony(manifestRef: manifestRef)
+        let testimony = buildTestimony(manifestRef: manifestRef)
         do {
             try await publishService.publish(testimony)
             selahService.trigger()

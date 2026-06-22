@@ -79,7 +79,7 @@ struct SettingsSectionCard<Content: View>: View {
     }
 }
 
-struct SettingsRow<Accessory: View>: View {
+struct SettingsComponentRow<Accessory: View>: View {
     let icon: String?
     let title: String
     let value: String?
@@ -140,7 +140,7 @@ struct SettingsRow<Accessory: View>: View {
     }
 }
 
-extension SettingsRow where Accessory == EmptyView {
+extension SettingsComponentRow where Accessory == EmptyView {
     init(
         icon: String? = nil,
         title: String,
@@ -259,7 +259,7 @@ struct SecuritySessionsView: View {
     var body: some View {
         VStack(spacing: SettingsDesignToken.Spacing.small) {
             ForEach(sessions) { session in
-                SettingsRow(
+                SettingsComponentRow(
                     icon: session.isCurrent ? "iphone" : "desktopcomputer",
                     title: session.deviceName,
                     value: session.platform,
@@ -305,7 +305,7 @@ struct TrustedContactView: View {
     var body: some View {
         VStack {
             ForEach(contacts) { contact in
-                SettingsRow(
+                SettingsComponentRow(
                     title: contact.displayName,
                     value: contact.contactMethod.maskedValue,
                     action: { removeContact(contact) }
@@ -329,7 +329,7 @@ struct ParentalControlsView: View {
     }
 }
 
-struct NotificationPreferencesView: View {
+struct SettingsNotificationPreferencesView: View {
     @Binding var preferences: NotificationPrefs
 
     var body: some View {

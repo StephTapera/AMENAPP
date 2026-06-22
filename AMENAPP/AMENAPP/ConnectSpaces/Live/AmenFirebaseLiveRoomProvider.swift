@@ -14,7 +14,7 @@
 
 import Foundation
 import SwiftUI
-import AVFoundation
+@preconcurrency import AVFoundation
 import FirebaseFunctions
 import FirebaseDatabase
 
@@ -73,8 +73,8 @@ final class AmenFirebaseLiveRoomProvider: NSObject, AmenLiveRoomProvider, Observ
 
     func leaveRoom() async {
         guard let roomRef, let userId = currentUserId else { return }
-        try? await roomRef.child("participants").child(userId).removeValue()
-        try? await roomRef.child("viewerCount").setValue(ServerValue.increment(-1))
+        _ = try? await roomRef.child("participants").child(userId).removeValue()
+        _ = try? await roomRef.child("viewerCount").setValue(ServerValue.increment(-1))
         roomRef.removeAllObservers()
         stopCaptureSession()
         self.roomRef = nil
@@ -84,20 +84,21 @@ final class AmenFirebaseLiveRoomProvider: NSObject, AmenLiveRoomProvider, Observ
 
     func muteLocalAudio(_ muted: Bool) {
         isLocalAudioMuted = muted
-        sessionQueue.async { [weak self] in
-            self?.captureSession?.inputs
+        let session = captureSession
+        sessionQueue.async {
+            session?.inputs
                 .compactMap { $0 as? AVCaptureDeviceInput }
                 .filter { $0.device.hasMediaType(.audio) }
                 .forEach { input in
                     do {
                         try input.device.lockForConfiguration()
                         // Mute by stopping the audio input rather than disabling microphone
-                        self?.captureSession?.removeInput(input)
+                        session?.removeInput(input)
                         if !muted {
                             // Re-add the audio input when unmuting
                             if let audioDevice = AVCaptureDevice.default(for: .audio),
                                let audioInput = try? AVCaptureDeviceInput(device: audioDevice) {
-                                self?.captureSession?.addInput(audioInput)
+                                session?.addInput(audioInput)
                             }
                         }
                         input.device.unlockForConfiguration()
@@ -199,14 +200,15 @@ final class AmenFirebaseLiveRoomProvider: NSObject, AmenLiveRoomProvider, Observ
 
             session.commitConfiguration()
             session.startRunning()
-            Task { @MainActor in self?.captureSession = session }
+            Task { @MainActor [weak self] in self?.captureSession = session }
         }
     }
 
     private func stopCaptureSession() {
-        sessionQueue.async { [weak self] in
-            self?.captureSession?.stopRunning()
-            self?.captureSession = nil
+        let session = captureSession
+        captureSession = nil
+        sessionQueue.async {
+            session?.stopRunning()
         }
     }
 }

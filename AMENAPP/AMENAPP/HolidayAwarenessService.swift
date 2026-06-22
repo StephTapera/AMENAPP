@@ -45,7 +45,7 @@ final class HolidayAwarenessService: ObservableObject {
 
     /// Resolves holiday context for today. Call once per app-launch day.
     func resolveToday(
-        settings: HolidayAwarenessSettings = .defaultSettings,
+        settings: HolidayAwarenessSettings? = nil,
         personalCelebrations: PersonalHolidayCelebrations? = nil
     ) async {
         // Use cached value if it is still today's
@@ -58,7 +58,8 @@ final class HolidayAwarenessService: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        let result = await resolveContext(settings: settings, personalCelebrations: personalCelebrations)
+        let resolvedSettings = settings ?? HolidayAwarenessSettings.defaultSettings
+        let result = await resolveContext(settings: resolvedSettings, personalCelebrations: personalCelebrations)
         todayContext = result
         cacheContext(result)
     }

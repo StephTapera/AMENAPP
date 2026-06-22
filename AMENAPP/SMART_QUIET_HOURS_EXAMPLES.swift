@@ -145,6 +145,7 @@ func exampleSafetyAssessment() async {
 
 // MARK: - Example 5: Progressive Quieting
 
+@MainActor
 func exampleProgressiveQuieting() {
     let quietStart = "22:00"
     let quietEnd = "07:00"
@@ -188,7 +189,7 @@ func exampleProgressiveQuieting() {
 // MARK: - Example 6: Smart Batching
 
 func exampleSmartBatching() async {
-    let batcher = SmartNotificationBatcher.shared
+    let batcher = await SmartNotificationBatcher.shared
 
     // Add multiple low-priority notifications to batch
     await batcher.addToBatch(
@@ -401,7 +402,7 @@ func exampleFullNotificationRouting() async {
     print("Final Priority: \(priority)")
 
     // 5. Check progressive quieting level
-    let quietLevel = ProgressiveQuietingEngine.shared.calculateQuietLevel(
+    let quietLevel = await ProgressiveQuietingEngine.shared.calculateQuietLevel(
         quietHoursStart: "22:00",
         quietHoursEnd: "07:00"
     )
@@ -413,7 +414,7 @@ func exampleFullNotificationRouting() async {
         timestamp: Date()
     )
 
-    let decision = ProgressiveQuietingEngine.shared.shouldDeliver(
+    let decision = await ProgressiveQuietingEngine.shared.shouldDeliver(
         notification: routing,
         currentLevel: quietLevel
     )

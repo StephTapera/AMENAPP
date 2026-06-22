@@ -43,11 +43,14 @@ final class ChurchNotesSessionViewModel: ObservableObject {
         db.collection("churchNoteSessions").document(sessionId)
             .getDocument { [weak self] doc, _ in
                 guard let self else { return }
-                if let session = try? doc?.data(as: ChurchNoteSession.self) {
-                    self.session = session
-                    self.attachedHighlights = session.highlightsSummary
+                let session = try? doc?.data(as: ChurchNoteSession.self)
+                Task { @MainActor in
+                    if let session {
+                        self.session = session
+                        self.attachedHighlights = session.highlightsSummary
+                    }
+                    self.isLoading = false
                 }
-                self.isLoading = false
             }
     }
 
@@ -64,7 +67,7 @@ final class ChurchNotesSessionViewModel: ObservableObject {
     }
 
     func save() async {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard Auth.auth().currentUser?.uid != nil else { return }
         isSaving = true
         let data: [String: Any] = [
             "highlightsSummary": attachedHighlights.map { h in
@@ -98,7 +101,7 @@ final class ChurchNotesSessionViewModel: ObservableObject {
 
     func completeSession() async {
         await save()
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard Auth.auth().currentUser?.uid != nil else { return }
         try? await db.collection("churchNoteSessions").document(sessionId).updateData([
             "status": "completed",
             "updatedAt": FieldValue.serverTimestamp(),

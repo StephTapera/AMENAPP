@@ -4,7 +4,7 @@ import * as path from "path";
 import * as os from "os";
 import { cleanupTmp, createProxyVideo, downloadToTmp, uploadFromTmp } from "./ffmpegUtils";
 
-export const processVideoProxy = onCall(async (request) => {
+export const processVideoProxy = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -41,7 +41,10 @@ export const processVideoProxy = onCall(async (request) => {
     try {
         await createProxyVideo(localInput, localOutput);
         await uploadFromTmp(localOutput, outputStoragePath);
-        const proxyURL = (await admin.storage().bucket().file(outputStoragePath).getSignedUrl({ action: "read", expires: "03-01-2500" }))[0];
+        const proxyURL = (await admin.storage().bucket().file(outputStoragePath).getSignedUrl({
+            action: "read",
+            expires: Date.now() + 60 * 60 * 1000,
+        }))[0];
         await jobRef.set(
             { status: "completed", progress: 1, outputRefs: [proxyURL], outputStoragePath: outputStoragePath },
             { merge: true }

@@ -38,9 +38,7 @@ interface AssembleRequest {
 
 // ── Entry point ─────────────────────────────────────────────────────
 
-export const assembleDiscoveryFeed = functions.onCall(
-  { region: "us-east1", timeoutSeconds: 15, memory: "256MiB" },
-  async (request): Promise<DiscoveryFeed> => {
+export const assembleDiscoveryFeed = functions.onCall({ enforceAppCheck: true, region: "us-east1", timeoutSeconds: 15, memory: "256MiB" }, async (request): Promise<DiscoveryFeed> => {
     const data = request.data as AssembleRequest;
     if (!request.auth?.uid) {
       throw new functions.HttpsError("unauthenticated", "Must be signed in.");

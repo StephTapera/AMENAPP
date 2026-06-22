@@ -345,7 +345,7 @@ export const triggerIntelligenceBriefForUser = onCall(
   {
     memory: "1GiB",
     timeoutSeconds: 120,
-    enforceAppCheck: false, // admin tool — App Check not required
+    enforceAppCheck: true,
   },
   async (request) => {
     if (!request.auth) {

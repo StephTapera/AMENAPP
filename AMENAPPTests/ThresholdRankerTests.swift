@@ -8,6 +8,7 @@
 
 import Testing
 import Foundation
+@testable import AMENAPP
 
 // MARK: - Test Fixtures
 

@@ -60,7 +60,7 @@ async function requireEventLeader(db: Db, eventId: string, uid: string): Promise
 // ════════════════════════════════════════════════════════════════════
 
 /** Creates a single dated event; the creator becomes its first leader. */
-export const createServiceEvent = onCall(callableOpts, async (request) => {
+export const createServiceEvent = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const uid = requireAuth(request);
   const db = admin.firestore();
 
@@ -81,7 +81,7 @@ export const createServiceEvent = onCall(callableOpts, async (request) => {
 });
 
 /** Declares (or updates) a staffing need for a role on an event. Leader-only. */
-export const addStaffingNeed = onCall(callableOpts, async (request) => {
+export const addStaffingNeed = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const uid = requireAuth(request);
   const db = admin.firestore();
 
@@ -105,7 +105,7 @@ export const addStaffingNeed = onCall(callableOpts, async (request) => {
 // ════════════════════════════════════════════════════════════════════
 
 /** Returns a ServiceEvent and whether the caller is one of its leaders. */
-export const getServiceEvent = onCall(callableOpts, async (request) => {
+export const getServiceEvent = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const uid = requireAuth(request);
   const db = admin.firestore();
   const eventId = readString(request.data?.eventId, "eventId", 200);
@@ -125,7 +125,7 @@ export const getServiceEvent = onCall(callableOpts, async (request) => {
 });
 
 /** Lists events the user leads or is assigned to, with a per-event isLeader flag. */
-export const listVolunteerEventsForUser = onCall(callableOpts, async (request) => {
+export const listVolunteerEventsForUser = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const uid = requireAuth(request);
   const db = admin.firestore();
 
@@ -170,7 +170,7 @@ export const listVolunteerEventsForUser = onCall(callableOpts, async (request) =
 // ════════════════════════════════════════════════════════════════════
 
 /** Marks the calling volunteer unavailable on a date (used by I3 at signup time). */
-export const setVolunteerBlackout = onCall(callableOpts, async (request) => {
+export const setVolunteerBlackout = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const uid = requireAuth(request);
   const db = admin.firestore();
   const date = readIsoDate(request.data?.date, "date");
@@ -184,7 +184,7 @@ export const setVolunteerBlackout = onCall(callableOpts, async (request) => {
 });
 
 /** Clears a previously-set blackout date for the calling volunteer. */
-export const clearVolunteerBlackout = onCall(callableOpts, async (request) => {
+export const clearVolunteerBlackout = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const uid = requireAuth(request);
   const db = admin.firestore();
   const date = readIsoDate(request.data?.date, "date");

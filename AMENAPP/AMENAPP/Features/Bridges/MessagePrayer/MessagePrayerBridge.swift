@@ -4,6 +4,7 @@ import NaturalLanguage
 /// Detects prayer intent in messages USER RECEIVES.
 /// Runs on-device only. Gated on ConsentEdge.messagesToPrayer.
 /// E2EE/Tier-S threads: classifier runs device-only, prayer object defaults to Tier-S.
+@MainActor
 final class MessagePrayerBridge: ObservableObject {
     static let shared = MessagePrayerBridge()
 

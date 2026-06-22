@@ -582,7 +582,7 @@ struct WorkflowRunDetailView: View {
         do {
             let db = Firestore.firestore()
             let runRef = db.collection("helixWorkflowRuns").document()
-            var data: [String: Any] = [
+            let data: [String: Any] = [
                 "workflowId": workflowId,
                 "workspaceId": workflow.workspaceId,
                 "status": "pending",

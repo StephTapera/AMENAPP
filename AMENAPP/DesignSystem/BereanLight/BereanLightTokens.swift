@@ -35,15 +35,16 @@ extension Color {
     static var bereanWine: Color { .basWineRed }
 }
 
-// MARK: - Typography Scale
+// MARK: - Reading Typography (serif — scripture body text, reading surfaces)
+//
+// UI chrome fonts live in `BereanType` (BereanDesignSystem.swift). This adds the
+// serif reading scale for reading surfaces only. Values use SwiftUI text-style
+// descriptors so they scale correctly with Dynamic Type.
 
-enum BereanType {
-    static let displayTitle: Font   = .system(.largeTitle, design: .serif, weight: .medium)
-    static let sectionHeader: Font  = .system(.title2,     design: .serif, weight: .semibold)
-    static let bodyReading: Font    = .system(.body,        design: .serif)
-    static let bodyUI: Font         = .system(.body,        design: .default)
-    static let label: Font          = .system(.subheadline, design: .default, weight: .medium)
-    static let caption: Font        = .system(.caption,     design: .default)
+enum BereanReaderType {
+    static let displayTitle: Font  = .system(.largeTitle, design: .serif, weight: .medium)
+    static let sectionHeader: Font = .system(.title2,     design: .serif, weight: .semibold)
+    static let body: Font          = .system(.body,        design: .serif)
 }
 
 // MARK: - Surface Metrics

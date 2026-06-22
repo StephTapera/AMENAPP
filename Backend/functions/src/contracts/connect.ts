@@ -259,6 +259,225 @@ export interface GetChildCheckInStatusRequest {
   childId: string;
 }
 
+// ════════════════════════════════════════════════════════════════════
+// AMEN CONNECT COORDINATION FOUNDATION · Wave 0
+// Generic polymorphic coordination model. Church is one orgType value.
+// ════════════════════════════════════════════════════════════════════
+
+export type OrganizationType = "church" | "school" | "nonprofit" | "team" | "company" | "other";
+
+/** Organization contract: polymorphic customer root; church is one orgType value. */
+export interface Organization {
+  id: string;
+  name: string;
+  orgType: OrganizationType;
+}
+
+/** Team contract: generic coordination group scoped to an organization. */
+export interface Team {
+  id: string;
+  orgId: string;
+  name: string;
+}
+
+/** Role contract: required coverage unit for a team. */
+export interface Role {
+  id: string;
+  teamId: string;
+  name: string;
+  countNeeded: number;
+}
+
+/** Availability contract: simple V0 pattern attached to a person. */
+export interface Availability {
+  personId: string;
+  pattern: string;
+}
+
+/** Person contract: participant facts scoped to an organization. */
+export interface Person {
+  id: string;
+  orgId: string;
+  name: string;
+  skillIds: string[];
+  certificationIds: string[];
+  availability?: Availability | null;
+}
+
+/** Skill contract: reusable capability required by roles or people. */
+export interface Skill {
+  id: string;
+  name: string;
+}
+
+export type CertificationType = "background-check" | "child-safety" | "safety-training" | "role-training" | "other";
+
+/** Certification contract: person-held credential with an expiry date for alerts. */
+export interface Certification {
+  id: string;
+  personId: string;
+  type: CertificationType;
+  expiresAt: string;
+}
+
+/** ReliabilitySignal contract: attendance facts only; never a computed judgment on a named person. */
+export interface ReliabilitySignal {
+  personId: string;
+  attendedCount: number;
+  declinedCount: number;
+}
+
+export type AssignmentStatus = "signedUp" | "confirmed" | "declined" | "waitlisted";
+
+/** Assignment contract: person-to-role coverage state for one event or shift. */
+export interface Assignment {
+  id: string;
+  eventOrShiftId: string;
+  roleId: string;
+  personId: string;
+  status: AssignmentStatus;
+}
+
+export interface CoverageSummary {
+  countNeeded: number;
+  filledCount: number;
+  coverage: number;
+}
+
+export interface RoleCoverage extends CoverageSummary {
+  roleId: string;
+  teamId: string;
+  roleName: string;
+}
+
+export interface TeamCoverage extends CoverageSummary {
+  teamId: string;
+  teamName: string;
+}
+
+export interface OpenGap {
+  teamId: string;
+  teamName: string;
+  roleId: string;
+  roleName: string;
+  neededCount: number;
+  filledCount: number;
+  openCount: number;
+}
+
+/** ReadinessView contract: transparent derived coverage rollup with named gaps. */
+export interface ReadinessView {
+  eventOrShiftId: string;
+  roleCoverage: RoleCoverage[];
+  teamCoverage: TeamCoverage[];
+  organizationCoverage: CoverageSummary;
+  openGaps: OpenGap[];
+}
+
+/** ReadinessPillModel contract: compact Liquid Glass capsule payload. */
+export interface ReadinessPillModel {
+  label: string;
+  coverage: number;
+  worstOpenGap?: OpenGap | null;
+}
+
+export type CertificationAlertState = "expired" | "expiringSoon";
+
+export interface CertificationAlert {
+  id: string;
+  personId: string;
+  certificationId: string;
+  type: CertificationType;
+  expiresAt: string;
+  state: CertificationAlertState;
+}
+
+export const AMEN_CONNECT_COORDINATION_FLAGS = {
+  amen_connect_enabled: false,
+  coordination_schema_enabled: false,
+  readiness_pill_enabled: false,
+  certification_tracking_enabled: false,
+} as const;
+
+function coverage(filled: number, needed: number): number {
+  return needed <= 0 ? 1 : Math.min(filled / needed, 1);
+}
+
+/** Derives ReadinessView from roles and assignments; no readiness counter is stored. */
+export function deriveReadinessView(input: {
+  eventOrShiftId: string;
+  teams: Team[];
+  roles: Role[];
+  assignments: Assignment[];
+}): ReadinessView {
+  const teamsById = new Map(input.teams.map((team) => [team.id, team]));
+  const coveringAssignments = input.assignments.filter(
+    (assignment) =>
+      assignment.eventOrShiftId === input.eventOrShiftId &&
+      (assignment.status === "signedUp" || assignment.status === "confirmed")
+  );
+
+  const roleCoverage = input.roles.map((role): RoleCoverage => {
+    const needed = Math.max(role.countNeeded, 0);
+    const filled = Math.min(
+      coveringAssignments.filter((assignment) => assignment.roleId === role.id).length,
+      needed
+    );
+    return {
+      roleId: role.id,
+      teamId: role.teamId,
+      roleName: role.name,
+      countNeeded: needed,
+      filledCount: filled,
+      coverage: coverage(filled, needed),
+    };
+  });
+
+  const teamCoverage = input.teams.map((team): TeamCoverage => {
+    const items = roleCoverage.filter((role) => role.teamId === team.id);
+    const countNeeded = items.reduce((sum, item) => sum + item.countNeeded, 0);
+    const filledCount = items.reduce((sum, item) => sum + item.filledCount, 0);
+    return {
+      teamId: team.id,
+      teamName: team.name,
+      countNeeded,
+      filledCount,
+      coverage: coverage(filledCount, countNeeded),
+    };
+  });
+
+  const countNeeded = roleCoverage.reduce((sum, item) => sum + item.countNeeded, 0);
+  const filledCount = roleCoverage.reduce((sum, item) => sum + item.filledCount, 0);
+  const openGaps = roleCoverage
+    .map((item): OpenGap | null => {
+      const openCount = Math.max(item.countNeeded - item.filledCount, 0);
+      if (openCount === 0) return null;
+      return {
+        teamId: item.teamId,
+        teamName: teamsById.get(item.teamId)?.name ?? "Team",
+        roleId: item.roleId,
+        roleName: item.roleName,
+        neededCount: item.countNeeded,
+        filledCount: item.filledCount,
+        openCount,
+      };
+    })
+    .filter((gap): gap is OpenGap => gap !== null)
+    .sort((lhs, rhs) => rhs.openCount - lhs.openCount || `${lhs.teamName} ${lhs.roleName}`.localeCompare(`${rhs.teamName} ${rhs.roleName}`));
+
+  return {
+    eventOrShiftId: input.eventOrShiftId,
+    roleCoverage,
+    teamCoverage,
+    organizationCoverage: {
+      countNeeded,
+      filledCount,
+      coverage: coverage(filledCount, countNeeded),
+    },
+    openGaps,
+  };
+}
+
 export interface ChildStatus {
   childId: string;
   checkedIn: boolean;

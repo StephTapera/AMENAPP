@@ -197,7 +197,7 @@ final class ContextExtractionService {
     /// input (already text) → normalize → DROP excluded categories (summary) → C59 sanitize →
     /// extractContextFacets CF → ephemeral [FacetCandidate]. No Firestore writes here.
     private func run(rawText: String, source: ContextImportSource) async throws -> ContextExtractionResult {
-        guard AMENFeatureFlags.shared.contextUniversalImportEnabled else {
+        guard await AMENFeatureFlags.shared.contextUniversalImportEnabled else {
             throw ContextExtractionError.importDisabled
         }
         // Auth is required so the CF can attribute + App Check the call; we never embed the uid

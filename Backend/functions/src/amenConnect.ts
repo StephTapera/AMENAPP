@@ -1,11 +1,32 @@
 import * as admin from "firebase-admin";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import StripeConstructor from "stripe";
 
 const db = admin.firestore();
 const now = () => admin.firestore.FieldValue.serverTimestamp();
 
 type ConnectRole = "owner" | "admin" | "moderator" | "leader" | "mentor" | "creator" | "teacher" | "member" | "paidMember" | "guest" | "youth" | "parentGuardian" | "readOnly";
 type SafetyStatus = "pending" | "allowed" | "allow_with_warning" | "needs_review" | "blocked" | "escalated";
+type ConnectPaymentKind = "tier" | "product" | "liveSession" | "booking" | string;
+type ConnectStripeClient = Pick<InstanceType<typeof StripeConstructor>, "subscriptions">;
+type ConnectStripeMetadata = Record<string, string>;
+type ConnectStripeSession = {
+    id: string;
+    mode?: string | null;
+    subscription?: string | null;
+    customer?: string | null;
+    metadata?: ConnectStripeMetadata | null;
+};
+type ConnectStripeSubscription = {
+    id: string;
+    status?: string;
+    customer?: string | { id: string } | null;
+    metadata?: ConnectStripeMetadata | null;
+};
+type ConnectStripeEvent = {
+    type: string;
+    data: { object: unknown };
+};
 
 const adminRoles: ConnectRole[] = ["owner", "admin"];
 const moderatorRoles: ConnectRole[] = ["owner", "admin", "moderator"];
@@ -360,4 +381,174 @@ function createAuditContract() {
         await writeAudit(spaceId, uid, str(data, "action", "manualAudit"), str(data, "targetType", "unknown"), str(data, "targetId", "unknown"), data.metadata as Record<string, unknown> ?? {});
         return { ok: true };
     });
+}
+
+export async function createConnectStripeCheckoutSession(
+    uid: string,
+    target: { creatorId: string; tierId?: string; productId?: string; targetId?: string },
+    connectKind: ConnectPaymentKind,
+    action: string,
+    mode: "subscription" | "payment"
+) {
+    const creatorId = target.creatorId;
+    const targetId = target.tierId ?? target.productId ?? target.targetId;
+    if (!creatorId || !targetId) {
+        throw new HttpsError("invalid-argument", "creatorId and target id are required");
+    }
+
+    const collectionName = connectKind === "tier" ? "tiers" : "products";
+    const targetSnap = await db
+        .collection("connectCreatorProfiles")
+        .doc(creatorId)
+        .collection(collectionName)
+        .doc(targetId)
+        .get();
+    const targetData = targetSnap.data() ?? {};
+    if (targetData.moderationStatus !== "approved") {
+        throw new HttpsError("failed-precondition", "Connect item is not approved for checkout");
+    }
+
+    const stripePriceId = str(targetData, "stripePriceId");
+    if (!stripePriceId) {
+        throw new HttpsError("failed-precondition", "Connect item is missing Stripe price configuration");
+    }
+
+    const paymentRef = db.collection("connectPayments").doc();
+    const connectPaymentId = paymentRef.id;
+    const metadata = {
+        connectKind: String(connectKind),
+        creatorId,
+        targetId,
+        userId: uid,
+        connectPaymentId,
+    };
+
+    const stripe = new StripeConstructor(process.env.STRIPE_SECRET_KEY ?? "");
+    const session = await stripe.checkout.sessions.create({
+        mode,
+        line_items: [{ price: stripePriceId, quantity: 1 }],
+        success_url: "https://amen.app/connect/checkout/success",
+        cancel_url: "https://amen.app/connect/checkout/cancel",
+        metadata,
+        subscription_data: mode === "subscription" ? { metadata } : undefined,
+    });
+
+    await paymentRef.set({
+        userId: uid,
+        action,
+        connectKind,
+        creatorId,
+        targetId,
+        provider: "stripe",
+        stripeCheckoutSessionId: session.id,
+        paymentState: "checkout_created",
+        accessGranted: false,
+        createdAt: now(),
+        updatedAt: now(),
+    });
+
+    return {
+        checkoutUrl: session.url,
+        paymentState: "checkout_created",
+        accessGranted: false,
+    };
+}
+
+export async function handleConnectStripeEvent(
+    event: ConnectStripeEvent,
+    dbInstance: admin.firestore.Firestore,
+    stripe: ConnectStripeClient
+): Promise<void> {
+    if (event.type !== "checkout.session.completed") return;
+
+    const session = event.data.object as ConnectStripeSession;
+    const sessionMetadata = session.metadata ?? {};
+    const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
+    const subscription = subscriptionId
+        ? await stripe.subscriptions.retrieve(subscriptionId) as ConnectStripeSubscription
+        : null;
+    const metadata = subscription?.metadata && Object.keys(subscription.metadata).length > 0
+        ? subscription.metadata
+        : sessionMetadata;
+
+    const connectKind = metadata.connectKind;
+    const creatorId = metadata.creatorId;
+    const targetId = metadata.targetId;
+    const userId = metadata.userId;
+    const connectPaymentId = metadata.connectPaymentId ?? session.id;
+    if (!connectKind || !creatorId || !targetId || !userId) return;
+
+    if (session.mode === "subscription" && subscription) {
+        await dbInstance.collection("connectMemberships").doc(connectPaymentId).set({
+            userId,
+            creatorId,
+            targetId,
+            connectKind,
+            membershipStatus: subscription.status ?? "active",
+            accessGranted: true,
+            source: "stripe_subscription",
+            stripeSubscriptionId: subscription.id,
+            stripeCustomerId: typeof subscription.customer === "string"
+                ? subscription.customer
+                : subscription.customer?.id ?? session.customer ?? null,
+            updatedAt: now(),
+        }, { merge: true });
+        return;
+    }
+
+    if (session.mode === "payment") {
+        await dbInstance.collection("connectPurchases").doc(connectPaymentId).set({
+            userId,
+            creatorId,
+            targetId,
+            connectKind,
+            purchaseState: "active",
+            accessGranted: true,
+            source: "stripe_checkout",
+            stripeCheckoutSessionId: session.id,
+            updatedAt: now(),
+        }, { merge: true });
+    }
+}
+
+export async function collectAuthorizedAIContext(
+    uid: string,
+    action: string,
+    scope: { spaceId: string; channelId?: string }
+): Promise<string> {
+    const messagesRef = db
+        .collection("connectSpaces")
+        .doc(scope.spaceId)
+        .collection("channels")
+        .doc(scope.channelId ?? "general")
+        .collection("messages");
+    const snap = await messagesRef.orderBy("createdAt", "desc").limit(50).get();
+    const visibleBodies = snap.docs
+        .map((doc) => doc.data())
+        .filter((message) => !message.deletedAt)
+        .filter((message) => message.aiExcluded !== true)
+        .filter((message) => message.visibility !== "confidential")
+        .filter((message) => message.visibility !== "youthProtected")
+        .filter((message) => !message.requiredTierId)
+        .map((message) => String(message.body ?? "").trim())
+        .filter(Boolean);
+
+    return [`action:${action}`, `uid:${uid}`, ...visibleBodies].join("\n");
+}
+
+export async function runConnectAI(action: string, authorizedContext: string): Promise<unknown> {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+            action,
+            context: authorizedContext.slice(0, 12000),
+        }),
+    });
+
+    if (!response.ok) {
+        throw new HttpsError("internal", "Connect AI provider failed");
+    }
+
+    return response.json();
 }

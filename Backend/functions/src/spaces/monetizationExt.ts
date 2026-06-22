@@ -97,9 +97,7 @@ function validateSpaceId(spaceId: unknown): string {
 
 // ── createStripeConnectLink ───────────────────────────────────────────────────
 
-export const createStripeConnectLink = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ url: string }> => {
+export const createStripeConnectLink = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ url: string }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -161,9 +159,7 @@ export const createStripeConnectLink = onCall(
 
 // ── createSpaceGiftMembership ─────────────────────────────────────────────────
 
-export const createSpaceGiftMembership = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ giftId: string }> => {
+export const createSpaceGiftMembership = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ giftId: string }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -209,9 +205,7 @@ export const createSpaceGiftMembership = onCall(
 
 // ── redeemScholarshipCode ─────────────────────────────────────────────────────
 
-export const redeemScholarshipCode = onCall(
-    { region: "us-central1" },
-    async (
+export const redeemScholarshipCode = onCall({ enforceAppCheck: true, region: "us-central1" }, async (
         request
     ): Promise<{ tier: Record<string, unknown>; expiresAt: string | null; grantedBy: string }> => {
         const { uid } = request.auth ?? {};
@@ -275,9 +269,7 @@ export const redeemScholarshipCode = onCall(
 
 // ── submitScholarshipRequest ──────────────────────────────────────────────────
 
-export const submitScholarshipRequest = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ success: true }> => {
+export const submitScholarshipRequest = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ success: true }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -313,9 +305,7 @@ export const submitScholarshipRequest = onCall(
 
 // ── getCreatorEarningsSummary ─────────────────────────────────────────────────
 
-export const getCreatorEarningsSummary = onCall(
-    { region: "us-central1" },
-    async (request): Promise<EarningsSummary> => {
+export const getCreatorEarningsSummary = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<EarningsSummary> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -375,9 +365,7 @@ export const getCreatorEarningsSummary = onCall(
 
 // ── updateRevenueSplits ───────────────────────────────────────────────────────
 
-export const updateRevenueSplits = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ success: true }> => {
+export const updateRevenueSplits = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ success: true }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -439,9 +427,7 @@ export const updateRevenueSplits = onCall(
 
 // ── generateEarningsReport ────────────────────────────────────────────────────
 
-export const generateEarningsReport = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ csvData: string; filename: string }> => {
+export const generateEarningsReport = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ csvData: string; filename: string }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 

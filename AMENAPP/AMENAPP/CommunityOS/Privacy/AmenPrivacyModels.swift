@@ -291,6 +291,97 @@ extension PrivacySettings {
     }
 }
 
+// MARK: - ProfileContactField (per-field profile visibility)
+
+/// A sensitive contact field that the user can individually choose to show or hide
+/// on their profile. Backed by `PrivacySettings.customOverrides` keys, so adding
+/// these introduces NO Codable schema migration (existing privacy_settings docs
+/// decode unchanged; a missing key simply means "hidden", the safe default).
+///
+/// Trust & Safety Remediation item 21 follow-on (per-field profile hide).
+enum ProfileContactField: String, CaseIterable, Identifiable {
+    case email
+    case phone
+    case birthday
+
+    var id: String { rawValue }
+
+    /// The `customOverrides` key that stores this field's visibility preference.
+    var overrideKey: String {
+        switch self {
+        case .email:    return "show_email"
+        case .phone:    return "show_phone"
+        case .birthday: return "show_birthday"
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .email:    return "Email address"
+        case .phone:    return "Phone number"
+        case .birthday: return "Birthday"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .email:    return "envelope.fill"
+        case .phone:    return "phone.fill"
+        case .birthday: return "gift.fill"
+        }
+    }
+
+    /// Subtitle shown under the toggle in settings.
+    var privacyHint: String {
+        switch self {
+        case .email:    return "Hidden by default. Turn on to show your email on your profile."
+        case .phone:    return "Hidden by default. Turn on to show your phone number on your profile."
+        case .birthday: return "Hidden by default. Turn on to show your birthday on your profile."
+        }
+    }
+}
+
+// MARK: - PrivacySettings Per-Field Visibility Extension
+
+extension PrivacySettings {
+    /// Whether the user has opted to show `field` on their profile.
+    /// Sensitive contact fields default to HIDDEN (false) until explicitly enabled.
+    /// [MINOR] Always hidden for minors — contact PII is never exposed.
+    func showsProfileField(_ field: ProfileContactField) -> Bool {
+        if isMinor { return false }
+        return customOverrides[field.overrideKey] ?? false
+    }
+
+    /// Returns a copy with `field` visibility set. [MINOR] No-op for minors.
+    func settingProfileField(_ field: ProfileContactField, visible: Bool) -> PrivacySettings {
+        guard !isMinor else { return self }
+        var copy = self
+        copy.customOverrides[field.overrideKey] = visible
+        copy.updatedAt = Date()
+        return copy
+    }
+
+    /// Whether `field` is visible to a viewer of `audience`. The owner always sees
+    /// their own fields; everyone else requires the opt-in AND an audience that the
+    /// active preset would expose the profile to.
+    func isProfileField(_ field: ProfileContactField, visibleTo audience: AudienceType) -> Bool {
+        if audience == .selfViewer { return true }
+        guard showsProfileField(field) else { return false }
+        switch preset {
+        case .anonymous:
+            return false
+        case .private:
+            return audience == .trustedContact
+        case .balanced:
+            return audience == .mutualFollow
+                || audience == .churchMember
+                || audience == .trustedContact
+        case .open:
+            return audience != .anonymous
+        }
+    }
+}
+
 // MARK: - RedactionConfig
 
 /// Configuration for the text/media redaction pipeline.

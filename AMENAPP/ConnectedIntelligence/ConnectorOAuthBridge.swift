@@ -203,8 +203,7 @@ extension ConnectorOAuthBridge: WKScriptMessageHandlerWithReply {
         let session = ASWebAuthenticationSession(
             url: authURL,
             callbackURLScheme: scheme
-        ) { [weak self] callbackURL, error in
-            guard let self else { return }
+        ) { callbackURL, error in
             // Always purge the verifier from the Keychain at the end of the flow.
             defer { Self.keychainDelete(account: Self.verifierAccount(state: state)) }
 

@@ -60,7 +60,7 @@ final class RhythmEngineService: ObservableObject {
             let stream = await ContextBus.shared.subscribe(to: formationTypes)
             for await signal in stream {
                 guard !Task.isCancelled else { break }
-                guard await ConsentStore.shared.isEnabled(.activityToRhythm) else { continue }
+                guard ConsentStore.shared.isEnabled(.activityToRhythm) else { continue }
                 await MainActor.run {
                     self.record(signal.occurredAt)
                 }

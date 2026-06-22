@@ -688,7 +688,11 @@ struct SearchViewWithMockData: View {
     func performSearch() {
         Task {
             isSearching = true
-            searchResults = try await mockService.search(query: searchText, filter: selectedFilter)
+            do {
+                searchResults = try await mockService.search(query: searchText, filter: selectedFilter)
+            } catch {
+                searchResults = []
+            }
             isSearching = false
         }
     }

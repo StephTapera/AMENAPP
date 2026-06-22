@@ -253,7 +253,7 @@ struct ConnectSmartBereanBar: View {
             showResponseSheet = true
         } catch {
             response = "Unable to reach Berean right now. Check your connection and try again."
-            pendingIntent = .none
+            pendingIntent = ConnectBereanIntent.none
             showResponseSheet = true
         }
     }

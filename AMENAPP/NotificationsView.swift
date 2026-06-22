@@ -541,8 +541,8 @@ struct NotificationsView: View {
             get: { notificationService.error != nil },
             set: { newValue in
                 if !newValue {
-                    Task { @MainActor [weak notificationService] in
-                        notificationService?.clearError()
+                    Task { @MainActor in
+                        notificationService.clearError()
                     }
                 }
             }

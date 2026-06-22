@@ -58,19 +58,26 @@ final class ChurchReflectionViewModel: ObservableObject {
             .limit(to: 1)
             .getDocuments { [weak self] snapshot, _ in
                 guard let self else { return }
-                if let doc = snapshot?.documents.first,
-                   let r = try? doc.data(as: ChurchReflection.self) {
-                    self.reflection = r
-                    self.primaryTakeaway = r.primaryTakeaway ?? ""
-                    self.applicationText = r.applicationText ?? ""
-                    self.prayerText = r.prayerText ?? ""
-                    self.verseToCarry = r.verseToCarry ?? ""
-                    self.actionItems = r.actionItems
-                    self.midweekReminderEnabled = r.midweekReminderEnabled
-                    self.aiSummaryDraft = r.aiSummary ?? ""
-                    self.aiPrayerDraft = r.aiSuggestedPrayer ?? ""
+                let r: ChurchReflection?
+                if let doc = snapshot?.documents.first {
+                    r = try? doc.data(as: ChurchReflection.self)
+                } else {
+                    r = nil
                 }
-                self.isLoading = false
+                Task { @MainActor in
+                    if let r {
+                        self.reflection = r
+                        self.primaryTakeaway = r.primaryTakeaway ?? ""
+                        self.applicationText = r.applicationText ?? ""
+                        self.prayerText = r.prayerText ?? ""
+                        self.verseToCarry = r.verseToCarry ?? ""
+                        self.actionItems = r.actionItems
+                        self.midweekReminderEnabled = r.midweekReminderEnabled
+                        self.aiSummaryDraft = r.aiSummary ?? ""
+                        self.aiPrayerDraft = r.aiSuggestedPrayer ?? ""
+                    }
+                    self.isLoading = false
+                }
             }
     }
 
@@ -114,7 +121,7 @@ final class ChurchReflectionViewModel: ObservableObject {
     // MARK: - AI Assistance (on-demand only)
 
     func generateAISummary() async {
-        guard let reflectionId = reflection?.id else { return }
+        guard reflection?.id != nil else { return }
         aiIsGenerating = true
         do {
             let result = try await functions.httpsCallable("generateReflectionSeedFromNotes").call([

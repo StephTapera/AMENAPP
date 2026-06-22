@@ -34,7 +34,8 @@ actor NoteMatchBridge {
         Task {
             let stream = await ContextBus.shared.subscribe(to: [.noteThemeDetected])
             for await signal in stream {
-                guard ContextIntelligenceFlags.noteToBridge else { continue }
+                let isBridgeEnabled = await MainActor.run { ContextIntelligenceFlags.noteToBridge }
+                guard isBridgeEnabled else { continue }
                 await processThemeSignal(signal)
             }
         }
@@ -61,7 +62,7 @@ actor NoteMatchBridge {
 
         // Fire-and-forget — failures are non-fatal; delta will be retried on next
         // note save if the user re-saves content with the same theme.
-        try? await db
+        _ = try? await db
             .collection("churchDNA")
             .document(uid)
             .collection("themeDeltas")

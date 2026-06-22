@@ -150,7 +150,7 @@ final class DiscussionActionRouter {
                     reversible: true,
                     createdAt: Date().timeIntervalSince1970
                 )
-                try? await db.collection("users").document(userId)
+                _ = try? await db.collection("users").document(userId)
                     .collection("trustLedger").addDocument(data: entry.toFirestore())
             }
         } catch {

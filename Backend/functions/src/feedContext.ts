@@ -480,7 +480,7 @@ function buildRankedFeedResponse(request: FeedRankRequest, userContext: UserCont
     };
 }
 
-export const computeFeedContextLabels = onCall(async (request) => {
+export const computeFeedContextLabels = onCall({ enforceAppCheck: true }, async (request) => {
     requireAppCheck(request);
     const uid = requireAuth(request);
     const data = request.data as Partial<FeedRankRequest>;
@@ -508,7 +508,7 @@ export const computeFeedContextLabels = onCall(async (request) => {
     };
 });
 
-export const attachFeedContextToRankedPosts = onCall(async (request) => {
+export const attachFeedContextToRankedPosts = onCall({ enforceAppCheck: true }, async (request) => {
     requireAppCheck(request);
     const uid = requireAuth(request);
     const data = request.data as Partial<FeedRankRequest>;
@@ -539,7 +539,7 @@ export const attachFeedContextToRankedPosts = onCall(async (request) => {
     return buildRankedFeedResponse(normalizedRequest, userContext);
 });
 
-export const updateUserContextLabelPreferences = onCall(async (request) => {
+export const updateUserContextLabelPreferences = onCall({ enforceAppCheck: true }, async (request) => {
     requireAppCheck(request);
     const uid = requireAuth(request);
     const data = (request.data ?? {}) as Partial<ContextPreferences>;
@@ -560,7 +560,7 @@ export const updateUserContextLabelPreferences = onCall(async (request) => {
     return { success: true };
 });
 
-export const trackContextLabelEvent = onCall(async (request) => {
+export const trackContextLabelEvent = onCall({ enforceAppCheck: true }, async (request) => {
     requireAppCheck(request);
     const uid = requireAuth(request);
     const data = request.data as Record<string, unknown>;
@@ -593,7 +593,7 @@ export const trackContextLabelEvent = onCall(async (request) => {
     return { success: true };
 });
 
-export const suppressContextLabelForUser = onCall(async (request) => {
+export const suppressContextLabelForUser = onCall({ enforceAppCheck: true }, async (request) => {
     requireAppCheck(request);
     const uid = requireAuth(request);
     const data = request.data as Record<string, unknown>;

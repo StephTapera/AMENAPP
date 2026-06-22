@@ -28,6 +28,9 @@ class AuthenticationViewModel: ObservableObject {
     @Published var currentUserModel: UserModel?
     @Published var needsUsernameSelection = false  // NEW: For social sign-in users
     @Published var needsEmailVerification = false  // P0: Email verification gate
+#if DEBUG
+    @Published var isDebugAuthBypassActive = false
+#endif
     /// Audit D-01: true when an authenticated user has no age profile yet (e.g. a
     /// first-time Google/Apple sign-in, which never collected a DOB). Gates the
     /// universal DOB → tier step in ContentView. Only evaluated under ff_onboarding_v2.
@@ -2079,7 +2082,7 @@ class AuthenticationViewModel: ObservableObject {
         dlog("✅ Onboarding state set to complete locally")
         
         // Update Firestore (single source of truth) asynchronously
-        Task {
+        Task { [weak self] in
             do {
                 lazy var db = Firestore.firestore()
                 // Use setData(merge:true) — updateData() throws if the document doesn't exist,
@@ -2096,17 +2099,17 @@ class AuthenticationViewModel: ObservableObject {
                 
                 // Clear the flag after Firestore update succeeds
                 // Wait a bit to ensure any pending checkOnboardingStatus calls complete
-                Task { @MainActor [weak self] in
+                Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
                     self?.onboardingJustCompleted = false
                 }
-                
+
             } catch {
                 dlog("❌ Failed to save onboarding completion to Firestore: \(error.localizedDescription)")
                 dlog("⚠️ Local state already updated - user can proceed")
-                
+
                 // Clear the flag even on error (after delay)
-                Task { @MainActor [weak self] in
+                Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
                     self?.onboardingJustCompleted = false
                 }
@@ -2451,26 +2454,19 @@ class AuthenticationViewModel: ObservableObject {
     // MARK: - Debug Bypass
 
 #if DEBUG
-    /// Test-mode shortcut for simulator flows. It may only continue when Firebase
-    /// already has a real signed-in user; otherwise the app must stay on auth.
+    /// Test-mode shortcut for simulator flows. This bypasses Firebase auth only in DEBUG builds.
     func bypassAuthForTesting() {
-        guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else {
-            dlog("🧪 DEBUG auth bypass requested without Firebase user — staying signed out")
-            isAuthenticated = false
-            needsOnboarding = false
-            needsUsernameSelection = false
-            needsEmailVerification = false
-            currentUserModel = nil
-            lastAuthStateUserId = nil
-            AppReadyStateManager.shared.signalReady()
-            return
-        }
-
-        dlog("🧪 DEBUG auth bypass using existing Firebase user \(uid)")
+        let uid = Auth.auth().currentUser?.uid ?? "debug-test-mode"
+        dlog("🧪 DEBUG auth bypass activated for \(uid)")
+        isDebugAuthBypassActive = true
         isAuthenticated = true
         needsOnboarding = false
         needsUsernameSelection = false
         needsEmailVerification = false
+        needs2FAVerification = false
+        currentUserModel = nil
+        lastAuthStateUserId = uid
+        AppReadyStateManager.shared.signalReady()
     }
 #endif
 }
@@ -2520,6 +2516,48 @@ extension AuthenticationViewModel {
             isTimeout: false,
             message: "We couldn't verify your account status. Please try again."
         )
+    }
+}
+
+// MARK: - AccountLifecycleBlockedView
+
+/// Recovery surface shown when account-status resolution cannot complete (e.g. a
+/// Firestore timeout). Pairs with `AuthenticationViewModel.resolveAuthError(from:)`,
+/// which supplies the user-facing `message`. The view stores its inputs verbatim so
+/// the copy rendered is exactly what the auth layer produced, and the Try Again
+/// button invokes `action` unchanged.
+struct AccountLifecycleBlockedView: View {
+    let title: String
+    let message: String
+    let buttonTitle: String
+    let action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "exclamationmark.icloud")
+                .font(.system(size: 44, weight: .regular))
+                .foregroundStyle(.secondary)
+
+            Text(title)
+                .font(.title3.weight(.semibold))
+                .multilineTextAlignment(.center)
+
+            Text(message)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button(action: action) {
+                Text(buttonTitle)
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            }
+            .buttonStyle(.borderedProminent)
+            .padding(.top, 4)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

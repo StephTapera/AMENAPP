@@ -105,7 +105,7 @@ struct PerMediaCaptionComposer: View {
             .foregroundStyle(.primary)
             .lineLimit(1...5)
             .focused($captionFocused)
-            .onChange(of: draft.text) { new in
+            .onChange(of: draft.text) { _, new in
                 if new.count > captionLimit {
                     draft.text = String(new.prefix(captionLimit))
                 }

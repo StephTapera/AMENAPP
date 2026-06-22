@@ -1,3 +1,4 @@
+#if canImport(Testing)
 // ContextBusTests.swift
 // AMEN — ContextBus unit tests using Swift Testing
 //
@@ -152,4 +153,6 @@ struct ContextBusTests {
         #expect(pending <= 500, "Ring buffer must evict oldest entries and stay at or below capacity of 500")
     }
 }
+#endif
+
 #endif

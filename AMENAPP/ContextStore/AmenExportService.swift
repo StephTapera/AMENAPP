@@ -230,7 +230,7 @@ final class AmenExportService: ObservableObject {
                 .httpsCallable("exportAmenFile")
                 .call(exportPayload)
         } catch {
-            let msg = (error as? NSError)?.localizedDescription ?? error.localizedDescription
+            let msg = (error as NSError).localizedDescription
             lastExportError = msg
             throw AmenExportError.serverRejectedExport(msg)
         }
@@ -260,7 +260,7 @@ final class AmenExportService: ObservableObject {
                 .call(signPayload)
         } catch {
             // Signing is best-effort — if unavailable (key not provisioned) surface as a distinct error.
-            let msg = (error as? NSError)?.localizedDescription ?? error.localizedDescription
+            let msg = (error as NSError).localizedDescription
             lastExportError = msg
             throw AmenExportError.signingUnavailable
         }

@@ -445,31 +445,24 @@ private struct ReauthenticationSheet: View {
             isLoading = false
             return
         }
-        GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { result, signInError in
-            Task { @MainActor in
-                guard let result, signInError == nil,
-                      let idToken = result.user.idToken?.tokenString else {
-                    self.error = "Google re-authentication failed. Please try again."
-                    self.isLoading = false
-                    return
-                }
-                let credential = GoogleAuthProvider.credential(
-                    withIDToken: idToken,
-                    accessToken: result.user.accessToken.tokenString
-                )
-                Auth.auth().currentUser?.reauthenticate(with: credential) { _, reauthError in
-                    Task { @MainActor in
-                        if reauthError == nil {
-                            self.onComplete(true)
-                        } else {
-                            self.error = "Google re-authentication failed. Please try again."
-                            self.onComplete(false)
-                        }
-                        self.isLoading = false
-                    }
-                }
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
+            guard let idToken = result.user.idToken?.tokenString else {
+                self.error = "Google re-authentication failed. Please try again."
+                self.isLoading = false
+                return
             }
+            let credential = GoogleAuthProvider.credential(
+                withIDToken: idToken,
+                accessToken: result.user.accessToken.tokenString
+            )
+            try await Auth.auth().currentUser?.reauthenticate(with: credential)
+            self.onComplete(true)
+        } catch {
+            self.error = "Google re-authentication failed. Please try again."
+            self.onComplete(false)
         }
+        self.isLoading = false
     }
 
     private func reauthWithApple() async {

@@ -259,7 +259,7 @@ interface IngestResponse {
 }
 
 export const ingestChurchesFromGooglePlaces = onCall(
-    { region: REGION, enforceAppCheck: !IS_EMULATOR },
+    { region: REGION, enforceAppCheck: true },
     async (request: CallableRequest<IngestRequest>): Promise<IngestResponse> => {
         requireAuth(request);
         requireAppCheck(request);
@@ -399,7 +399,7 @@ interface ComputeAvailabilityRequest {
 }
 
 export const computeAvailabilityStatus = onCall(
-    { region: REGION, enforceAppCheck: !IS_EMULATOR },
+    { region: REGION, enforceAppCheck: true },
     async (request: CallableRequest<ComputeAvailabilityRequest>): Promise<AvailabilityStatus> => {
         requireAuth(request);
         requireAppCheck(request);

@@ -84,14 +84,16 @@ export interface AIReceipt {
 // user-facing projection that names the principle invoked.
 // ─────────────────────────────────────────────────────────────
 
-export type ModerationAction =
+// Trust-prefixed to mirror the Swift names, which avoid collision with the
+// app's existing top-level ModerationAction / AppealStatus types.
+export type TrustModerationAction =
   | "hidden"
   | "downranked"
   | "warned"
   | "removed"
   | "allowed";
 
-export type AppealStatus =
+export type TrustAppealStatus =
   | "none"
   | "available"
   | "submitted"
@@ -101,14 +103,14 @@ export type AppealStatus =
 
 export interface ModerationReceipt {
   eventId: string;
-  action: ModerationAction;
+  action: TrustModerationAction;
   principleInvoked: ConstitutionalPrinciple;
   confidence: ReceiptConfidence;
   /** Real model identifier used for the decision, e.g. "nemo-guard" / "vision-llm". */
   modelUsed: string;
   /** The concrete rule that triggered, from the existing policy framework. */
   ruleTriggered: string;
-  appealStatus: AppealStatus;
+  appealStatus: TrustAppealStatus;
   humanReviewAvailable: boolean;
 }
 

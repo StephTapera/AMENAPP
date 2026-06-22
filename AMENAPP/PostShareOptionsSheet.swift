@@ -61,6 +61,7 @@ struct PostShareOptionsSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var showShareCardSheet = false
     @State private var showMessageCompose = false
+    @State private var showMomentSheet = false
 
     var body: some View {
         ZStack {
@@ -105,6 +106,10 @@ struct PostShareOptionsSheet: View {
                     GlassDialogButton(title: "Share Externally", subtitle: "Share outside the app", systemImage: "square.and.arrow.up") {
                         showShareCardSheet = true
                     }
+
+                    GlassDialogButton(title: "Deepen Moment", subtitle: "Summarize, study, pray, or save", systemImage: "sparkles.rectangle.stack") {
+                        showMomentSheet = true
+                    }
                 }
 
                 Button("Cancel") {
@@ -143,6 +148,55 @@ struct PostShareOptionsSheet: View {
         .fullScreenCover(isPresented: $showShareCardSheet) {
             AMENShareSheet(payload: makeSharePayload(), isPresented: $showShareCardSheet)
         }
+        .sheet(isPresented: $showMomentSheet) {
+            NavigationStack {
+                ScrollView {
+                    AmenMomentIntegrationWiring().surface(for: makeMoment())
+                        .padding(16)
+                }
+                .navigationTitle("Deepen Moment")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { showMomentSheet = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+    }
+
+    private func makeMoment() -> AmenMoment {
+        let refId = post.firestoreId.isEmpty ? (post.firebaseId ?? post.id.uuidString) : post.firestoreId
+        return AmenMoment(
+            id: "post_\(refId)",
+            type: momentType(for: post),
+            temporalState: .evergreen,
+            refId: refId,
+            ownerId: post.authorId,
+            createdAt: Int64(post.createdAt.timeIntervalSince1970 * 1000),
+            title: momentTitle(for: post),
+            summary: post.content
+        )
+    }
+
+    private func momentType(for post: Post) -> AmenMomentType {
+        if post.verseReference?.isEmpty == false { return .scripture }
+        if post.sharedChurchEventId?.isEmpty == false { return .event }
+        if post.threadId?.isEmpty == false { return .thread }
+        if post.category == .prayer { return .prayer }
+        return .creator
+    }
+
+    private func momentTitle(for post: Post) -> String {
+        if let verseReference = post.verseReference, !verseReference.isEmpty {
+            return verseReference
+        }
+        if let eventName = post.sharedChurchEventName, !eventName.isEmpty {
+            return eventName
+        }
+        return "Post by \(post.authorName)"
     }
     
     private func makeSharePayload() -> AMENSharePayload {
@@ -389,7 +443,7 @@ struct MessageComposeView: View {
         let trimmed = query.trimmingCharacters(in: .whitespaces).lowercased()
         guard !trimmed.isEmpty else { return }
         await MainActor.run { isSearching = true }
-        lazy var db = Firestore.firestore()
+        let db = Firestore.firestore()
         async let byDisplayName = db.collection("users")
             .whereField("displayNameLowercase", isGreaterThanOrEqualTo: trimmed)
             .whereField("displayNameLowercase", isLessThan: trimmed + "\u{f8ff}")

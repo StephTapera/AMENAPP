@@ -119,7 +119,7 @@ exports.onChurchInteractionReflected = (0, firestore_1.onDocumentUpdated)("users
 // MARK: - scheduleChurchFollowUpPrompt (Callable)
 // Called by ChurchFollowUpEngine when completing a step client-side.
 // ---------------------------------------------------------------------------
-exports.scheduleChurchFollowUpPrompt = (0, https_1.onCall)({ enforceAppCheck: false }, async (request) => {
+exports.scheduleChurchFollowUpPrompt = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const uid = request.auth?.uid;
     if (!uid)
         throw new https_1.HttpsError("unauthenticated", "Must be signed in.");

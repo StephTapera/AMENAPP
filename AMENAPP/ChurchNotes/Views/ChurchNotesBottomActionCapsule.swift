@@ -12,35 +12,32 @@ struct ChurchNotesBottomActionCapsule: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 4) {
+            HStack(spacing: 8) {
                 ForEach(actions) { action in
                     Button(action: action.handler) {
                         ViewThatFits(in: .horizontal) {
                             Label(action.label, systemImage: action.icon)
-                                .font(.systemScaled(12, weight: .medium))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .labelStyle(.titleAndIcon)
 
                             Image(systemName: action.icon)
-                                .font(.systemScaled(16, weight: .medium))
-                                .frame(width: 34, height: 34)
+                                .font(.systemScaled(17, weight: .semibold))
+                                .frame(width: 38, height: 38)
                                 .accessibilityHidden(true)
                         }
-                        .foregroundStyle(.primary.opacity(0.74))
-                        .frame(minWidth: 58)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 10)
+                        .foregroundStyle(.primary.opacity(0.78))
+                        .frame(minWidth: 64)
+                        .padding(.horizontal, 12)
+                        .frame(height: 48)
+                        .amenLiquidGlassCapsuleSurface(isSelected: false)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(action.label)
                 }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
         }
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(Capsule().fill(Color(.systemBackground).opacity(0.68)))
-                .overlay(Capsule().strokeBorder(ChurchNotesDesignTokens.Colors.neutralBorder, lineWidth: 0.5))
-        )
+        .amenLiquidGlassCapsuleSurface(isSelected: false)
     }
 }

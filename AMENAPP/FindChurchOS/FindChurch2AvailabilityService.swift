@@ -120,7 +120,7 @@ final class FindChurch2AvailabilityService: ObservableObject {
         let sundayWeekday = 1  // Calendar.weekday: 1 = Sunday
 
         let nowComponents = calendar.dateComponents(in: TimeZone.current, from: now)
-        guard let todayWeekday = nowComponents.weekday else { return false }
+        guard nowComponents.weekday != nil else { return false }
 
         // Only consider Sunday services for the livestream heuristic
         let sundayServices = serviceTimes.filter { $0.dayOfWeek == sundayWeekday }

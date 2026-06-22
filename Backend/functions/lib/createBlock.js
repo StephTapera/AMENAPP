@@ -66,7 +66,7 @@ const functions = __importStar(require("firebase-functions"));
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
-exports.createBlock = (0, https_1.onCall)(async (request) => {
+exports.createBlock = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -106,7 +106,7 @@ exports.createBlock = (0, https_1.onCall)(async (request) => {
 // ─── createUnblock ────────────────────────────────────────────────────────────
 //
 // Removes block from both stores atomically. Mirror of createBlock.
-exports.createUnblock = (0, https_1.onCall)(async (request) => {
+exports.createUnblock = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

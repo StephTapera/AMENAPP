@@ -52,7 +52,7 @@ class RealtimeSavedPostsService: ObservableObject {
         }
         
         // ✅ Check network first
-        guard AMENNetworkMonitor.shared.isConnected else {
+        guard await AMENNetworkMonitor.shared.isConnected else {
             dlog("📱 Offline - cannot toggle save status")
             throw NSError(
                 domain: "RealtimeSavedPostsService",
@@ -137,7 +137,7 @@ class RealtimeSavedPostsService: ObservableObject {
         }
         
         // ✅ Check network first
-        guard AMENNetworkMonitor.shared.isConnected else {
+        guard await AMENNetworkMonitor.shared.isConnected else {
             dlog("📱 Offline - using cached saved status for: \(postId)")
             return isPostSavedSync(postId: postId)
         }
@@ -205,7 +205,7 @@ class RealtimeSavedPostsService: ObservableObject {
     func fetchSavedPosts() async throws -> [Post] {
         // ✅ Check if offline - use cached post IDs
         let postIds: [String]
-        if AMENNetworkMonitor.shared.isConnected {
+        if await AMENNetworkMonitor.shared.isConnected {
             postIds = try await fetchSavedPostIds()
         } else {
             dlog("📱 Offline - using cached saved post IDs")
@@ -229,9 +229,9 @@ class RealtimeSavedPostsService: ObservableObject {
                     // Post was deleted — remove the stale RTDB entry so it doesn't
                     // reappear on the next launch and waste Firestore reads.
                     dlog("⚠️ Post \(postId) not found in Firestore — removing from saved cache")
-                    await MainActor.run { savedPostIds.remove(postId) }
+                    _ = await MainActor.run { savedPostIds.remove(postId) }
                     if let userId = Auth.auth().currentUser?.uid {
-                        try? await database.child("user_saved_posts").child(userId).child(postId).removeValue()
+                        _ = try? await database.child("user_saved_posts").child(userId).child(postId).removeValue()
                     }
                 }
             } catch let error as NSError {

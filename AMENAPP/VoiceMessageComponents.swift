@@ -72,12 +72,12 @@ final class VoiceMessageViewModel: NSObject, ObservableObject, AVAudioRecorderDe
 
             // Duration counter (1Hz)
             durationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-                Task { @MainActor in self?.recordingDuration += 1 }
+                Task { @MainActor [weak self] in self?.recordingDuration += 1 }
             }
 
             // Amplitude sampler (10Hz for smooth waveform)
             amplitudeTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                Task { @MainActor in self?.sampleAmplitude() }
+                Task { @MainActor [weak self] in self?.sampleAmplitude() }
             }
             RunLoop.main.add(durationTimer!, forMode: .common)
             RunLoop.main.add(amplitudeTimer!, forMode: .common)
@@ -417,7 +417,7 @@ final class VoicePlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     private func startTimer() {
         progressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.updateDisplay() }
+            Task { @MainActor [weak self] in self?.updateDisplay() }
         }
     }
 

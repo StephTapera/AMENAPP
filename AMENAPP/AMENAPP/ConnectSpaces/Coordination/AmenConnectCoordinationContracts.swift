@@ -25,7 +25,7 @@ struct AmenConnectTeam: Codable, Equatable, Identifiable, Sendable {
 }
 
 /// Role contract: required coverage unit for a team.
-struct AmenConnectRole: Codable, Equatable, Identifiable, Sendable {
+struct AmenConnectCoordinationRole: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let teamId: String
     let name: String

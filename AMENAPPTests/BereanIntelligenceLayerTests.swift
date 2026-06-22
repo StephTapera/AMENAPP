@@ -327,6 +327,7 @@ final class BereanDisputedTopicDetectorTests: XCTestCase {
 
 // MARK: - BereanSmartPillEngineTests
 
+@MainActor
 final class BereanSmartPillEngineTests: XCTestCase {
 
     // Crisis state returns ONLY safety pills

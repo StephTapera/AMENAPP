@@ -1,0 +1,2 @@
+build-until-green started Mon Jun 22 10:10:59 CDT 2026 HEAD=c8388cf0
+attempt 1: launching xcodebuild Mon Jun 22 10:10:59 CDT 2026 -> deploy-logs/build-until-green-20260622-101059.attempt1.log

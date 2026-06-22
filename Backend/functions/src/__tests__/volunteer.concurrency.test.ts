@@ -12,7 +12,7 @@
 // transaction, this test would show overfill; because it reads inside, it cannot.
 
 import { computeBoard, evaluateSignup } from "../volunteer/volunteerBoardLogic";
-import { runSignUpTransaction } from "../volunteer/volunteerCallables";
+import { resolveSignupVolunteerId, runSignUpTransaction } from "../volunteer/volunteerCallables";
 import { Assignment, StaffingNeed } from "../contracts/volunteer";
 
 // ────────────────────────────────────────────────────────────────────
@@ -117,6 +117,11 @@ class FakeDocRef {
   get id() { return this.path.slice(this.path.lastIndexOf("/") + 1); }
   collection(name: string): FakeCollection {
     return new FakeCollection(this.db, `${this.path}/${name}`);
+  }
+  // Non-transactional read (used by requireEventLeader / resolveSignupVolunteerId).
+  async get(): Promise<any> {
+    const data = this.db._get(this.path);
+    return { exists: data !== undefined, data: () => data };
   }
 }
 
@@ -304,6 +309,53 @@ describe("I2 — board is derived from assignments", () => {
     const greeter = board.roles.find((r) => r.role === "Greeter")!;
     // 3 Greeter assignment docs exist, but only 2 are active → filled is derived, not a count of docs.
     expect(greeter.filled).toBe(2);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────
+// IDOR guard — signUpForSlot binds the assignment to the caller, not to a
+// client-supplied volunteerId (unless the caller is a verified event leader).
+// ────────────────────────────────────────────────────────────────────
+
+describe("resolveSignupVolunteerId — identity binding (IDOR guard)", () => {
+  function seedEvent(leaderIds: string[] = []): FakeOCCFirestore {
+    const db = new FakeOCCFirestore();
+    db.seed("volunteerEvents/evt", {
+      eventId: "evt", title: "Sunday", startUTC: "2026-06-21T15:00:00Z", leaderIds,
+    });
+    return db;
+  }
+
+  it("binds to the caller when volunteerId matches the caller", async () => {
+    const db = seedEvent();
+    const id = await resolveSignupVolunteerId(db as any, "me", "me", "evt");
+    expect(id).toBe("me");
+  });
+
+  it("binds to the caller when volunteerId is missing/empty (no spoofable default)", async () => {
+    const db = seedEvent();
+    await expect(resolveSignupVolunteerId(db as any, "me", undefined, "evt")).resolves.toBe("me");
+    await expect(resolveSignupVolunteerId(db as any, "me", "   ", "evt")).resolves.toBe("me");
+  });
+
+  it("a non-leader signing up SOMEONE ELSE is rejected (permission-denied)", async () => {
+    const db = seedEvent([]); // caller is not a leader
+    await expect(
+      resolveSignupVolunteerId(db as any, "attacker", "victim", "evt"),
+    ).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("a non-leader still cannot spoof even when they ARE a different real user", async () => {
+    const db = seedEvent(["someLeader"]);
+    await expect(
+      resolveSignupVolunteerId(db as any, "attacker", "victim", "evt"),
+    ).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("a verified event leader MAY sign another volunteer up", async () => {
+    const db = seedEvent(["leader1"]);
+    const id = await resolveSignupVolunteerId(db as any, "leader1", "volunteerB", "evt");
+    expect(id).toBe("volunteerB");
   });
 });
 

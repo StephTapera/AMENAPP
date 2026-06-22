@@ -39,7 +39,7 @@ const admin = __importStar(require("firebase-admin"));
 const path = __importStar(require("path"));
 const os = __importStar(require("os"));
 const ffmpegUtils_1 = require("./ffmpegUtils");
-exports.processVideoProxy = (0, https_1.onCall)(async (request) => {
+exports.processVideoProxy = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -66,7 +66,10 @@ exports.processVideoProxy = (0, https_1.onCall)(async (request) => {
     try {
         await (0, ffmpegUtils_1.createProxyVideo)(localInput, localOutput);
         await (0, ffmpegUtils_1.uploadFromTmp)(localOutput, outputStoragePath);
-        const proxyURL = (await admin.storage().bucket().file(outputStoragePath).getSignedUrl({ action: "read", expires: "03-01-2500" }))[0];
+        const proxyURL = (await admin.storage().bucket().file(outputStoragePath).getSignedUrl({
+            action: "read",
+            expires: Date.now() + 60 * 60 * 1000,
+        }))[0];
         await jobRef.set({ status: "completed", progress: 1, outputRefs: [proxyURL], outputStoragePath: outputStoragePath }, { merge: true });
     }
     finally {

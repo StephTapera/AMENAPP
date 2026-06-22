@@ -9,9 +9,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 
-export const verifyCovenantMembership = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ verified: boolean; membershipId: string }> => {
+export const verifyCovenantMembership = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ verified: boolean; membershipId: string }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
         const data = (request.data ?? {}) as { membershipId?: string };

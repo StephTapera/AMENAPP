@@ -196,7 +196,7 @@ export const autoSuspendOnCriticalPattern = onDocumentCreated(
  * Input:  { uid: string, reason: string }
  * Output: { success: boolean }
  */
-export const suspendAccount = onCall(async (request) => {
+export const suspendAccount = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -247,7 +247,7 @@ export const suspendAccount = onCall(async (request) => {
  * Input:  { uid: string, reason: string }
  * Output: { success: boolean }
  */
-export const restoreAccount = onCall(async (request) => {
+export const restoreAccount = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

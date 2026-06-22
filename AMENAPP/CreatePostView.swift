@@ -132,6 +132,8 @@ struct CreatePostView: View {
     // Audience / visibility
     @State private var postVisibility: Post.PostVisibility = .everyone
     @State private var showingAudienceSheet = false
+    @State private var initialAudienceIntent: AmenPostAudience? = nil
+    @State private var initialAudienceMetadata: AmenAudienceMetadata? = nil
 
     // Scripture verse - two-stage Liquid Glass drawer
     @State private var attachedVerseReference: String = ""
@@ -191,6 +193,14 @@ struct CreatePostView: View {
     // MARK: - Aegis Pre-Post Review Gate
     @State private var showAegisReview = false
     @State private var aegisDecision: PrePostDecision? = nil
+
+    // MARK: - Berean Camera MEDIA-GATE
+    @State private var showMediaGateReview = false
+    @State private var mediaGateReviewResult: MediaGatePrecheckResult?
+    @State private var mediaGatePrecheckResults: [MediaGatePrecheckResult] = []
+    @State private var approvedMediaGateFindings: [MediaGateSafetyFinding] = []
+    @State private var approvedMediaGateActions: [MediaGateRedactionAction] = []
+    @State private var bypassMediaGateReview = false
 
     // MARK: - Email Verification Gate
     @State private var showEmailVerificationAlert = false
@@ -252,14 +262,28 @@ struct CreatePostView: View {
 
     // MARK: - Initializer
     
-    init(initialCategory: PostCategory? = nil, initialText: String = "") {
+    init(
+        initialCategory: PostCategory? = nil,
+        initialText: String = "",
+        initialAudience: AmenPostAudience? = nil,
+        initialAudienceMetadata: AmenAudienceMetadata? = nil
+    ) {
         if !initialText.isEmpty {
             _postText = State(initialValue: initialText)
+        }
+        if let audienceVisibility = initialAudience?.defaultPostVisibility {
+            _postVisibility = State(initialValue: audienceVisibility)
+        }
+        if let initialAudience {
+            _initialAudienceIntent = State(initialValue: initialAudience)
+        }
+        if let initialAudienceMetadata {
+            _initialAudienceMetadata = State(initialValue: initialAudienceMetadata)
         }
         if let category = initialCategory {
             _selectedCategory = State(initialValue: category)
             // P1-3: Prayer posts default to followers-only comments + followers visibility for privacy
-            if category == .prayer {
+            if category == .prayer, initialAudience == nil {
                 _commentPermission = State(initialValue: .followersOnly)
                 _postVisibility = State(initialValue: .followers)
             }
@@ -472,6 +496,11 @@ struct CreatePostView: View {
                 CameraAttachmentPreview(image: capturedImage) {
                     withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                         cameraImage = nil
+                        mediaGateReviewResult = nil
+                        mediaGatePrecheckResults = []
+                        approvedMediaGateFindings = []
+                        approvedMediaGateActions = []
+                        bypassMediaGateReview = false
                     }
                 }
                 .transition(.scale(scale: 0.92).combined(with: .opacity))
@@ -538,6 +567,7 @@ struct CreatePostView: View {
                 PollComposerCard(
                     options: $pollOptions,
                     duration: $pollDuration,
+                    draftText: postText,
                     onRemove: {
                         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             showingPoll = false
@@ -863,6 +893,11 @@ struct CreatePostView: View {
             .onChange(of: selectedImages) { _, newItems in
                 Task {
                     selectedImageData = []
+                    mediaGateReviewResult = nil
+                    mediaGatePrecheckResults = []
+                    approvedMediaGateFindings = []
+                    approvedMediaGateActions = []
+                    bypassMediaGateReview = false
                     var oversizedImages = 0
 
                     for item in newItems {
@@ -1101,6 +1136,26 @@ struct CreatePostView: View {
         .sheet(isPresented: $showingCamera) {
             CameraImagePicker(image: $cameraImage)
                 .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showMediaGateReview) {
+            if let result = mediaGateReviewResult {
+                BereanMediaGateReviewSheet(
+                    result: result,
+                    onMakeSafeAndPost: { actions in
+                        applyMediaGateActions(actions)
+                        showMediaGateReview = false
+                        mediaGateReviewResult = nil
+                        bypassMediaGateReview = true
+                        publishPost()
+                    },
+                    onEdit: {
+                        showMediaGateReview = false
+                        mediaGateReviewResult = nil
+                    }
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
         }
         .sheet(isPresented: $showSupportDraftSheet) {
             if let payload = supportDraftPayload,
@@ -1801,6 +1856,11 @@ struct CreatePostView: View {
                     CameraAttachmentPreview(image: capturedImage) {
                         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                             cameraImage = nil
+                            mediaGateReviewResult = nil
+                            mediaGatePrecheckResults = []
+                            approvedMediaGateFindings = []
+                            approvedMediaGateActions = []
+                            bypassMediaGateReview = false
                         }
                     }
                     .padding(.horizontal, 20)
@@ -1819,6 +1879,7 @@ struct CreatePostView: View {
                     PollComposerCard(
                         options: $pollOptions,
                         duration: $pollDuration,
+                        draftText: postText,
                         onRemove: {
                             withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                                 showingPoll = false
@@ -2191,10 +2252,11 @@ struct CreatePostView: View {
                     showingAudienceSheet = true
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: postVisibility.icon)
+                        Image(systemName: initialAudienceIntent?.icon ?? postVisibility.icon)
                             .font(.systemScaled(11, weight: .medium))
-                        Text(postVisibility.displayName)
+                        Text(composerAudienceLabel)
                             .font(.systemScaled(12, weight: .medium))
+                            .lineLimit(1)
                     }
                     .foregroundStyle(Color.primary.opacity(0.75))
                     .padding(.horizontal, 10)
@@ -2203,7 +2265,7 @@ struct CreatePostView: View {
                     .amenGlassEffect(in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Post audience: \(postVisibility.displayName)")
+                .accessibilityLabel("Post audience: \(composerAudienceLabel)")
                 .accessibilityHint("Double-tap to change who can see your post")
 
                 Spacer()
@@ -2678,12 +2740,17 @@ struct CreatePostView: View {
                 }
             } label: {
                 HStack {
-                    Image(systemName: postVisibility.icon)
+                    Image(systemName: initialAudienceIntent?.icon ?? postVisibility.icon)
                         .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(postVisibility.tintColor)
-                    Text(postVisibility.displayName)
-                        .font(AMENFont.bold(15))
-                        .foregroundStyle(.primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(composerAudienceLabel)
+                            .font(AMENFont.bold(15))
+                            .foregroundStyle(.primary)
+                        Text(postVisibility.displayName)
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.systemScaled(14, weight: .semibold))
@@ -2699,6 +2766,28 @@ struct CreatePostView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 4)
+    }
+
+    private var composerAudienceLabel: String {
+        guard let audience = initialAudienceIntent else { return postVisibility.displayName }
+        if audience == .space, let spaceName = initialAudienceMetadata?.spaceName, !spaceName.isEmpty {
+            return spaceName
+        }
+        return audience.displayName
+    }
+
+    private var audienceIntentFirestoreData: [String: Any]? {
+        guard let audience = initialAudienceIntent else { return nil }
+        var data: [String: Any] = [
+            "audience": audience.rawValue,
+            "visibilityFallback": postVisibility.rawValue
+        ]
+        if let metadata = initialAudienceMetadata {
+            if let spaceId = metadata.spaceId { data["spaceId"] = spaceId }
+            if let spaceName = metadata.spaceName { data["spaceName"] = spaceName }
+            if let spaceType = metadata.spaceType { data["spaceType"] = spaceType }
+        }
+        return data
     }
 
     // MARK: - Verse Picker
@@ -3641,6 +3730,137 @@ struct CreatePostView: View {
         return true
     }
 
+    private var shouldRunMediaGatePrecheck: Bool {
+        AMENFeatureFlags.shared.bereanCameraEnabled
+            && AMENFeatureFlags.shared.mediaGateEnabled
+            && AMENFeatureFlags.shared.mediaGateOnDevicePrecheck
+            && !bypassMediaGateReview
+            && (cameraImage != nil || !selectedImageData.isEmpty)
+    }
+
+    private func beginMediaGatePrecheck() {
+        guard shouldRunMediaGatePrecheck else {
+            startPublishPipeline()
+            return
+        }
+
+        Task {
+            var imageDataBatch: [Data] = []
+            if let cameraImage, let cameraData = cameraImage.jpegData(compressionQuality: 0.85) {
+                imageDataBatch.append(cameraData)
+            }
+            imageDataBatch.append(contentsOf: selectedImageData)
+
+            guard !imageDataBatch.isEmpty else {
+                await MainActor.run {
+                    inFlightPostId = nil
+                    showError(title: "Media Review Needed", message: "This media could not be checked, so it cannot be posted yet.")
+                }
+                return
+            }
+
+            var results: [MediaGatePrecheckResult] = []
+            for imageData in imageDataBatch {
+                results.append(await BereanCameraMediaGatePrecheckService.shared.precheckImageData(imageData))
+            }
+
+            await MainActor.run {
+                let aggregateResult = aggregateMediaGateResult(from: results)
+                mediaGatePrecheckResults = results
+                mediaGateReviewResult = aggregateResult
+                if aggregateResult.requiresReview {
+                    inFlightPostId = nil
+                    showMediaGateReview = true
+                } else {
+                    applyMediaGateActions(aggregateResult.suggestedActions)
+                    bypassMediaGateReview = true
+                    startPublishPipeline()
+                }
+            }
+        }
+    }
+
+    private func aggregateMediaGateResult(from results: [MediaGatePrecheckResult]) -> MediaGatePrecheckResult {
+        let findings = results.flatMap(\.findings)
+        let actions = uniqueMediaGateActions(results.flatMap(\.suggestedActions))
+        return MediaGatePrecheckResult(
+            strippedImageData: results.first?.strippedImageData ?? Data(),
+            findings: findings,
+            suggestedActions: actions,
+            localDecision: results.contains(where: { $0.requiresReview }) ? .review : .publish
+        )
+    }
+
+    private func applyMediaGateActions(_ actions: [MediaGateRedactionAction]) {
+        let results = mediaGatePrecheckResults.isEmpty ? mediaGateReviewResult.map { [$0] } ?? [] : mediaGatePrecheckResults
+        approvedMediaGateFindings = results.flatMap(\.findings)
+        approvedMediaGateActions = uniqueMediaGateActions(actions)
+
+        var resultIndex = 0
+        if cameraImage != nil, resultIndex < results.count {
+            let result = results[resultIndex]
+            let redactedData = MediaGateImageRedactor.applying(actions: result.suggestedActions, to: result.strippedImageData)
+            cameraImage = UIImage(data: redactedData)
+            resultIndex += 1
+        }
+
+        guard !selectedImageData.isEmpty else {
+            applyMediaGateVisibilityLimitIfNeeded(actions: approvedMediaGateActions)
+            return
+        }
+
+        for selectedIndex in selectedImageData.indices {
+            guard resultIndex < results.count else { break }
+            let result = results[resultIndex]
+            selectedImageData[selectedIndex] = MediaGateImageRedactor.applying(
+                actions: result.suggestedActions,
+                to: result.strippedImageData
+            )
+            resultIndex += 1
+        }
+
+        applyMediaGateVisibilityLimitIfNeeded(actions: approvedMediaGateActions)
+    }
+
+    private func uniqueMediaGateActions(_ actions: [MediaGateRedactionAction]) -> [MediaGateRedactionAction] {
+        var uniqueActions: [MediaGateRedactionAction] = []
+        for action in actions where !uniqueActions.contains(action) {
+            uniqueActions.append(action)
+        }
+        return uniqueActions
+    }
+
+    private func applyMediaGateVisibilityLimitIfNeeded(actions: [MediaGateRedactionAction]) {
+        if actions.contains(where: { action in
+            if case .removeLocation = action { return true }
+            return false
+        }) {
+            postVisibility = postVisibility == .everyone ? .followers : postVisibility
+        }
+    }
+
+    private func mergeCameraImageIntoUploadBatchIfNeeded() {
+        guard let cameraImage, let cameraData = cameraImage.jpegData(compressionQuality: 0.85) else { return }
+        selectedImageData.insert(cameraData, at: 0)
+        self.cameraImage = nil
+    }
+
+    private func evaluateServerMediaGateIfNeeded(postId: UUID, uploadPath: String, userId: String) async -> MediaGatePolicyEvaluation {
+        guard AMENFeatureFlags.shared.bereanCameraEnabled,
+              AMENFeatureFlags.shared.mediaGateEnabled else {
+            return MediaGatePolicyEvaluation(decision: .publish, auditId: nil)
+        }
+
+        let knownMinorAuthor = (try? await AmenChildSafetyService.shared.checkIsMinor(userId: userId)) ?? true
+        return await BereanMediaGatePolicyClient.shared.evaluateUploadedMedia(
+            postId: postId.uuidString,
+            uploadPath: uploadPath,
+            findings: approvedMediaGateFindings,
+            actions: approvedMediaGateActions,
+            knownMinorAuthor: knownMinorAuthor
+        )
+    }
+
     private func publishPost() {
         dlog("🔵 publishPost() called")
         dlog("   isPublishing: \(isPublishing)")
@@ -3790,6 +4010,11 @@ struct CreatePostView: View {
         }
         
         dlog("✅ All validations passed!")
+
+        if shouldRunMediaGatePrecheck {
+            beginMediaGatePrecheck()
+            return
+        }
 
         // ============================================================================
         // ✅ P0 GATE: Aegis Pre-Post Content Safety Review
@@ -4176,10 +4401,8 @@ struct CreatePostView: View {
                         .getDocument()
                 }
                 
-                // Merge camera image (if any) into the selectedImageData upload batch
-                if let camImg = cameraImage, let camData = camImg.jpegData(compressionQuality: 0.85) {
-                    await MainActor.run { selectedImageData.insert(camData, at: 0) }
-                }
+                // Merge camera image (if any) into the selectedImageData upload batch once.
+                await MainActor.run { mergeCameraImageIntoUploadBatchIfNeeded() }
 
                 // P0-3 FIX: Make image upload BLOCKING if images attached
                 var imageURLs: [String]? = nil
@@ -4189,7 +4412,21 @@ struct CreatePostView: View {
                         let uploadResult = try await uploadImages()
                         imageURLs = uploadResult.urls
                         uploadedGroupPath = uploadResult.groupPath
-                        dlog("✅ Images uploaded: \(imageURLs?.count ?? 0)")
+
+                        let mediaGateEvaluation = await evaluateServerMediaGateIfNeeded(
+                            postId: postId,
+                            uploadPath: uploadResult.groupPath,
+                            userId: currentUser.uid
+                        )
+                        guard mediaGateEvaluation.decision.allowsClientPostAfterServerGate else {
+                            throw NSError(
+                                domain: "MediaGatePolicy",
+                                code: -10,
+                                userInfo: [NSLocalizedDescriptionKey: "This media needs safety review before it can be posted."]
+                            )
+                        }
+
+                        dlog("✅ Images uploaded and media gate cleared: \(imageURLs?.count ?? 0)")
                         
                         // Verify we got URLs back
                         if imageURLs?.isEmpty ?? true {
@@ -4409,6 +4646,14 @@ struct CreatePostView: View {
                     "repostCount": 0,
                     "lightbulbCount": 0
                 ]
+
+                if let audienceIntentFirestoreData {
+                    postData["audienceIntent"] = audienceIntentFirestoreData
+                    postData["audienceIntentRaw"] = initialAudienceIntent?.rawValue as Any
+                    if let spaceId = initialAudienceMetadata?.spaceId {
+                        postData["spaceId"] = spaceId
+                    }
+                }
                 
                 // ✅ Add profile picture if available
                 if let authorProfileImageURL = authorProfileImageURL {
@@ -4902,11 +5147,14 @@ struct CreatePostView: View {
                     self.compressImage(imageData, maxSizeInMB: 1.0)
                 }.value
                 
-                guard let compressedData = compressedData else {
+                guard var compressedData = compressedData else {
                     dlog("⚠️ Failed to compress image \(index)")
                     failedUploads += 1
                     continue
                 }
+
+                let metadataStrip = await CameraMetadataStripService.shared.stripMetadata(from: compressedData)
+                compressedData = metadataStrip.strippedData
                 
                 // ✅ SAFESEARCH MODERATION: Check image safety before upload
                 do {
@@ -5118,6 +5366,14 @@ struct CreatePostView: View {
                 
                 dlog("🧵 [Thread DEBUG] Base postData created")
 
+                if let audienceIntentFirestoreData {
+                    postData["audienceIntent"] = audienceIntentFirestoreData
+                    postData["audienceIntentRaw"] = initialAudienceIntent?.rawValue as Any
+                    if let spaceId = initialAudienceMetadata?.spaceId {
+                        postData["spaceId"] = spaceId
+                    }
+                }
+
                 if let url = authorProfileImageURL {
                     postData["authorProfileImageURL"] = url
                 }
@@ -5186,22 +5442,38 @@ struct CreatePostView: View {
     ) {
         Task {
             do {
+                guard let scheduledAuthorId = Auth.auth().currentUser?.uid else {
+                    throw NSError(domain: "CreatePostView", code: 401,
+                                  userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+                }
+
+                let scheduledPostId = UUID()
+
                 // Upload images first if any
+                await MainActor.run { mergeCameraImageIntoUploadBatchIfNeeded() }
                 var imageURLs: [String]? = nil
                 if !selectedImageData.isEmpty {
                     let uploadResult = try await uploadImages()
                     imageURLs = uploadResult.urls
+
+                    let mediaGateEvaluation = await evaluateServerMediaGateIfNeeded(
+                        postId: scheduledPostId,
+                        uploadPath: uploadResult.groupPath,
+                        userId: scheduledAuthorId
+                    )
+                    guard mediaGateEvaluation.decision.allowsClientPostAfterServerGate else {
+                        throw NSError(
+                            domain: "MediaGatePolicy",
+                            code: -10,
+                            userInfo: [NSLocalizedDescriptionKey: "This media needs safety review before it can be scheduled."]
+                        )
+                    }
                 }
                 
                 // MARK: - ✅ IMPLEMENTED: Scheduled Posts with Cloud Functions
                 dlog("📅 Scheduling post via Cloud Functions...")
                 
                 // Save to Firestore scheduled_posts collection
-                guard let scheduledAuthorId = Auth.auth().currentUser?.uid else {
-                    throw NSError(domain: "CreatePostView", code: 401,
-                                  userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
-                }
-                
                 let scheduledPostData: [String: Any] = [
                     "content": content,
                     "category": category.rawValue,
@@ -5221,7 +5493,8 @@ struct CreatePostView: View {
                 
                 try await FirebaseManager.shared.firestore
                     .collection("scheduled_posts")
-                    .addDocument(data: scheduledPostData)
+                    .document(scheduledPostId.uuidString)
+                    .setData(scheduledPostData)
                 
                 await MainActor.run {
                     
@@ -8499,6 +8772,19 @@ struct PostAudienceSheet: View {
             }
         }
         .presentationBackground(.thinMaterial)
+    }
+}
+
+private extension AmenPostAudience {
+    var defaultPostVisibility: Post.PostVisibility {
+        switch self {
+        case .everyone:
+            return .everyone
+        case .church, .space:
+            return .community
+        case .privateJournal, .family, .friends:
+            return .followers
+        }
     }
 }
 

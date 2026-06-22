@@ -110,7 +110,7 @@ export const onChurchInteractionReflected = onDocumentUpdated(
 // ---------------------------------------------------------------------------
 
 export const scheduleChurchFollowUpPrompt = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");

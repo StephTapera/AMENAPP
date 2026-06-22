@@ -3,7 +3,7 @@
 //
 // The first auth screen shown after the splash dissolves.
 // Pure white. Logo zone (top) + button zone (bottom).
-// Funnels into existing SignInView for email auth.
+// Email routes to MinimalAuthenticationView; phone auth is inline.
 
 import SwiftUI
 import Combine
@@ -36,8 +36,11 @@ struct AMENAuthLandingView: View {
     // Auth flows
     @State private var showEmailSignUp = false
     @State private var showEmailSignIn = false
-    @State private var showPhoneSignUp = false
-    @State private var showPhoneSignIn = false
+    @State private var showsInlinePhoneAuth = false
+    @State private var inlinePhoneNumber = ""
+    @State private var inlinePhoneCode = ""
+    @State private var inlinePhoneCodeSent = false
+    @State private var inlinePhoneError: String?
 
     private var rememberedIdentity: AmenIdentityHint? {
         AmenIdentityHintStore.shared.primary()
@@ -142,39 +145,48 @@ struct AMENAuthLandingView: View {
                         orDivider
                             .opacity(divOpacity)
 
-                        // Phone — primary alternative for people without Google/Apple
-                        phoneButton
-                            .opacity(btn3Opacity)
-                            .offset(y: btn3Offset)
+                        if showsInlinePhoneAuth {
+                            inlinePhoneAuthPanel
+                                .opacity(btn3Opacity)
+                                .offset(y: btn3Offset)
+                        } else {
+                            // Phone — primary alternative for people without Google/Apple
+                            phoneButton
+                                .opacity(btn3Opacity)
+                                .offset(y: btn3Offset)
 
-                        // Email
-                        emailButton
-                            .opacity(btn4Opacity)
-                            .offset(y: btn4Offset)
+                            // Email
+                            emailButton
+                                .opacity(btn4Opacity)
+                                .offset(y: btn4Offset)
 
-                        // Sign-in link
-                        signInLink
-                            .opacity(linkOpacity)
-                            .padding(.top, 4)
+                            // Sign-in link
+                            signInLink
+                                .opacity(linkOpacity)
+                                .padding(.top, 4)
 
 #if DEBUG
-                        // Debug-only: skip auth entirely for simulator testing
-                        Button {
-                            authViewModel.bypassAuthForTesting()
-                        } label: {
-                            Text("Skip — Test Mode")
-                                .font(.systemScaled(12, weight: .medium))
-                                .foregroundStyle(Color(white: 0.50))
-                                .padding(.vertical, 10)
-                                .padding(.horizontal, 20)
-                                .background(
-                                    Capsule()
-                                        .stroke(Color(white: 0.78), lineWidth: 1)
-                                )
-                        }
-                        .opacity(linkOpacity)
-                        .padding(.top, 8)
+                            // Debug-only: skip auth entirely for simulator testing
+                            Button {
+                                authViewModel.bypassAuthForTesting()
+                            } label: {
+                                Text("Skip — Test Mode")
+                                    .font(.systemScaled(13, weight: .semibold))
+                                    .foregroundStyle(Color(white: 0.42))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 48)
+                                    .background(
+                                        Capsule()
+                                            .stroke(Color(white: 0.78), lineWidth: 1)
+                                    )
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Skip Test Mode")
+                            .opacity(linkOpacity)
+                            .padding(.top, 8)
 #endif
+                        }
 
                         HStack(spacing: 4) {
                             Link("Privacy Policy", destination: URL(string: "https://amenapp.com/privacy")!)
@@ -203,13 +215,6 @@ struct AMENAuthLandingView: View {
             .navigationDestination(isPresented: $showEmailSignIn) {
                 EmailSignInView()
                     .environmentObject(authViewModel)
-            }
-            .navigationDestination(isPresented: $showPhoneSignUp) {
-                PhoneSignUpView()
-                    .environmentObject(authViewModel)
-            }
-            .navigationDestination(isPresented: $showPhoneSignIn) {
-                AmenPhoneAuthView()
             }
         }
         .onAppear { runEntryAnimation() }
@@ -291,7 +296,7 @@ struct AMENAuthLandingView: View {
 
     private var phoneButton: some View {
         Button {
-            showPhoneSignUp = true
+            openInlinePhoneAuth()
         } label: {
             HStack(spacing: 0) {
                 Image(systemName: "phone.fill")
@@ -353,7 +358,7 @@ struct AMENAuthLandingView: View {
                 .buttonStyle(.plain)
             }
             Button {
-                showPhoneSignIn = true
+                openInlinePhoneAuth()
             } label: {
                 Text("Sign in with phone number")
                     .font(.systemScaled(12, weight: .semibold))
@@ -361,6 +366,193 @@ struct AMENAuthLandingView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Sign in with phone number")
+        }
+    }
+
+    // MARK: - Inline phone auth
+
+    private var inlinePhoneAuthPanel: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Button {
+                    resetInlinePhoneAuth()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(Color(white: 0.35))
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(Color(white: 0.94)))
+                }
+                .accessibilityLabel("Back to sign in options")
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(inlinePhoneCodeSent ? "Enter your code" : "Continue with phone")
+                        .font(.systemScaled(15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(inlinePhoneCodeSent ? "Sent to \(formattedInlinePhoneNumber)" : "We'll text you a verification code.")
+                        .font(.systemScaled(12))
+                        .foregroundStyle(Color(white: 0.55))
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            if let inlinePhoneError {
+                Text(inlinePhoneError)
+                    .font(.systemScaled(12))
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if inlinePhoneCodeSent {
+                TextField("6-digit code", text: $inlinePhoneCode)
+                    .keyboardType(.numberPad)
+                    .textContentType(.oneTimeCode)
+                    .multilineTextAlignment(.center)
+                    .font(.system(.title3, design: .monospaced).weight(.semibold))
+                    .tracking(6)
+                    .padding(.horizontal, 18)
+                    .frame(height: 52)
+                    .background(phoneFieldBackground)
+                    .onChange(of: inlinePhoneCode) { _, newValue in
+                        let capped = String(newValue.filter(\.isNumber).prefix(6))
+                        if capped != newValue { inlinePhoneCode = capped }
+                    }
+                    .accessibilityLabel("Verification code")
+            } else {
+                TextField("Phone number", text: $inlinePhoneNumber)
+                    .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+                    .font(.systemScaled(15, weight: .medium))
+                    .padding(.horizontal, 18)
+                    .frame(height: 52)
+                    .background(phoneFieldBackground)
+                    .accessibilityLabel("Phone number")
+            }
+
+            Button {
+                if inlinePhoneCodeSent {
+                    verifyInlinePhoneCode()
+                } else {
+                    sendInlinePhoneCode()
+                }
+            } label: {
+                ZStack {
+                    if authViewModel.isSendingPhoneCode || authViewModel.isLoading {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                    } else {
+                        Text(inlinePhoneCodeSent ? "Verify & Sign In" : "Send Code")
+                            .font(.systemScaled(15, weight: .semibold))
+                    }
+                }
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .amenLiquidGlassCapsuleSurface(isSelected: inlinePhoneCodeSent ? canVerifyInlinePhoneCode : canSendInlinePhoneCode)
+                .opacity((inlinePhoneCodeSent ? canVerifyInlinePhoneCode : canSendInlinePhoneCode) ? 1 : 0.55)
+            }
+            .disabled(authViewModel.isSendingPhoneCode || authViewModel.isLoading || (inlinePhoneCodeSent ? !canVerifyInlinePhoneCode : !canSendInlinePhoneCode))
+
+            if inlinePhoneCodeSent {
+                Button("Use a different number") {
+                    inlinePhoneCodeSent = false
+                    inlinePhoneCode = ""
+                    inlinePhoneError = nil
+                    authViewModel.cleanupPhoneAuthState()
+                }
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundStyle(Color(white: 0.35))
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color(white: 0.88), lineWidth: 1)
+                )
+        )
+        .shadow(color: .black.opacity(0.06), radius: 18, x: 0, y: 10)
+    }
+
+    private var phoneFieldBackground: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(Color(white: 0.98))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color(white: 0.86), lineWidth: 1)
+            )
+    }
+
+    private var inlinePhoneDigits: String {
+        inlinePhoneNumber.filter(\.isNumber)
+    }
+
+    private var formattedInlinePhoneNumber: String {
+        if inlinePhoneNumber.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("+") {
+            return "+\(inlinePhoneDigits)"
+        }
+        if inlinePhoneDigits.count == 11, inlinePhoneDigits.hasPrefix("1") {
+            return "+\(inlinePhoneDigits)"
+        }
+        return "+1\(inlinePhoneDigits)"
+    }
+
+    private var canSendInlinePhoneCode: Bool {
+        inlinePhoneDigits.count >= 7
+    }
+
+    private var canVerifyInlinePhoneCode: Bool {
+        inlinePhoneCode.filter(\.isNumber).count == 6
+    }
+
+    private func openInlinePhoneAuth() {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            showsInlinePhoneAuth = true
+            inlinePhoneError = nil
+        }
+    }
+
+    private func resetInlinePhoneAuth() {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            showsInlinePhoneAuth = false
+            inlinePhoneCodeSent = false
+            inlinePhoneCode = ""
+            inlinePhoneError = nil
+        }
+        authViewModel.cleanupPhoneAuthState()
+    }
+
+    private func sendInlinePhoneCode() {
+        guard canSendInlinePhoneCode else { return }
+        inlinePhoneError = nil
+        Task {
+            await authViewModel.sendPhoneVerificationCode(phoneNumber: formattedInlinePhoneNumber)
+            await MainActor.run {
+                if authViewModel.phoneVerificationId != nil {
+                    inlinePhoneCodeSent = true
+                    inlinePhoneCode = ""
+                } else {
+                    inlinePhoneError = authViewModel.errorMessage ?? "Could not send the code. Please try again."
+                }
+            }
+        }
+    }
+
+    private func verifyInlinePhoneCode() {
+        guard canVerifyInlinePhoneCode else { return }
+        inlinePhoneError = nil
+        Task {
+            await authViewModel.verifyPhoneCode(inlinePhoneCode, displayName: "", username: "", isSignUp: false)
+            await MainActor.run {
+                if authViewModel.showError {
+                    inlinePhoneError = authViewModel.errorMessage ?? "Could not verify the code. Please try again."
+                }
+            }
         }
     }
 
@@ -640,18 +832,6 @@ struct EmailSignInView: View {
             initialMode: .login,
             showsEmailFormOnAppear: true
         )
-            .navigationBarHidden(true)
-    }
-}
-
-// Routes to the VM-backed phone flow so returning logins are profile-checked
-// and new phone signups collect the required profile fields before verification.
-struct PhoneSignUpView: View {
-    @EnvironmentObject var authViewModel: AuthenticationViewModel
-
-    var body: some View {
-        SignInView(startWithPhone: true)
-            .environmentObject(authViewModel)
             .navigationBarHidden(true)
     }
 }

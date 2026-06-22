@@ -163,7 +163,7 @@ struct BereanStreamingText: View {
                     .opacity(cursorVisible ? 1 : 0.2)
             }
         }
-        .onChange(of: fullText) { newText in
+        .onChange(of: fullText) { _, newText in
             displayedText = newText
         }
         .onAppear {
@@ -212,13 +212,13 @@ struct BereanContextToolbar: View {
         )
         .opacity(toolbarOpacity)
         .scaleEffect(toolbarScale)
-        .onChange(of: isScrolling) { scrolling in
+        .onChange(of: isScrolling) { _, scrolling in
             withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
                 toolbarOpacity = scrolling ? 0.3 : 1.0
                 toolbarScale = scrolling ? 0.94 : 1.0
             }
         }
-        .onChange(of: isFocused) { focused in
+        .onChange(of: isFocused) { _, focused in
             withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
                 toolbarOpacity = focused ? 0 : 1.0
                 toolbarScale = focused ? 0.90 : 1.0

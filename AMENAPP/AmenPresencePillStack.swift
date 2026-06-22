@@ -58,7 +58,7 @@ struct AmenPresencePillStack: View {
         }
         .opacity(pillsOpacity)
         .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: isVisible)
-        .onChange(of: scrollVelocity) { velocity in
+        .onChange(of: scrollVelocity) { _, velocity in
             updateVisibility(velocity: velocity)
         }
     }

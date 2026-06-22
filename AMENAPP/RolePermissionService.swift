@@ -55,31 +55,27 @@ final class RolePermissionService: ObservableObject {
         error = nil
         defer { isLoading = false }
 
-        do {
-            // Firestore query:
-            // let snapshot = try await db.collection("churchStaffRoles")
-            //     .whereField("userId", isEqualTo: userId)
-            //     .whereField("churchId", isEqualTo: churchId)
-            //     .whereField("status", isEqualTo: "active")
-            //     .limit(to: 1)
-            //     .getDocuments()
-            //
-            // guard let doc = snapshot.documents.first,
-            //       let roleRaw = doc.data()["role"] as? String,
-            //       let role = ChurchRole(rawValue: roleRaw) else {
-            //     self.currentUserRole = nil
-            //     self.currentPermissions = nil
-            //     return
-            // }
-            //
-            // self.currentUserRole = role
-            // self.currentPermissions = RolePermissions.permissions(for: role)
+        // Firestore query:
+        // let snapshot = try await db.collection("churchStaffRoles")
+        //     .whereField("userId", isEqualTo: userId)
+        //     .whereField("churchId", isEqualTo: churchId)
+        //     .whereField("status", isEqualTo: "active")
+        //     .limit(to: 1)
+        //     .getDocuments()
+        //
+        // guard let doc = snapshot.documents.first,
+        //       let roleRaw = doc.data()["role"] as? String,
+        //       let role = ChurchRole(rawValue: roleRaw) else {
+        //     self.currentUserRole = nil
+        //     self.currentPermissions = nil
+        //     return
+        // }
+        //
+        // self.currentUserRole = role
+        // self.currentPermissions = RolePermissions.permissions(for: role)
 
-            _ = userId      // suppress unused-variable warning until Firestore is wired
-            _ = churchId
-        } catch {
-            self.error = error
-        }
+        _ = userId      // suppress unused-variable warning until Firestore is wired
+        _ = churchId
     }
 
     // MARK: - Permission Check

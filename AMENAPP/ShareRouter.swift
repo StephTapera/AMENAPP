@@ -25,6 +25,7 @@ final class SharePresenter: ObservableObject {
     }
 }
 
+@MainActor
 enum ShareRouter {
     static func entity(for post: Post, note: ChurchNote? = nil, sourceSurface: String) -> ShareableEntity {
         if let note {
@@ -64,14 +65,17 @@ enum ShareRouter {
         )
     }
 
+    @MainActor
     static func present(post: Post, note: ChurchNote? = nil, sourceSurface: String) {
         SharePresenter.shared.present(entity: entity(for: post, note: note, sourceSurface: sourceSurface))
     }
 
+    @MainActor
     static func present(note: ChurchNote, sourceSurface: String) {
         SharePresenter.shared.present(entity: entity(for: note, sourceSurface: sourceSurface))
     }
 
+    @MainActor
     static func presentSelah(
         title: String,
         message: String,
@@ -88,6 +92,7 @@ enum ShareRouter {
         )
     }
 
+    @MainActor
     static func presentProfile(
         id: String,
         displayName: String,
@@ -108,6 +113,7 @@ enum ShareRouter {
         )
     }
 
+    @MainActor
     static func presentGroup(_ group: CommunityGroup, sourceSurface: String) {
         let entity = ShareableEntity(
             id: group.id,

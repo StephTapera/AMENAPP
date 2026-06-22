@@ -502,7 +502,7 @@ struct JobPostingView: View {
 
     private func checkSafety() async {
         let mockListing = buildListing()
-        let decision = await JobSafetyEngine.shared.evaluateJobPosting(mockListing)
+        let decision = JobSafetyEngine.shared.evaluateJobPosting(mockListing)
         switch decision {
         case .warn(let msg):
             safetyWarning = msg

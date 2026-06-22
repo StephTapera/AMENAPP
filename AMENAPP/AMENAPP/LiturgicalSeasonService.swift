@@ -82,7 +82,6 @@ final class LiturgicalSeasonService: ObservableObject {
     static func computeSeason(for date: Date) -> LiturgicalThemeSeason {
         let cal = Calendar(identifier: .gregorian)
         let year = cal.component(.year, from: date)
-        let month = cal.component(.month, from: date)
         let currentDayOfYear = cal.ordinality(of: .day, in: .year, for: date) ?? 1
 
         // --- Easter and its derived feasts (current year) ---
@@ -90,7 +89,6 @@ final class LiturgicalSeasonService: ObservableObject {
         let easterDOY = dayOfYear(month: easter.month, day: easter.day, year: year, cal: cal)
         let ashWednesdayDOY = easterDOY - 46
         let palmSundayDOY   = easterDOY - 7
-        let goodFridayDOY   = easterDOY - 2
         let pentecostDOY    = easterDOY + 49
 
         // --- Advent start: 4th Sunday before Dec 25 ---

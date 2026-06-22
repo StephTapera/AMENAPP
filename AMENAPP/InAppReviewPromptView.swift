@@ -236,7 +236,7 @@ struct InAppReviewPromptView: View {
         let ratingToSend = selectedRating
         let textToSend = feedbackText
         Task {
-            try? await Functions.functions(region: "us-central1")
+            _ = try? await Functions.functions(region: "us-central1")
                 .httpsCallable("submitAppFeedback")
                 .call([
                     "rating": ratingToSend,

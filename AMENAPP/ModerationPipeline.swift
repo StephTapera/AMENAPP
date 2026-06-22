@@ -476,6 +476,7 @@ final class UserReportService {
 
     static let shared = UserReportService()
     private lazy var db = Firestore.firestore()
+    private lazy var functions = Functions.functions()
 
     enum ReportCategory: String, CaseIterable, Identifiable {
         case spam = "spam"
@@ -515,7 +516,9 @@ final class UserReportService {
             "additionalDetails": details ?? "", "status": "pending",
             "timestamp": FieldValue.serverTimestamp()
         ]
-        try await db.collection("userReports").addDocument(data: data)
+        _ = try await functions
+            .httpsCallable("submitTrustSafetyReport")
+            .call(data)
     }
 
     func reportUser(reportedUserId: String, category: ReportCategory,
@@ -525,7 +528,9 @@ final class UserReportService {
             "reporterId": reporterId, "additionalDetails": details ?? "",
             "status": "pending", "timestamp": FieldValue.serverTimestamp()
         ]
-        try await db.collection("userReports").addDocument(data: data)
+        _ = try await functions
+            .httpsCallable("submitTrustSafetyReport")
+            .call(data)
     }
 
     func submitAppeal(contentId: String, userId: String, reason: String) async throws {

@@ -906,7 +906,7 @@ struct StudioTrustScore: Identifiable, Codable {
     }
 }
 
-enum TrustTier: String {
+enum TrustTier: String, Codable, Sendable {
     case new, developing, established, trusted
 
     var label: String {

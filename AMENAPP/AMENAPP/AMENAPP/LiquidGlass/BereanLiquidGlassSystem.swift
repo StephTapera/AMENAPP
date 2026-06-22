@@ -16,14 +16,16 @@ final class LiquidGlassMaterialManager: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.lowPowerModeEnabled = ProcessInfo.processInfo.isLowPowerModeEnabled
+            guard let self else { return }
+            Task { @MainActor in self.lowPowerModeEnabled = ProcessInfo.processInfo.isLowPowerModeEnabled }
         }
         let motionToken = NotificationCenter.default.addObserver(
             forName: UIAccessibility.reduceMotionStatusDidChangeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.reduceMotionEnabled = UIAccessibility.isReduceMotionEnabled
+            guard let self else { return }
+            Task { @MainActor in self.reduceMotionEnabled = UIAccessibility.isReduceMotionEnabled }
         }
         notificationTokens.append(contentsOf: [powerToken, motionToken])
     }

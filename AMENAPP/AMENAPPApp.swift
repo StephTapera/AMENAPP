@@ -195,7 +195,11 @@ struct AMENAPPApp: App {
                 }
             } else {
                 if let nsError = error as NSError? {
-                    dlog("⚠️ Remote Config fetch failed: domain=\(nsError.domain) code=\(nsError.code) — \(nsError.localizedDescription)")
+                    if isExpectedSimulatorRemoteConfigBootstrapError(nsError) {
+                        dlog("⏭️ Remote Config using cached defaults on simulator bootstrap")
+                    } else {
+                        dlog("⚠️ Remote Config fetch failed: domain=\(nsError.domain) code=\(nsError.code) — \(nsError.localizedDescription)")
+                    }
                 } else {
                     dlog("⚠️ Remote Config fetch failed: status=\(status.rawValue)")
                 }
@@ -209,6 +213,17 @@ struct AMENAPPApp: App {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 60, execute: retryItem)
             }
         })
+    }
+
+    private static func isExpectedSimulatorRemoteConfigBootstrapError(_ error: NSError) -> Bool {
+#if targetEnvironment(simulator)
+        let description = error.localizedDescription
+        return error.domain == "com.google.remoteconfig.ErrorDomain"
+            && error.code == 8003
+            && (description.contains("SecItemCopyMatching") || description.contains("installations token"))
+#else
+        return false
+#endif
     }
     
     /// Automatically migrate users to add search keywords (runs once)
@@ -679,10 +694,7 @@ struct AMENAPPApp: App {
     
     private func startFollowServiceListeners() async {
         // Only start if user is logged in
-        guard Auth.auth().currentUser != nil else {
-            dlog("⚠️ No user logged in, skipping FollowService initialization")
-            return
-        }
+        guard Auth.auth().currentUser != nil else { return }
         
         dlog("🚀 Starting FollowService listeners on app launch...")
         
@@ -701,10 +713,7 @@ struct AMENAPPApp: App {
     
     private func setupFCMForExistingUser() async {
         // Only setup FCM if user is logged in
-        guard Auth.auth().currentUser != nil else {
-            dlog("⚠️ No user logged in, skipping FCM setup")
-            return
-        }
+        guard Auth.auth().currentUser != nil else { return }
         
         dlog("🔔 Checking notification permissions for existing user...")
         

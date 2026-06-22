@@ -9,6 +9,7 @@
 // See ThresholdAntiEngagementNote.swift for the full constraint.
 
 import SwiftUI
+import Observation
 
 // MARK: - ThresholdView
 
@@ -154,7 +155,7 @@ struct ThresholdView: View {
             } else {
                 Text("Switch")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
             }
         }
         .padding(.horizontal, 18)
@@ -213,6 +214,83 @@ struct ThresholdView: View {
     private func cardAccessibilityLabel(profile: ProfileDescriptor, isActive: Bool) -> String {
         let suffix = isActive ? ", currently active" : ""
         return "\(profile.displayName), \(profile.type.thresholdDisplayName) context\(suffix)"
+    }
+}
+
+// MARK: - View Model
+
+@MainActor
+@Observable
+private final class ThresholdViewModel {
+    private let ranker: ThresholdRanking
+    private let reauthGate: ReauthGate
+
+    var profiles: [ProfileDescriptor] = []
+    var activeProfileId: ProfileID?
+    var prediction: SwitchPrediction?
+    var isLoading = false
+    var isSwitching = false
+
+    init(
+        ranker: ThresholdRanking? = nil,
+        reauthGate: ReauthGate? = nil
+    ) {
+        self.ranker = ranker ?? DefaultThresholdRanker()
+        self.reauthGate = reauthGate ?? ReauthGate()
+    }
+
+    func load() async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+
+        let loadedProfiles = Self.placeholderProfiles()
+        profiles = loadedProfiles
+        activeProfileId = activeProfileId ?? loadedProfiles.first?.id
+
+        let signal = SignalCollector.collect(entryContext: .inAppSwitch)
+        prediction = ranker.rank(loadedProfiles, signal)
+    }
+
+    func switchTo(_ profile: ProfileDescriptor) async {
+        guard !isSwitching, profile.id != activeProfileId else { return }
+        isSwitching = true
+        defer { isSwitching = false }
+
+        let outcome = await reauthGate.evaluate(
+            profile: profile,
+            lastAuthAt: nil
+        )
+
+        guard case .allowed = outcome else { return }
+        activeProfileId = profile.id
+    }
+
+    private static func placeholderProfiles() -> [ProfileDescriptor] {
+        [
+            ProfileDescriptor(
+                id: "personal",
+                identityId: "local-identity",
+                type: .personal,
+                handle: "personal",
+                displayName: "Personal",
+                avatarRef: nil,
+                trustTier: .new,
+                capabilities: [.post, .dm],
+                e2eeKeyRef: nil
+            ),
+            ProfileDescriptor(
+                id: "ministry",
+                identityId: "local-identity",
+                type: .ministry,
+                handle: "ministry",
+                displayName: "Ministry",
+                avatarRef: nil,
+                trustTier: .developing,
+                capabilities: [.post, .dm],
+                e2eeKeyRef: nil
+            )
+        ]
     }
 }
 

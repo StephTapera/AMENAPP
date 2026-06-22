@@ -60,6 +60,7 @@ func sabbathNavDestination(for surface: SabbathSurface) -> SabbathNavDestination
 
 /// SwiftUI destination view builder for Sabbath surface navigation.
 /// Used inside .fullScreenCover on the SabbathWindowView host.
+@MainActor
 @ViewBuilder
 func sabbathDestinationView(
     for destination: SabbathNavDestination,

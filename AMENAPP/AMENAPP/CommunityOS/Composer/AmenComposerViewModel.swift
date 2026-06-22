@@ -341,8 +341,14 @@ private extension TransformError {
 struct ComposerSourceObject: SpawnableObject {
     let id: String
     let createdBy: String
-    let createdAt: Date = Date()
-    let updatedAt: Date = Date()
-    let isDeleted: Bool = false
+    // Fixed defaults — this stub is encode-only and never decoded from the wire,
+    // so these are excluded from CodingKeys (the repository reads id/createdBy/provenance directly).
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
+    var isDeleted: Bool = false
     let provenance: SpawnProvenance?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, createdBy, provenance
+    }
 }

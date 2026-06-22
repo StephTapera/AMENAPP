@@ -109,7 +109,9 @@ enum AmenMessagingAnalyticsEvent: String, CaseIterable {
 
 struct AmenMessagingAnalytics {
     static func track(_ event: AmenMessagingAnalyticsEvent, parameters: [String: Any] = [:]) {
-        guard AMENFeatureFlags.shared.analyticsEnabled else { return }
-        dlog("[MsgAnalytics] \(event.rawValue)\(parameters.isEmpty ? "" : " \(parameters)")")
+        Task { @MainActor in
+            guard AMENFeatureFlags.shared.analyticsEnabled else { return }
+            dlog("[MsgAnalytics] \(event.rawValue)\(parameters.isEmpty ? "" : " \(parameters)")")
+        }
     }
 }

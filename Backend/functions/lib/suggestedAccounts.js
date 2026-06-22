@@ -204,7 +204,7 @@ function diversify(candidates, limit) {
     return result;
 }
 // ─── 1. getSuggestedAccountsRail ─────────────────────────────────────
-exports.getSuggestedAccountsRail = (0, https_1.onCall)(async (request) => {
+exports.getSuggestedAccountsRail = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -433,7 +433,7 @@ exports.getSuggestedAccountsRail = (0, https_1.onCall)(async (request) => {
     return diversified;
 });
 // ─── 2. logSuggestionFeedback ────────────────────────────────────────
-exports.logSuggestionFeedback = (0, https_1.onCall)(async (request) => {
+exports.logSuggestionFeedback = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

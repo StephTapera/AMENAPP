@@ -258,7 +258,7 @@ struct ChurchNotesPremiumEditor: View {
     // MARK: - Sticky Header
 
     private var stickyHeader: some View {
-        HStack {
+        HStack(spacing: 12) {
             Button {
                 if hasUnsavedChanges {
                     showUnsavedAlert = true
@@ -267,21 +267,26 @@ struct ChurchNotesPremiumEditor: View {
                 }
             } label: {
                 Text("Cancel")
-                    .font(.systemScaled(16, weight: .regular))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.secondary)
+                    .frame(width: 88, height: 44)
+                    .amenLiquidGlassCapsuleSurface(isSelected: false)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Cancel editing church note")
 
-            Spacer()
+            Spacer(minLength: 0)
 
             VStack(spacing: 2) {
                 Text("Church Note")
-                    .font(.systemScaled(16, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 autosaveIndicator
             }
+            .frame(maxWidth: .infinity)
 
-            Spacer()
+            Spacer(minLength: 0)
 
             Button {
                 saveNote()
@@ -289,20 +294,25 @@ struct ChurchNotesPremiumEditor: View {
                 if isSaving {
                     ProgressView()
                         .scaleEffect(0.8)
+                        .frame(width: 88, height: 44)
                 } else {
                     Text("Done")
-                        .font(.systemScaled(16, weight: .semibold))
-                        .foregroundStyle(canSave ? Color.primary : Color.secondary.opacity(0.5))
+                        .font(.systemScaled(15, weight: .semibold))
+                        .foregroundStyle(canSave ? Color.primary : Color.secondary.opacity(0.55))
+                        .frame(width: 88, height: 44)
                 }
             }
+            .amenLiquidGlassCapsuleSurface(isSelected: canSave && !isSaving)
+            .buttonStyle(.plain)
             .disabled(!canSave || isSaving)
+            .accessibilityLabel("Save church note")
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
         .background(
             Rectangle()
                 .fill(.ultraThinMaterial)
-                .opacity(min(1, max(0, -scrollOffset / 50)))
+                .opacity(0.76 + min(0.2, max(0, -scrollOffset / 250)))
         )
     }
 
@@ -456,15 +466,8 @@ struct ChurchNotesPremiumEditor: View {
                                 .foregroundStyle(ChurchNotesDesignTokens.Colors.personalTint)
                         }
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 11)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.primary.opacity(0.03))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
-                                )
-                        )
+                        .frame(minHeight: 62)
+                        .amenLiquidGlassCapsuleSurface(isSelected: false)
                         .padding(.horizontal, 14)
                     }
                     .buttonStyle(.plain)
@@ -485,24 +488,31 @@ struct ChurchNotesPremiumEditor: View {
                             .tint(.primary)
                     }
                     .padding(.horizontal, 14)
+                    .frame(minHeight: 54)
+                    .amenLiquidGlassCapsuleSurface(isSelected: false)
+                    .padding(.horizontal, 14)
                     .padding(.bottom, 14)
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.thinMaterial)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color(.systemBackground).opacity(0.7))
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(Color(.systemBackground).opacity(0.62))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.38), lineWidth: 0.8)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.7)
                 )
         )
-        .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
     }
 
     private var metadataSummary: String {
@@ -575,17 +585,10 @@ struct ChurchNotesPremiumEditor: View {
                     Text(isReviewMode ? "Edit" : "Review")
                         .font(.systemScaled(11, weight: .medium))
                 }
-                .foregroundStyle(isReviewMode ? Color.primary.opacity(0.7) : Color.secondary.opacity(0.6))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule()
-                        .fill(isReviewMode ? Color.primary.opacity(0.08) : Color.clear)
-                )
-                .overlay(
-                    Capsule()
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                )
+                .foregroundStyle(isReviewMode ? Color.primary.opacity(0.82) : Color.secondary.opacity(0.68))
+                .padding(.horizontal, 12)
+                .frame(height: 34)
+                .amenLiquidGlassCapsuleSurface(isSelected: isReviewMode)
             }
             .buttonStyle(.plain)
             .padding(.trailing, 16)
@@ -708,19 +711,23 @@ struct ChurchNotesPremiumEditor: View {
     }
 
     private var noteCardBackground: some View {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(.thinMaterial)
+        RoundedRectangle(cornerRadius: 30, style: .continuous)
+            .fill(.ultraThinMaterial)
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(.systemBackground).opacity(0.75))
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .fill(Color(.systemBackground).opacity(0.72))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.38), lineWidth: 0.8)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
                     .strokeBorder(
                         editorIsFirstResponder || focusedField == .title
-                            ? Color.primary.opacity(0.12)
-                            : Color.primary.opacity(0.06),
-                        lineWidth: 0.5
+                            ? Color.primary.opacity(0.14)
+                            : Color.primary.opacity(0.07),
+                        lineWidth: 0.7
                     )
             )
     }
@@ -812,9 +819,8 @@ struct ChurchNotesPremiumEditor: View {
                                 }
                                 .font(.systemScaled(12, weight: .semibold))
                                 .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(.thinMaterial, in: Capsule())
-                                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                                .frame(height: 38)
+                                .amenLiquidGlassCapsuleSurface(isSelected: false)
                             }
                             .buttonStyle(.plain)
                             .disabled(contextualActionInFlight != nil)
@@ -1376,15 +1382,8 @@ private struct NoteGlassTextField: View {
                 .tint(.primary)
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.primary.opacity(0.03))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
-                )
-        )
+        .frame(minHeight: 54)
+        .amenLiquidGlassCapsuleSurface(isSelected: false)
         .padding(.horizontal, 14)
     }
 }

@@ -7,6 +7,59 @@
 import SwiftUI
 import PDFKit
 
+enum GateFeature {
+    case givingPortfolio
+    case matchFeedbackExplained
+}
+
+private extension View {
+    func upsellSurface() -> some View {
+        self
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            )
+            .padding()
+    }
+}
+
+struct GateView<Content: View, Locked: View>: View {
+    let feature: GateFeature
+    @ViewBuilder let content: () -> Content
+    @ViewBuilder let locked: (GateFeature) -> Locked
+
+    init(
+        _ feature: GateFeature,
+        @ViewBuilder content: @escaping () -> Content,
+        @ViewBuilder locked: @escaping (GateFeature) -> Locked
+    ) {
+        self.feature = feature
+        self.content = content
+        self.locked = locked
+    }
+
+    var body: some View {
+        if isUnlocked {
+            content()
+        } else {
+            locked(feature)
+        }
+    }
+
+    private var isUnlocked: Bool {
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
+    }
+}
+
 struct GivingImpactView: View {
     let year: Int
     @State private var summary: GivingSummary?

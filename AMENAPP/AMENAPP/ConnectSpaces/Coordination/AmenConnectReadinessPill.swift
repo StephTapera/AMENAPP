@@ -12,7 +12,7 @@ struct AmenConnectReadinessPillGate: View {
     let label: String
 
     var body: some View {
-        if flags.amenConnectEnabled && flags.readinessPillEnabled {
+        if flags.amenConnectEnabled && flags.coordinationSchemaEnabled && flags.readinessPillEnabled {
             AmenConnectReadinessPill(readiness: readiness, label: label)
         }
     }

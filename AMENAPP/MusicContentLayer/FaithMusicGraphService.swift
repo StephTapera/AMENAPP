@@ -225,10 +225,6 @@ struct FaithMusicRecommendationRow: View {
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
-                Button("See all") {}
-                    .font(.subheadline)
-                    .foregroundStyle(Color.accentColor)
-                    .accessibilityLabel("See all \(title)")
             }
             .padding(.horizontal, 20)
 

@@ -53,7 +53,7 @@ struct BereanGlassComposer: View {
                 }
             }
             // Animation 6 — glass focus lift
-            .onChange(of: isFocused) { focused in
+            .onChange(of: isFocused) { _, focused in
                 withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.72))) {
                     composerScale    = focused ? 1.008 : 1.0
                     composerOffsetY  = focused ? -3 : 0

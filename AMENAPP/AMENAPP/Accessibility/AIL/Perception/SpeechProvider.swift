@@ -184,7 +184,7 @@ actor AppleSpeechProvider: SpeechProviding {
         #endif
     }
 
-    private static func nowMs() -> Int {
+    nonisolated private static func nowMs() -> Int {
         Int(Date().timeIntervalSince1970 * 1000)
     }
 }

@@ -1103,17 +1103,19 @@ exports.findRelatedScripture = onDocumentCreated("scriptureReferenceRequests/{re
         const requestId = event.params.requestId;
         const snap = event.data;
         const data = snap.data();
-        const userId = data.userId || null;
+        const requestOwnerId = typeof data.userId === "string" && data.userId.trim()
+            ? data.userId.trim()
+            : null;
 
         console.log(`📖 [SCRIPTURE REF] Finding related verses for: ${data.verse}`);
 
         try {
             const references = await findRelatedVerses(data.verse);
 
-            // Store result — include userId so Firestore rules allow the client to poll
+            // Store result owner so Firestore rules allow the client to poll.
             await db.collection("scriptureReferenceResults").doc(requestId).set({
                 references: references,
-                userId: userId,
+                userId: requestOwnerId,
                 processedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
 
@@ -1121,10 +1123,10 @@ exports.findRelatedScripture = onDocumentCreated("scriptureReferenceRequests/{re
         } catch (error) {
             console.error(`❌ [SCRIPTURE REF] Error:`, error);
 
-            // Store error fallback — include userId so client can read the error doc
+            // Store error fallback with the same sanitized request owner.
             await db.collection("scriptureReferenceResults").doc(requestId).set({
                 references: [],
-                userId: userId,
+                userId: requestOwnerId,
                 error: error.message,
                 processedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
@@ -1188,7 +1190,9 @@ exports.recommendChurches = onDocumentCreated("churchRecommendationRequests/{req
         const requestId = event.params.requestId;
         const snap = event.data;
         const data = snap.data();
-        const userId = data.userId || null;
+        const requestOwnerId = typeof data.userId === "string" && data.userId.trim()
+            ? data.userId.trim()
+            : null;
 
         console.log(`⛪ [CHURCH RECS] Analyzing ${data.churches.length} churches for user`);
 
@@ -1199,10 +1203,10 @@ exports.recommendChurches = onDocumentCreated("churchRecommendationRequests/{req
                 data.userLocation,
             );
 
-            // Store result — include userId so Firestore rules allow the client to poll
+            // Store result owner so Firestore rules allow the client to poll.
             await db.collection("churchRecommendationResults").doc(requestId).set({
                 recommendations: recommendations,
-                userId: userId,
+                userId: requestOwnerId,
                 processedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
 
@@ -1210,10 +1214,10 @@ exports.recommendChurches = onDocumentCreated("churchRecommendationRequests/{req
         } catch (error) {
             console.error(`❌ [CHURCH RECS] Error:`, error);
 
-            // Store error fallback — include userId so client can read the error doc
+            // Store error fallback with the same sanitized request owner.
             await db.collection("churchRecommendationResults").doc(requestId).set({
                 recommendations: [],
-                userId: userId,
+                userId: requestOwnerId,
                 error: error.message,
                 processedAt: admin.firestore.FieldValue.serverTimestamp(),
             });

@@ -14,18 +14,15 @@ enum BereanMockData {
     static let verseDB: [String: [String: String]] = [
         "Acts 17:11": [
             "KJV": "[MOCK — KJV] Now these Jews were more noble than those in Thessalonica; they received the word with all eagerness, examining the Scriptures daily to see if these things were so.",
-            "KJV": "[MOCK — KJV] Now the Berean Jews received the message with great eagerness and examined the Scriptures every day to see if what Paul said was true.",
         ],
         "Psalm 46:10": [
             "KJV": "[MOCK — KJV] Be still, and know that I am God. I will be exalted among the nations, I will be exalted in the earth!",
-            "KJV": "[MOCK — KJV] He says, \"Be still, and know that I am God; I will be exalted among the nations, I will be exalted in the earth.\"",
         ],
         "Isaiah 40:31": [
             "KJV": "[MOCK — KJV] But they who wait for the LORD shall renew their strength; they shall mount up with wings like eagles; they shall run and not be weary; they shall walk and not faint.",
         ],
         "Matthew 6:33": [
             "KJV": "[MOCK — KJV] But seek first the kingdom of God and his righteousness, and all these things will be added to you.",
-            "KJV": "[MOCK — KJV] But seek first his kingdom and his righteousness, and all these things will be given to you as well.",
         ],
         "Romans 8:28": [
             "KJV": "[MOCK — KJV] And we know that for those who love God all things work together for good, for those who are called according to his purpose.",
@@ -38,7 +35,6 @@ enum BereanMockData {
         ],
         "1 Peter 5:7": [
             "KJV": "[MOCK — KJV] Casting all your anxieties on him, because he cares for you.",
-            "KJV": "[MOCK — KJV] Cast all your anxiety on him because he cares for you.",
         ],
     ]
 

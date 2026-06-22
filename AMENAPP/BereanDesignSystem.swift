@@ -27,7 +27,9 @@ enum BereanColor {
 
 // MARK: - Typography
 
-enum BereanType {
+typealias BereanType = BereanLegacyType
+
+enum BereanLegacyType {
     /// 32pt bold — hero / splash title
     static func displayTitle() -> Font {
         AMENFont.bold(32)
@@ -134,7 +136,7 @@ struct BereanPersonalityPill: View {
                 .font(.systemScaled(compact ? 9 : 11, weight: .medium))
             if !compact {
                 Text(mode.rawValue)
-                    .font(BereanType.caption())
+                    .font(BereanLegacyType.caption())
             }
         }
         .foregroundColor(BereanColor.textSecondary)
@@ -164,7 +166,7 @@ struct BereanSuggestionChip: View {
                     .font(.systemScaled(11, weight: .medium))
                     .foregroundColor(BereanColor.textSecondary)
                 Text(text)
-                    .font(BereanType.caption())
+                    .font(BereanLegacyType.caption())
                     .foregroundColor(BereanColor.textPrimary)
                     .lineLimit(1)
             }
@@ -235,7 +237,7 @@ struct BereanMessageBubble: View {
     @ViewBuilder
     private var bubbleContent: some View {
         Text(content.isEmpty && isStreaming ? "▌" : content)
-            .font(BereanType.body())
+            .font(BereanLegacyType.body())
             .foregroundColor(isUser ? Color.white : BereanColor.textPrimary)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -352,12 +354,12 @@ struct BereanInputComposer: View {
             ZStack(alignment: .leading) {
                 if text.isEmpty {
                     Text(placeholder)
-                        .font(BereanType.body())
+                        .font(BereanLegacyType.body())
                         .foregroundColor(BereanColor.textTertiary)
                         .padding(.horizontal, 4)
                 }
                 TextField("", text: $text, axis: .vertical)
-                    .font(BereanType.body())
+                    .font(BereanLegacyType.body())
                     .foregroundColor(BereanColor.textPrimary)
                     .lineLimit(1...5)
                     .focused($focused)

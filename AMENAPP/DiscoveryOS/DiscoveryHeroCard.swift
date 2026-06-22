@@ -39,7 +39,7 @@ struct DiscoveryItem: Identifiable {
                       memberCount: 84, isJoined: false),
         DiscoveryItem(id: "2", type: .study, title: "Book of James Deep Dive",
                       subtitle: "6-week study on faith and works",
-                      badgeText: "Starting Soon", accentColor: .amenBlue ?? .blue,
+                      badgeText: "Starting Soon", accentColor: .amenBlue,
                       gradientColors: [.blue.opacity(0.8), .indigo.opacity(0.6)],
                       memberCount: 23, isJoined: true),
         DiscoveryItem(id: "3", type: .mentor, title: "Elder Maria Thompson",

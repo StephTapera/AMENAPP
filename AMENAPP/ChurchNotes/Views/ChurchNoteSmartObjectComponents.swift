@@ -199,7 +199,7 @@ struct SmartObjectPill: View {
     }
 
     private var accent: Color {
-        object.previewState.accentHex.map(Color.init(hex:)) ?? defaultAccent
+        object.previewState.accentHex.map { Color(hex: $0) } ?? defaultAccent
     }
 
     private var defaultAccent: Color {
@@ -380,7 +380,7 @@ struct ChurchNoteSmartFeedCard: View {
     }
 
     private var accent: Color {
-        smartObjects.first?.previewState.accentHex.map(Color.init(hex:)) ?? ChurchNotesDesignTokens.Colors.olive
+        smartObjects.first?.previewState.accentHex.map { Color(hex: $0) } ?? ChurchNotesDesignTokens.Colors.olive
     }
 
     private var metadataText: String? {

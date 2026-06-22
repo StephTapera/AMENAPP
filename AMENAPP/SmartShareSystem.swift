@@ -240,9 +240,6 @@ final class ShareAnalyticsTracker {
 
 struct ShareDeepLinkBuilder {
     func canonicalURL(for post: Post) -> URL {
-        if let url = DeepLinkRouter.shared.generateURL(for: .post(id: post.firestoreId)) {
-            return url
-        }
         let encodedId = post.firestoreId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? post.firestoreId
         return URL(string: "amen://post/\(encodedId)") ?? URL(string: "amen://post")!
     }
@@ -662,9 +659,9 @@ final class SmartShareSheetViewModel: ObservableObject {
     private var searchTask: Task<Void, Never>?
     private var hasLoaded = false
 
-    init(post: Post, searchService: ShareTargetSearchService = .shared) {
+    init(post: Post, searchService: ShareTargetSearchService? = nil) {
         self.post = post
-        self.searchService = searchService
+        self.searchService = searchService ?? ShareTargetSearchService.shared
         self.contentType = payloadFactory.contentType(for: post)
         self.contextMode = payloadFactory.contextMode(for: post)
         self.options = .default(for: payloadFactory.contentType(for: post))

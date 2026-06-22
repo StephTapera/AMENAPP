@@ -58,58 +58,82 @@ struct ReplyThreadRowView: View {
     
     // MARK: - Original Post Section (Dimmed)
     
+    @ViewBuilder
     private var originalPostSection: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Author avatar
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.secondary.opacity(0.2),
-                            Color.secondary.opacity(0.1)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+        if let post = thread.originalPost {
+            HStack(alignment: .top, spacing: 12) {
+                // Author avatar
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.secondary.opacity(0.2),
+                                Color.secondary.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Text(thread.originalPost.authorInitials)
-                        .font(AMENFont.semiBold(14))
-                        .foregroundStyle(.secondary.opacity(0.6))
-                )
-            
-            VStack(alignment: .leading, spacing: 6) {
-                // Author name and username
-                HStack(spacing: 6) {
-                    Text(thread.originalPost.authorName)
-                        .font(AMENFont.semiBold(15))
-                        .foregroundStyle(.secondary.opacity(0.7))
-                    
-                    if let username = thread.originalPost.authorUsername {
-                        Text("@\(username)")
-                            .font(AMENFont.regular(14))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Text(post.authorInitials)
+                            .font(AMENFont.semiBold(14))
+                            .foregroundStyle(.secondary.opacity(0.6))
+                    )
+
+                VStack(alignment: .leading, spacing: 6) {
+                    // Author name and username
+                    HStack(spacing: 6) {
+                        Text(post.authorName)
+                            .font(AMENFont.semiBold(15))
+                            .foregroundStyle(.secondary.opacity(0.7))
+
+                        if let username = post.authorUsername {
+                            Text("@\(username)")
+                                .font(AMENFont.regular(14))
+                                .foregroundStyle(.secondary.opacity(0.5))
+                        }
+
+                        Spacer()
+
+                        Text(post.timeAgo)
+                            .font(AMENFont.regular(13))
                             .foregroundStyle(.secondary.opacity(0.5))
                     }
-                    
-                    Spacer()
-                    
-                    Text(thread.originalPost.timeAgo)
-                        .font(AMENFont.regular(13))
-                        .foregroundStyle(.secondary.opacity(0.5))
+
+                    // Post content (truncated if long)
+                    Text(post.content)
+                        .font(AMENFont.regular(15))
+                        .foregroundStyle(.secondary.opacity(0.7))
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+
+                    // Category badge
+                    categoryBadge(for: post)
                 }
-                
-                // Post content (truncated if long)
-                Text(thread.originalPost.content)
-                    .font(AMENFont.regular(15))
-                    .foregroundStyle(.secondary.opacity(0.7))
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-                
-                // Category badge
-                categoryBadge
             }
+        } else {
+            unavailableOriginalPostSection
         }
+    }
+
+    // MARK: - Unavailable Original Post
+
+    /// Shown when the original post is missing (deleted/unavailable). Uses the
+    /// thread's visibility state for the banner copy when available.
+    private var unavailableOriginalPostSection: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: thread.visibilityState.bannerIcon ?? "exclamationmark.triangle")
+                .font(.systemScaled(15))
+                .foregroundStyle(.secondary.opacity(0.6))
+
+            Text(thread.visibilityState.bannerText ?? "Original post unavailable")
+                .font(AMENFont.regular(14))
+                .foregroundStyle(.secondary.opacity(0.6))
+
+            Spacer()
+        }
+        .padding(.vertical, 4)
     }
     
     // MARK: - Connector Line
@@ -197,23 +221,22 @@ struct ReplyThreadRowView: View {
     
     // MARK: - Category Badge
     
-    private var categoryBadge: some View {
-        Group {
-            if thread.originalPost.category.showCategoryBadge {
-                Text(thread.originalPost.category.displayName)
-                    .font(AMENFont.bold(11))
-                    .foregroundStyle(categoryColor.opacity(0.7))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(categoryColor.opacity(0.12))
-                            .overlay(
-                                Capsule()
-                                    .strokeBorder(categoryColor.opacity(0.2), lineWidth: 0.5)
-                            )
-                    )
-            }
+    @ViewBuilder
+    private func categoryBadge(for post: Post) -> some View {
+        if post.category.showCategoryBadge {
+            Text(post.category.displayName)
+                .font(AMENFont.bold(11))
+                .foregroundStyle(categoryColor(for: post).opacity(0.7))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(categoryColor(for: post).opacity(0.12))
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(categoryColor(for: post).opacity(0.2), lineWidth: 0.5)
+                        )
+                )
         }
     }
     
@@ -252,8 +275,8 @@ struct ReplyThreadRowView: View {
     
     // MARK: - Helpers
     
-    private var categoryColor: Color {
-        switch thread.originalPost.category {
+    private func categoryColor(for post: Post) -> Color {
+        switch post.category {
         case .openTable:
             return .white
         case .testimonies:

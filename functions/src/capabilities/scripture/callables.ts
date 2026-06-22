@@ -103,7 +103,7 @@ function osisRefToDisplay(osisRef: string): string {
 // ── scripture_detectReferences ────────────────────────────────────────────────
 
 export const scripture_detectReferences = onCall(
-  { enforceAppCheck: false }, // fast, free, must work in Notes without App Check
+  { enforceAppCheck: true },
   async (request): Promise<ScriptureDetectResponse> => {
     requireAuth(request);
     const body = request.data as Partial<ScriptureDetectRequest>;
@@ -226,7 +226,7 @@ export const scripture_getVerses = onCall(
 // ── scripture_searchVerses ────────────────────────────────────────────────────
 
 export const scripture_searchVerses = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request): Promise<ScriptureSearchResponse> => {
     requireAuth(request);
     const body = request.data as Partial<ScriptureSearchRequest>;

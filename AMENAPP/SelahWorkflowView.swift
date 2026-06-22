@@ -229,6 +229,8 @@ struct SelahActiveWorkflowsView: View {
 
 struct StartWorkflowButton: View {
     let verseReference: String?
+    var onCreated: (() -> Void)? = nil
+    var onFailed: ((String) -> Void)? = nil
 
     @ObservedObject private var selahService = SelahService.shared
     @State private var isCreating = false
@@ -241,8 +243,14 @@ struct StartWorkflowButton: View {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 
                 Task {
-                    _ = try? await selahService.createWorkflow(verseReference: ref)
-                    isCreating = false
+                    do {
+                        _ = try await selahService.createWorkflow(verseReference: ref)
+                        isCreating = false
+                        onCreated?()
+                    } catch {
+                        isCreating = false
+                        onFailed?(error.localizedDescription)
+                    }
                 }
             } label: {
                 HStack(spacing: 5) {

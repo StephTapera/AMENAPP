@@ -57,7 +57,10 @@ struct WhatsNewArchiveView: View {
 
     private func load() async {
         defer { isLoading = false }
-        if let loaded = try? await PulseService.shared.loadWhatsNew(includeAdultOnly: false) {
+        // Adults see `adult_only` stories; minors never do (the backend query also enforces
+        // this). Tier defaults to minor (fail-closed) until age assurance resolves.
+        let includeAdultOnly = !AgeAssuranceService.shared.currentUserTier.isMinor
+        if let loaded = try? await PulseService.shared.loadWhatsNew(includeAdultOnly: includeAdultOnly) {
             stories = loaded.sorted { lhs, rhs in
                 (lhs.publishedAt ?? .distantPast) > (rhs.publishedAt ?? .distantPast)
             }

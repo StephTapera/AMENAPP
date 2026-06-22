@@ -43,7 +43,7 @@ struct SmartHeaderOrchestrator: View {
                 hasVerseReady: hasVerseReady
             )
         }
-        .onChange(of: scrollOffset) { newOffset in
+        .onChange(of: scrollOffset) { _, newOffset in
             provider.refresh(
                 screenType: screenType,
                 intentMode: intentMode,
@@ -52,7 +52,7 @@ struct SmartHeaderOrchestrator: View {
                 hasVerseReady: hasVerseReady
             )
         }
-        .onChange(of: intentMode) { newMode in
+        .onChange(of: intentMode) { _, newMode in
             provider.refresh(
                 screenType: screenType,
                 intentMode: newMode,

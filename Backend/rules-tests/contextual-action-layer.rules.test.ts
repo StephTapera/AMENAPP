@@ -10,7 +10,7 @@ import * as path from "path";
 import { firestoreEmulator } from "./emulatorConfig";
 
 const PROJECT_ID = "amen-rules-test-contextual-action-layer";
-const RULES_PATH = path.resolve(__dirname, "../../AMENAPP/firestore 18.rules");
+const RULES_PATH = path.resolve(__dirname, "../../AMENAPP/firestore.deploy.rules");
 
 const OWNER_UID = "context-owner";
 const OTHER_UID = "context-other";

@@ -32,7 +32,7 @@ class CloudKitSyncService: ObservableObject {
 
     func checkCloudStatus() {
         container.accountStatus { [weak self] status, _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.isCloudAvailable = (status == .available)
             }
         }
@@ -115,7 +115,7 @@ class CloudKitSyncService: ObservableObject {
         subscription.notificationInfo = notificationInfo
 
         do {
-            try await privateDB.save(subscription)
+            _ = try await privateDB.save(subscription)
         } catch {
             // Subscription may already exist — that's fine
             #if DEBUG

@@ -24,9 +24,7 @@ const messaging = admin.messaging();
  * If members.length >= memberLimit: throws HttpsError("failed-precondition").
  * Region: us-central1.
  */
-export const joinTable = onCall(
-    { region: "us-central1" },
-    async (request) => {
+export const joinTable = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
         const { tableId, uid } = request.data as { tableId: string; uid: string };
 
         if (!tableId || !uid) {
@@ -219,9 +217,7 @@ async function sendTableClosingSummary(
  * with ordered link refs, updates chain.wovenArtifactRef, returns artifact metadata.
  * Region: us-central1.
  */
-export const assemblePrayerChain = onCall(
-    { region: "us-central1" },
-    async (request) => {
+export const assemblePrayerChain = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
         const { chainId } = request.data as { chainId: string };
 
         if (!chainId) {

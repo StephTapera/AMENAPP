@@ -52,12 +52,8 @@ interface PrayerDoc {
 
 // ─── Callable: matchPrayerSupport ─────────────────────────────────────────────
 
-export const matchPrayerSupport = onCall(
-  {
-    timeoutSeconds: 30,
-    memory: "256MiB",
-  },
-  async (request) => {
+export const matchPrayerSupport = onCall({ enforceAppCheck: true, timeoutSeconds: 30,
+    memory: "256MiB", }, async (request) => {
     // 1. Auth check
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");

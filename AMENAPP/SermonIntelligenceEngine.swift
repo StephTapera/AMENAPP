@@ -242,7 +242,6 @@ final class SermonIntelligenceEngine: ObservableObject {
 
     private func scheduleReflectionNudges(for analysis: SermonAnalysis) {
         let center = UNUserNotificationCenter.current()
-        let base = Date()
 
         let nudges: [(TimeInterval, String)] = [
             (86_400,    "Reflect: \(analysis.reflectionPrompts.first ?? "How is God speaking to you through Sunday's sermon?")"),

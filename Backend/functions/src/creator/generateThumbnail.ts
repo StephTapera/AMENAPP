@@ -4,7 +4,7 @@ import * as path from "path";
 import * as os from "os";
 import { cleanupTmp, createThumbnailImage, downloadToTmp, uploadFromTmp } from "./ffmpegUtils";
 
-export const generateThumbnail = onCall(async (request) => {
+export const generateThumbnail = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -41,7 +41,10 @@ export const generateThumbnail = onCall(async (request) => {
     try {
         await createThumbnailImage(localInput, localOutput);
         await uploadFromTmp(localOutput, outputStoragePath);
-        const thumbnailURL = (await admin.storage().bucket().file(outputStoragePath).getSignedUrl({ action: "read", expires: "03-01-2500" }))[0];
+        const thumbnailURL = (await admin.storage().bucket().file(outputStoragePath).getSignedUrl({
+            action: "read",
+            expires: Date.now() + 60 * 60 * 1000,
+        }))[0];
         await jobRef.set(
             { status: "completed", progress: 1, outputRefs: [thumbnailURL], outputStoragePath: outputStoragePath },
             { merge: true }

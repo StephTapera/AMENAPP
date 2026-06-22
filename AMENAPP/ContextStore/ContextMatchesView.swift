@@ -167,7 +167,7 @@ struct ContextMatchesView: View {
     private func reload() async {
         didAttemptLoad = true
         // Errors surface through service.lastError; we never crash the view on a failed match.
-        try? await service.refreshMatches()
+        _ = try? await service.refreshMatches()
         withAnimation(Motion.adaptive(Motion.appearEase)) { }
     }
 }

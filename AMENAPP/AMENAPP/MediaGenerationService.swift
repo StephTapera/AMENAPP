@@ -245,7 +245,7 @@ final class MediaGenerationService: ObservableObject {
             featuredFrameTime: featuredFrameTime
         )
 
-        await onSuggestionsReady(suggestions)
+        onSuggestionsReady(suggestions)
     }
 }
 

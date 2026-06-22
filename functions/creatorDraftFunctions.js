@@ -220,7 +220,7 @@ exports.generateCreatorDraft = onCall(
   {
     region: REGION,
     secrets: [NVIDIA_API_KEY],
-    enforceAppCheck: false, // set to true once App Check is enforced in all environments
+    enforceAppCheck: true,
     timeoutSeconds: 60,
   },
   async (request) => {

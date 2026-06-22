@@ -27,6 +27,7 @@ enum GlobalResilienceWiring {
     /// Must be called from AppDelegate AFTER FirebaseApp.configure().
     /// Calling before configure() is a programming error — it will assert in
     /// DEBUG and return without wiring anything in RELEASE.
+    @MainActor
     static func wire() {
         // Crash fence: Firestore and Remote Config both throw if FirebaseApp.configure()
         // has not been called. Do not move this call to AMENAPPApp.init() — the

@@ -113,31 +113,26 @@ final class ChurchAIService: ObservableObject {
         lastError = nil
         defer { isProcessing = false }
 
-        do {
-            // Build content payload for BereanCoreService:
-            // var contentParts: [String] = ["Sermon title: \(title)"]
-            // if let transcript { contentParts.append("Transcript:\n\(transcript)") }
-            // if let notes       { contentParts.append("Notes:\n\(notes)") }
-            // let payload = contentParts.joined(separator: "\n\n")
-            //
-            // Route to Berean:
-            // let response = try await berean.analyze(payload, context: .sermonIntelligence)
-            // return try parseSermonIntelligence(from: response)
+        // Build content payload for BereanCoreService:
+        // var contentParts: [String] = ["Sermon title: \(title)"]
+        // if let transcript { contentParts.append("Transcript:\n\(transcript)") }
+        // if let notes       { contentParts.append("Notes:\n\(notes)") }
+        // let payload = contentParts.joined(separator: "\n\n")
+        //
+        // Route to Berean:
+        // let response = try await berean.analyze(payload, context: .sermonIntelligence)
+        // return try parseSermonIntelligence(from: response)
 
-            // Stub — returns safe defaults until BereanCoreService is wired:
-            return SermonIntelligence(
-                summary: "",
-                scriptureReferences: [],
-                topics: [],
-                keyTakeaways: [],
-                reflectionPrompts: Self.defaultReflectionPrompts,
-                discussionPrompts: Self.defaultDiscussionPrompts,
-                studyFollowUps: []
-            )
-        } catch {
-            lastError = error
-            throw ChurchAIError.processingFailed(underlying: error)
-        }
+        // Stub — returns safe defaults until BereanCoreService is wired:
+        return SermonIntelligence(
+            summary: "",
+            scriptureReferences: [],
+            topics: [],
+            keyTakeaways: [],
+            reflectionPrompts: Self.defaultReflectionPrompts,
+            discussionPrompts: Self.defaultDiscussionPrompts,
+            studyFollowUps: []
+        )
     }
 
     // MARK: - Recap Draft Generation
@@ -162,22 +157,17 @@ final class ChurchAIService: ObservableObject {
         lastError = nil
         defer { isProcessing = false }
 
-        do {
-            // Route to BereanCoreService for church-voice recap generation:
-            // let prompt = """
-            // Write a warm, shareable church recap post (150–200 words) for the following sermon.
-            // Title: \(title)
-            // Scripture: \(scripture)
-            // Preacher: \(preacher)
-            // Use an inviting tone that reflects a welcoming faith community.
-            // """
-            // return try await berean.generate(prompt, context: .churchRecap)
+        // Route to BereanCoreService for church-voice recap generation:
+        // let prompt = """
+        // Write a warm, shareable church recap post (150–200 words) for the following sermon.
+        // Title: \(title)
+        // Scripture: \(scripture)
+        // Preacher: \(preacher)
+        // Use an inviting tone that reflects a welcoming faith community.
+        // """
+        // return try await berean.generate(prompt, context: .churchRecap)
 
-            return ""
-        } catch {
-            lastError = error
-            throw ChurchAIError.processingFailed(underlying: error)
-        }
+        return ""
     }
 
     // MARK: - Live Reflection Prompts

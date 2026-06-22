@@ -15,9 +15,9 @@ final class CatalogViewModel: ObservableObject {
     let creatorId: String
     private let service: CatalogService
 
-    init(creatorId: String, service: CatalogService = .shared) {
+    init(creatorId: String, service: CatalogService? = nil) {
         self.creatorId = creatorId
-        self.service = service
+        self.service = service ?? CatalogService.shared
     }
 
     func load() async {

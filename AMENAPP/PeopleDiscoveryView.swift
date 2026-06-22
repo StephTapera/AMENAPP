@@ -1167,13 +1167,13 @@ struct PeopleDiscoveryViewNew: View {
                    !reason.isEmpty {
                     await MainActor.run {
                         vibeMatchReasons[targetUserId] = reason
-                        vibeMatchLoading.remove(targetUserId)
+                        _ = vibeMatchLoading.remove(targetUserId)
                     }
                 } else {
-                    await MainActor.run { vibeMatchLoading.remove(targetUserId) }
+                    await MainActor.run { _ = vibeMatchLoading.remove(targetUserId) }
                 }
             } catch {
-                await MainActor.run { vibeMatchLoading.remove(targetUserId) }
+                await MainActor.run { _ = vibeMatchLoading.remove(targetUserId) }
             }
         }
     }

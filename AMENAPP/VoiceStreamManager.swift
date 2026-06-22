@@ -66,7 +66,7 @@ actor VoiceStreamManager {
         do {
             try session.setCategory(.playAndRecord,
                                     mode: .voiceChat,
-                                    options: [.defaultToSpeaker, .allowBluetooth])
+                                    options: [.defaultToSpeaker, .allowBluetoothHFP])
             try session.setPreferredSampleRate(sampleRate)
             try session.setActive(true)
         } catch {

@@ -206,7 +206,7 @@ struct AmenSemanticTermExtractor {
 
 // Convenience Character check
 private extension Character {
-    var isLetter: Bool {
+    var isLetterOrUnderscore: Bool {
         self.isLetter || self == "_"
     }
 }

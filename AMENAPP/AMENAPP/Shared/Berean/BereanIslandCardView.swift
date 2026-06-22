@@ -141,7 +141,7 @@ private struct PayloadDetail: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
 
-        case .event(let title, let startsAt, let location):
+        case .event(_, let startsAt, let location):
             VStack(alignment: .leading, spacing: 3) {
                 Label(formatted(startsAt), systemImage: "clock")
                     .font(.system(size: 13))

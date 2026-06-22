@@ -74,7 +74,7 @@ struct CommunityCorrection: Identifiable {
         dlog("[CommunityCorrectionService] voteOnCorrection id=\(correctionId) upvote=\(upvote)")
         let payload: [String: Any] = ["correctionId": correctionId, "upvote": upvote]
         do {
-            try await Functions.functions().httpsCallable("voteOnCommunityCorrection").call(payload)
+            _ = try await Functions.functions().httpsCallable("voteOnCommunityCorrection").call(payload)
         } catch {
             dlog("[CommunityCorrectionService] voteOnCorrection error: \(error)")
             throw error

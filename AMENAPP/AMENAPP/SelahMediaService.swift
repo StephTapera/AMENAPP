@@ -147,7 +147,7 @@ final class SelahMediaService: ObservableObject {
         metadata.contentType = "image/jpeg"
 
         return try await withCheckedThrowingContinuation { continuation in
-            let uploadTask = ref.putData(imageData, metadata: metadata) { [weak self] _, error in
+            let uploadTask = ref.putData(imageData, metadata: metadata) { _, error in
                 if let error {
                     continuation.resume(throwing: error)
                     return
@@ -312,7 +312,7 @@ final class SelahMediaService: ObservableObject {
     ) async throws {
         guard !userId.isEmpty else { throw SelahMediaError.notAuthenticated }
         let user = Auth.auth().currentUser
-        var message = SelahCommentRoomMessage(
+        let message = SelahCommentRoomMessage(
             authorId: userId,
             authorDisplayName: user?.displayName ?? "Anonymous",
             text: text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(500).description,

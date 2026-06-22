@@ -121,7 +121,7 @@ struct LiveNotesSidebar: View {
                 let db = Firestore.firestore()
                 guard let uid = Auth.auth().currentUser?.uid, !noteText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
                 Task {
-                    try? await db.collection("liveNotes").document(streamId)
+                    _ = try? await db.collection("liveNotes").document(streamId)
                         .collection("notes").addDocument(data: [
                             "uid": uid,
                             "text": noteText.trimmingCharacters(in: .whitespaces),

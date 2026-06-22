@@ -273,7 +273,7 @@ struct VergeCreatorStudioView: View {
                 Toggle("", isOn: $tipsEnabled)
                     .labelsHidden()
                     .tint(Color.accentColor)
-                    .onChange(of: tipsEnabled) { _ in saveTipsEnabled() }
+                    .onChange(of: tipsEnabled) { saveTipsEnabled() }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 14)

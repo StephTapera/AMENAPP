@@ -227,10 +227,16 @@ struct TestimoniesView: View {
                                 )
                                 .frame(width: 80, height: 80)
                                 .shadow(color: Color(red: 0.85, green: 0.67, blue: 0.25).opacity(0.35), radius: 16, y: 6)
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 32, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .symbolEffect(.bounce, options: .repeating)
+                            if #available(iOS 18.0, *) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 32, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .symbolEffect(.bounce, options: .repeating)
+                            } else {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 32, weight: .semibold))
+                                    .foregroundStyle(.white)
+                            }
                         }
                         VStack(spacing: 8) {
                             Text("Be First to Testify")
@@ -588,7 +594,7 @@ struct TestimoniesView: View {
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled else { return }
 
-            let ranked = await testimonyAlgorithm.rankTestimonies(snapshot, for: prefs)
+            let ranked = testimonyAlgorithm.rankTestimonies(snapshot, for: prefs)
             guard !Task.isCancelled else { return }
 
             personalizedPosts = ranked

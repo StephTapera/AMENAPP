@@ -30,7 +30,7 @@ final class StudioVoiceRecorderViewModel: ObservableObject {
     // MARK: - Public API
 
     func startRecording() {
-        AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
+        AVAudioApplication.requestRecordPermission { [weak self] granted in
             guard let self else { return }
             guard granted else {
                 Task { @MainActor in

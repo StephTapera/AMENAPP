@@ -171,13 +171,9 @@ function actionsForNeedType(needType: NeedType, needId: string): CardAction[] {
 
 // ─── Callable: classifyPostNeed ────────────────────────────────────────────────
 
-export const classifyPostNeed = onCall(
-  {
-    secrets: [ANTHROPIC_API_KEY],
+export const classifyPostNeed = onCall({ enforceAppCheck: true, secrets: [ANTHROPIC_API_KEY],
     timeoutSeconds: 45,
-    memory: "256MiB",
-  },
-  async (request) => {
+    memory: "256MiB", }, async (request) => {
     // 1. Auth check
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
@@ -278,12 +274,8 @@ export const classifyPostNeed = onCall(
 
 // ─── Callable: matchNeedsToVolunteers ──────────────────────────────────────────
 
-export const matchNeedsToVolunteers = onCall(
-  {
-    timeoutSeconds: 30,
-    memory: "256MiB",
-  },
-  async (request) => {
+export const matchNeedsToVolunteers = onCall({ enforceAppCheck: true, timeoutSeconds: 30,
+    memory: "256MiB", }, async (request) => {
     // 1. Auth check
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");

@@ -64,9 +64,7 @@ function docToSpaceSummary(doc: FirebaseFirestore.QueryDocumentSnapshot): SpaceS
 
 // ── discoverSpaces ────────────────────────────────────────────────────────────
 
-export const discoverSpaces = onCall(
-    { region: "us-central1" },
-    async (request): Promise<SpaceSummary[]> => {
+export const discoverSpaces = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<SpaceSummary[]> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -112,9 +110,7 @@ export const discoverSpaces = onCall(
 
 // ── recordLegalAcceptance ─────────────────────────────────────────────────────
 
-export const recordLegalAcceptance = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ success: true }> => {
+export const recordLegalAcceptance = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ success: true }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -142,9 +138,7 @@ export const recordLegalAcceptance = onCall(
 
 // ── activateSpaceMembership ───────────────────────────────────────────────────
 
-export const activateSpaceMembership = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ success: true }> => {
+export const activateSpaceMembership = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ success: true }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 

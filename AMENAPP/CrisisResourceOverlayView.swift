@@ -307,7 +307,7 @@ struct CrisisResourceOverlayView: View {
         switch region {
         case "US", "CA", "MX", "PH": return "911"
         case "GB", "IE", "IN", "SG", "MY", "HK": return "999"
-        case "AU", "NZ": return "000"
+        case "AU": return "000"
         case "NZ": return "111"
         case "JP": return "110"
         case "CN": return "110"

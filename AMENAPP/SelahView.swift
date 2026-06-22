@@ -342,8 +342,10 @@ struct SelahView: View {
     @State private var selectedVerseRef: String?
     @State private var showVerseExplorer = false
 
-    // Save toast message
+    // Save / action toast message
     @State private var toastMessage = ""
+    @State private var toastIsSuccess = true
+    @State private var toastDismissTask: Task<Void, Never>?
 
     @StateObject private var churchNotesService = ChurchNotesService()
     @ObservedObject private var selahService = SelahService.shared
@@ -391,8 +393,11 @@ struct SelahView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 4)
 
-                // Format picker (only in Read tab)
-                if selectedTab == .read {
+                // Format picker — only in Read tab, and only when there is enough
+                // prose for the lenses to differ. On a short daily-verse payload
+                // TL;DR / Bullets / Steps all collapse to the same text, so we hide
+                // the picker rather than promise five identical formats.
+                if selectedTab == .read && contentIsRichEnoughForFormats {
                     formatPicker
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
@@ -418,8 +423,8 @@ struct SelahView: View {
                 VStack {
                     Spacer()
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                        Image(systemName: toastIsSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(toastIsSuccess ? .green : .orange)
                         Text(toastMessage.isEmpty ? "Saved to Church Notes" : toastMessage)
                             .font(.systemScaled(14, weight: .semibold))
                     }
@@ -443,6 +448,10 @@ struct SelahView: View {
                 rebuildSections()
                 expandedSections = Set(sections.map { $0.id })
             }
+        }
+        .onDisappear {
+            toastDismissTask?.cancel()
+            toastDismissTask = nil
         }
         .sheet(isPresented: $showVerseExplorer) {
             if let ref = selectedVerseRef {
@@ -532,12 +541,24 @@ struct SelahView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Key-phrase highlights")
+                    .accessibilityValue(showHighlights ? "On" : "Off")
+                    .accessibilityHint("Toggles colored highlighting of key phrases in the reading")
                     .transition(.opacity)
                 }
 
                 // Workflow button
                 StartWorkflowButton(
-                    verseReference: message.verseReferences.first
+                    verseReference: message.verseReferences.first,
+                    onCreated: {
+                        toastMessage = "Journey started"
+                        showToast(success: true)
+                        selectedTab = .read
+                    },
+                    onFailed: { message in
+                        toastMessage = message.isEmpty ? "Could not start journey" : message
+                        showToast(success: false)
+                    }
                 )
             }
         }
@@ -630,7 +651,7 @@ struct SelahView: View {
             readTabContent
         case .ask:
             AskSelahView(
-                initialQuery: "",
+                initialQuery: originalQuery == "Daily Verse" ? "Help me reflect on \(message.verseReferences.first ?? "today's verse")" : originalQuery,
                 initialVerses: message.verseReferences
             )
         case .trails:
@@ -696,8 +717,11 @@ struct SelahView: View {
                     .padding(.top, 28)
                     .padding(.bottom, 20)
 
-                // Verse of the Day card — formation-first; no vanity counters
-                if let verse = verseService.todayVerse {
+                // Verse of the Day + personalized reflection — only on the true
+                // Daily Verse entry. The service caches today's verse globally, so
+                // without this gate these cards would also appear on unrelated
+                // Ask-Selah / church-note study answers.
+                if isDailyVerseEntry, let verse = verseService.todayVerse {
                     SelahVOTDCard(
                         verseRef: verse.reference,
                         verseText: verse.text,
@@ -706,9 +730,25 @@ struct SelahView: View {
                             if let parsed = SelahScriptureReferenceParser.parse(ref) {
                                 scriptureReaderRef = parsed
                                 showScriptureReader = true
+                            } else if !ref.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                selectedVerseRef = ref
+                                showVerseExplorer = true
+                            } else {
+                                toastMessage = "Could not open chapter"
+                                showToast(success: false)
                             }
                         }
                     )
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+
+                    // Personalized reflection — surfaces the reflection, application,
+                    // prayer and related verses the service already generated for this
+                    // user today, instead of re-printing the verse text.
+                    SelahDailyReflectionCard(verse: verse) { ref in
+                        selectedVerseRef = ref
+                        showVerseExplorer = true
+                    }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)
                 }
@@ -894,25 +934,23 @@ struct SelahView: View {
             HStack(spacing: 0) {
                 actionButton(icon: "doc.on.doc", label: "Copy") {
                     UIPasteboard.general.string = message.content
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    toastMessage = "Copied"
+                    showToast(success: true)
                 }
                 actionButton(icon: "square.and.arrow.up", label: "Share") {
                     showActionsSheet = true
                 }
-                actionButton(icon: "note.text.badge.plus", label: "Church Notes") {
+                actionButton(icon: "note.text.badge.plus", label: "Notes") {
                     saveToChurchNotes()
                 }
-                actionButton(icon: "bubble.left.and.bubble.right", label: "Chat") {
-                    onContinueInChat?()
-                    dismiss()
+                actionButton(icon: "bubble.left.and.bubble.right", label: onContinueInChat == nil ? "Ask" : "Chat") {
+                    continueOrOpenAsk()
                 }
             }
             .padding(.vertical, 4)
 
-            // Ask Follow-up
             Button {
-                onAskFollowUp?("Tell me more about this")
-                dismiss()
+                askFollowUp()
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.bubble")
@@ -942,18 +980,111 @@ struct SelahView: View {
                 Text(label)
                     .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    private func continueOrOpenAsk() {
+        if let onContinueInChat {
+            onContinueInChat()
+            dismiss()
+            return
+        }
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78))) {
+            selectedTab = .ask
+        }
+        toastMessage = "Ask Selah is ready"
+        showToast(success: true)
+    }
+
+    private func askFollowUp() {
+        let prompt = isDailyVerseEntry
+            ? "Help me apply \(message.verseReferences.first ?? "today's verse") today"
+            : "Tell me more about this"
+        if let onAskFollowUp {
+            onAskFollowUp(prompt)
+            dismiss()
+            return
+        }
+        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.78))) {
+            selectedTab = .ask
+        }
+        toastMessage = "Follow-up ready in Ask Selah"
+        showToast(success: true)
     }
 
     // MARK: - Logic
 
+    /// True only when this Selah was opened from the Daily Verse entry point.
+    /// `AIDailyVerseView` constructs `SelahView(..., originalQuery: "Daily Verse")`;
+    /// every other entry (Ask Selah, church-note study, post attachments) passes a
+    /// different query. Kept intrinsic so the gate lives entirely in this file.
+    /// Post-v1 hardening: promote to an explicit `init` flag set at the call site
+    /// so the behavior no longer depends on a literal query string.
+    private var isDailyVerseEntry: Bool {
+        originalQuery == "Daily Verse"
+    }
+
+    /// The reading-format lenses only diverge when there is enough prose to slice.
+    /// Below this threshold (≈ a verse plus a sentence) every format renders the
+    /// same text, so the picker is hidden.
+    private var contentIsRichEnoughForFormats: Bool {
+        message.content
+            .split(whereSeparator: { $0 == " " || $0.isNewline })
+            .count >= 60
+    }
+
     private func rebuildSections() {
-        sections = SelahParser.parse(response: message.content, format: selectedFormat)
+        let parsed = SelahParser.parse(response: message.content, format: selectedFormat)
+        sections = Self.pruneRedundant(parsed, against: verseService.todayVerse?.text)
+    }
+
+    /// Removes sections that merely echo the daily verse, repeat an earlier
+    /// section, or contain nothing but a scripture attribution line. Heuristic
+    /// parsing on a short verse payload otherwise produces several near-identical
+    /// cards (e.g. SUMMARY and CONTEXT both showing the same verse text, and a
+    /// CONTEXT card whose only body is "— Romans 8:28").
+    private static func pruneRedundant(_ sections: [SelahSection], against verseText: String?) -> [SelahSection] {
+        func normalize(_ s: String) -> String {
+            s.lowercased()
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        }
+        let verseKey = verseText.map(normalize)
+        var seen: Set<String> = []
+        var result: [SelahSection] = []
+
+        for section in sections {
+            let trimmed = section.body.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Drop attribution-only bodies, e.g. "— Romans 8:28".
+            let withoutDash = String(trimmed.drop { "—–-".contains($0) || $0 == " " })
+                .trimmingCharacters(in: .whitespaces)
+            if section.references.contains(withoutDash) { continue }
+
+            let key = normalize(trimmed)
+            if key.isEmpty { continue }
+
+            // Drop bodies that are wholly a fragment of the daily verse text.
+            if let verseKey, !verseKey.isEmpty, key.count > 12,
+               key == verseKey || verseKey.contains(key) {
+                continue
+            }
+
+            // Drop exact repeats of an earlier section.
+            if seen.contains(key) { continue }
+            seen.insert(key)
+            result.append(section)
+        }
+        return result
     }
 
     private func saveSession() {
@@ -1005,10 +1136,14 @@ struct SelahView: View {
                 await MainActor.run {
                     isSavingNote = false
                     toastMessage = "Saved to Church Notes"
-                    showToast()
+                    showToast(success: true)
                 }
             } catch {
-                await MainActor.run { isSavingNote = false }
+                await MainActor.run {
+                    isSavingNote = false
+                    toastMessage = error.localizedDescription.isEmpty ? "Could not save note" : error.localizedDescription
+                    showToast(success: false)
+                }
             }
         }
     }
@@ -1036,21 +1171,31 @@ struct SelahView: View {
                 try await churchNotesService.createNote(note)
                 await MainActor.run {
                     toastMessage = "\(output.type.rawValue) saved to Church Notes"
-                    showToast()
+                    showToast(success: true)
                 }
-            } catch {}
+            } catch {
+                await MainActor.run {
+                    toastMessage = error.localizedDescription.isEmpty ? "Could not save transformation" : error.localizedDescription
+                    showToast(success: false)
+                }
+            }
         }
     }
 
-    private func showToast() {
+    private func showToast(success: Bool = true) {
+        toastDismissTask?.cancel()
+        toastIsSuccess = success
         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
             showSaveConfirmation = true
         }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+        toastDismissTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
+            guard !Task.isCancelled else { return }
             withAnimation(.easeOut(duration: 0.35)) {
                 showSaveConfirmation = false
             }
+            toastDismissTask = nil
         }
     }
 
@@ -1071,6 +1216,148 @@ struct SelahView: View {
         case .shareToOpenTable:
             dismiss()
         }
+    }
+}
+
+// MARK: - Daily Reflection Card (personalized)
+
+/// Surfaces the personalization that `DailyVerseGenkitService` already computes
+/// for the Verse of the Day — the "why this verse", reflection, application,
+/// prayer prompt, and related verses — none of which the heuristic section
+/// parser ever sees. Formation-first: leads with meaning, not metrics.
+private struct SelahDailyReflectionCard: View {
+    let verse: PersonalizedDailyVerse
+    let onOpenVerse: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            badgeRow
+
+            if let why = whyThisVerse {
+                Label(why, systemImage: "sparkles")
+                    .font(.systemScaled(13, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if !verse.reflection.isEmpty {
+                block(title: "REFLECTION", body: verse.reflection)
+            }
+            if !verse.actionPrompt.isEmpty {
+                block(title: "APPLY IT", body: verse.actionPrompt)
+            }
+            if !verse.prayerPrompt.isEmpty {
+                block(title: "PRAYER", body: verse.prayerPrompt, italic: true)
+            }
+            if !verse.relatedVerses.isEmpty {
+                relatedVersesRow
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.50), Color.white.opacity(0.10)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: Color.black.opacity(0.06), radius: 10, y: 3)
+        )
+    }
+
+    @ViewBuilder
+    private var badgeRow: some View {
+        HStack(spacing: 8) {
+            if verse.isPersonalizedToUser {
+                badge(text: "Personalized for you", icon: "sparkles", tint: Color.accentColor)
+            } else if verse.isFromAI {
+                badge(text: "AI reflection", icon: "wand.and.stars", tint: .secondary)
+            }
+            if !verse.theme.isEmpty {
+                Text(verse.theme.uppercased())
+                    .font(.systemScaled(10, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+    }
+
+    private func badge(text: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon).font(.systemScaled(10, weight: .semibold))
+            Text(text).font(.systemScaled(11, weight: .semibold))
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(tint.opacity(0.12)))
+    }
+
+    private func block(title: String, body: String, italic: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.systemScaled(10, weight: .semibold))
+                .tracking(1.5)
+                .foregroundStyle(.secondary)
+            Text(body)
+                .font(.systemScaled(15))
+                .italic(italic)
+                .foregroundStyle(.primary)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var relatedVersesRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("RELATED")
+                .font(.systemScaled(10, weight: .semibold))
+                .tracking(1.5)
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(verse.relatedVerses, id: \.self) { ref in
+                        Button { onOpenVerse(ref) } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "book.fill").font(.systemScaled(10))
+                                Text(ref).font(.systemScaled(12, weight: .semibold))
+                            }
+                            .foregroundStyle(Color.accentColor)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Color.accentColor.opacity(0.10), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Open \(ref)")
+                    }
+                }
+            }
+        }
+    }
+
+    /// An honest, gentle line explaining why this verse surfaced — shown only when
+    /// the Cloud Function confirmed it used the user's own context.
+    private var whyThisVerse: String? {
+        guard verse.isPersonalizedToUser, let ctx = verse.personalizedFor else { return nil }
+        if let topic = ctx.recentPrayerTopics.first(where: { !$0.isEmpty }) {
+            return "Because you've been praying about \(topic.lowercased())."
+        }
+        if let challenge = ctx.currentChallenges.first(where: { !$0.isEmpty }) {
+            return "Chosen as you navigate \(challenge.lowercased())."
+        }
+        if let interest = ctx.interests.first(where: { !$0.isEmpty }) {
+            return "Chosen for your focus on \(interest.lowercased())."
+        }
+        return nil
     }
 }
 

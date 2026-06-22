@@ -46,17 +46,17 @@ actor OpportunityService {
 
     func post(opportunity: JobOpportunity) async throws {
         guard isEnabled else { return }
-        guard let uid = Auth.auth().currentUser?.uid else { throw IntegrationOSError.notAuthenticated }
+        guard Auth.auth().currentUser?.uid != nil else { throw IntegrationOSError.notAuthenticated }
         let granted = await ledger.isGranted(scope: .opportunityPost, providerId: "amen")
         guard granted else { throw IntegrationOSError.consentDenied(.opportunityPost) }
-        var opp = opportunity
+        let opp = opportunity
         try db.collection("opportunities").document(opp.id).setData(from: opp)
     }
 
     // MARK: - Update / Delete
 
     func deactivate(id: String) async throws {
-        guard let uid = Auth.auth().currentUser?.uid else { throw IntegrationOSError.notAuthenticated }
+        guard Auth.auth().currentUser?.uid != nil else { throw IntegrationOSError.notAuthenticated }
         try await db.collection("opportunities").document(id)
             .updateData(["isActive": false])
     }

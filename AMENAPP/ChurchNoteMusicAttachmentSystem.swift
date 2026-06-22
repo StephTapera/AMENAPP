@@ -698,8 +698,8 @@ struct MusicAttachmentArtworkView: View {
     }
 
     private var fallbackGradient: LinearGradient {
-        let dominant = artworkColors?.dominantHex.flatMap(Color.init(hex:)) ?? Color.black.opacity(0.07)
-        let secondary = artworkColors?.secondaryHex.flatMap(Color.init(hex:)) ?? Color.white.opacity(0.92)
+        let dominant = artworkColors?.dominantHex.flatMap { Color(hex: $0) } ?? Color.black.opacity(0.07)
+        let secondary = artworkColors?.secondaryHex.flatMap { Color(hex: $0) } ?? Color.white.opacity(0.92)
         return LinearGradient(
             colors: [secondary, dominant.opacity(0.22)],
             startPoint: .topLeading,

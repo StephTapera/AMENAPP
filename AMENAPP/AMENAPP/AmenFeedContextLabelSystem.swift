@@ -401,6 +401,7 @@ enum AmenFeedContextResolver {
     static let sessionId = UUID().uuidString
     static let recentWindow = 10
 
+    @MainActor
     static func resolveVisibleLabels(
         for posts: [Post],
         preferences: ContextLabelPreferenceStore,
@@ -455,6 +456,7 @@ enum AmenFeedContextResolver {
         return results
     }
 
+    @MainActor
     static func isEligible(
         label: AmenFeedContextLabel,
         for post: Post,

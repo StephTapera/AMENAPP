@@ -122,6 +122,38 @@ enum UserDefaultsKeys {
 
     /// Notification focus-mode enabled flag
     static let notificationFocusMode = "notificationFocusMode"
+
+    // MARK: - Login Session
+
+    /// The id of the current login/device session (mirrors RTDB user-login-history).
+    static let currentLoginSessionId = "currentLoginSessionId"
+
+    // MARK: - Cached Profile (offline-first display)
+    // NOTE: distinct from `cachedUsername`/`currentUserProfileImageURL` above —
+    // these "cached_*" keys are written by SettingsView's profile cache.
+
+    enum CachedProfile {
+        static let displayName     = "cached_displayName"
+        static let username        = "cached_username"
+        static let bio             = "cached_bio"
+        static let bioURL          = "cached_bioURL"
+        static let initials        = "cached_initials"
+        static let profileImageURL = "cached_profileImageURL"
+    }
+
+    // MARK: - Notification Engagement Model
+
+    enum NotificationEngagement {
+        static let scores             = "notificationEngagementScores"
+        static let interactionHistory = "notificationInteractionHistory"
+    }
+
+    // MARK: - Per-user Voice
+
+    /// Voice-enabled flag, stored per-user. Matches `"isVoiceEnabled_<uid>"`.
+    static func isVoiceEnabled(uid: String) -> String {
+        "isVoiceEnabled_\(uid)"
+    }
 }
 
 // MARK: - App Configuration
@@ -195,3 +227,47 @@ enum AppConfig {
 
 // MARK: - Firebase Collection Paths
 // (Consider moving FirebaseManager.CollectionPath here for consistency)
+
+// MARK: - Typed Identifiers
+//
+// The codebase passes ~1,800 raw `String` IDs through function signatures
+// (userId, postId, conversationId, …). Because they're all `String`, the
+// compiler cannot stop an argument transposition — calling a two-id function
+// with the arguments swapped compiles cleanly and breaks at runtime.
+//
+// These wrappers make each id its own type while staying ergonomic:
+// `RawRepresentable` over `String`, transparent `Codable` (a `UserID` encodes
+// as a bare string), `Hashable`, and `ExpressibleByStringLiteral`. Adoption is
+// incremental — `.rawValue` bridges back to existing `String` APIs until a
+// signature is migrated.
+
+/// A transparent, string-backed identifier type.
+protocol TypedIdentifier: RawRepresentable, Hashable, Codable,
+                          ExpressibleByStringLiteral, CustomStringConvertible
+    where RawValue == String {
+    init(rawValue: String)
+}
+
+extension TypedIdentifier {
+    init(stringLiteral value: String) { self.init(rawValue: value) }
+
+    var description: String { rawValue }
+
+    // Transparent Codable: encode/decode as a bare String, not a wrapper object.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.init(rawValue: try container.decode(String.self))
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+struct UserID: TypedIdentifier { let rawValue: String; init(rawValue: String) { self.rawValue = rawValue } }
+struct PostID: TypedIdentifier { let rawValue: String; init(rawValue: String) { self.rawValue = rawValue } }
+struct CommentID: TypedIdentifier { let rawValue: String; init(rawValue: String) { self.rawValue = rawValue } }
+struct ConversationID: TypedIdentifier { let rawValue: String; init(rawValue: String) { self.rawValue = rawValue } }
+struct GroupID: TypedIdentifier { let rawValue: String; init(rawValue: String) { self.rawValue = rawValue } }
+struct SessionID: TypedIdentifier { let rawValue: String; init(rawValue: String) { self.rawValue = rawValue } }

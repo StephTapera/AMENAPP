@@ -60,7 +60,7 @@ actor CostGovernorService: CostGovernorProtocol {
             "recordedAt": Timestamp(date: Date()),
             "month": currentMonthKey()
         ]
-        try? await db.collection("users").document(uid)
+        _ = try? await db.collection("users").document(uid)
             .collection("integrationCostLedger")
             .addDocument(data: record)
     }

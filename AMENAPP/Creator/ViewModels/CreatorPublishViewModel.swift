@@ -7,8 +7,8 @@ final class CreatorPublishViewModel: ObservableObject {
 
     private let publishService: CreatorPublishServicing
 
-    init(publishService: CreatorPublishServicing = CreatorPublishService()) {
-        self.publishService = publishService
+    init(publishService: CreatorPublishServicing? = nil) {
+        self.publishService = publishService ?? CreatorPublishService()
     }
 
     func publish(projectID: String, targets: [CreatorPublishTarget]) async {

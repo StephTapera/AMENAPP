@@ -10,7 +10,7 @@ import SwiftUI
 import Combine
 import FirebaseAuth
 import Security
-import UserNotifications
+@preconcurrency import UserNotifications
 
 @MainActor
 class ChurchNotesAIService: ObservableObject {

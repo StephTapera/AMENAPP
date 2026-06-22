@@ -443,6 +443,7 @@ private struct InAppNotificationBannerModifier: ViewModifier {
             .safeAreaInsets.top) ?? 44
     }
 
+
     private func handleNavigation(for notification: AppNotification) {
         // Post a deep-link navigation event using the existing
         // PushNotificationHandler infrastructure.

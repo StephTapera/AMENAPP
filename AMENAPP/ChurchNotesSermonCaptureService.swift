@@ -70,7 +70,7 @@ final class ChurchNotesSermonCaptureService: NSObject, ObservableObject {
     ) async throws {
         // 1. Request microphone permission
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .default, options: [.allowBluetooth])
+        try session.setCategory(.record, mode: .default, options: [.allowBluetoothHFP])
         try session.setActive(true)
 
         // Permission check via async/await bridge
@@ -103,7 +103,7 @@ final class ChurchNotesSermonCaptureService: NSObject, ObservableObject {
         audioRecorder = recorder
 
         // 4. Create session
-        var captureSession = SermonCaptureSession(
+        let captureSession = SermonCaptureSession(
             noteId: noteId,
             churchName: churchName,
             speakerName: speakerName,

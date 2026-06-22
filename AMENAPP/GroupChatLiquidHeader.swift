@@ -64,7 +64,7 @@ struct GroupChatLiquidHeader: View {
     // MARK: - Load Participants
     
     private func loadParticipants() {
-        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        guard Auth.auth().currentUser?.uid != nil else { return }
         
         lazy var db = Firestore.firestore()
         db.collection("conversations")

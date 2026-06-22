@@ -391,30 +391,6 @@ private struct FlowChips: View {
 
 #if DEBUG
 #Preview("Loaded") {
-    let pulse = ChurchPulse(
-        churchId: "preview_church",
-        computedAt: Date().timeIntervalSince1970 * 1000 - 3_600_000,
-        upcomingEvents: UpcomingEventsSnapshot(
-            count: 3,
-            nextEventTitle: "Sunday Service",
-            nextEventDate: Date().addingTimeInterval(86400).timeIntervalSince1970 * 1000
-        ),
-        activePrayerRequests: ActivePrayerRequestsSnapshot(count: 4),
-        volunteerNeeds: VolunteerNeedsSnapshot(count: 2, roles: ["Worship Team", "Children's Ministry"]),
-        recentTeachingTopic: "The Sermon on the Mount",
-        memberEngagement: .medium,
-        pulseScore: 75,
-        pulseReasons: [
-            "3 events this month",
-            "Active prayer requests",
-            "Volunteer opportunities posted",
-            "Recent teaching: The Sermon on the Mount",
-            "Growing community engagement",
-        ],
-        finite: true,
-        spectacleCounters: false
-    )
-
     NavigationStack {
         ChurchPulseView(churchId: "preview_church")
             .navigationTitle("Grace Community")

@@ -258,6 +258,7 @@ struct BereanAgentTopBarView: View {
 // Keeps mode names out of BereanAgentTopBarView's view builder — the top bar
 // calls activeMode.topBarAccessoryView(...) without switching on cases itself.
 
+@MainActor
 private extension BASComposerMode {
     @ViewBuilder
     func topBarAccessoryView(reduceMotion: Bool, studyTranslation: Binding<String>) -> some View {

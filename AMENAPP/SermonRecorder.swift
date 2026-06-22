@@ -67,8 +67,11 @@ final class SermonRecorder: ObservableObject {
         elapsed     = 0
 
         elapsedTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            guard let self, let start = self.startedAt else { return }
-            Task { @MainActor in self.elapsed = Date().timeIntervalSince(start) }
+            guard let self else { return }
+            Task { @MainActor in
+                guard let start = self.startedAt else { return }
+                self.elapsed = Date().timeIntervalSince(start)
+            }
         }
 
         scheduleNextChunk()

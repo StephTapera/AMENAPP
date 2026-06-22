@@ -219,7 +219,7 @@ struct YourFeedView: View {
             Spacer()
 
             Button {
-                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
+                _ = withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                     prefsSvc.preferences.pinnedTopics.insert(seasonalContext.suggestedTopic)
                 }
                 Task { await prefsSvc.savePreferences() }

@@ -19,9 +19,7 @@ interface DecayedTypeWeight {
   count: number;
 }
 
-export const getDecayedSignalWeights = functions.onCall(
-  { region: "us-east1" },
-  async (request): Promise<{ weights: DecayedTypeWeight[]; dominantType: string | null }> => {
+export const getDecayedSignalWeights = functions.onCall({ enforceAppCheck: true, region: "us-east1" }, async (request): Promise<{ weights: DecayedTypeWeight[]; dominantType: string | null }> => {
     if (!request.auth) {
       throw new functions.HttpsError("unauthenticated", "Auth required");
     }

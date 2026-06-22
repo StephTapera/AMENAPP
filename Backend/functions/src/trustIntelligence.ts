@@ -29,7 +29,7 @@ function assertOwner(uid: string, userId: string) {
     }
 }
 
-export const writeAgentInsight = onCall(async (request) => {
+export const writeAgentInsight = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -55,7 +55,7 @@ export const writeAgentInsight = onCall(async (request) => {
     return { ok: true, id: insightId };
 });
 
-export const writeAgentRecommendation = onCall(async (request) => {
+export const writeAgentRecommendation = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -80,7 +80,7 @@ export const writeAgentRecommendation = onCall(async (request) => {
     return { ok: true, id: recId };
 });
 
-export const writeAgentExecutionLog = onCall(async (request) => {
+export const writeAgentExecutionLog = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -104,7 +104,7 @@ export const writeAgentExecutionLog = onCall(async (request) => {
     return { ok: true, id: logId };
 });
 
-export const writeTrustEvent = onCall(async (request) => {
+export const writeTrustEvent = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -129,7 +129,7 @@ export const writeTrustEvent = onCall(async (request) => {
     return { ok: true, id: eventId };
 });
 
-export const writeTrustSnapshot = onCall(async (request) => {
+export const writeTrustSnapshot = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);

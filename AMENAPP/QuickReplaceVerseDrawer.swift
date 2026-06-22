@@ -214,7 +214,7 @@ struct QuickReplaceVerseDrawer: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Replace with \(verse.reference)")
+        .accessibilityLabel("Replace with \(verse.reference.displayString)")
     }
     
     private func sectionHeader(_ title: String) -> some View {

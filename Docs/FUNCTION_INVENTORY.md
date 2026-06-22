@@ -280,6 +280,19 @@ Functions that should consolidate back to us-central1 once quota is available (<
 | `moderateUploadedImage` | us-west1 | us-west1 | Storage trigger — bucket in us-west1 |
 | `bereanChatProxy` | us-central1 | us-central1 | `BereanAPIClient.swift` — existing function, updated 2026-06-16 (AMEN-LLM-003: systemPromptSuffix injection removed) |
 | `bereanChatProxyStream` | us-central1 | us-central1 | `ClaudeService.swift` — NEW service created 2026-06-16 (AMEN-LLM-001: rateLimit quota enforcement; AMEN-LLM-003: injection removed). Deployed during quota period — monitor us-central1 count. |
+| `userAccountDeletionCascade` | us-east1 | us-east1 | `AccountManagementService.swift:66` — P0-3 hard-delete (Guideline 5.1.1). Region set us-east1 2026-06-17 (was implicit us-central1, at quota). NOT yet deployed — pending `creator` build fix. |
+| `evaluateTrustProfile` | us-east1 | us-east1 | D-IDENTITY-001 trust scoring. Region moved us-central1→us-east1 2026-06-17 (quota). NOT yet deployed — pending `creator` build fix. |
+| `checkDonationSafety` | us-east1 | us-east1 | D-IDENTITY-001 trust scoring. Region moved us-central1→us-east1 2026-06-17 (quota). NOT yet deployed — pending `creator` build fix. |
+| `detectRiskPatterns` | us-east1 | us-east1 | D-IDENTITY-001 trust scoring. Region moved us-central1→us-east1 2026-06-17 (quota). NOT yet deployed — pending `creator` build fix. |
+| `assembleChurchDiscovery` | us-east1 | us-east1 | Find a Church v2 (`FindChurchViewModel`). NEW 2026-06-19; us-east1 (us-central1 at quota). iOS wires `Functions.functions(region:"us-east1")`. Flag-OFF. **NOT yet deployed** — blocked by shared-tree Moment-system gen2 params (deepen_actions_enabled, moment_system_enabled, gather_live_enabled, gather_compliance_gate_cleared) unset in `.env`; whole-codebase analysis aborts non-interactively. Quiet-tree deploy pending. |
+| `searchChurches` | us-east1 | us-east1 | Find a Church v2. NEW 2026-06-19. Flag-OFF. |
+| `getChurchProfile` | us-east1 | us-east1 | Find a Church v2 (`ChurchProfileView`). NEW 2026-06-19. Flag-OFF. |
+| `toggleSavedChurch` | us-east1 | us-east1 | Find a Church v2. NEW 2026-06-19. Flag-OFF. |
+| `recordChurchSearch` | us-east1 | us-east1 | Find a Church v2. NEW 2026-06-19. Flag-OFF. |
+| `planVisit` | us-east1 | us-east1 | Find a Church v2 (`PlanVisitFlow`). NEW 2026-06-19; minor-gated in-function. Flag-OFF. |
+| `reportChurch` | us-east1 | us-east1 | Find a Church v2. NEW 2026-06-19; child_safety→critical moderationQueue. Flag-OFF. |
+| `requestChurchVerification` | us-east1 | us-east1 | Find a Church v2 (org). NEW 2026-06-19. Flag-OFF. |
+| `submitChurchClaim` | us-east1 | us-east1 | Find a Church v2 (org). NEW 2026-06-19. Flag-OFF. |
 
 ### Consolidation Trigger
 > When us-central1 service count drops below **850** OR when quota increase is granted:

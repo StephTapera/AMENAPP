@@ -217,16 +217,16 @@ struct BereanListeningView: View {
     // MARK: - Actions
 
     private func checkPermission() async {
-        let status = AVAudioSession.sharedInstance().recordPermission
+        let status = AVAudioApplication.shared.recordPermission
         await MainActor.run {
-            hasMicConsent = status == .granted
+            hasMicConsent = status == AVAudioApplication.recordPermission.granted
             isCheckingPermission = false
         }
     }
 
     private func requestPermission() async {
         let granted = await withCheckedContinuation { continuation in
-            AVAudioSession.sharedInstance().requestRecordPermission { granted in
+            AVAudioApplication.requestRecordPermission { granted in
                 continuation.resume(returning: granted)
             }
         }

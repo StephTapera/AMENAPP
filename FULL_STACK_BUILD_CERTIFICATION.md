@@ -2,12 +2,12 @@
 
 ## Current Attempt - 2026-06-20 17:34:35 CDT
 
-Verification HEAD: `157491af`
+Verification HEAD: `ab354db1`
 Result: **NOT CERTIFIED.** Backend code and rules are green at this HEAD, but iOS app/test compilation is not certified because Xcode MCP timed out and the shell build is blocked in SwiftPM/CoreSimulator package/build infrastructure before Swift compilation.
 
 | Layer | Status | Evidence |
 |---|---|---|
-| Layer 1 - iOS app clean build | 🔴 BLOCKED | Xcode MCP `BuildProject` and `GetBuildLog` timed out. CLI isolated SwiftPM clone/cache resolve returned no packages; build then failed before Swift compile with missing package products including Firebase, LiveKit, Algolia, GoogleSignIn, and GoogleGenerativeAI. A fallback default-cache `xcodebuild build` at HEAD `3acd8ea2` is still hung in package fetch/build with CoreSimulator service errors. No app compiler error has been reached. |
+| Layer 1 - iOS app clean build | 🔴 BLOCKED | Xcode MCP reached Swift type checking once and reported duplicate `AMENFeatureFlags`; the duplicate `AMENFeatureFlags 2.swift` project file was removed. Subsequent MCP build/log calls timed out. CLI package resolution with workspace-local `HOME` progressed through package fetch and Firebase checkout, but SwiftPM still attempted to emit manifest diagnostics under `/Users/stephtapera/Library/Caches/org.swift.swiftpm/.../*.dia` and the sandbox denied it (`Operation not permitted`). An unsandboxed `xcodebuild` is required to complete Layer 1 in this harness. |
 | Layer 2 - iOS test targets compile | 🔴 BLOCKED | Not certified. Prior `build-for-testing` could not compute the dependency graph, and the current app build cannot complete package resolution/build. |
 | Layer 3 - Backend TypeScript | ✅ GREEN | `cd Backend/functions && npx tsc --noEmit` exited 0; `npm run build` exited 0; deployed legacy `.js` files passed `node --check`. |
 | Layer 4 - Backend Jest | ✅ GREEN | `cd Backend/functions && npx jest --runInBand`: `Test Suites: 72 passed, 72 total`; `Tests: 1228 passed, 1228 total`. |
@@ -19,9 +19,35 @@ Result: **NOT CERTIFIED.** Backend code and rules are green at this HEAD, but iO
 
 | Area | Cause | Disposition |
 |---|---|---|
-| iOS certification | Xcode MCP timeout plus shell SwiftPM/CoreSimulator instability. The isolated package cache path did not hydrate products; the default-cache build is stuck fetching/building packages. | 🔴 BLOCKED until a capable Xcode lane or human shell can run the canonical clean build and build-for-testing at the current HEAD. |
+| iOS certification | Source-level ambiguity found and fixed by removing duplicate `AMENFeatureFlags 2.swift`. Remaining failure is harness-level SwiftPM diagnostics cache denial under `~/Library/Caches`, plus CoreSimulator service warnings. | 🔴 BLOCKED until a capable Xcode lane or human shell can run the canonical clean build and build-for-testing at the current HEAD. |
 | Rules | Previous storage emulator jar gap is resolved. Rules suites now execute and pass locally, with one intentional creator cross-service skip documented above. | ✅ GREEN |
 | Backend Jest | The earlier failing-suite cluster is resolved in `Backend/functions`. | ✅ GREEN |
+
+### Required Unsandboxed iOS Gate
+
+Run from repo root in a normal terminal/Xcode-capable lane:
+
+```bash
+rm -rf ./DerivedData.nosync ./SourcePackages.nosync ./PackageCache.nosync
+xcodebuild build -project AMENAPP.xcodeproj -scheme AMENAPP \
+  -destination 'generic/platform=iOS Simulator' \
+  -clonedSourcePackagesDirPath ./SourcePackages.nosync \
+  -derivedDataPath ./DerivedData.nosync \
+  -packageCachePath ./PackageCache.nosync \
+  CODE_SIGNING_ALLOWED=NO
+xcodebuild build-for-testing -project AMENAPP.xcodeproj -scheme AMENAPP \
+  -destination 'generic/platform=iOS Simulator' \
+  -clonedSourcePackagesDirPath ./SourcePackages.nosync \
+  -derivedDataPath ./DerivedData.nosync \
+  -packageCachePath ./PackageCache.nosync \
+  CODE_SIGNING_ALLOWED=NO
+xcodebuild build -project AMENAPP.xcodeproj -scheme AMENAPP \
+  -destination 'generic/platform=iOS Simulator' \
+  -clonedSourcePackagesDirPath ./SourcePackages.nosync \
+  -derivedDataPath ./DerivedData.nosync \
+  -packageCachePath ./PackageCache.nosync \
+  CODE_SIGNING_ALLOWED=NO
+```
 
 ## Remediation State — 2026-06-17 (5 batches committed, T1 GREEN)
 

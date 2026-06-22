@@ -146,12 +146,31 @@ async function requireEventLeader(db: Db, eventId: string, uid: string): Promise
   }
 }
 
+/**
+ * IDOR guard for signUpForSlot. A volunteer may only sign *themselves* up: the assignment is always
+ * bound to the caller's uid. A client-supplied volunteerId is honored ONLY when it differs from the
+ * caller AND the caller is a verified event leader signing another person up; otherwise we never
+ * trust a client-supplied identity. Exported so the binding rule is unit-testable in isolation.
+ */
+export async function resolveSignupVolunteerId(
+  db: Db,
+  uid: string,
+  rawVolunteerId: unknown,
+  eventId: string,
+): Promise<string> {
+  const requested =
+    typeof rawVolunteerId === "string" && rawVolunteerId.trim() ? rawVolunteerId.trim() : uid;
+  if (requested === uid) return uid;
+  await requireEventLeader(db, eventId, uid); // throws permission-denied for non-leaders
+  return requested;
+}
+
 // ════════════════════════════════════════════════════════════════════
 // Callables
 // ════════════════════════════════════════════════════════════════════
 
 /** §2 — Derived board rollup, computed from StaffingNeeds + Assignments (I2). */
-export const assembleVolunteerBoard = onCall(callableOpts, async (request) => {
+export const assembleVolunteerBoard = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   requireAuth(request);
   const db = admin.firestore();
   const eventId = readString(request.data?.eventId, "eventId");
@@ -169,12 +188,16 @@ export const assembleVolunteerBoard = onCall(callableOpts, async (request) => {
 });
 
 /** §2 — Transactional atomic fill: blackout-aware, waitlists when full, never overfills (I1/I3). */
-export const signUpForSlot = onCall(callableOpts, async (request) => {
-  requireAuth(request);
+export const signUpForSlot = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
+  const uid = requireAuth(request);
   const db = admin.firestore();
   const eventId = readString(request.data?.eventId, "eventId");
   const role = readString(request.data?.role, "role");
-  const volunteerId = readString(request.data?.volunteerId, "volunteerId");
+
+  // Identity binding (IDOR guard): bind the assignment to the caller; only leaders may sign others up.
+  // This callable is the sole write path for volunteerAssignments (firestore.rules: `allow write: if
+  // false`), so resolveSignupVolunteerId is the only enforcement point for who an assignment is for.
+  const volunteerId = await resolveSignupVolunteerId(db, uid, request.data?.volunteerId, eventId);
 
   const eventSnap = await db.collection("volunteerEvents").doc(eventId).get();
   if (!eventSnap.exists) throw new HttpsError("not-found", "No such event.");
@@ -185,7 +208,7 @@ export const signUpForSlot = onCall(callableOpts, async (request) => {
 });
 
 /** §2 — Leader-only status transition: signedUp → confirmed. */
-export const leaderApprove = onCall(callableOpts, async (request) => {
+export const leaderApprove = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const uid = requireAuth(request);
   const db = admin.firestore();
   const assignmentId = readString(request.data?.assignmentId, "assignmentId");
@@ -205,7 +228,7 @@ export const leaderApprove = onCall(callableOpts, async (request) => {
 });
 
 /** §Notes — Leader-only read of a private note. Every read is access-logged (I4). */
-export const getLeaderPrivateNote = onCall(callableOpts, async (request) => {
+export const getLeaderPrivateNote = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const uid = requireAuth(request);
   const db = admin.firestore();
   const eventId = readString(request.data?.eventId, "eventId");
@@ -238,7 +261,7 @@ export const getLeaderPrivateNote = onCall(callableOpts, async (request) => {
 });
 
 /** §Notes — Leader-only write of a private note. Audited as a write (I4 consistency). */
-export const setLeaderPrivateNote = onCall(callableOpts, async (request) => {
+export const setLeaderPrivateNote = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const uid = requireAuth(request);
   const db = admin.firestore();
   const eventId = readString(request.data?.eventId, "eventId");
@@ -273,7 +296,7 @@ export const setLeaderPrivateNote = onCall(callableOpts, async (request) => {
  * NO SMS in Wave 0 (TCPA consent + provider gated). Reminders are useful, not naggy:
  * one reminder record per assignee per call; the existing scheduledNotifications worker delivers.
  */
-export const scheduleVolunteerReminders = onCall(callableOpts, async (request) => {
+export const scheduleVolunteerReminders = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const uid = requireAuth(request);
   const db = admin.firestore();
   const eventId = readString(request.data?.eventId, "eventId");

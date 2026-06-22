@@ -25,8 +25,8 @@ private func makeComment(
     authorId: String = "u1",
     content: String = "Test comment",
     parentCommentId: String? = nil
-) -> Comment {
-    Comment(
+) -> AMENAPP.Comment {
+    AMENAPP.Comment(
         id: id,
         postId: postId,
         authorId: authorId,
@@ -53,7 +53,7 @@ private func makeThread(
     parentAuthorUsername: String? = nil,
     parentAuthorName: String? = nil,
     parentPreviewText: String? = nil,
-    comment: Comment? = nil
+    comment: AMENAPP.Comment? = nil
 ) -> ReplyThread {
     let post: Post? = hasPost ? Post(
         authorName: "Author",

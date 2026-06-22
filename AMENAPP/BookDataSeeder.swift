@@ -14,7 +14,7 @@ import FirebaseFirestore
 class BookDataSeeder {
     
     static let shared = BookDataSeeder()
-    private let service = FirebaseBooksService.shared
+    @MainActor private lazy var service = FirebaseBooksService.shared
     
     private init() {}
     

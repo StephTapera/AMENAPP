@@ -38,9 +38,7 @@ interface DiscussionDoc {
     lastActivityAt: string;
 }
 
-export const getSpaceDiscussions = onCall(
-    { region: "us-central1" },
-    async (request): Promise<DiscussionDoc[]> => {
+export const getSpaceDiscussions = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<DiscussionDoc[]> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -73,9 +71,7 @@ export const getSpaceDiscussions = onCall(
     }
 );
 
-export const createSpaceDiscussion = onCall(
-    { region: "us-central1" },
-    async (request): Promise<DiscussionDoc> => {
+export const createSpaceDiscussion = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<DiscussionDoc> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 
@@ -127,9 +123,7 @@ export const createSpaceDiscussion = onCall(
     }
 );
 
-export const generateDiscussionFromContent = onCall(
-    { region: "us-central1" },
-    async (request): Promise<DiscussionDoc> => {
+export const generateDiscussionFromContent = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<DiscussionDoc> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
 

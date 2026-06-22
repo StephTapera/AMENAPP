@@ -103,8 +103,8 @@ final class ContentMetadataExtractor {
     private static func extractThumbnailURL(from metadata: LPLinkMetadata) async -> String? {
         guard let imageProvider = metadata.imageProvider else { return nil }
         return await withCheckedContinuation { continuation in
-            imageProvider.loadObject(ofClass: URL.self) { object, error in
-                if let url = object as? URL {
+            _ = imageProvider.loadObject(ofClass: URL.self) { object, error in
+                if let url = object {
                     continuation.resume(returning: url.absoluteString)
                 } else {
                     continuation.resume(returning: nil)

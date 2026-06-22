@@ -132,7 +132,7 @@ struct ChurchProfileView: View {
                         name: church.name,
                         serviceTime: "Sunday Service",
                         distanceMiles: nil,
-                        address: church.address ?? ""
+                        address: church.address
                     ))
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)

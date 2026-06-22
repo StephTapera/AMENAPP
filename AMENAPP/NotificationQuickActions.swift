@@ -113,31 +113,31 @@ class LegacyNotificationDeepLinkHandler: ObservableObject {
     private init() {}
     
     /// Handle notification tap from system notification center
-    func handleNotificationTap(userInfo: [AnyHashable: Any]) {
+    func handleNotificationTap(userInfo: [String: String]) {
         dlog("🔗 Handling notification tap with userInfo: \(userInfo)")
-        
+
         // Extract notification type and IDs from push notification payload
-        guard let type = userInfo["type"] as? String else {
+        guard let type = userInfo["type"] else {
             dlog("⚠️ No notification type in userInfo")
             return
         }
-        
+
         switch type {
         case "follow":
-            if let actorId = userInfo["actorId"] as? String {
+            if let actorId = userInfo["actorId"] {
                 activeDeepLink = .profile(userId: actorId)
             }
-            
+
         case "amen", "comment", "mention", "reply":
-            if let postId = userInfo["postId"] as? String {
+            if let postId = userInfo["postId"] {
                 activeDeepLink = .post(postId: postId)
             }
-            
+
         case "message":
-            if let conversationId = userInfo["conversationId"] as? String {
+            if let conversationId = userInfo["conversationId"] {
                 activeDeepLink = .conversation(userId: conversationId)
             }
-            
+
         default:
             dlog("⚠️ Unknown notification type: \(type)")
         }
@@ -185,8 +185,15 @@ class NotificationAppDelegateHelper {
     
     /// Call this from your AppDelegate's didReceiveRemoteNotification
     static func handleRemoteNotification(_ userInfo: [AnyHashable: Any]) {
+        // Snapshot the Sendable string fields before crossing into the @MainActor
+        // closure — the raw [AnyHashable: Any] dictionary is not Sendable.
+        let stringInfo: [String: String] = userInfo.reduce(into: [:]) { result, pair in
+            if let key = pair.key as? String, let value = pair.value as? String {
+                result[key] = value
+            }
+        }
         Task { @MainActor in
-            LegacyNotificationDeepLinkHandler.shared.handleNotificationTap(userInfo: userInfo)
+            LegacyNotificationDeepLinkHandler.shared.handleNotificationTap(userInfo: stringInfo)
         }
     }
     

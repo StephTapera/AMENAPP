@@ -153,7 +153,7 @@ final class ChurchNotesNotificationGovernorImpl: NotificationGovernor {
 
     /// Call when a notification is interacted with (clears ignore status for the last record).
     func markInteracted(notificationID: String) {
-        var history = loadHistory()
+        let history = loadHistory()
         // Mark last record as not ignored when the user taps
         if var last = history.records.last, !last.wasIgnored {
             last = DeliveryRecord(template: last.template, deliveredAt: last.deliveredAt, wasIgnored: false)
@@ -167,7 +167,7 @@ final class ChurchNotesNotificationGovernorImpl: NotificationGovernor {
 
     /// Call when a notification is dismissed without interaction (increments ignore counter).
     func markIgnored(notificationID: String) {
-        var history = loadHistory()
+        let history = loadHistory()
         if let last = history.records.last {
             let marked = DeliveryRecord(template: last.template, deliveredAt: last.deliveredAt, wasIgnored: true)
             let updated = history.records.dropLast() + [marked]

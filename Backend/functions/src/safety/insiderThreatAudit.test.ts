@@ -15,6 +15,8 @@
  * `loadSpine(enforcement)`.
  */
 
+export {};
+
 // ─── Controllable firestore / auth handles ──────────────────────────────────────
 const mockLogSet = jest.fn();
 const mockCaseGet = jest.fn();

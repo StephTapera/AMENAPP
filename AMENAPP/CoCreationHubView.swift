@@ -276,7 +276,7 @@ private struct LiveSessionCard: View {
                 }
 
                 HStack(spacing: 8) {
-                    Text("by \(session.hostName)")
+                    Text("by \(session.hostName ?? "Unknown")")
                         .font(AMENFont.regular(12))
                         .foregroundStyle(.white.opacity(0.55))
 

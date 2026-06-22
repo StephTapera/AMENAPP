@@ -505,7 +505,7 @@ struct SelahSaveToMemorySheet: View {
             meaningTags: tags
         )
         Task {
-            try? await SelahMediaService.shared.saveMemory(memory)
+            _ = try? await SelahMediaService.shared.saveMemory(memory)
             isSaving = false
             dismiss()
         }

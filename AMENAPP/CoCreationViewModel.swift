@@ -80,7 +80,7 @@ class CoCreationViewModel: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ]
         try await ref.setData(data)
-        var session = CoCreationSession(
+        let session = CoCreationSession(
             title: title, type: type, hostId: uid,
             collaboratorIds: [uid], canvasState: "",
             isLive: true, isOpenToAnyone: isOpen,

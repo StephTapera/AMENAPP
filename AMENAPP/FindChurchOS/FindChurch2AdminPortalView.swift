@@ -605,7 +605,7 @@ private struct ServiceTimeRow: View {
                 .pickerStyle(.menu)
                 .frame(minWidth: 80, minHeight: 44)
                 .accessibilityLabel("Day of week for this service time")
-                .onChange(of: selectedDay) { _ in commitChange() }
+                .onChange(of: selectedDay) { commitChange() }
 
                 Picker("Hour", selection: $selectedHour) {
                     ForEach(0..<24, id: \.self) { h in
@@ -617,7 +617,7 @@ private struct ServiceTimeRow: View {
                 .pickerStyle(.menu)
                 .frame(minHeight: 44)
                 .accessibilityLabel("Hour for this service time")
-                .onChange(of: selectedHour) { _ in commitChange() }
+                .onChange(of: selectedHour) { commitChange() }
 
                 Picker("Minute", selection: $selectedMinute) {
                     Text(":00").tag(0)
@@ -628,7 +628,7 @@ private struct ServiceTimeRow: View {
                 .pickerStyle(.menu)
                 .frame(minHeight: 44)
                 .accessibilityLabel("Minute for this service time")
-                .onChange(of: selectedMinute) { _ in commitChange() }
+                .onChange(of: selectedMinute) { commitChange() }
             }
 
             if let type = serviceTime.serviceType, !type.isEmpty {

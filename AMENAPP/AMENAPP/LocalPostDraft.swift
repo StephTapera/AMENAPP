@@ -151,7 +151,7 @@ final class LocalPostDraft {
 final class CreatePostDraftStore {
     static let shared = CreatePostDraftStore()
 
-    let container: ModelContainer
+    let container: ModelContainer?
 
     private init() {
         let schema = Schema([LocalPostDraft.self])
@@ -160,8 +160,10 @@ final class CreatePostDraftStore {
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
             // Persistent store unavailable — fall back to in-memory so the app stays alive.
-            let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-            container = try! ModelContainer(for: schema, configurations: fallback)
+            container = try? ModelContainer(
+                for: schema,
+                configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            )
         }
     }
 
@@ -169,6 +171,7 @@ final class CreatePostDraftStore {
 
     /// Returns the active (editing-phase) draft for the current user.
     func draftForCurrentUser() -> LocalPostDraft? {
+        guard let container else { return nil }
         guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return nil }
         let context = ModelContext(container)
         let descriptor = FetchDescriptor<LocalPostDraft>(
@@ -211,6 +214,7 @@ final class CreatePostDraftStore {
         idempotencyToken: String? = nil,
         inFlightPostId: String? = nil
     ) {
+        guard let container else { return }
         guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
         let context = ModelContext(container)
         let descriptor = FetchDescriptor<LocalPostDraft>(
@@ -264,6 +268,7 @@ final class CreatePostDraftStore {
         idempotencyToken: String?,
         inFlightPostId: String?
     ) {
+        guard let container else { return }
         guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
         let context = ModelContext(container)
         let descriptor = FetchDescriptor<LocalPostDraft>(
@@ -292,6 +297,7 @@ final class CreatePostDraftStore {
     }
 
     private func deleteDrafts(forUserId userId: String) {
+        guard let container else { return }
         let context = ModelContext(container)
         let uid = userId
         let descriptor = FetchDescriptor<LocalPostDraft>(

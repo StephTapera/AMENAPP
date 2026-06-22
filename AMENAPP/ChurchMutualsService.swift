@@ -93,53 +93,49 @@ final class ChurchMutualsService: ObservableObject {
         error = nil
         defer { isLoading = false }
 
-        do {
-            // Step 1 — resolve following graph:
-            // let followingSnapshot = try await db.collection("follows")
-            //     .whereField("followerId", isEqualTo: currentUserId)
-            //     .whereField("status", isEqualTo: "active")
-            //     .getDocuments()
-            // let followingIds = followingSnapshot.documents.compactMap {
-            //     $0.data()["followedId"] as? String
-            // }
-            // guard !followingIds.isEmpty else {
-            //     self.mutualSignal = nil; return
-            // }
+        // Step 1 — resolve following graph:
+        // let followingSnapshot = try await db.collection("follows")
+        //     .whereField("followerId", isEqualTo: currentUserId)
+        //     .whereField("status", isEqualTo: "active")
+        //     .getDocuments()
+        // let followingIds = followingSnapshot.documents.compactMap {
+        //     $0.data()["followedId"] as? String
+        // }
+        // guard !followingIds.isEmpty else {
+        //     self.mutualSignal = nil; return
+        // }
 
-            // Step 2 — query public memberships for those IDs:
-            // Firestore `in` queries support up to 30 values; batch if needed.
-            // let membershipsSnapshot = try await db.collection("churchMemberships")
-            //     .whereField("churchId", isEqualTo: churchId)
-            //     .whereField("userId", in: followingIds)
-            //     .whereField("visibility", isEqualTo: VisibilityLevel.publicVisible.rawValue)
-            //     .whereField("status", isEqualTo: "active")
-            //     .getDocuments()
+        // Step 2 — query public memberships for those IDs:
+        // Firestore `in` queries support up to 30 values; batch if needed.
+        // let membershipsSnapshot = try await db.collection("churchMemberships")
+        //     .whereField("churchId", isEqualTo: churchId)
+        //     .whereField("userId", in: followingIds)
+        //     .whereField("visibility", isEqualTo: VisibilityLevel.publicVisible.rawValue)
+        //     .whereField("status", isEqualTo: "active")
+        //     .getDocuments()
 
-            // Step 3 — build signal:
-            // let mutualCount = membershipsSnapshot.documents.count
-            // var sampleNames: [String] = []
-            // for doc in membershipsSnapshot.documents.prefix(3) {
-            //     if let firstName = doc.data()["firstName"] as? String {
-            //         sampleNames.append(firstName)
-            //     }
-            // }
+        // Step 3 — build signal:
+        // let mutualCount = membershipsSnapshot.documents.count
+        // var sampleNames: [String] = []
+        // for doc in membershipsSnapshot.documents.prefix(3) {
+        //     if let firstName = doc.data()["firstName"] as? String {
+        //         sampleNames.append(firstName)
+        //     }
+        // }
 
-            // Step 4 — fetch community label from church document:
-            // let churchDoc = try await db.collection("churchProfiles").document(churchId).getDocument()
-            // let communityLabel = churchDoc.data()?["communityLabel"] as? String ?? "People connect here"
+        // Step 4 — fetch community label from church document:
+        // let churchDoc = try await db.collection("churchProfiles").document(churchId).getDocument()
+        // let communityLabel = churchDoc.data()?["communityLabel"] as? String ?? "People connect here"
 
-            // self.mutualSignal = MutualChurchSignal(
-            //     churchId: churchId,
-            //     mutualCount: mutualCount,
-            //     sampleNames: sampleNames,
-            //     communityLabel: communityLabel
-            // )
+        // self.mutualSignal = MutualChurchSignal(
+        //     churchId: churchId,
+        //     mutualCount: mutualCount,
+        //     sampleNames: sampleNames,
+        //     communityLabel: communityLabel
+        // )
 
-            _ = churchId        // suppress unused-variable warning until Firestore is wired
-            _ = currentUserId
-        } catch {
-            self.error = error
-        }
+        _ = churchId        // suppress unused-variable warning until Firestore is wired
+        _ = currentUserId
     }
 }
 

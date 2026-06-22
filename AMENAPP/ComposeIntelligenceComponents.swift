@@ -865,7 +865,7 @@ struct VoiceTranscribeButton: View {
     private func startRecording() async {
         // Sync language to WhisperVoiceService
         let langCode = String(selectedLocale.identifier.prefix(2))
-        WhisperVoiceService.shared.languageCode = langCode
+        await WhisperVoiceService.shared.setLanguageCode(langCode)
 
         await whisperVM.startRecording()
 

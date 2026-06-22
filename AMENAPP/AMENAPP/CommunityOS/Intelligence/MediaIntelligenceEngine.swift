@@ -91,7 +91,7 @@ actor MediaIntelligenceEngine {
                 topics.insert(.missions)
             case "apologetics", "theology", "doctrine", "truth", "evidence":
                 topics.insert(.apologetics)
-            case "sermon", "teaching", "study", "theology":
+            case "sermon", "teaching", "study":
                 topics.insert(.theology)
             default:
                 break

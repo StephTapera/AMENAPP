@@ -172,7 +172,7 @@ struct AmenSpaceEventDetailView: View {
                 localIsRSVPed.toggle()
                 onRSVP()
                 Task {
-                    try? await Functions.functions(region: "us-central1")
+                    _ = try? await Functions.functions(region: "us-central1")
                         .httpsCallable("rsvpToSpaceEvent")
                         .call([
                             "eventId": event.id,

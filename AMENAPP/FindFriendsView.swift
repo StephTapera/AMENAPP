@@ -101,7 +101,7 @@ final class FindFriendsViewModel: ObservableObject {
                 try await FollowService.shared.unfollowUser(userId: userId)
             } else {
                 try await FollowService.shared.followUser(userId: userId)
-                await FollowBurstCoordinator.shared.recordFollow(
+                FollowBurstCoordinator.shared.recordFollow(
                     targetUserId: userId,
                     targetIsPrivate: false,
                     internalProfileCluster: nil

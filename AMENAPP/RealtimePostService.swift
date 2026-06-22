@@ -295,7 +295,6 @@ class RealtimePostService: ObservableObject {
         let categoryStr = postData["category"] as? String ?? "openTable"
         let topicTag = postData["topicTag"] as? String
         let visibilityStr = postData["visibility"] as? String ?? "everyone"
-        let authorIsPrivate = postData["authorIsPrivate"] as? Bool
         let allowComments = postData["allowComments"] as? Bool ?? true
         let imageURLs = postData["imageURLs"] as? [String]
         let linkURL = postData["linkURL"] as? String

@@ -330,7 +330,7 @@ struct BereanTabSwitcherView: View {
 
                 toolbarButton(icon: "square.on.square") {
                     if let s = featuredSession {
-                        withAnimation(spring) { sessionManager.duplicate(s.id) }
+                        _ = withAnimation(spring) { sessionManager.duplicate(s.id) }
                     }
                 }
 
@@ -381,7 +381,7 @@ struct BereanTabSwitcherView: View {
 
     private func removeCard(_ id: UUID) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(spring) { removingIDs.insert(id) }
+        _ = withAnimation(spring) { removingIDs.insert(id) }
         // If we're removing the featured session, promote the next available
         if id == localFeaturedID {
             let next = sessionManager.sessions.first(where: { $0.id != id })

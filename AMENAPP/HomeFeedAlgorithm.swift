@@ -280,7 +280,7 @@ class HomeFeedAlgorithm: ObservableObject {
 
         // 13. Living Wall spiritual momentum (prayer/testimony posts only)
         if post.category == .prayer || post.category == .testimonies {
-            let livingWallScore = LivingWallRanker.shared.score(post)
+            let livingWallScore = LivingWallRanker().score(post)
             // Normalize to 0-10 contribution to avoid overpowering other signals
             score += min(10, livingWallScore * 0.05)
         }
@@ -839,8 +839,7 @@ class HomeFeedAlgorithm: ObservableObject {
                 guard !Task.isCancelled else { return }
 
                 // Perform CPU-heavy ranking entirely off the main thread
-                let ranked = await Task.detached(priority: .userInitiated) { [weak self] () -> [Post] in
-                    guard let self else { return posts }
+                let ranked = await Task.detached(priority: .userInitiated) { () -> [Post] in
                     return self.rankPosts(posts,
                                          for: snapshotInterests,
                                          followingIds: snapshotFollowingIds,
@@ -861,8 +860,7 @@ class HomeFeedAlgorithm: ObservableObject {
             // First call or outside debounce window — still rank off main thread
             lastPersonalizationTime = Date()
             personalizationTask = Task {
-                let ranked = await Task.detached(priority: .userInitiated) { [weak self] () -> [Post] in
-                    guard let self else { return posts }
+                let ranked = await Task.detached(priority: .userInitiated) { () -> [Post] in
                     return self.rankPosts(posts,
                                          for: snapshotInterests,
                                          followingIds: snapshotFollowingIds,

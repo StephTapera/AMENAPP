@@ -534,7 +534,7 @@ private struct SermonWaveformStrip: View {
             }
         }
         .onAppear { animateWaveform() }
-        .onChange(of: isActive) { active in
+        .onChange(of: isActive) { _, active in
             if active { animateWaveform() }
         }
     }
@@ -597,7 +597,7 @@ private struct SermonCaptureTab: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                 }
-                .onChange(of: vm.notes.count) { _ in
+                .onChange(of: vm.notes.count) {
                     if let last = vm.notes.last {
                         withAnimation(.easeOut(duration: 0.3)) {
                             proxy.scrollTo(last.id, anchor: .bottom)
@@ -611,7 +611,7 @@ private struct SermonCaptureTab: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 4)
         }
-        .onChange(of: inputText) { text in
+        .onChange(of: inputText) { _, text in
             let hasVersePattern = text.range(of: #"(\d?\s?[A-Za-z]+)\s(\d+):(\d+)"#, options: .regularExpression) != nil
             withAnimation(.easeInOut(duration: 0.25)) {
                 showScriptureBadge = hasVersePattern && !text.isEmpty
@@ -885,7 +885,7 @@ private struct SermonTranscriptTab: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 4)
                 }
-                .onChange(of: vm.transcript.count) { _ in
+                .onChange(of: vm.transcript.count) {
                     withAnimation(.easeOut(duration: 0.3)) {
                         proxy.scrollTo("listening", anchor: .bottom)
                     }
@@ -1192,7 +1192,6 @@ private struct SermonFlowLayout: Layout {
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let maxWidth = bounds.width
         var x: CGFloat = bounds.minX, y: CGFloat = bounds.minY, rowH: CGFloat = 0
         var rowViews: [(Subviews.Element, CGSize, CGFloat)] = []
 

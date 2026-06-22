@@ -45,7 +45,7 @@ final class BereanVoiceSpeechService: NSObject, ObservableObject {
             return false
         }
         let micGranted: Bool = await withCheckedContinuation { continuation in
-            AVAudioSession.sharedInstance().requestRecordPermission { granted in
+            AVAudioApplication.requestRecordPermission { granted in
                 continuation.resume(returning: granted)
             }
         }

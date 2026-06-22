@@ -539,7 +539,7 @@ struct AC_VoiceCard: View {
 // MARK: - AC_VideoCard
 
 struct AC_VideoCard: View {
-    let payload: VideoPayload
+    let payload: AdaptiveComposerVideoPayload
     let onRemove: () -> Void
 
     @State private var isPlaying = false

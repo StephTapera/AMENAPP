@@ -320,24 +320,6 @@ extension ContentNode {
 
         let category = type.toPostCategory
 
-        let postMediaItems: [PostMediaItem] = mediaRefs.enumerated().compactMap { index, ref in
-            guard let url = ref.url else { return nil }
-            let mediaType: PostMediaType = ref.type == .video ? .video : .image
-            return PostMediaItem(
-                id: ref.mediaId ?? ref.id,
-                type: mediaType,
-                url: url,
-                thumbnailURL: ref.thumbnailURL,
-                aspectRatio: ref.width.flatMap { w in
-                    ref.height.map { h in h > 0 ? CGFloat(w) / CGFloat(h) : nil }
-                } ?? nil,
-                order: index,
-                duration: ref.duration,
-                width: ref.width,
-                height: ref.height
-            )
-        }
-
         let imageURLs = mediaRefs.filter { $0.type == .image }.compactMap { $0.url }
         let timeAgo = createdAt.timeAgoDisplay()
 

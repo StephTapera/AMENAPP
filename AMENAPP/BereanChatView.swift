@@ -19,6 +19,10 @@ struct BereanChatMsg: Identifiable, Equatable {
     var isStreaming: Bool = false
     var structure: BereanResponseStructure? = nil
     var processingState: String? = nil
+    // Wave 1 — AI Receipt: real receipt derived from the pipeline response for
+    // this assistant turn (nil for user turns / when no grounding exists).
+    var receipt: AIReceipt? = nil
+    var interpretations: [String] = []
 
     enum BereanChatMsgRole: String, Codable {
         case user, assistant
@@ -179,6 +183,14 @@ final class BereanChatViewModel: ObservableObject {
                 ?? "Berean is temporarily unavailable. Please try again."
             messages[assistantIndex].content = answer
             messages[assistantIndex].isStreaming = false
+            // Wave 1 — derive the real AI Receipt from this response (flag-gated at render).
+            if let response = pipeline.lastResponse {
+                messages[assistantIndex].receipt = AIReceiptService.makeReceipt(
+                    from: response,
+                    mode: pipelineMode.rawValue
+                )
+                messages[assistantIndex].interpretations = response.interpretations
+            }
             if self.isStudyModeEnabled {
                 self.resolveReasoning()
             }
@@ -470,7 +482,7 @@ struct BereanChatView: View {
                 BereanWallpaperPickerSheet(manager: wallpaperManager)
             }
             .sheet(isPresented: $showDailyFormation) {
-                BereanDailyFormationView()
+                BereanPulseView()
             }
             .sheet(isPresented: $showMenu) {
                 BereanMenuSheet(
@@ -834,7 +846,7 @@ struct BereanChatView: View {
         VStack(spacing: 16) {
             if let card = topPulseCard {
                 livePulseCard(card)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 22)
             } else {
                 BereanAssistantEmptyState(onOpenPulse: { showDailyFormation = true })
             }
@@ -847,62 +859,91 @@ struct BereanChatView: View {
     }
 
     private func livePulseCard(_ card: BereanPulseCard) -> some View {
-        Button {
-            handlePulseCard(card)
-        } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(Color.white.opacity(0.34))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.44), lineWidth: 0.7)
-                        )
-                        .frame(width: 58, height: 58)
-                    Image(systemName: pulseIcon(for: card))
-                        .font(.systemScaled(23, weight: .semibold))
-                        .foregroundStyle(Color.primary.opacity(0.74))
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                showDailyFormation = true
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(Color.white.opacity(0.38))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.54), lineWidth: 0.7)
+                            )
+                            .frame(width: 58, height: 58)
+                        Image(systemName: pulseIcon(for: card))
+                            .font(.systemScaled(23, weight: .semibold))
+                            .foregroundStyle(Color.primary.opacity(0.74))
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(card.title.isEmpty ? "Today's Berean Pulse" : card.title)
+                            .font(.systemScaled(20, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.84)
+
+                        Text(card.whyNow.isEmpty ? card.subtitle : card.whyNow)
+                            .font(.systemScaled(15, weight: .regular))
+                            .foregroundStyle(.secondary)
+                            .lineSpacing(2)
+                            .lineLimit(3)
+                    }
+
+                    Spacer(minLength: 4)
+
+                    Image(systemName: "chevron.right")
+                        .font(.systemScaled(18, weight: .semibold))
+                        .foregroundStyle(.secondary.opacity(0.7))
                 }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(card.title.isEmpty ? "Today's Berean Pulse" : card.title)
-                        .font(.systemScaled(20, weight: .bold, design: .rounded))
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.84)
-
-                    Text(card.whyNow.isEmpty ? card.subtitle : card.whyNow)
-                        .font(.systemScaled(15, weight: .regular))
-                        .foregroundStyle(.secondary)
-                        .lineSpacing(2)
-                        .lineLimit(3)
-                }
-
-                Spacer(minLength: 4)
-
-                Image(systemName: "chevron.right")
-                    .font(.systemScaled(18, weight: .semibold))
-                    .foregroundStyle(.secondary.opacity(0.7))
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity)
-            .background(
-                LiquidGlassCapsuleBackground(
-                    cornerRadius: 28,
-                    glassOpacity: 0.11,
-                    shadowOpacity: 0.09,
-                    highlightOpacity: 0.22
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity)
+                .background(
+                    LiquidGlassCapsuleBackground(
+                        cornerRadius: 28,
+                        glassOpacity: 0.11,
+                        shadowOpacity: 0.09,
+                        highlightOpacity: 0.22
+                    )
                 )
-            )
+            }
+            .buttonStyle(.plain)
+
+            HStack(spacing: 8) {
+                pulseQuickButton("Ask", systemImage: "sparkles") {
+                    handlePulseCard(card)
+                }
+                pulseQuickButton("Open", systemImage: "rectangle.stack") {
+                    showDailyFormation = true
+                }
+                pulseQuickButton(card.isSaved ? "Saved" : "Save", systemImage: card.isSaved ? "bookmark.fill" : "bookmark") {
+                    pulseViewModel.toggleSaved(card)
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Today's Berean Pulse. \(card.title). \(card.whyNow)")
+    }
+
+    private func pulseQuickButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.systemScaled(13, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 9)
+                .frame(minHeight: 38)
+                .background(Color.white.opacity(0.72), in: Capsule(style: .continuous))
+                .overlay(Capsule(style: .continuous).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.7))
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Today's Berean Pulse. \(card.title). \(card.whyNow)")
     }
 
     private func pulseIcon(for card: BereanPulseCard) -> String {
@@ -2566,6 +2607,8 @@ struct BereanChatBubble: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(bubbleBackground)
+            // Wave 1 — AI Receipt under the answer (flag-gated, no-op for user turns).
+            .aiReceipt(message.receipt, interpretations: message.interpretations)
     }
 
     @ViewBuilder

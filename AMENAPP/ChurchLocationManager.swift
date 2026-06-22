@@ -172,7 +172,8 @@ extension ChurchLocationManager: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         guard let circularRegion = region as? CLCircularRegion else { return }
         let churchId = circularRegion.identifier
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             dwellTimers[churchId] = Date()
             let initialConfidence = 0.5
             dlog("[ChurchLocation] Entered region for church \(churchId), initial confidence: \(initialConfidence)")
@@ -187,8 +188,7 @@ extension ChurchLocationManager: CLLocationManagerDelegate {
             )
 
             // Schedule a dwell check after arrivedDwellThreshold
-            DispatchQueue.main.asyncAfter(deadline: .now() + arrivedDwellThreshold) { [weak self] in
-                guard let self else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + arrivedDwellThreshold) {
                 Task { @MainActor in
                     let confidence = self.calculateArrivalConfidence(churchId: churchId)
                     if confidence > 0.6 {
@@ -199,8 +199,7 @@ extension ChurchLocationManager: CLLocationManagerDelegate {
             }
 
             // Schedule an in-service check after inServiceDwellThreshold
-            DispatchQueue.main.asyncAfter(deadline: .now() + inServiceDwellThreshold) { [weak self] in
-                guard let self else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + inServiceDwellThreshold) {
                 Task { @MainActor in
                     guard self.dwellTimers[churchId] != nil else { return }
                     self.onInService?(churchId)

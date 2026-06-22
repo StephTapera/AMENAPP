@@ -380,7 +380,7 @@ private struct AC_PrayerCard: View {
 // MARK: - AC_EventCard
 
 private struct AC_EventCard: View {
-    let payload: EventPayload
+    let payload: AdaptiveComposerEventPayload
     let onRemove: () -> Void
 
     @State private var isExpanded = true
@@ -532,7 +532,7 @@ private struct AC_EventCard: View {
     }
 
     /// Stable identifier derived from payload fields (EventPayload has no explicit id field).
-    static func payloadKey(_ payload: EventPayload) -> String {
+    static func payloadKey(_ payload: AdaptiveComposerEventPayload) -> String {
         "\(payload.title)-\(Int(payload.startDate.timeIntervalSince1970))"
     }
 }

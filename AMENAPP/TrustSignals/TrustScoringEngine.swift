@@ -100,14 +100,14 @@ final class TrustScoringEngine {
 
     private func persist(snapshot: TrustScoreSnapshot, userId: String) async {
         do {
-            try await db.collection("users").document(userId)
+            try db.collection("users").document(userId)
                 .collection("trust").document("proofSnapshots")
                 .collection("items").document(snapshot.id)
                 .setData(from: snapshot)
-            try await db.collection("users").document(userId)
+            try db.collection("users").document(userId)
                 .collection("trust").document("humanScore")
                 .setData(from: snapshot.humanScore)
-            try await db.collection("users").document(userId)
+            try db.collection("users").document(userId)
                 .collection("trust").document("careScore")
                 .setData(from: snapshot.careScore)
         } catch {

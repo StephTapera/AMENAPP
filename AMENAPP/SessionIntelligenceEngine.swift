@@ -106,6 +106,7 @@ class MomentumScorer {
 
 // MARK: - Social Fatigue Modeling
 
+@MainActor
 class SocialFatigueModel {
     static let shared = SocialFatigueModel()
     private init() {}
@@ -118,6 +119,7 @@ class SocialFatigueModel {
     }
 
     /// Compute fatigue score (0.0 = fresh, 1.0 = near-churn).
+    @MainActor
     func computeFatigue() -> Float {
         let sessionMinutes = Float(AppUsageTracker.shared.todayUsageMinutes)
         let dailyLimit = Float(45) // Default daily limit
@@ -133,6 +135,7 @@ class SocialFatigueModel {
     }
 
     /// Recommendations based on fatigue level.
+    @MainActor
     func recommendation() -> String? {
         let fatigue = computeFatigue()
         if fatigue > 0.8 {
@@ -146,11 +149,13 @@ class SocialFatigueModel {
 
 // MARK: - Creation Propensity Scoring
 
+@MainActor
 class CreationPropensityScorer {
     static let shared = CreationPropensityScorer()
     private init() {}
 
     /// Score how likely a user is to create content (0.0–1.0).
+    @MainActor
     func score() -> Float {
         var propensity: Float = 0
 
@@ -170,6 +175,7 @@ class CreationPropensityScorer {
     }
 
     /// Should we show a creation prompt to this user?
+    @MainActor
     func shouldPromptCreation() -> Bool {
         score() > 0.5
     }

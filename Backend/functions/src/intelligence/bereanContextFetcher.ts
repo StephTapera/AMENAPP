@@ -30,9 +30,7 @@ interface BereanSignalSummary {
   payloadSnippet: string;
 }
 
-export const fetchBereanContext = functions.onCall(
-  { region: "us-east1" },
-  async (request): Promise<{ signals: BereanSignalSummary[]; provenanceLabel: string }> => {
+export const fetchBereanContext = functions.onCall({ enforceAppCheck: true, region: "us-east1" }, async (request): Promise<{ signals: BereanSignalSummary[]; provenanceLabel: string }> => {
     if (!request.auth) {
       throw new functions.HttpsError("unauthenticated", "Auth required");
     }

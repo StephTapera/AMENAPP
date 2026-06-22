@@ -1,8 +1,7 @@
 // capabilities/registry/callables.ts — Capability Registry callable (Wave 1: Lane B)
 //
 // capabilityRegistry_list: returns active capabilities for a surface.
-// No App Check required — must work in the picker UI before App Check attestation
-// completes on first launch.
+// App Check is required for every authenticated capability surface.
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
@@ -17,7 +16,7 @@ import {
 const VALID_SURFACES: CapabilitySurface[] = ["berean", "messages", "notes"];
 
 export const capabilityRegistry_list = onCall(
-  { enforceAppCheck: false }, // picker UI must work without App Check
+  { enforceAppCheck: true },
   async (request): Promise<CapabilityListResponse> => {
     // Auth required
     const uid = request.auth?.uid;

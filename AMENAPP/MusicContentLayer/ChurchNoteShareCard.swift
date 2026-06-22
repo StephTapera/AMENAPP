@@ -460,9 +460,12 @@ struct ChurchNoteShareCard: View {
                 }
             }
             Divider().frame(height: 28)
-            footerButton(icon: "square.and.arrow.up", label: "Share", tint: .primary) {}
-            Divider().frame(height: 28)
-            footerButton(icon: "bubble.right", label: "Comment", tint: .primary) {}
+            Text("Share and comments coming soon")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .accessibilityLabel("Share and comments coming soon")
         }
         .padding(.vertical, 4)
         .background {

@@ -107,7 +107,7 @@ async function enforceFollowRateLimit(followerId) {
         }, { merge: true });
     });
 }
-exports.createFollow = (0, https_1.onCall)({ region: "us-east1" }, async (request) => {
+exports.createFollow = (0, https_1.onCall)({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -217,7 +217,7 @@ exports.createFollow = (0, https_1.onCall)({ region: "us-east1" }, async (reques
     return { success: true };
 });
 // ─── createUnfollow ───────────────────────────────────────────────────────────
-exports.createUnfollow = (0, https_1.onCall)({ region: "us-east1" }, async (request) => {
+exports.createUnfollow = (0, https_1.onCall)({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

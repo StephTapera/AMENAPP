@@ -244,7 +244,7 @@ final class JobService: ObservableObject {
         defer { isSaving = false }
 
         // Safety check
-        let safetyDecision = await JobSafetyEngine.shared.evaluateJobPosting(listing)
+        let safetyDecision = JobSafetyEngine.shared.evaluateJobPosting(listing)
         guard safetyDecision.isAllowed || safetyDecision == .allow else {
             let msg = safetyDecision.displayMessage ?? "This listing cannot be published."
             throw JobServiceError.safetyViolation(msg)
@@ -254,7 +254,7 @@ final class JobService: ObservableObject {
         newListing.employerId = userId
         newListing.createdAt = Date()
         newListing.updatedAt = Date()
-        newListing.safetyScore = await JobSafetyEngine.shared.computeJobSafetyScore(listing)
+        newListing.safetyScore = JobSafetyEngine.shared.computeJobSafetyScore(listing)
 
         // Build search keywords
         newListing.searchKeywords = buildJobKeywords(listing)
@@ -276,7 +276,7 @@ final class JobService: ObservableObject {
 
         var updated = listing
         updated.updatedAt = Date()
-        updated.safetyScore = await JobSafetyEngine.shared.computeJobSafetyScore(listing)
+        updated.safetyScore = JobSafetyEngine.shared.computeJobSafetyScore(listing)
         updated.searchKeywords = buildJobKeywords(listing)
 
         let encoded = try Firestore.Encoder().encode(updated)
@@ -297,7 +297,7 @@ final class JobService: ObservableObject {
 
         // Safety check on cover note
         if let coverNote = application.coverNote, !coverNote.isEmpty {
-            let decision = await JobSafetyEngine.shared.evaluateApplication(text: coverNote, applicantId: userId)
+            let decision = JobSafetyEngine.shared.evaluateApplication(text: coverNote, applicantId: userId)
             if !decision.isAllowed {
                 throw JobServiceError.safetyViolation(decision.displayMessage ?? "Application content violates policies.")
             }

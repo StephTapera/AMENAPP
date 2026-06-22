@@ -71,6 +71,8 @@ struct WalkProfile: Codable {
     var churchStatus: WalkChurchStatus = .unsure
     var currentNeed: WalkNeed = .start
     var pathAssigned: WalkPath = .newBeliever
+    var selectedSeason: WalkSpiritualSeason? = nil
+    var checkInAnswers: [String] = []
     var onboardingComplete: Bool = false
     var completedModuleIDs: [String] = []
     var checkInCount: Int = 0
@@ -1327,10 +1329,12 @@ struct WalkWithChristView: View {
                     set: { newValue in
                         store.profile.reminderEnabled = newValue
                         if newValue {
-                            WalkReminderScheduler.requestAndSchedule(
-                                hour: store.profile.reminderHour,
-                                messages: WalkWithChristData.reminderMessages
-                            )
+                            Task {
+                                await WalkReminderScheduler.requestAndSchedule(
+                                    hour: store.profile.reminderHour,
+                                    messages: WalkWithChristData.reminderMessages
+                                )
+                            }
                         } else {
                             WalkReminderScheduler.cancelAll()
                         }
@@ -1357,10 +1361,12 @@ struct WalkWithChristView: View {
                         get: { store.profile.reminderHour },
                         set: { newHour in
                             store.profile.reminderHour = newHour
-                            WalkReminderScheduler.requestAndSchedule(
-                                hour: newHour,
-                                messages: WalkWithChristData.reminderMessages
-                            )
+                            Task {
+                                await WalkReminderScheduler.requestAndSchedule(
+                                    hour: newHour,
+                                    messages: WalkWithChristData.reminderMessages
+                                )
+                            }
                         }
                     )) {
                         ForEach([6, 7, 8, 9, 10, 12, 18, 20, 21], id: \.self) { h in
@@ -2618,12 +2624,14 @@ enum WalkReminderScheduler {
 
     /// Requests notification permission if needed, then schedules a daily reminder
     /// at the given hour with a rotating pool of gentle messages.
-    static func requestAndSchedule(hour: Int, messages: [String]) {
+    /// Returns true when authorization was granted and the reminder was scheduled.
+    @discardableResult
+    static func requestAndSchedule(hour: Int, messages: [String]) async -> Bool {
         let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-            guard granted else { return }
-            scheduleDailyReminder(hour: hour, messages: messages)
-        }
+        let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+        guard granted else { return false }
+        scheduleDailyReminder(hour: hour, messages: messages)
+        return true
     }
 
     static func cancelAll() {

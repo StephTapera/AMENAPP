@@ -28,7 +28,9 @@ enum ReauthOutcome: Sendable, Equatable {
 ///   > orgAdmin/moderate (biometricOrPasscode) > post/dm-only (none)
 struct DefaultReauthPolicy: ReauthPolicy {
 
-    func requirement(switchingTo profile: ProfileDescriptor) -> ReauthRequirement {
+    nonisolated init() {}
+
+    nonisolated func requirement(switchingTo profile: ProfileDescriptor) -> ReauthRequirement {
         let caps = profile.capabilities
 
         // Tier 1 — strictest: keyManagement demands recent auth within 120 s.
@@ -72,9 +74,10 @@ actor ReauthGate {
     /// - Returns: A `ReauthOutcome` indicating whether the switch is allowed.
     func evaluate(
         profile: ProfileDescriptor,
-        policy: ReauthPolicy = DefaultReauthPolicy(),
+        policy: ReauthPolicy? = nil,
         lastAuthAt: Date?
     ) async -> ReauthOutcome {
+        let policy = policy ?? DefaultReauthPolicy()
         let req = policy.requirement(switchingTo: profile)
 
         switch req {

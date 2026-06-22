@@ -43,9 +43,7 @@ interface AegisC59Signal {
  * rather than null — callers may choose not to render items without an explanation,
  * but the backend itself guarantees a non-null response on success.
  */
-export const generateFeedExplanation = onCall(
-    { region: "us-central1" },
-    async (request) => {
+export const generateFeedExplanation = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
         const { feedItemId, uid } = request.data as { feedItemId: string; uid: string };
 
         if (!feedItemId || !uid) {
@@ -117,9 +115,7 @@ export const generateFeedExplanation = onCall(
  * If recipient is youth and sender is unverified adult: allowed = false.
  * Sender does NOT receive an error message — the decision is silent.
  */
-export const enforceYouthDMPolicy = onCall(
-    { region: "us-central1" },
-    async (request) => {
+export const enforceYouthDMPolicy = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
         const { senderUid, recipientUid, messageContent } = request.data as {
             senderUid: string;
             recipientUid: string;
@@ -164,9 +160,7 @@ export const enforceYouthDMPolicy = onCall(
  * Rejects Tier P content unconditionally.
  * Returns AegisC59Signal or null if no pattern found or confidence < 0.70.
  */
-export const detectAegisC59 = onCall(
-    { region: "us-central1" },
-    async (request) => {
+export const detectAegisC59 = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request) => {
         const { content, tier } = request.data as { content: string; tier: string };
 
         if (!content || !tier) {

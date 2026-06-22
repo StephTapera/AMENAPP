@@ -10,9 +10,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 
-export const generatePrayerRecap = onCall(
-    { region: "us-central1" },
-    async (request): Promise<{ recapId: string; summary: string }> => {
+export const generatePrayerRecap = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ recapId: string; summary: string }> => {
         const { uid } = request.auth ?? {};
         if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
         const db = getFirestore();

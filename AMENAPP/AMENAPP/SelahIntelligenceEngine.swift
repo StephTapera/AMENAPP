@@ -293,4 +293,5 @@ final class SelahIntelligenceEngine {
         case .rest:     return "Take a quiet moment — rest and let these truths settle."
         }
     }
+
 }

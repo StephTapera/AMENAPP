@@ -9,9 +9,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { getRecentEvents } from "../services/DiscipleshipTrackerService";
 
-export const bereanGetJourneySnapshot = onCall(
-  { region: "us-central1", timeoutSeconds: 15 },
-  async (request) => {
+export const bereanGetJourneySnapshot = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 15 }, async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Auth required.");
     if (!request.app) throw new HttpsError("unauthenticated", "App Check required.");
 

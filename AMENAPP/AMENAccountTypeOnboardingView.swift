@@ -658,7 +658,7 @@ private struct _AMENAccountTypeOnboardingViewInner: View {
                             isSubmitting: vm.isSubmitting
                         ) {
                             Task {
-                                await vm.confirm()
+                                _ = await vm.confirm()
                                 onboardingComplete = true
                             }
                         }

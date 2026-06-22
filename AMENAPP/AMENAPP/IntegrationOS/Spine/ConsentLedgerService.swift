@@ -22,7 +22,7 @@ actor ConsentLedgerService {
             granted: true,
             grantedAt: Date(),
             revokedAt: nil,
-            userAgent: deviceUserAgent()
+            userAgent: await deviceUserAgent()
         )
         try db.collection("users").document(uid)
             .collection("consentLedger").document(entry.id)
@@ -78,9 +78,11 @@ actor ConsentLedgerService {
 
     // MARK: - Helpers
 
-    private func deviceUserAgent() -> String {
-        let device = UIDevice.current
-        return "\(device.model)/\(device.systemVersion)"
+    private func deviceUserAgent() async -> String {
+        await MainActor.run {
+            let device = UIDevice.current
+            return "\(device.model)/\(device.systemVersion)"
+        }
     }
 }
 

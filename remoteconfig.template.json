@@ -1111,11 +1111,53 @@
       "description": "Enable community correction feature.",
       "valueType": "BOOLEAN"
     },
+    "communities_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Amen Communities (Wave 0) master switch — topic-first Community entity. Fail-closed.",
+      "valueType": "BOOLEAN"
+    },
+    "community_creation_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Allow creating Amen Communities. Fail-closed.",
+      "valueType": "BOOLEAN"
+    },
     "community_hubs_enabled": {
       "defaultValue": {
         "value": "true"
       },
       "description": "Enable Community Hubs.",
+      "valueType": "BOOLEAN"
+    },
+    "community_moderation_dashboard_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Show the admin/mod-private Community moderation dashboard. Fail-closed.",
+      "valueType": "BOOLEAN"
+    },
+    "community_profile_display_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Show Communities on user profiles (CommunityProfileSection). Fail-closed.",
+      "valueType": "BOOLEAN"
+    },
+    "community_recommendations_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Explainable Community recommendations (\"why recommended\"). Fail-closed.",
+      "valueType": "BOOLEAN"
+    },
+    "csam_hash_scan_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "PERMANENTLY OFF until the four-part federal gate is satisfied (ESP/NCMEC registration, hash-provider contract, written legal sign-off, non-engineer review). Never a DIY build.",
       "valueType": "BOOLEAN"
     },
     "community_media_layers_enabled": {

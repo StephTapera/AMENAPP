@@ -8,7 +8,7 @@
 
 import SwiftUI
 
-struct VolunteerHubView: View {
+struct VolunteerBoardHubView: View {
     let currentUserId: String
 
     @StateObject private var service = VolunteerBoardService.shared
@@ -39,7 +39,7 @@ struct VolunteerHubView: View {
                 }
             }
             .sheet(isPresented: $showCreate, onDismiss: { Task { await reload() } }) {
-                CreateEventSheet(service: service)
+                VolunteerCreateEventSheet(service: service)
             }
             .task { await reload() }
         }
@@ -84,7 +84,7 @@ struct VolunteerHubView: View {
 
 // MARK: - Create event (leader) + first staffing need
 
-private struct CreateEventSheet: View {
+private struct VolunteerCreateEventSheet: View {
     let service: VolunteerBoardService
     @Environment(\.dismiss) private var dismiss
 

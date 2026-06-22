@@ -176,7 +176,7 @@ class FirebaseManager {
             let userDoc = firestore.collection(CollectionPath.users).document(user.uid)
             let lookupDoc = firestore.collection("usernameLookup").document(finalUsername)
 
-            try await firestore.runTransaction { transaction, errorPointer in
+            _ = try await firestore.runTransaction { transaction, errorPointer in
                 do {
                     let lookupSnap = try transaction.getDocument(lookupDoc)
                     if lookupSnap.exists,

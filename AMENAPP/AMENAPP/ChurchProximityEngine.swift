@@ -92,7 +92,7 @@ struct ChurchServiceWindow: Equatable, Sendable {
     }
 }
 
-extension CLLocationCoordinate2D: @unchecked Sendable {}
+extension CLLocationCoordinate2D: @retroactive @unchecked Sendable {}
 
 // MARK: - Engine
 

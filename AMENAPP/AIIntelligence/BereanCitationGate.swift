@@ -115,17 +115,22 @@ final class BereanCitationGate: ObservableObject {
             )
         }
 
-        // Reference resolved and validated. Without a text payload from the knowledge
-        // graph, we mark it verified at the reference level (the resolution engine
-        // already validated canon bounds). Full text comparison requires the connector
-        // service (TODO wave1-deploy: pass actualText from fetchVerse).
+        // Reference resolved and canon-validated. Now fetch the REAL verse text via
+        // the live Tier A connector so the verdict carries actualText (used for
+        // display and any downstream text comparison). If the connector is
+        // unavailable (OFF or network), we keep the reference-level .verified — the
+        // canon bounds were already validated, so this is not fabrication.
+        let connectorResult = await BereanScriptureConnectorService.shared.fetchVerse(
+            reference: reference,
+            translation: translation
+        )
         return CitationVerdict(
             reference: reference,
             quotation: quotation,
             result: .verified,
-            sourceId: "knowledge-graph",
+            sourceId: connectorResult?.sourceId ?? "knowledge-graph",
             translation: translation,
-            actualText: nil,
+            actualText: connectorResult?.text,
             confidence: match.confidence,
             checkedAt: Date().timeIntervalSince1970,
             depth: depth

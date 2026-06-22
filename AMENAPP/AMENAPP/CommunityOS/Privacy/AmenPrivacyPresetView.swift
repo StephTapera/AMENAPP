@@ -96,7 +96,7 @@ struct AmenPrivacyPresetCard: View {
                     .fill(isSelected ? Color.accentColor.opacity(0.12) : Color(uiColor: .secondarySystemFill))
                     .frame(width: 40, height: 40)
                 Image(systemName: preset.systemImage)
-                    .font(.systemScaled(18, weight: .medium))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
             }
             .accessibilityHidden(true)
@@ -137,7 +137,7 @@ struct AmenPrivacyPresetCard: View {
             // Checkmark when selected
             if isSelected {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.systemScaled(20, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                     .accessibilityHidden(true)
             }

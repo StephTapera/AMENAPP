@@ -121,7 +121,7 @@ final class BereanPrayerService: ObservableObject {
         ]
 
         do {
-            try await functions
+            _ = try await functions
                 .httpsCallable("logBereanPrayerSession")
                 .call(payload)
         } catch {

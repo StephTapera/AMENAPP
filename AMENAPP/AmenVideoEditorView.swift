@@ -41,7 +41,7 @@ struct AmenVideoEditorView: View {
         .padding(24)
         .task {
             let asset = AVAsset(url: videoURL)
-            duration = asset.duration.seconds
+            duration = ((try? await asset.load(.duration)) ?? .zero).seconds
             endTime = duration
         }
     }

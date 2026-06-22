@@ -19,12 +19,10 @@ const openaiApiKey = (0, params_1.defineSecret)("OPENAI_API_KEY");
  * and prayer prompt, informed by the user's spiritual context and the church calendar.
  */
 exports.generateDailyVerse = (0, https_1.onCall)({
+    enforceAppCheck: true,
     secrets: [openaiApiKey],
     timeoutSeconds: 30,
     memory: "256MiB",
-    // NOTE: enforceAppCheck is intentionally omitted here so the function
-    // works on the simulator before a debug App Check token is registered
-    // in the Firebase console. Add enforceAppCheck: false after registering.
 }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Must be signed in");

@@ -14,7 +14,7 @@
 
 import SwiftUI
 
-struct EventCard: View {
+struct CreatorHubEventCard: View {
     let creatorId: String
     let event: CreatorHubEvent
 

@@ -247,7 +247,7 @@ private struct EventRow: View {
                 rsvpInFlight = true
                 Task {
                     do {
-                        try await Functions.functions(region: "us-central1")
+                        _ = try await Functions.functions(region: "us-central1")
                             .httpsCallable("rsvpToSpaceEvent")
                             .call(["eventId": event.id, "rsvp": hasRsvped])
                     } catch {

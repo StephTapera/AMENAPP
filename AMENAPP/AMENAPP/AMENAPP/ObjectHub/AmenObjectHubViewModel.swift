@@ -128,7 +128,7 @@ final class AmenObjectHubViewModel: ObservableObject {
 
     func recordInteraction(_ type: AmenHubInteractionType) async {
         guard let h = hub else { return }
-        try? await functions
+        _ = try? await functions
             .httpsCallable("recordObjectInteraction")
             .call(["hubId": h.id, "interactionType": type.rawValue])
     }
@@ -137,12 +137,10 @@ final class AmenObjectHubViewModel: ObservableObject {
 
     private func loadMembership(hubId: String) async {
         // Lightweight Firestore read — membership doc is small
-        do {
-            guard let uid = try? await db.collection("_noop").document("_noop").getDocument().documentID as? String ?? nil,
-                  !uid.isEmpty else { return }
-            // Real membership read wired at app layer when auth context is available
-            _ = hubId
-        } catch {}
+        guard let uid = try? await db.collection("_noop").document("_noop").getDocument().documentID,
+              !uid.isEmpty else { return }
+        // Real membership read wired at app layer when auth context is available
+        _ = hubId
     }
 
     // MARK: - Decoding helpers (Firestore/Callable response → model)

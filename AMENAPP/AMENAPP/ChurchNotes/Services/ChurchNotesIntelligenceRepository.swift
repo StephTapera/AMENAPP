@@ -236,7 +236,7 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
         let noteRef = db.collection("churchNotes").document(noteId)
         // Atomic transaction to write link doc and increment prayer count
         // Updated to match Firestore runTransaction closure signature with errorPointer for throwing errors
-        try await db.runTransaction({ (transaction, errorPointer) -> Any? in
+        _ = try await db.runTransaction({ (transaction, errorPointer) -> Any? in
             do {
                 let noteSnap = try transaction.getDocument(noteRef)
                 guard noteSnap.data()?["userId"] as? String == uid else {

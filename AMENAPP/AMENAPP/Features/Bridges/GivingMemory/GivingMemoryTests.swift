@@ -1,3 +1,4 @@
+#if canImport(Testing)
 // GivingMemoryTests.swift
 // AMEN — Features/Bridges/GivingMemory
 //
@@ -125,4 +126,6 @@ struct GivingMemoryTests {
                 "formattedTotal must contain the '$' symbol for USD (got: \(formatted))")
     }
 }
+#endif
+
 #endif

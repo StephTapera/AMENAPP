@@ -123,7 +123,6 @@ final class FeedExplanationService: ObservableObject, FeedTransparencyProviding 
             let season = context["seasonName"] ?? "the current season"
             return "Relevant to the current season of \(season)"
         case .bookmarkedTopic:
-            let topic = context["topic"] ?? "a topic you saved"
             return "Related to a topic you bookmarked"
         case .groupActivity:
             return "Active in a group you're part of"

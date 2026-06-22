@@ -104,6 +104,12 @@ struct ResourceGlassHomeView: View {
 
     @ViewBuilder
     private var homeSections: some View {
+        primarySections      // ≤10 children per builder closure
+        secondarySections
+    }
+
+    @ViewBuilder
+    private var primarySections: some View {
         // Search bar (glass) + smart suggestions
         ResourceSearchGlassBar(
             text: $searchText,
@@ -163,6 +169,10 @@ struct ResourceGlassHomeView: View {
             }
         }
 
+    }
+
+    @ViewBuilder
+    private var secondarySections: some View {
         // 4 — From Your Church / Organization
         if selectedCategory == .all || selectedCategory == .tools || selectedCategory == .community {
             churchSection
@@ -500,18 +510,17 @@ struct ResourceGlassHomeView: View {
         // §8: no bundle model exists yet → graceful placeholders from known content concepts.
         [
             ResourceGlassBundle(id: "b_study", title: "30-Day Psalms Kit", subtitle: "Praise & Lament",
-                                systemIcon: "book.closed.fill", accent: RGInk.tan, isOfficial: true,
-                                previewCount: 8,
-                                counts: [.init(value: "4", label: "PDFs"), .init(value: "12", label: "Notes")]
-                ).withCounts(),
+                                systemIcon: "book.closed.fill", accent: RGInk.tan,
+                                counts: [.init(value: "4", label: "PDFs"), .init(value: "12", label: "Notes")],
+                                isOfficial: true, previewCount: 8),
             ResourceGlassBundle(id: "b_group", title: "Small-Group Pack", subtitle: "Gospel Survey",
                                 systemIcon: "person.3.fill", accent: Color(hex: "10B981"),
-                                previewCount: 6,
-                                counts: [.init(value: "6", label: "Lessons"), .init(value: "18", label: "Questions")]),
+                                counts: [.init(value: "6", label: "Lessons"), .init(value: "18", label: "Questions")],
+                                previewCount: 6),
             ResourceGlassBundle(id: "b_notes", title: "Sermon Notes Set", subtitle: "This Series",
                                 systemIcon: "note.text", accent: RGInk.wine,
-                                previewCount: 5,
-                                counts: [.init(value: "5", label: "Notes"), .init(value: "3", label: "Videos")])
+                                counts: [.init(value: "5", label: "Notes"), .init(value: "3", label: "Videos")],
+                                previewCount: 5)
         ]
     }
 
@@ -579,6 +588,6 @@ struct ResourceGlassHomeView: View {
 
 // Small helper so bundle literal stays readable.
 private extension ResourceGlassBundle {
-    func withCounts() -> ResourceGlassBundle { self }
+    /// Placeholder bundles have no openable item yet (§8 — bundle model missing).
     var previewItem: ResourceGlassItem? { nil }
 }

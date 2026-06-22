@@ -179,8 +179,7 @@ struct MinimalAuthenticationView: View {
             }
         }
         .fullScreenCover(isPresented: $showPhoneAuth) {
-            SignInView(startWithPhone: true)
-                .environmentObject(authViewModel)
+            AmenPhoneAuthView()
         }
         .alert("Reset Password", isPresented: $showPasswordResetAlert) {
             TextField("Email address", text: $resetEmail)

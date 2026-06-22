@@ -74,7 +74,7 @@ struct PrayerPayload: Codable, Hashable {
     var circleId: String?
 }
 
-struct EventPayload: Codable, Hashable {
+struct AdaptiveComposerEventPayload: Codable, Hashable {
     var schemaVersion: Int = 1
     var title: String
     var startDate: Date
@@ -177,7 +177,7 @@ struct VoicePayload: Codable, Hashable {
     var downloadURL: String
 }
 
-struct VideoPayload: Codable, Hashable {
+struct AdaptiveComposerVideoPayload: Codable, Hashable {
     var schemaVersion: Int = 1
     var durationSeconds: Double
     var thumbnailURL: String?
@@ -288,7 +288,7 @@ struct MinistryFormPayload: Codable, Hashable {
 enum ComposerAttachment: Codable, Hashable {
     case scripture(ScripturePayload)
     case prayer(PrayerPayload)
-    case event(EventPayload)
+    case event(AdaptiveComposerEventPayload)
     case churchNote(ChurchNotePayload)
     case poll(PollPayload)
     case music(MusicPayload)
@@ -300,7 +300,7 @@ enum ComposerAttachment: Codable, Hashable {
     case donation(DonationPayload)
     case volunteer(VolunteerPayload)
     case voice(VoicePayload)
-    case video(VideoPayload)
+    case video(AdaptiveComposerVideoPayload)
     case announcement(AnnouncementPayload)
     case rsvp(RSVPPayload)
     case directions(DirectionsPayload)

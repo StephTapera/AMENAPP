@@ -367,8 +367,6 @@ extension ChurchNotesPDFExporter {
         format.scale = 1
 
         return UIGraphicsImageRenderer(size: size, format: format).image { ctx in
-            let rect = CGRect(origin: .zero, size: size)
-
             // --- Background gradient ---
             let gradient = CGGradient(
                 colorsSpace: CGColorSpaceCreateDeviceRGB(),

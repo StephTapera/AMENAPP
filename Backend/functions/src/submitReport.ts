@@ -131,7 +131,7 @@ async function isRateLimited(reporterId: string): Promise<boolean> {
  *
  * Output: { reportId: string }
  */
-export const submitReport = onCall(async (request) => {
+export const submitReport = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     // ── Auth check ─────────────────────────────────────────────────────────

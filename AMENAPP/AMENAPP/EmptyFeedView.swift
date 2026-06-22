@@ -7,8 +7,17 @@ import SwiftUI
 /// CTAs use full-width interactive glass capsules.
 struct EmptyFeedView: View {
     @ObservedObject private var followService = FollowService.shared
+    @Environment(\.mainTabSelection) private var mainTabSelection
 
     private var isNewUser: Bool { followService.following.isEmpty }
+
+    private func openDiscover() {
+        HapticManager.impact(style: .light)
+        withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.82))) {
+            mainTabSelection.wrappedValue = AMENTab.search.tag
+        }
+        NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -51,7 +60,7 @@ struct EmptyFeedView: View {
 
             // Primary CTA — full-width interactive glass capsule
             Button {
-                NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
+                openDiscover()
             } label: {
                 Text("Find People to Follow")
                     .font(AMENFont.semiBold(16))
@@ -109,7 +118,7 @@ struct EmptyFeedView: View {
 
             // Secondary CTA — smaller glass pill
             Button {
-                NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
+                openDiscover()
             } label: {
                 Text("Find more people to follow")
                     .font(AMENFont.semiBold(14))

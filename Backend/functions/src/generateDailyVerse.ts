@@ -39,12 +39,10 @@ interface VerseOutput {
  */
 export const generateDailyVerse = onCall(
     {
+        enforceAppCheck: true,
         secrets: [openaiApiKey],
         timeoutSeconds: 30,
         memory: "256MiB",
-        // NOTE: enforceAppCheck is intentionally omitted here so the function
-        // works on the simulator before a debug App Check token is registered
-        // in the Firebase console. Add enforceAppCheck: false after registering.
     },
     async (request) => {
         if (!request.auth) {

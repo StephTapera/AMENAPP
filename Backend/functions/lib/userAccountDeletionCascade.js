@@ -75,7 +75,9 @@ const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
 const ALGOLIA_APP_ID = "182SCN7O9S";
 // ─── Callable ─────────────────────────────────────────────────────────────────
-exports.userAccountDeletionCascade = (0, https_1.onCall)(async (request) => {
+// Region: us-east1 — us-central1 is at quota (999/1000). Explicit region is
+// mandatory per docs/deploy-topology.md RULE 1. See Interim Region Table.
+exports.userAccountDeletionCascade = (0, https_1.onCall)({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
     const _data = request.data;
     const data = _data;
     const context = { auth: request.auth, app: request.app };

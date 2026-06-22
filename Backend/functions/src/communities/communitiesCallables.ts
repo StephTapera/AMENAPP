@@ -120,7 +120,7 @@ function writeMembership(db: Db, m: CommunityMembership): FirebaseFirestore.Writ
 // ════════════════════════════════════════════════════════════════════
 
 /** POST /communities — create a community; caller becomes owner (active member). */
-export const createCommunity = onCall(callableOpts, async (request) => {
+export const createCommunity = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);
@@ -194,7 +194,7 @@ export const createCommunity = onCall(callableOpts, async (request) => {
 });
 
 /** GET /communities/:id — community + caller membership + safe-join preview. */
-export const getCommunity = onCall(callableOpts, async (request) => {
+export const getCommunity = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);
@@ -212,7 +212,7 @@ export const getCommunity = onCall(callableOpts, async (request) => {
 });
 
 /** PATCH /communities/:id — owner/admin edits settings. */
-export const patchCommunity = onCall(callableOpts, async (request) => {
+export const patchCommunity = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);
@@ -242,7 +242,7 @@ export const patchCommunity = onCall(callableOpts, async (request) => {
 });
 
 /** DELETE /communities/:id — owner only. Recursively removes the community + members. */
-export const deleteCommunity = onCall(callableOpts, async (request) => {
+export const deleteCommunity = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);
@@ -261,7 +261,7 @@ export const deleteCommunity = onCall(callableOpts, async (request) => {
 // ════════════════════════════════════════════════════════════════════
 
 /** POST /communities/:id/join — join under the community's join policy. */
-export const joinCommunity = onCall(callableOpts, async (request) => {
+export const joinCommunity = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);
@@ -335,7 +335,7 @@ export const joinCommunity = onCall(callableOpts, async (request) => {
 });
 
 /** POST /communities/:id/request-join — record a pending join request. */
-export const requestJoinCommunity = onCall(callableOpts, async (request) => {
+export const requestJoinCommunity = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);
@@ -365,7 +365,7 @@ export const requestJoinCommunity = onCall(callableOpts, async (request) => {
 });
 
 /** POST /communities/:id/leave — leave; the owner must transfer ownership first. */
-export const leaveCommunity = onCall(callableOpts, async (request) => {
+export const leaveCommunity = onCall({ ...callableOpts, enforceAppCheck: true }, async (request) => {
   const auth = requireAuth(request);
   const db = admin.firestore();
   await assertEnabled(db);

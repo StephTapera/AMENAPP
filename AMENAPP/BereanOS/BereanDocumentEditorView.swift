@@ -29,7 +29,7 @@ struct BereanDocumentEditorView: View {
             .font(.body)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .onChange(of: documentBody) { _ in isDirty = true }
+            .onChange(of: documentBody) { isDirty = true }
             .onReceive(autoSaveTimer) { _ in
                 guard isDirty else { return }
                 Task { await performAutoSave() }

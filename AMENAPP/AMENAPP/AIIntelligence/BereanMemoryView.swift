@@ -237,7 +237,7 @@ struct BereanMemoryView: View {
             if reduceMotion {
                 Task { await manager.toggleLock(entryId, userId: userId) }
             } else {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                _ = withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     Task { await manager.toggleLock(entryId, userId: userId) }
                 }
             }

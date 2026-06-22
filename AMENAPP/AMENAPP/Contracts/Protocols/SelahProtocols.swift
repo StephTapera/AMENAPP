@@ -3,6 +3,7 @@ import Foundation
 // MARK: - BereanContextProviding
 // Retrieval over Living Memory + notes + commitments + Space history
 // Every chunk carries provenance — tier filter is mandatory
+@MainActor
 protocol BereanContextProviding {
     func retrieveContext(query: String, tier: ContentTierFilter, limit: Int) async throws -> [ProvenanceTaggedChunk]
 }
@@ -24,6 +25,7 @@ struct ProvenanceTaggedChunk: Codable {
 
 // MARK: - TraditionAwareAnswering
 
+@MainActor
 protocol TraditionAwareAnswering {
     func classifyDoctrinalQuestion(_ question: String) async -> DoctrinalClassification
     func buildBalancedAnswer(for classification: DoctrinalClassification, baseAnswer: String) async -> BalancedAnswer
@@ -53,6 +55,7 @@ enum TraditionKey: String, Codable {
 // MARK: - RoomFirstSynthesizing
 // In Spaces, human synthesis structurally precedes Berean's contribution
 
+@MainActor
 protocol RoomFirstSynthesizing {
     func synthesizeHumanMessages(_ messages: [String]) async -> RoomSynthesis
 }
@@ -65,6 +68,7 @@ struct RoomSynthesis {
 // MARK: - AegisPatternDetecting (extensions for C59/C60)
 // Extend existing Aegis registry — C59: Spiritual Abuse, C60: Youth Shield
 
+@MainActor
 protocol AegisPatternDetecting {
     // C59: detect manipulation, financial coercion, isolation tactics
     func detectSpiritualAbusePatterns(in content: String, tier: String) async -> AegisC59Signal?
@@ -91,6 +95,7 @@ struct YouthShieldDecision {
 // MARK: - FeedTransparencyProviding
 // Fail-closed: if no explanation exists, item is ineligible to render
 
+@MainActor
 protocol FeedTransparencyProviding {
     func explanation(for feedItemId: String) async -> FeedExplanation?
     // Returns nil means item MUST NOT render

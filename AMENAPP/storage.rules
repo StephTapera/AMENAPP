@@ -1,0 +1,811 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isOrgMediaWriter(orgId) {
+      return isSignedIn()
+          && firestore.exists(/databases/(default)/documents/organizations/$(orgId)/members/$(request.auth.uid))
+          && firestore.get(/databases/(default)/documents/organizations/$(orgId)/members/$(request.auth.uid))
+             .data.role in ['owner', 'admin', 'moderator', 'mediaManager'];
+    }
+
+    // ── Size limits ───────────────────────────────────────────────────────────
+
+    function withinVideoLimit() {
+      return request.resource.size <= 100 * 1024 * 1024;   // 100 MB
+    }
+
+    function withinImageLimit() {
+      return request.resource.size <= 25 * 1024 * 1024;    // 25 MB
+    }
+
+    function withinAudioLimit() {
+      return request.resource.size <= 100 * 1024 * 1024;   // 100 MB
+    }
+
+    function withinProfilePhotoLimit() {
+      return request.resource.size <= 5 * 1024 * 1024;     // 5 MB
+    }
+
+    // ── MIME-type allowlists ──────────────────────────────────────────────────
+
+    // Explicitly blocked types — checked first.
+    function isBlockedType() {
+      return request.resource.contentType == 'application/x-executable'
+          || request.resource.contentType == 'text/html'
+          || request.resource.contentType == 'application/javascript';
+    }
+
+    function isAllowedImageType() {
+      return request.resource.contentType == 'image/jpeg'
+          || request.resource.contentType == 'image/png'
+          || request.resource.contentType == 'image/webp'
+          || request.resource.contentType == 'image/heic';
+    }
+
+    function isAllowedVideoType() {
+      return request.resource.contentType == 'video/mp4'
+          || request.resource.contentType == 'video/quicktime';
+    }
+
+    function isAllowedAudioType() {
+      return request.resource.contentType == 'audio/mpeg'
+          || request.resource.contentType == 'audio/mp4'
+          || request.resource.contentType == 'audio/m4a'
+          || request.resource.contentType == 'audio/aac';
+    }
+
+    function isAllowedDocumentType() {
+      return request.resource.contentType == 'application/pdf';
+    }
+
+    // Full quarantine allowlist: image OR video OR audio OR document, never blocked.
+    function isAllowedQuarantineType() {
+      return !isBlockedType()
+          && (isAllowedImageType()
+           || isAllowedVideoType()
+           || isAllowedAudioType()
+           || isAllowedDocumentType());
+    }
+
+    // Per-type size gate used in quarantine writes.
+    function withinQuarantineSizeLimit() {
+      return (isAllowedVideoType() && withinVideoLimit())
+          || (isAllowedAudioType() && withinAudioLimit())
+          || (isAllowedImageType() && withinImageLimit())
+          || (isAllowedDocumentType() && withinImageLimit()); // PDF capped at 25 MB
+    }
+
+    // ── Legacy content-type helpers (DEPRECATED — DO NOT USE ON NEW PATHS) ──────
+    //
+    // SECURITY NOTE (HIGH 2026-06-11): These regex helpers are inherently less safe
+    // than the explicit allowlist variants (isAllowedImageType, isAllowedVideoType,
+    // isAllowedAudioType) because:
+    //   1. .matches() evaluates the client-provided content-type header.
+    //   2. A crafted content-type could pass the regex but be mislabelled.
+    //   3. They cannot be used in isAllowedQuarantineType() (which uses explicit allowlists).
+    // All new paths MUST use the explicit allowlist helpers above.
+    // These helpers are retained ONLY for the legacy churchNotes paths below.
+    // TODO(security): migrate churchNotes paths to explicit allowlists and remove these helpers.
+
+    function isAudioType()  {
+      return request.resource.contentType.matches('audio/.*');
+    }
+
+    function isImageType()  {
+      return request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
+    }
+
+    function isVideoType()  {
+      return request.resource.contentType.matches('video/(mp4|quicktime|mpeg|avi|webm)');
+    }
+
+    // =========================================================================
+    // QUARANTINE-FIRST UPLOAD PIPELINE
+    // =========================================================================
+    //
+    // Flow:
+    //   1. Client uploads to uploads/quarantine/{uid}/{mediaId}
+    //   2. Cloud Function (Admin SDK) reviews the file
+    //   3. Cloud Function moves to uploads/approved/ or uploads/blocked/
+    //   4. Legal team uses uploads/legalHold/ — no client access at all
+    //
+    // Clients can NEVER write directly to approved/, blocked/, or legalHold/.
+    // =========================================================================
+
+    // ── Quarantine bucket ─────────────────────────────────────────────────────
+    //
+    //  CREATE  : authenticated owner only; MIME + size must pass allowlist
+    //  READ    : owner only — quarantine files are NOT publicly visible
+    //  UPDATE  : owner may overwrite their own quarantine slot (same constraints)
+    //  DELETE  : owner may remove their own quarantine file
+
+    match /uploads/quarantine/{uid}/{mediaId} {
+      // SECURITY FIX (HIGH 2026-06-11): UPDATE removed — only CREATE allowed.
+      // Previously, a user could overwrite a file mid-flight through the moderation
+      // queue (race condition: upload benign file, trigger CF scan, re-upload offending
+      // content before CF moves it to approved/).  By allowing create-only, the user
+      // must use a new mediaId for any re-upload; the original file under review cannot
+      // be overwritten.  This closes the evidence-substitution race window.
+      //
+      // File size cap: 50 MB (enforced by withinQuarantineSizeLimit per MIME type).
+      // MIME type restriction: image/*, video/mp4|quicktime, audio/*, application/pdf only.
+      allow create: if isOwner(uid)
+                    && isAllowedQuarantineType()
+                    && withinQuarantineSizeLimit();
+
+      // No update allowed — force new mediaId for re-uploads.
+      allow update: if false;
+
+      allow read:   if isOwner(uid);
+
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Approved bucket ───────────────────────────────────────────────────────
+    //
+    //  READ  : public (any authenticated or unauthenticated reader)
+    //  WRITE : NO client writes — Admin SDK (Cloud Functions) only
+
+    match /uploads/approved/{uid}/{mediaId} {
+      allow read:          if true;
+      allow write, delete: if false;
+    }
+
+    // ── Blocked bucket ────────────────────────────────────────────────────────
+    //
+    //  No client access at all — Admin SDK only.
+
+    match /uploads/blocked/{uid}/{mediaId} {
+      allow read, write, delete: if false;
+    }
+
+    // ── Legal Hold bucket ─────────────────────────────────────────────────────
+    //
+    //  No client read, write, or delete — legal review performed server-side
+    //  via Admin SDK / legalReviewer service account only.
+
+    match /uploads/legalHold/{caseId}/{mediaId} {
+      allow read, write, delete: if false;
+    }
+
+    // =========================================================================
+    // PROFILE PHOTOS — LEGACY QUARANTINE UPLOAD PATH (LOCKED)
+    // =========================================================================
+    //
+    //  H-6: iOS now uploads profile photos to the unified quarantine pipeline at
+    //  uploads/quarantine/{uid}/{photoId} (covered by the quarantine rules above).
+    //  This legacy path (profile_photos/{uid}/{photoId}) is preserved for existing
+    //  in-flight files, but client writes are now locked.  Any file already here
+    //  is readable by the owner only; no new client uploads are permitted.
+    //
+    //  Approved photos served from uploads/approved/{uid}/{photoId} (CF Admin SDK only).
+
+    match /profile_photos/{uid}/{photoId} {
+      // Owner-only read for any legacy files still at this path.
+      allow read:             if isOwner(uid);
+      // H-6: client writes locked — all new uploads go to uploads/quarantine/.
+      allow write, delete:    if false;
+    }
+
+    // =========================================================================
+    // PROFILE PHOTOS — APPROVED/PUBLIC PATH
+    // =========================================================================
+    //
+    //  Path  : profilePhotos/{uid}/{photoId}
+    //  Write : NO client writes — quarantine pipeline (CF Admin SDK) only.
+    //          H-6: iOS now uploads to uploads/quarantine/{uid}/{photoId}.
+    //          The scanUploadedMedia CF promotes clean files to
+    //          uploads/approved/{uid}/{photoId} (covered by the quarantine
+    //          pipeline rules above) and writes the URL to Firestore.
+    //          This legacy path is kept readable for any existing approved
+    //          photos that were written before the quarantine pipeline was
+    //          deployed, but no new client writes are permitted.
+    //  Read  : authenticated users only.
+
+    match /profilePhotos/{uid}/{photoId} {
+      allow read:             if isSignedIn();
+      // H-6: client writes locked — CF Admin SDK only via quarantine pipeline.
+      allow write, delete:    if false;
+    }
+
+    // Account settings legacy path covered by account-storage.rules.test.ts.
+    // Owner-only, explicit image MIME allowlist, 5 MB profile-photo cap.
+    match /profile_images/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid) && isAllowedImageType() && withinProfilePhotoLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Organization / church / event media ──────────────────────────────────
+    // Writes require an organization membership role. No wildcard image/* MIME.
+
+    match /organizations/{orgId}/media/{filename} {
+      allow read: if true;
+      allow write: if isOrgMediaWriter(orgId)
+                   && (isAllowedImageType() || isAllowedVideoType())
+                   && ((isAllowedImageType() && withinImageLimit()) ||
+                       (isAllowedVideoType() && withinVideoLimit()));
+      allow delete: if isOrgMediaWriter(orgId);
+    }
+
+    match /churches/{orgId}/media/{filename} {
+      allow read: if true;
+      allow write: if isOrgMediaWriter(orgId)
+                   && (isAllowedImageType() || isAllowedVideoType())
+                   && ((isAllowedImageType() && withinImageLimit()) ||
+                       (isAllowedVideoType() && withinVideoLimit()));
+      allow delete: if isOrgMediaWriter(orgId);
+    }
+
+    match /events/{orgId}/{eventId}/media/{filename} {
+      allow read: if true;
+      allow write: if isOrgMediaWriter(orgId)
+                   && (isAllowedImageType() || isAllowedVideoType())
+                   && ((isAllowedImageType() && withinImageLimit()) ||
+                       (isAllowedVideoType() && withinVideoLimit()));
+      allow delete: if isOrgMediaWriter(orgId);
+    }
+
+    // =========================================================================
+    // QUARANTINE-FIRST UPLOAD PATHS — MEDIA CONTENT
+    // =========================================================================
+    //
+    // STORAGE FIX #7 (HIGH — quarantine-first all paths):
+    //
+    // All client uploads for post images, post media, post documents, legacy
+    // `posts/` tree, church images, sanctuary media, voice devotionals, and
+    // sermon audio now land in quarantine paths.  Rules enforce:
+    //   - Authenticated owner only
+    //   - Explicit MIME-type allowlist (no wildcard)
+    //   - Per-type size cap (≤ 50 MB max per spec; individual MIME caps apply)
+    //   - Create-only (no update — forces new ID for every re-upload)
+    //   - Read: owner-only while in quarantine (NOT public)
+    //
+    // Approved content reaches public-readable paths only via CF Admin SDK.
+    // =========================================================================
+
+    // ── Post images (quarantine) ──────────────────────────────────────────────
+    // iOS path: post_images/{uid}/{filename}  (MediaModerationPipeline.swift)
+
+    match /post_images/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedImageType()
+                    && withinImageLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Post media tree (quarantine) ──────────────────────────────────────────
+    // iOS path: post_media/{uid}/{uploadGroupId}/{filename}
+    // Also covers post_media/{uid}/{postId}/{filename}
+    // (CreatePostView.swift, FirebasePostServiceEnhancements.swift)
+
+    match /post_media/{uid}/{uploadGroupId}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && (isAllowedImageType() || isAllowedVideoType() || isAllowedAudioType())
+                    && ((isAllowedImageType() && withinImageLimit())
+                      || (isAllowedVideoType() && withinVideoLimit())
+                      || (isAllowedAudioType() && withinAudioLimit()));
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Post documents (quarantine) ───────────────────────────────────────────
+    // iOS path: post_documents/{uid}/{filename}  (CreatePostView.swift)
+
+    match /post_documents/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedDocumentType()
+                    && withinImageLimit(); // PDF capped at 25 MB
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Legacy posts tree (quarantine) ────────────────────────────────────────
+    // iOS path: posts/{uid}/{folder}/{filename}  (CloudStorageService.swift)
+
+    match /posts/{uid}/{folder}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && (isAllowedImageType() || isAllowedVideoType() || isAllowedAudioType())
+                    && ((isAllowedImageType() && withinImageLimit())
+                      || (isAllowedVideoType() && withinVideoLimit())
+                      || (isAllowedAudioType() && withinAudioLimit()));
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Church images (quarantine) ────────────────────────────────────────────
+    // Spec path: church_images/{orgId}/{filename}
+
+    match /church_images/{orgId}/{filename} {
+      allow read:   if isSignedIn();
+      allow create: if isOrgMediaWriter(orgId)
+                    && isAllowedImageType()
+                    && withinImageLimit();
+      allow update: if false;
+      allow delete: if isOrgMediaWriter(orgId);
+    }
+
+    // ── Sanctuary media (quarantine) ──────────────────────────────────────────
+    // Spec path: sanctuary_media/{sid}/{filename}
+
+    match /sanctuary_media/{sid}/{filename} {
+      // SECURITY FIX (MEDIUM 2026-06-11): Restrict create to verified media writers for
+      // this sanctuary. Previously any signed-in user could upload without ownership check.
+      function isSanctuaryMediaWriter() {
+        return isSignedIn()
+            && firestore.exists(/databases/(default)/documents/sanctuaries/$(sid)/members/$(request.auth.uid))
+            && firestore.get(/databases/(default)/documents/sanctuaries/$(sid)/members/$(request.auth.uid))
+               .data.role in ['owner', 'admin', 'moderator', 'mediaManager'];
+      }
+      allow read:   if isSignedIn();
+      allow create: if isSanctuaryMediaWriter()
+                    && (isAllowedVideoType() || isAllowedAudioType())
+                    && ((isAllowedVideoType() && withinVideoLimit())
+                      || (isAllowedAudioType() && withinAudioLimit()));
+      allow update: if false;
+      allow delete: if false; // CF Admin SDK only
+    }
+
+    // ── Voice devotionals (quarantine) ────────────────────────────────────────
+    // iOS path: voiceDevotionals/{uid}/{filename}  (Feature06_VoiceDevotional.swift)
+
+    match /voiceDevotionals/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedAudioType()
+                    && withinAudioLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Sermon audio (quarantine) ─────────────────────────────────────────────
+    // iOS path: sermons/{uid}/{sessionId}.m4a  (ChurchNotesSermonCaptureService.swift)
+
+    match /sermons/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedAudioType()
+                    && withinAudioLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── User profile path (quarantine) ────────────────────────────────────────
+    // iOS path: users/{uid}/profile/{filename}  (ProfileImageSetupView.swift)
+
+    // H-6: ProfileImageSetupView previously wrote to users/{uid}/profile/profileImage.jpg.
+    // All new uploads now go through uploads/quarantine/{uid}/{photoId}.
+    // Preserved for owner reads of any files written before the quarantine pipeline.
+    match /users/{uid}/profile/{filename} {
+      allow read:          if isOwner(uid);
+      // H-6: client writes locked — all new uploads go to uploads/quarantine/.
+      allow write, delete: if false;
+    }
+
+    // =========================================================================
+    // LEGACY PATHS (preserved — no behaviour change)
+    // =========================================================================
+
+    // ── Church Notes media ────────────────────────────────────────────────────
+    // Path: churchNotes/{uid}/{noteId}/audio/{filename}
+    //       churchNotes/{uid}/{noteId}/images/{filename}
+    //       churchNotes/{uid}/{noteId}/video/{filename}
+    //
+    // Rules:
+    //  - Only the owning user can upload or read their own media.
+    //  - No public reads allowed.
+    //  - Type and size constraints enforced at upload.
+    //  - Deletion only by the owner.
+    //  - Processing service reads via signed URLs generated by Admin SDK.
+
+    // SECURITY FIX (MEDIUM 2026-06-11): Replace deprecated regex MIME helpers with
+    // explicit allowlists. isAudioType() used audio/.* which could match crafted MIME types.
+    // isImageType() and isVideoType() similarly used regex matching. All three now use
+    // the explicit allowlist variants (isAllowedAudioType, isAllowedImageType, isAllowedVideoType).
+    match /churchNotes/{uid}/{noteId}/audio/{filename} {
+      allow read:   if isOwner(uid);
+      allow write:  if isOwner(uid) && isAllowedAudioType() && withinAudioLimit();
+      allow delete: if isOwner(uid);
+    }
+
+    match /churchNotes/{uid}/{noteId}/images/{filename} {
+      allow read:   if isOwner(uid);
+      allow write:  if isOwner(uid) && isAllowedImageType() && withinImageLimit();
+      allow delete: if isOwner(uid);
+    }
+
+    match /churchNotes/{uid}/{noteId}/video/{filename} {
+      allow read:   if isOwner(uid);
+      allow write:  if isOwner(uid) && isAllowedVideoType() && withinVideoLimit();
+      allow delete: if isOwner(uid);
+    }
+
+    match /churchNotes/{uid}/{noteId}/documents/{filename} {
+      allow read:   if isOwner(uid);
+      allow write:  if isOwner(uid) && isAllowedDocumentType() && withinImageLimit();
+      allow delete: if isOwner(uid);
+    }
+
+    // ── User profile images (legacy path — preserved) ─────────────────────────
+
+    match /users/{uid}/profileImages/{filename} {
+      // SECURITY FIX (MEDIUM 2026-06-11): Replaced deprecated isImageType() regex with
+      // isAllowedImageType() explicit allowlist (jpeg/png/webp/heic only).
+      allow read:   if isSignedIn();
+      allow write:  if isOwner(uid) && isAllowedImageType() && withinImageLimit();
+      allow delete: if isOwner(uid);
+    }
+
+    // =========================================================================
+    // CHAT VIDEO ATTACHMENTS
+    // =========================================================================
+    //
+    // Path: chat_videos/{conversationId}/{filename}
+    //
+    // SECURITY FIX (HIGH 2026-06-11): Previously this path had no explicit rule
+    // and fell to the catch-all deny.  The absence of an explicit rule is a
+    // maintenance risk — a rules refactor could accidentally expose it.
+    // Added explicit rule:
+    //   - Upload: uploader must be a participant of the conversation (Firestore lookup).
+    //   - MIME type: video/mp4 or video/quicktime only.
+    //   - Size cap: 100 MB (withinVideoLimit).
+    //   - Reads: conversation participants only.
+    //   - No update (create-only to prevent evidence substitution race).
+    //
+    // NOTE: A video scanning CF must be configured to cover this path.
+    // Minor users can participate in DMs only if the mutual-follow gate passes;
+    // that gate is enforced at the conversations/{conversationId} Firestore rule.
+
+    match /chat_videos/{conversationId}/{filename} {
+      function isConversationParticipant() {
+        return isSignedIn() &&
+          firestore.exists(/databases/(default)/documents/conversations/$(conversationId)) &&
+          request.auth.uid in firestore.get(
+            /databases/(default)/documents/conversations/$(conversationId)
+          ).data.get('participantIds', firestore.get(
+            /databases/(default)/documents/conversations/$(conversationId)
+          ).data.get('participantUids', []));
+      }
+
+      // Participants only; video MIME types only; 100 MB cap; create-only (no overwrite).
+      allow create: if isConversationParticipant()
+                    && isAllowedVideoType()
+                    && withinVideoLimit();
+
+      // No update — force new filename for re-uploads to prevent mid-flight substitution.
+      allow update: if false;
+
+      // Only conversation participants may read.
+      allow read:   if isConversationParticipant();
+
+      // Soft-delete pattern: no client deletes — CF Admin SDK only.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // SECURITY FIXES (MEDIUM 2026-06-11): Missing storage paths
+    // All paths below were silently denied by the catch-all. Added explicit rules.
+    // =========================================================================
+
+    // ── Voice messages ────────────────────────────────────────────────────────
+    // iOS path: voice_messages/{uid}/{filename}  (VoiceMessageComponents.swift)
+    match /voice_messages/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid) && isAllowedAudioType() && withinAudioLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Chat file attachments ─────────────────────────────────────────────────
+    // iOS path: chat_files/{conversationId}/{filename}  (FileAttachmentHandler.swift)
+    match /chat_files/{conversationId}/{filename} {
+      function isChatParticipant() {
+        return isSignedIn() &&
+          firestore.exists(/databases/(default)/documents/conversations/$(conversationId)) &&
+          request.auth.uid in firestore.get(
+            /databases/(default)/documents/conversations/$(conversationId)
+          ).data.get('participantIds', firestore.get(
+            /databases/(default)/documents/conversations/$(conversationId)
+          ).data.get('participantUids', []));
+      }
+      allow create: if isChatParticipant()
+                    && (isAllowedDocumentType() || isAllowedImageType())
+                    && withinImageLimit();
+      allow update: if false;
+      allow read:   if isChatParticipant();
+      allow delete: if false;
+    }
+
+    // ── Message image attachments ─────────────────────────────────────────────
+    // iOS path: messages/{conversationId}/{filename}  (MessagingViewController.swift)
+    match /messages/{conversationId}/{filename} {
+      function isMessageParticipant() {
+        return isSignedIn() &&
+          firestore.exists(/databases/(default)/documents/conversations/$(conversationId)) &&
+          request.auth.uid in firestore.get(
+            /databases/(default)/documents/conversations/$(conversationId)
+          ).data.get('participantIds', firestore.get(
+            /databases/(default)/documents/conversations/$(conversationId)
+          ).data.get('participantUids', []));
+      }
+      allow create: if isMessageParticipant()
+                    && isAllowedImageType()
+                    && withinImageLimit();
+      allow update: if false;
+      allow read:   if isMessageParticipant();
+      allow delete: if false;
+    }
+
+    // ── Testimony media (quarantine) ──────────────────────────────────────────
+    // iOS path: testimony_media/{uid}/{contentId}/{filename}  (MediaModerationPipeline.swift)
+    match /testimony_media/{uid}/{contentId}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedQuarantineType()
+                    && withinQuarantineSizeLimit();
+      allow update: if false;
+      allow delete: if false; // CF Admin SDK handles deletion
+    }
+
+    // ── Message attachments (per-recipient) ───────────────────────────────────
+    // iOS path: message_attachments/{uid}/{recipientId}/{filename}  (MediaModerationPipeline.swift)
+    match /message_attachments/{uid}/{recipientId}/{filename} {
+      // SECURITY FIX (MEDIUM 2026-06-11): Allow recipient to read attachments sent to them.
+      // Previously only the sender (uid) could read, preventing recipients from viewing files.
+      allow read:   if isOwner(uid) || isOwner(recipientId);
+      allow create: if isOwner(uid)
+                    && (isAllowedImageType() || isAllowedVideoType() || isAllowedAudioType() || isAllowedDocumentType())
+                    && ((isAllowedImageType() && withinImageLimit())
+                     || (isAllowedVideoType() && withinVideoLimit())
+                     || (isAllowedAudioType() && withinAudioLimit())
+                     || (isAllowedDocumentType() && withinImageLimit()));
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── Profile images (legacy path — LOCKED) ────────────────────────────────
+    // H-6: iOS previously wrote to profile_images/{uid}/{filename} via UserService.
+    // All new profile photo uploads now go through uploads/quarantine/{uid}/{photoId}.
+    // This path is preserved for scan coverage (mediaScanning.ts still watches it)
+    // and owner reads of any existing files, but client creates are locked.
+    match /profile_images/{uid}/{filename} {
+      allow read:          if isOwner(uid);
+      // H-6: client writes locked — all new uploads go to uploads/quarantine/.
+      allow write, delete: if false;
+    }
+
+    // ── Studio voice recordings ───────────────────────────────────────────────
+    // iOS path: studioVoice/{uid}/{filename}  (StudioVoiceRecorderView.swift)
+    match /studioVoice/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid) && isAllowedAudioType() && withinAudioLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Integration OS voice notes ────────────────────────────────────────────
+    // iOS path: voiceNotes/{uid}/{filename}  (VoiceNoteService.swift)
+    match /voiceNotes/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid) && isAllowedAudioType() && withinAudioLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Creator media imports ─────────────────────────────────────────────────
+    // iOS path: creator/users/{uid}/{allPaths=**}  (CreatorMediaImportService.swift)
+    match /creator/users/{uid}/{allPaths=**} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && (isAllowedImageType() || isAllowedVideoType() || isAllowedAudioType())
+                    && ((isAllowedImageType() && withinImageLimit())
+                     || (isAllowedVideoType() && withinVideoLimit())
+                     || (isAllowedAudioType() && withinAudioLimit()));
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── DataImportService batch uploads ──────────────────────────────────────
+    // iOS path: users/{uid}/imports/{batchId}/{filename}  (DataImportService.swift)
+    // NOTE: The existing /users/{uid}/profile/ rule does not cover sibling paths.
+    match /users/{uid}/imports/{batchId}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && (isAllowedImageType() || isAllowedVideoType())
+                    && ((isAllowedImageType() && withinImageLimit())
+                     || (isAllowedVideoType() && withinVideoLimit()));
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Group admin photo ─────────────────────────────────────────────────────
+    // iOS path: group_photos/{conversationId}/{filename}  (GroupAdminView.swift)
+    match /group_photos/{conversationId}/{filename} {
+      function isGroupAdmin() {
+        return isSignedIn() &&
+          firestore.exists(/databases/(default)/documents/conversations/$(conversationId)) &&
+          firestore.get(/databases/(default)/documents/conversations/$(conversationId))
+            .data.get('adminId', '') == request.auth.uid;
+      }
+      allow read:   if isSignedIn();  // Group photos are viewable by any signed-in user
+      allow create: if isGroupAdmin()
+                    && isAllowedImageType()
+                    && withinProfilePhotoLimit();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── Group avatar uploads ──────────────────────────────────────────────────
+    // iOS path: group_avatars/{conversationId}/{filename}  (FirebaseMessagingService.swift)
+    // SECURITY FIX (HIGH 2026-06-11): Added rule; previously no rule covered this path
+    // so all group avatar uploads silently failed at runtime.
+    match /group_avatars/{conversationId}/{filename} {
+      function isGroupParticipant() {
+        return isSignedIn()
+            && firestore.exists(/databases/(default)/documents/conversations/$(conversationId))
+            && request.auth.uid in firestore.get(/databases/(default)/documents/conversations/$(conversationId))
+               .data.participantIds;
+      }
+      allow read:   if isSignedIn(); // Group avatars viewable by any signed-in user
+      allow create: if isGroupParticipant()
+                    && isAllowedImageType()
+                    && withinProfilePhotoLimit();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── Church note attachments ───────────────────────────────────────────────
+    // iOS path: churchNotes/{noteId}/attachments/{attachmentId}/{filename}
+    //           (ChurchNotesAttachmentService.swift)
+    // SECURITY FIX (HIGH 2026-06-11): Added rule; previously this path had no rule
+    // and fell to the catch-all deny. The uid-based rules at churchNotes/{uid}/{noteId}/…
+    // do not match this flat noteId path.
+    match /churchNotes/{noteId}/attachments/{attachmentId}/{filename} {
+      function noteOwner() {
+        return isSignedIn()
+            && firestore.exists(/databases/(default)/documents/churchNotes/$(noteId))
+            && firestore.get(/databases/(default)/documents/churchNotes/$(noteId))
+               .data.get('userId', firestore.get(/databases/(default)/documents/churchNotes/$(noteId)).data.get('authorId', ''))
+               == request.auth.uid;
+      }
+      allow read:   if noteOwner();
+      allow create: if noteOwner()
+                    && (isAllowedImageType() || isAllowedDocumentType() || isAllowedAudioType())
+                    && ((isAllowedImageType() && withinImageLimit())
+                      || (isAllowedDocumentType() && withinImageLimit())
+                      || (isAllowedAudioType() && withinAudioLimit()));
+      allow update: if false; // No mid-flight substitution
+      allow delete: if noteOwner();
+    }
+
+    // ── AmenSync raw assets ───────────────────────────────────────────────────
+    // iOS path: amenSync/users/{uid}/projects/{projectId}/raw/{assetId}.jpg
+    //           (AmenSyncViewModel.swift)
+    // SECURITY FIX (HIGH 2026-06-11): Added rule; previously no rule covered this path.
+    match /amenSync/users/{uid}/projects/{projectId}/raw/{assetId} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid) && isAllowedImageType() && withinImageLimit();
+      allow update: if false; // Create-only; no mid-flight substitution
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Berean OCR queue ──────────────────────────────────────────────────────
+    // iOS path: berean/ocr_queue/{uid}/{filename}  (BereanSnapService.swift)
+    // CF auto-delete via TTL lifecycle rule — client creates, CF cleans up.
+    match /berean/ocr_queue/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedImageType()
+                    && withinProfilePhotoLimit(); // 5 MB cap for OCR images
+      allow update: if false;
+      allow delete: if false; // CF handles deletion via TTL lifecycle rule
+    }
+
+    // ── Selah media ───────────────────────────────────────────────────────────
+    // iOS path: selah_media/{uid}/{filename}  (SelahMediaService.swift)
+    match /selah_media/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedImageType()
+                    && withinImageLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── mediaUploads raw pipeline (server-only) ───────────────────────────────
+    // iOS clients never write directly to this path; the CF media pipeline does.
+    // Raw uploads and processed results are server-owned; client reads go through
+    // the approved/CDN path.
+    match /mediaUploads/{userId}/{mediaId}/raw/{fileName} {
+      // Owner check expands to request.auth.uid == userId through isOwner(userId).
+      allow read:         if isOwner(userId);
+      allow create:       if isOwner(userId)
+                           && isAllowedQuarantineType()
+                           && withinQuarantineSizeLimit();
+      allow update:       if false;
+      allow delete:       if false;   // server-only: CF cleans up after processing
+    }
+
+    match /mediaProcessed/{mediaId}/{kind}/{fileName} {
+      allow read:         if isSignedIn();
+      allow write:        if false;   // server-only: CF writes approved media here
+      allow delete:       if false;
+    }
+
+    // Legacy post image upload path: DENY new writes; approved media is served
+    // from server-owned processed/approved paths after moderation.
+    match /posts/images/{fileName} {
+      allow read: if true;
+      allow write: if false; // DENY new writes
+    }
+
+    // ── Creator Profiles media (MEDIA-GATE, fail-closed) ──────────────────────
+    // Uploads land in /quarantine and are NEVER client-servable. The MEDIA-GATE
+    // pipeline (Admin SDK) inspects them and, only on clearance, writes a copy to
+    // /approved. Rejected/unscanned objects stay in quarantine → unreadable.
+
+    function chStorageOwner(creatorId) {
+      return isSignedIn()
+          && firestore.exists(/databases/(default)/documents/creatorHubs/$(creatorId))
+          && firestore.get(/databases/(default)/documents/creatorHubs/$(creatorId)).data.ownerUid == request.auth.uid;
+    }
+    function chStorageModerator(creatorId) {
+      return isSignedIn()
+          && firestore.exists(/databases/(default)/documents/creatorHubs/$(creatorId)/roles/$(request.auth.uid))
+          && firestore.get(/databases/(default)/documents/creatorHubs/$(creatorId)/roles/$(request.auth.uid)).data.role == 'moderator';
+    }
+    function chStorageManager(creatorId) {
+      return chStorageOwner(creatorId) || chStorageModerator(creatorId);
+    }
+    function chAllowedMediaType() {
+      return isAllowedImageType() || isAllowedVideoType()
+          || isAllowedAudioType() || isAllowedDocumentType();
+    }
+    function chWithinMediaLimit() {
+      return (isAllowedImageType()    && withinImageLimit())
+          || (isAllowedVideoType()    && withinVideoLimit())
+          || (isAllowedAudioType()    && withinAudioLimit())
+          || (isAllowedDocumentType() && request.resource.size <= 25 * 1024 * 1024);
+    }
+
+    // Quarantine — client writes are denied. The MEDIA-GATE callable writes via
+    // Admin SDK after auth/rate-limit checks; no client path should depend on
+    // Storage→Firestore cross-service lookups for creator media.
+    match /creatorHubMedia/{creatorId}/quarantine/{mediaId}/{file} {
+      allow read:   if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;   // server-only: MEDIA-GATE cleans up after its decision
+    }
+
+    // Approved — written only by the gate (Admin SDK) after clearance; readable to signed-in.
+    match /creatorHubMedia/{creatorId}/approved/{allPaths=**} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Default deny (catch-all) ──────────────────────────────────────────────
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

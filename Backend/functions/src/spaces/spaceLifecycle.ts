@@ -61,9 +61,7 @@ interface DeleteSpaceInput {
     spaceId: string;
 }
 
-export const deleteSpace = onCall(
-    { region: "us-central1" },
-    async (
+export const deleteSpace = onCall({ enforceAppCheck: true, region: "us-central1" }, async (
         request
     ): Promise<{ success: true; deletedSubdocuments: number }> => {
         const { uid } = request.auth ?? {};

@@ -657,7 +657,8 @@ extension ChurchNotificationManager {
             type: .reminder,
             title: "Service Starting Soon",
             message: "Grace Community Church service begins in 1 hour",
-            actionTitle: "Get Directions"
+            actionTitle: "Get Directions",
+            action: nil
         ),
         isPresented: .constant(true)
     )

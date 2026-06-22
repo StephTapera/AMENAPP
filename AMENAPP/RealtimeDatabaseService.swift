@@ -373,7 +373,7 @@ class RealtimeDatabaseService: ObservableObject {
                     
                     conversations.append(conversation)
                     let sorted = conversations.sorted { $0.lastMessageTimestamp > $1.lastMessageTimestamp }
-                    Task { @MainActor [weak self] in self?.realtimeConversations = sorted }
+                    Task { @MainActor in self.realtimeConversations = sorted }
                 }
             }
         }
@@ -488,11 +488,8 @@ class RealtimeDatabaseService: ObservableObject {
     /// removes it on sign-out — previously the handle was discarded, keeping a
     /// permanent RTDB observer alive for the lifetime of the app.
     func observeRecentPosts(limit: Int = 50, onUpdate: @escaping ([String]) -> Void) {
-        // Skip observing if user is not authenticated
-        guard Auth.auth().currentUser != nil else {
-            dlog("⏭️ Skipping observeRecentPosts - user not authenticated")
-            return
-        }
+        // Skip observing if user is not authenticated.
+        guard Auth.auth().currentUser != nil else { return }
         
         let postsRef = ref.child("posts").child("recent").queryLimited(toLast: UInt(limit))
         

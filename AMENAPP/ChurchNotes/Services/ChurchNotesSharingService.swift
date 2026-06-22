@@ -43,7 +43,7 @@ final class ChurchNotesGuardianGateImpl: GuardianGate {
 @MainActor
 final class ChurchNotesSharingServiceImpl: SharingService {
 
-    private let db = Firestore.firestore()
+    private nonisolated let db = Firestore.firestore()
     private let collection = "spiritualActionGrants"
 
     func grant(_ grant: ShareGrant) async throws {

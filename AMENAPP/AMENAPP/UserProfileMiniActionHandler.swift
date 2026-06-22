@@ -13,6 +13,7 @@ import FirebaseAnalytics
 
 // MARK: - Follow Service Protocol
 
+@MainActor
 protocol UserProfileMiniFollowServicing {
     /// Follow the user. Throws on failure.
     func follow(userId: String) async throws
@@ -39,6 +40,7 @@ protocol UserProfileMiniAnalyticsServicing {
 
 // MARK: - Routing Protocol
 
+@MainActor
 protocol UserProfileMiniRouting {
     /// Navigate to the full profile for this userId.
     func openProfile(userId: String)
@@ -115,7 +117,9 @@ struct LiveUserProfileMiniMessagingService: UserProfileMiniMessagingServicing {
 
     func openConversation(userId: String, displayName: String) async throws {
         guard let currentUserId = Auth.auth().currentUser?.uid, currentUserId != userId else {
-            router.showMessagingUnavailable(reason: "You can't start a conversation with this profile right now.")
+            await MainActor.run {
+                router.showMessagingUnavailable(reason: "You can't start a conversation with this profile right now.")
+            }
             throw URLError(.userAuthenticationRequired)
         }
 
@@ -255,6 +259,7 @@ struct UserProfileMiniActionHandler {
     let routing: any UserProfileMiniRouting
     let onHide: ((String) -> Void)?
 
+    @MainActor
     static func live(
         onOpenProfile: @escaping (String) -> Void,
         onOpenPost: ((String) -> Void)? = nil,
@@ -279,6 +284,7 @@ struct UserProfileMiniActionHandler {
         )
     }
 
+    @MainActor
     static func mock(
         messagingAllowed: Bool = true,
         followShouldFail: Bool = false,

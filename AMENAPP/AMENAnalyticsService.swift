@@ -186,6 +186,22 @@ enum AMENAnalyticsEvent {
     case voiceCommentDeleted(postId: String)
     case voiceCommentPreviewPlayed(postId: String)
     case voiceCommentSubmitted(postId: String, type: String)
+    case voiceCommentRecordCancelled(postId: String, type: String)
+    case voiceCommentTranscriptReady(postId: String)
+    case voiceCommentPublished(postId: String, type: String, durationMs: Int)
+    case voiceCommentHeldForReview(postId: String)
+    case voiceCommentBlocked(postId: String)
+    case voiceCommentVisibilityChanged(postId: String, visibility: String)
+
+    // Walk With Christ
+    case walkWithChristOpened
+    case walkWithChristOnboardingCompleted(path: String)
+    case walkWithChristSeasonSelected(season: String)
+    case walkWithChristBereanLaunched(sourceSurface: String)
+    case walkWithChristApplicationStepCompleted(stepIndex: Int)
+    case walkWithChristFollowThroughPlanCreated(area: String, frequency: String)
+    case walkWithChristFollowThroughCompleted(planId: String, streakDays: Int)
+    case walkWithChristReminderEnabled
 
     // Subscription
     case manageSubscriptionOpened(surface: String)
@@ -334,6 +350,20 @@ enum AMENAnalyticsEvent {
         case .voiceCommentDeleted: return "voice_comment_deleted"
         case .voiceCommentPreviewPlayed: return "voice_comment_preview_played"
         case .voiceCommentSubmitted: return "voice_comment_submitted"
+        case .voiceCommentRecordCancelled: return "voice_comment_record_cancelled"
+        case .voiceCommentTranscriptReady: return "voice_comment_transcript_ready"
+        case .voiceCommentPublished: return "voice_comment_published"
+        case .voiceCommentHeldForReview: return "voice_comment_held_for_review"
+        case .voiceCommentBlocked: return "voice_comment_blocked"
+        case .voiceCommentVisibilityChanged: return "voice_comment_visibility_changed"
+        case .walkWithChristOpened: return "walk_with_christ_opened"
+        case .walkWithChristOnboardingCompleted: return "walk_with_christ_onboarding_completed"
+        case .walkWithChristSeasonSelected: return "walk_with_christ_season_selected"
+        case .walkWithChristBereanLaunched: return "walk_with_christ_berean_launched"
+        case .walkWithChristApplicationStepCompleted: return "walk_with_christ_application_step_completed"
+        case .walkWithChristFollowThroughPlanCreated: return "walk_with_christ_follow_through_plan_created"
+        case .walkWithChristFollowThroughCompleted: return "walk_with_christ_follow_through_completed"
+        case .walkWithChristReminderEnabled: return "walk_with_christ_reminder_enabled"
         case .messageSearchOpened: return "message_search_opened"
         case .messageThreadFilterSelected: return "message_thread_filter_selected"
         case .messageSearchResultTapped: return "message_search_result_tapped"
@@ -475,6 +505,30 @@ enum AMENAnalyticsEvent {
             return ["post_id": postId]
         case .voiceCommentSubmitted(let postId, let type):
             return ["post_id": postId, "type": type]
+        case .voiceCommentRecordCancelled(let postId, let type):
+            return ["post_id": postId, "type": type]
+        case .voiceCommentTranscriptReady(let postId):
+            return ["post_id": postId]
+        case .voiceCommentPublished(let postId, let type, let durationMs):
+            return ["post_id": postId, "type": type, "duration_ms": durationMs]
+        case .voiceCommentHeldForReview(let postId):
+            return ["post_id": postId]
+        case .voiceCommentBlocked(let postId):
+            return ["post_id": postId]
+        case .voiceCommentVisibilityChanged(let postId, let visibility):
+            return ["post_id": postId, "visibility": visibility]
+        case .walkWithChristOnboardingCompleted(let path):
+            return ["path": path]
+        case .walkWithChristSeasonSelected(let season):
+            return ["season": season]
+        case .walkWithChristBereanLaunched(let sourceSurface):
+            return ["source_surface": sourceSurface]
+        case .walkWithChristApplicationStepCompleted(let stepIndex):
+            return ["step_index": stepIndex]
+        case .walkWithChristFollowThroughPlanCreated(let area, let frequency):
+            return ["practice_area": area, "frequency": frequency]
+        case .walkWithChristFollowThroughCompleted(let planId, let streakDays):
+            return ["plan_id": planId, "streak_days": streakDays]
         case .contentNodeRendered(let type):
             return ["node_type": type]
         case .creationIntentSelected(let intent):

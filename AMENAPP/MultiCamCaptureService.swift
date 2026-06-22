@@ -1,5 +1,5 @@
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 import UIKit
 
 enum MultiCamCaptureError: LocalizedError {
@@ -19,7 +19,8 @@ enum MultiCamCaptureError: LocalizedError {
     }
 }
 
-final class MultiCamCaptureService: NSObject {
+// State is confined to `sessionQueue` (a dedicated serial queue); safe to treat as Sendable.
+final class MultiCamCaptureService: NSObject, @unchecked Sendable {
     let session = AVCaptureMultiCamSession()
     let sessionQueue = DispatchQueue(label: "amen.witness.multicam.session", qos: .userInitiated)
 
@@ -91,6 +92,7 @@ final class MultiCamCaptureService: NSObject {
         try await withCheckedThrowingContinuation { continuation in
             sessionQueue.async {
                 let settings = AVCapturePhotoSettings()
+                settings.maxPhotoDimensions = output.maxPhotoDimensions
                 if output.supportedFlashModes.contains(flashMode) {
                     settings.flashMode = flashMode
                 }
@@ -150,8 +152,12 @@ final class MultiCamCaptureService: NSObject {
         try connectPreviewAndPhoto(for: backInput, output: backPhotoOutput, previewLayer: backPreviewLayer)
         try connectPreviewAndPhoto(for: frontInput, output: frontPhotoOutput, previewLayer: frontPreviewLayer)
 
-        backPhotoOutput.isHighResolutionCaptureEnabled = true
-        frontPhotoOutput.isHighResolutionCaptureEnabled = true
+        if let backDimensions = backDevice.activeFormat.supportedMaxPhotoDimensions.last {
+            backPhotoOutput.maxPhotoDimensions = backDimensions
+        }
+        if let frontDimensions = frontDevice.activeFormat.supportedMaxPhotoDimensions.last {
+            frontPhotoOutput.maxPhotoDimensions = frontDimensions
+        }
         isConfigured = true
     }
 
@@ -169,14 +175,18 @@ final class MultiCamCaptureService: NSObject {
             throw MultiCamCaptureError.configurationFailed
         }
         session.addConnection(previewConnection)
-        previewConnection.videoOrientation = .portrait
+        if previewConnection.isVideoRotationAngleSupported(90) {
+            previewConnection.videoRotationAngle = 90
+        }
 
         let photoConnection = AVCaptureConnection(inputPorts: [videoPort], output: output)
         guard session.canAddConnection(photoConnection) else {
             throw MultiCamCaptureError.configurationFailed
         }
         session.addConnection(photoConnection)
-        photoConnection.videoOrientation = .portrait
+        if photoConnection.isVideoRotationAngleSupported(90) {
+            photoConnection.videoRotationAngle = 90
+        }
     }
 }
 

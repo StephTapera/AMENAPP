@@ -88,7 +88,7 @@ export async function decrementUnseenCount(
  * Input: { notificationIds: string[] }
  * Output: { markedCount: number }
  */
-export const markNotificationsSeen = onCall(async (request) => {
+export const markNotificationsSeen = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
         if (!context.auth) {
@@ -174,7 +174,7 @@ export const markNotificationsSeen = onCall(async (request) => {
  * Input: { notificationId: string }
  * Output: { success: boolean }
  */
-export const markNotificationOpened = onCall(async (request) => {
+export const markNotificationOpened = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
         if (!context.auth) {
@@ -265,7 +265,7 @@ export const markNotificationOpened = onCall(async (request) => {
  * Input: { notificationId: string }
  * Output: { success: boolean }
  */
-export const markNotificationDismissed = onCall(async (request) => {
+export const markNotificationDismissed = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
         if (!context.auth) {
@@ -326,7 +326,7 @@ export const markNotificationDismissed = onCall(async (request) => {
  * Input: {} (no args)
  * Output: { previousCount: number, actualCount: number, corrected: boolean }
  */
-export const reconcileNotificationCount = onCall(async (request) => {
+export const reconcileNotificationCount = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const _data = data;
     const context = { auth: request.auth, app: request.app };

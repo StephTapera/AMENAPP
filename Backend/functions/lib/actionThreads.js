@@ -100,7 +100,7 @@ function isActionThreadsEnabled() {
         .catch(() => false);
 }
 // ─── Create Action Thread ─────────────────────────────────────────────────────
-exports.createActionThread = (0, https_1.onCall)(async (request) => {
+exports.createActionThread = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -217,7 +217,7 @@ exports.createActionThread = (0, https_1.onCall)(async (request) => {
     return { ok: true, threadId };
 });
 // ─── Activate Action Thread ───────────────────────────────────────────────────
-exports.activateActionThread = (0, https_1.onCall)(async (request) => {
+exports.activateActionThread = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -260,7 +260,7 @@ exports.activateActionThread = (0, https_1.onCall)(async (request) => {
     return { ok: true };
 });
 // ─── Complete Action Step ─────────────────────────────────────────────────────
-exports.completeActionStep = (0, https_1.onCall)(async (request) => {
+exports.completeActionStep = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -338,7 +338,7 @@ exports.completeActionStep = (0, https_1.onCall)(async (request) => {
     return { ok: true };
 });
 // ─── Archive Action Thread ────────────────────────────────────────────────────
-exports.archiveActionThread = (0, https_1.onCall)(async (request) => {
+exports.archiveActionThread = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -398,7 +398,7 @@ exports.archiveActionThread = (0, https_1.onCall)(async (request) => {
     return { ok: true, finalState: newState };
 });
 // ─── Invite Participant ───────────────────────────────────────────────────────
-exports.inviteThreadParticipant = (0, https_1.onCall)(async (request) => {
+exports.inviteThreadParticipant = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);

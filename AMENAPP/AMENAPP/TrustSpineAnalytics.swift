@@ -42,7 +42,9 @@ enum TrustSpineAnalyticsEvent: String {
 
 enum TrustSpineAnalytics {
     static func track(_ event: TrustSpineAnalyticsEvent, params: [String: Any] = [:]) {
-        guard AMENFeatureFlags.shared.analyticsEnabled else { return }
-        dlog("[TrustSpineAnalytics] \(event.rawValue)\(params.isEmpty ? "" : " \(params)")")
+        Task { @MainActor in
+            guard AMENFeatureFlags.shared.analyticsEnabled else { return }
+            dlog("[TrustSpineAnalytics] \(event.rawValue)\(params.isEmpty ? "" : " \(params)")")
+        }
     }
 }

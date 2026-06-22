@@ -135,8 +135,7 @@ class NotificationManager: ObservableObject {
     /// Load saved notification preferences from Firestore
     func loadSettings() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            dlog("⚠️ No authenticated user to load notification settings")
-            // Migrate legacy UserDefaults settings if they exist
+            // Migrate legacy UserDefaults settings if they exist.
             await migrateLegacySettings()
             return
         }

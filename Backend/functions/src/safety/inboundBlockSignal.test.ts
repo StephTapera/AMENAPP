@@ -11,6 +11,8 @@
  *   - Fail-OPEN: a count failure yields no warning (advisory, never a gate).
  */
 
+export {};
+
 const mockCountGet = jest.fn();
 const mockCount = jest.fn(() => ({ get: mockCountGet }));
 const mockWhere = jest.fn(() => ({ count: mockCount }));

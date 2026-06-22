@@ -143,8 +143,8 @@ final class VoiceRecordingEngine: ObservableObject {
 
         // Start duration ticker.
         durationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self, let start = self.recordingStartTime else { return }
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
+                guard let self, let start = self.recordingStartTime else { return }
                 self.duration = Date().timeIntervalSince(start)
             }
         }

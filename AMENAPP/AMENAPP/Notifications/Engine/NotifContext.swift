@@ -68,6 +68,7 @@ struct NotifContext {
 /// AmenNotifications.fire(NotifContext(action: .amen, ...))
 /// ```
 enum AmenNotifications {
+    @MainActor
     static func fire(_ ctx: NotifContext) {
         NotificationCoordinator.shared.fire(ctx)
     }

@@ -58,7 +58,7 @@ struct DmRiskDecision {
         dlog("[DmRiskFirewallService] reportAbuse sender=\(senderId) reason=\(reason)")
         let payload: [String: Any] = ["senderId": senderId, "reason": reason]
         do {
-            try await Functions.functions().httpsCallable("reportDmAbuse").call(payload)
+            _ = try await Functions.functions().httpsCallable("reportDmAbuse").call(payload)
             blockedSenderIds.insert(senderId)
         } catch {
             dlog("[DmRiskFirewallService] reportAbuse error: \(error)")

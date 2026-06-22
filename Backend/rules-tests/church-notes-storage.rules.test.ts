@@ -28,7 +28,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await testEnv.cleanup();
+  if (testEnv) {
+    await testEnv.cleanup();
+  }
 });
 
 function storageAs(uid: string) {
@@ -36,9 +38,10 @@ function storageAs(uid: string) {
 }
 
 function uploadAs(uid: string, objectPath: string, contentType: string, bytes = 3): Promise<unknown> {
-  return storageAs(uid)
+  const task = storageAs(uid)
     .ref(objectPath)
     .put(new Uint8Array(bytes), { contentType });
+  return new Promise((resolve, reject) => task.then(resolve, reject));
 }
 
 describe("Church Notes Intelligence Storage rules", () => {

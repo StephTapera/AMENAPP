@@ -151,7 +151,7 @@ export const onUserProfileImageUpdatedRefreshPreviews = onDocumentUpdated(
     }
 );
 
-export const refreshDynamicReplyPreviews = onCall(async (request) => {
+export const refreshDynamicReplyPreviews = onCall({ enforceAppCheck: true }, async (request) => {
     if (request.app == undefined) {
         throw new HttpsError("unauthenticated", "App Check required.");
     }

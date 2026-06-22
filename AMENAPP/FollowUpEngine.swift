@@ -359,8 +359,6 @@ final class FollowUpEngine: ObservableObject {
     // MARK: - Status Updates
 
     private func updateDueStatus() {
-        let now = Date()
-
         for i in followUps.indices {
             if followUps[i].isExpired {
                 followUps[i].status = .expired

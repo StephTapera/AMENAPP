@@ -37,6 +37,7 @@ enum MediaDockAction: String, CaseIterable {
         }
     }
 
+    @MainActor
     func isAvailable(for mediaType: AmenMediaAttachmentType) -> Bool {
         switch (self, mediaType) {
         case (.summarize, .video), (.summarize, .voice), (.summarize, .link): return true

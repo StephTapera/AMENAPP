@@ -55,10 +55,55 @@ struct AmenConnectCertificationAlertService {
 
 struct AmenConnectReadinessService {
     func makeReadinessView(
+        event: ServiceEvent,
+        board: VolunteerBoard,
+        orgId: String = "amen-connect",
+        orgName: String = "AMEN Connect",
+        orgType: AmenConnectOrgType = .church,
+        teamId: String = "volunteer-board"
+    ) -> AmenConnectReadinessView {
+        let organization = AmenConnectOrganization(
+            id: orgId,
+            name: orgName,
+            orgType: orgType
+        )
+        let teams = [
+            AmenConnectTeam(id: teamId, orgId: organization.id, name: "Volunteer Board")
+        ]
+        let roles = board.roles.map { role in
+            AmenConnectCoordinationRole(
+                id: role.role,
+                teamId: teamId,
+                name: role.role,
+                countNeeded: role.needed
+            )
+        }
+        let assignments = board.roles.flatMap { role in
+            (0..<role.filled).map { index in
+                AmenConnectAssignment(
+                    id: "\(board.eventId)-\(role.role)-filled-\(index)",
+                    eventOrShiftId: board.eventId,
+                    roleId: role.role,
+                    personId: "filled-\(index)",
+                    status: .confirmed
+                )
+            }
+        }
+
+        return makeReadinessView(
+            eventOrShiftId: event.id,
+            organization: organization,
+            teams: teams,
+            roles: roles,
+            assignments: assignments
+        )
+    }
+
+    func makeReadinessView(
         eventOrShiftId: String,
         organization: AmenConnectOrganization,
         teams: [AmenConnectTeam],
-        roles: [AmenConnectRole],
+        roles: [AmenConnectCoordinationRole],
         assignments: [AmenConnectAssignment]
     ) -> AmenConnectReadinessView {
         _ = AmenConnectCoordinationBehavior.behavior(for: organization)
@@ -68,7 +113,7 @@ struct AmenConnectReadinessService {
             assignment.eventOrShiftId == eventOrShiftId
                 && (assignment.status == .signedUp || assignment.status == .confirmed)
         }
-        let assignmentsByRole = Dictionary(grouping: coveringAssignments, by: \ .roleId)
+        let assignmentsByRole = Dictionary(grouping: coveringAssignments, by: \.roleId)
 
         let roleCoverage = roles.map { role in
             let filled = min(assignmentsByRole[role.id]?.count ?? 0, max(role.countNeeded, 0))
@@ -84,7 +129,7 @@ struct AmenConnectReadinessService {
             )
         }
 
-        let roleCoverageByTeam = Dictionary(grouping: roleCoverage, by: \ .teamId)
+        let roleCoverageByTeam = Dictionary(grouping: roleCoverage, by: \.teamId)
         let teamCoverage = teams.map { team in
             let coverageItems = roleCoverageByTeam[team.id] ?? []
             let needed = coverageItems.reduce(0) { $0 + $1.countNeeded }

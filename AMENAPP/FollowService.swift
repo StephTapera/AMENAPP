@@ -210,8 +210,8 @@ class FollowService: ObservableObject {
     /// Unfollow a user
     func unfollowUser(userId: String) async throws {
         dlog("👥 Unfollowing user: \(userId)")
-        
-        guard let currentUserId = firebaseManager.currentUser?.uid else {
+
+        guard firebaseManager.currentUser?.uid != nil else {
             throw FirebaseError.unauthorized
         }
         
@@ -355,7 +355,7 @@ class FollowService: ObservableObject {
     
     /// Remove a follower (current user removes someone from their followers list)
     func removeFollower(followerId: String) async throws {
-        guard let currentUserId = firebaseManager.currentUser?.uid else {
+        guard firebaseManager.currentUser?.uid != nil else {
             throw FirebaseError.unauthorized
         }
         

@@ -20,10 +20,9 @@ const PROJECT_ID = "amen-ng1-rules-test";
 async function main() {
   const env = await initializeTestEnvironment({
     projectId: PROJECT_ID,
+    // host/port auto-discovered from FIRESTORE_EMULATOR_HOST (set by `emulators:exec`).
     firestore: {
       rules: fs.readFileSync(path.resolve(__dirname, "../firestore.rules"), "utf8"),
-      host: "127.0.0.1",
-      port: 8080,
     },
   });
 

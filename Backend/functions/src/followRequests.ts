@@ -34,7 +34,7 @@ const db = admin.firestore();
  * Called by the private-account OWNER to accept a pending follow request.
  * Atomically: deletes the request doc, creates follow edges, increments counters.
  */
-export const acceptFollowRequest = onCall({ region: "us-east1" }, async (request) => {
+export const acceptFollowRequest = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Must be signed in.");
     }
@@ -106,7 +106,7 @@ export const acceptFollowRequest = onCall({ region: "us-east1" }, async (request
  * Called by the private-account OWNER to reject a pending follow request.
  * Silent: no notification to the requester. Requester can re-request later.
  */
-export const rejectFollowRequest = onCall({ region: "us-east1" }, async (request) => {
+export const rejectFollowRequest = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Must be signed in.");
     }
@@ -140,7 +140,7 @@ export const rejectFollowRequest = onCall({ region: "us-east1" }, async (request
  * Called by the REQUESTER to cancel their own pending follow request.
  * Deletes the request doc from the target's followRequests subcollection.
  */
-export const cancelFollowRequest = onCall({ region: "us-east1" }, async (request) => {
+export const cancelFollowRequest = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Must be signed in.");
     }
@@ -176,7 +176,7 @@ export const cancelFollowRequest = onCall({ region: "us-east1" }, async (request
  *
  * See docs/privacy-model.md §5 (Remove Follower / Soft Block).
  */
-export const removeFollower = onCall({ region: "us-east1" }, async (request) => {
+export const removeFollower = onCall({ enforceAppCheck: true, region: "us-east1" }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Must be signed in.");
     }

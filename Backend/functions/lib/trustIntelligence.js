@@ -54,7 +54,7 @@ function assertOwner(uid, userId) {
         throw new https_1.HttpsError("permission-denied", "User mismatch");
     }
 }
-exports.writeAgentInsight = (0, https_1.onCall)(async (request) => {
+exports.writeAgentInsight = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -76,7 +76,7 @@ exports.writeAgentInsight = (0, https_1.onCall)(async (request) => {
         .set(payload, { merge: true });
     return { ok: true, id: insightId };
 });
-exports.writeAgentRecommendation = (0, https_1.onCall)(async (request) => {
+exports.writeAgentRecommendation = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -97,7 +97,7 @@ exports.writeAgentRecommendation = (0, https_1.onCall)(async (request) => {
         .set(payload, { merge: true });
     return { ok: true, id: recId };
 });
-exports.writeAgentExecutionLog = (0, https_1.onCall)(async (request) => {
+exports.writeAgentExecutionLog = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -117,7 +117,7 @@ exports.writeAgentExecutionLog = (0, https_1.onCall)(async (request) => {
         .set(payload, { merge: true });
     return { ok: true, id: logId };
 });
-exports.writeTrustEvent = (0, https_1.onCall)(async (request) => {
+exports.writeTrustEvent = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -138,7 +138,7 @@ exports.writeTrustEvent = (0, https_1.onCall)(async (request) => {
         .set(payload, { merge: true });
     return { ok: true, id: eventId };
 });
-exports.writeTrustSnapshot = (0, https_1.onCall)(async (request) => {
+exports.writeTrustSnapshot = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);

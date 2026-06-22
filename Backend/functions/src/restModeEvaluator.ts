@@ -77,9 +77,7 @@ function isPolicyActive(policy: RestModePolicy): boolean {
 
 // MARK: - Callable: evaluateRestMode
 
-export const evaluateRestMode = onCall(
-  { region: "us-central1" },
-  async (request): Promise<RestModeStatus> => {
+export const evaluateRestMode = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<RestModeStatus> => {
     if (!request.app) {
       throw new HttpsError("unauthenticated", "App Check required.");
     }
@@ -107,9 +105,7 @@ export const evaluateRestMode = onCall(
 
 // MARK: - Callable: setRestModePolicy
 
-export const setRestModePolicy = onCall(
-  { region: "us-central1" },
-  async (request): Promise<{ success: boolean }> => {
+export const setRestModePolicy = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<{ success: boolean }> => {
     if (!request.app) {
       throw new HttpsError("unauthenticated", "App Check required.");
     }
@@ -207,9 +203,7 @@ const LABEL_REQUIRED_TYPES = new Set([
   "sermon_notes_summary",
 ]);
 
-export const resolvePostAILabel = onCall(
-  { region: "us-central1" },
-  async (request): Promise<ResolvedAILabel> => {
+export const resolvePostAILabel = onCall({ enforceAppCheck: true, region: "us-central1" }, async (request): Promise<ResolvedAILabel> => {
     if (!request.app) {
       throw new HttpsError("unauthenticated", "App Check required.");
     }

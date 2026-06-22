@@ -221,7 +221,7 @@ final class ChurchNotesScriptureDetector {
             return canonical
         }
         // Try prefix matching for full names like "Matthew", "Genesis", etc.
-        for (alias, canonical) in bookAliases {
+        for (_, canonical) in bookAliases {
             if canonical.lowercased().hasPrefix(lower) && lower.count >= 3 {
                 return canonical
             }

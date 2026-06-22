@@ -143,6 +143,9 @@ function mockClaudeError(status = 500) {
 
 beforeEach(() => {
     jest.clearAllMocks();
+    mockDoc.get.mockReset();
+    mockDoc.set.mockReset();
+    mockQuery.get.mockReset();
     mockDoc.set.mockResolvedValue(undefined);
     // Default: no block records
     // Default: captionTracks query returns empty

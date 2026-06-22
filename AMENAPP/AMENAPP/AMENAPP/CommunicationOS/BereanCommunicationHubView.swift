@@ -692,7 +692,7 @@ struct BereanCommunicationHubView: View {
                 isResumingSession = true
                 let sessionId = activeSessionId
                 Task {
-                    try? await Functions.functions(region: "us-central1")
+                    _ = try? await Functions.functions(region: "us-central1")
                         .httpsCallable("resumeBereanSession")
                         .call([
                             "sessionId": sessionId,

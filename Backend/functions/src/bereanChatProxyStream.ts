@@ -35,6 +35,7 @@ import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
 import {buildSensitiveTopicPolicyBlock} from "./berean/prompts/sensitiveTopicPolicy";
 import type {SensitivityFlag, TopicClass} from "./berean/models/berean";
 import {ensureAIDisclosure} from "./berean/services/aiDisclosure";
+import {validateRawTextOutput} from "./berean/services/SafetyValidator";
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 
@@ -44,6 +45,7 @@ interface StreamRequest {
     message: string;
     maxTokens?: number;
     mode?: string;
+    modelId?: string;
     conversationId?: string;
     responseMode?: string;
     sensitivityFlags?: string[];
@@ -76,6 +78,30 @@ interface SensitivityContext {
     flags: SensitivityFlag[];
     topicClass: TopicClass | null;
 }
+
+type BereanTierLocal = "free" | "plus" | "pro" | "founder";
+
+const PROD_BEREAN_MODELS = {
+    core: "claude-haiku-4-5-20251001",
+    standard: "claude-sonnet-4-6",
+    deep: "claude-opus-4-7",
+} as const;
+
+const PROD_TIER_CEILING: Record<BereanTierLocal, string> = {
+    free: PROD_BEREAN_MODELS.core,
+    plus: PROD_BEREAN_MODELS.standard,
+    pro: PROD_BEREAN_MODELS.deep,
+    founder: PROD_BEREAN_MODELS.deep,
+};
+
+const PROD_MODEL_PRECEDENCE: Record<string, number> = {
+    [PROD_BEREAN_MODELS.core]: 0,
+    "claude-3-haiku-20240307": 0,
+    [PROD_BEREAN_MODELS.standard]: 1,
+    "claude-3-5-sonnet-20241022": 1,
+    [PROD_BEREAN_MODELS.deep]: 2,
+    "claude-3-opus-20240229": 2,
+};
 
 // ── Crisis short-circuit ─────────────────────────────────────────────────────
 // Same keywords and safe response as bereanChatProxy.ts (kept in sync).
@@ -210,6 +236,67 @@ function buildCallDataBlock(callData?: StreamRequest["callData"]): string {
     return parts.join("\n\n");
 }
 
+async function getBereanTierForUser(uid: string): Promise<BereanTierLocal> {
+    try {
+        const subscription = await admin.firestore().collection("userSubscriptions").doc(uid).get();
+        const subData = subscription.data() ?? {};
+        const tier = (subData.tier ?? subData.plan ?? subData.status) as string | undefined;
+        const valid: BereanTierLocal[] = ["free", "plus", "pro", "founder"];
+        return valid.includes(tier as BereanTierLocal) ? (tier as BereanTierLocal) : "free";
+    } catch {
+        return "free";
+    }
+}
+
+function resolveEntitledModel(
+    clientModelId: string | undefined,
+    mode: string,
+    tier: BereanTierLocal
+): { modelId: string; downgraded: boolean } {
+    const ceiling = PROD_TIER_CEILING[tier];
+
+    let desired: string;
+    if (clientModelId && clientModelId.trim().length > 0) {
+        const id = clientModelId.trim();
+        if (id === "deep" || id.includes("opus")) desired = PROD_BEREAN_MODELS.deep;
+        else if (id === "standard" || id.includes("sonnet")) desired = PROD_BEREAN_MODELS.standard;
+        else desired = PROD_BEREAN_MODELS.core;
+    } else if (["scholar", "debater", "strategist", "deep_study"].includes(mode)) {
+        desired = PROD_BEREAN_MODELS.standard;
+    } else {
+        desired = PROD_BEREAN_MODELS.core;
+    }
+
+    const desiredPrec = PROD_MODEL_PRECEDENCE[desired] ?? 0;
+    const ceilingPrec = PROD_MODEL_PRECEDENCE[ceiling] ?? 0;
+    const downgraded = desiredPrec > ceilingPrec;
+    return { modelId: downgraded ? ceiling : desired, downgraded };
+}
+
+async function reserveStreamQuota(uid: string, bereanTier: BereanTierLocal): Promise<void> {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const ref = admin.firestore()
+        .collection("aiUsage").doc(uid).collection("daily").doc(today);
+
+    await admin.firestore().runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const data = snap.exists ? snap.data() : {};
+        const current = Number(data?.requestCount ?? 0);
+        const tier = bereanTier === "free" ? "free" : "pro";
+        const dailyLimit = tier === "free" ? 15 : 150;
+        if (current >= dailyLimit) {
+            throw new Error("stream_quota_exceeded");
+        }
+        tx.set(ref, {
+            uid,
+            requestCount: current + 1,
+            lastStreamRequestAt: admin.firestore.FieldValue.serverTimestamp(),
+            // streamRequestCount is legacy telemetry only; quota arithmetic uses requestCount.
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, {merge: true});
+    });
+}
+
 // ── Function ─────────────────────────────────────────────────────────────────
 
 export const bereanChatProxyStream = onRequest(
@@ -241,6 +328,19 @@ export const bereanChatProxyStream = onRequest(
             res.status(401).json({error: "Missing auth token"});
             return;
         }
+
+        const appCheckToken = req.header("X-Firebase-AppCheck");
+        if (!appCheckToken) {
+            res.status(401).json({error: "Missing App Check token"});
+            return;
+        }
+        try {
+            await admin.appCheck().verifyToken(appCheckToken);
+        } catch {
+            res.status(401).json({error: "Invalid App Check token"});
+            return;
+        }
+
         let uid: string;
         try {
             const decoded = await admin.auth().verifyIdToken(authHeader.slice(7));
@@ -251,8 +351,10 @@ export const bereanChatProxyStream = onRequest(
         }
 
         // ── Rate limiting ─────────────────────────────────────────────────────
+        const bereanTier = await getBereanTierForUser(uid);
         try {
             await enforceRateLimit(uid, [RATE_LIMITS.AI_PER_MINUTE, RATE_LIMITS.AI_PER_DAY]);
+            await reserveStreamQuota(uid, bereanTier);
         } catch {
             res.status(429).json({error: "Rate limit exceeded"});
             return;
@@ -264,6 +366,7 @@ export const bereanChatProxyStream = onRequest(
             message,
             maxTokens = 2000,
             mode = "shepherd",
+            modelId,
             callData,
         } = body;
 
@@ -314,9 +417,13 @@ export const bereanChatProxyStream = onRequest(
         if (callDataBlock) systemPrompt += `\n\n${callDataBlock}`;
 
         // ── Model selection ───────────────────────────────────────────────────
-        const model = mode === "scholar" || mode === "debater"
-            ? "claude-3-5-sonnet-20241022"
-            : "claude-3-haiku-20240307";
+        const {modelId: model, downgraded} = resolveEntitledModel(modelId, mode, bereanTier);
+        if (downgraded) {
+            console.info("ℹ️ berean_stream_model_downgraded", {
+                tier: bereanTier,
+                granted: model,
+            });
+        }
 
         // ── Set SSE headers ───────────────────────────────────────────────────
         res.setHeader("Content-Type", "text/event-stream");
@@ -362,7 +469,7 @@ export const bereanChatProxyStream = onRequest(
             const reader = anthropicRes.body!.getReader();
             const decoder = new TextDecoder();
             let buffer = "";
-            let disclosureEmitted = false;
+            let responseText = "";
 
             while (true) {
                 const {done, value} = await reader.read();
@@ -385,15 +492,10 @@ export const bereanChatProxyStream = onRequest(
                         ) {
                             const text = (event.delta as Record<string, unknown>).text as string;
                             if (text) {
-                                if (!disclosureEmitted) {
-                                    disclosureEmitted = true;
-                                    const disclosurePrefix = ensureAIDisclosure("").trimEnd() + "\n\n";
-                                    res.write(`data: ${JSON.stringify({delta: disclosurePrefix})}\n\n`);
-                                }
-                                res.write(`data: ${JSON.stringify({delta: text})}\n\n`);
+                                responseText += text;
                             }
                         } else if (event.type === "message_stop") {
-                            res.write(`data: ${JSON.stringify({done: true})}\n\n`);
+                            // Emission happens after full validation below.
                         }
                     } catch {
                         // Skip malformed SSE lines
@@ -401,6 +503,16 @@ export const bereanChatProxyStream = onRequest(
                 }
             }
 
+            const validation = validateRawTextOutput(responseText);
+            const safeText = ensureAIDisclosure(
+                validation.isValid ? responseText : validation.sanitizedText
+            );
+            res.write(`data: ${JSON.stringify({delta: safeText})}\n\n`);
+            res.write(`data: ${JSON.stringify({
+                done: true,
+                aiDisclosureApplied: true,
+                safetyStatus: validation.isValid ? "passed" : "sanitized",
+            })}\n\n`);
             res.end();
         } catch (error: unknown) {
             const isAbort =

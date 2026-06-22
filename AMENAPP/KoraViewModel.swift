@@ -203,7 +203,7 @@ class KoraViewModel: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else {
             throw KoraError.notAuthenticated
         }
-        var entry = KoraJournalEntry(
+        let entry = KoraJournalEntry(
             circleId: circleId,
             authorId: uid,
             content: content,

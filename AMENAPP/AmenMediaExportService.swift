@@ -21,21 +21,15 @@ struct AmenMediaExportService {
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("amen_trim_\(UUID().uuidString).mp4")
 
-        exporter.outputURL = outputURL
-        exporter.outputFileType = .mp4
         let start = CMTime(seconds: max(0, startTime), preferredTimescale: 600)
         let end = CMTime(seconds: max(startTime, endTime), preferredTimescale: 600)
         exporter.timeRange = CMTimeRangeFromTimeToTime(start: start, end: end)
 
-        return try await withCheckedThrowingContinuation { continuation in
-            exporter.exportAsynchronously {
-                switch exporter.status {
-                case .completed:
-                    continuation.resume(returning: outputURL)
-                default:
-                    continuation.resume(throwing: AmenMediaExportError.exportFailed)
-                }
-            }
+        do {
+            try await exporter.export(to: outputURL, as: .mp4)
+            return outputURL
+        } catch {
+            throw AmenMediaExportError.exportFailed
         }
     }
 

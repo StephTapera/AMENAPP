@@ -79,6 +79,14 @@ struct ResourcesView: View {
     }
     
     var body: some View {
+        if featureFlags.resourcesGlassHomeEnabled {
+            ResourceGlassHomeView()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {

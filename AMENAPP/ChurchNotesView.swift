@@ -1040,7 +1040,7 @@ struct LiquidGlassNoteCard: View {
                             .multilineTextAlignment(.leading)
                         
                         if let sermonTitle = note.sermonTitle, !sermonTitle.isEmpty {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 10) {
                                 Image(systemName: "quote.bubble.fill")
                                     .font(.systemScaled(12))
                                     .foregroundStyle(.purple.opacity(0.8))
@@ -5310,14 +5310,15 @@ struct MinimalTypographyHeader: View {
     var body: some View {
         VStack(spacing: 0) {
             // ── Title row ──────────────────────────────────────────────
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .center, spacing: 12) {
                 Text("Church Notes")
-                    .font(.systemScaled(isScrolled ? 22 : 34, weight: .semibold))
+                    .font(.systemScaled(isScrolled ? 24 : 34, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .tracking(-0.5)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
                     .animation(.spring(response: 0.36, dampingFraction: 0.82), value: isScrolled)
 
-                Spacer()
+                Spacer(minLength: 8)
 
                 // Berean semantic (AI) search
                 Button {
@@ -5325,18 +5326,14 @@ struct MinimalTypographyHeader: View {
                     showSemanticSearch = true
                 } label: {
                     Image(systemName: "sparkle.magnifyingglass")
-                        .font(.systemScaled(15, weight: .semibold))
-                        .foregroundStyle(.purple)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            Circle()
-                                .fill(.thinMaterial)
-                                .overlay(Circle().fill(Color.purple.opacity(0.08)))
-                                .overlay(Circle().strokeBorder(Color.purple.opacity(0.18), lineWidth: 0.75))
-                        )
-                        .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+                        .font(.systemScaled(17, weight: .semibold))
+                        .foregroundStyle(ChurchNotesDesignTokens.Colors.personalTint)
+                        .frame(width: 50, height: 50)
+                        .amenLiquidGlassCapsuleSurface(isSelected: true)
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Smart search")
                 .sheet(isPresented: $showSemanticSearch) {
                     NavigationStack {
                         BereanSemanticSearchView(notes: notes)
@@ -5354,18 +5351,14 @@ struct MinimalTypographyHeader: View {
                 // New note
                 Button(action: onNewNote) {
                     Image(systemName: "plus")
-                        .font(.systemScaled(15, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.primary)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            Circle()
-                                .fill(.thinMaterial)
-                                .overlay(Circle().fill(Color.white.opacity(0.5)))
-                                .overlay(Circle().strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
-                        )
-                        .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+                        .frame(width: 50, height: 50)
+                        .amenLiquidGlassCapsuleSurface(isSelected: false)
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Create church note")
             }
             .padding(.horizontal, 20)
             .padding(.top, 14)
@@ -5404,21 +5397,15 @@ struct MinimalTypographyHeader: View {
                     .transition(.scale.combined(with: .opacity))
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 11)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.thinMaterial)
-                    .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.6)))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
-            )
-            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+            .padding(.horizontal, 18)
+            .frame(height: 58)
+            .amenLiquidGlassCapsuleSurface(isSelected: false)
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
 
             // ── Filter chips ───────────────────────────────────────────
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+                HStack(spacing: 10) {
                     ForEach(ChurchNotesView.FilterOption.allCases, id: \.self) { filter in
                         let isActive = selectedFilter == filter
                         Button {
@@ -5428,23 +5415,26 @@ struct MinimalTypographyHeader: View {
                             UISelectionFeedbackGenerator().selectionChanged()
                         } label: {
                             Text(filter.rawValue)
-                                .font(.systemScaled(13, weight: isActive ? .semibold : .regular))
+                                .font(.systemScaled(14, weight: isActive ? .semibold : .regular))
                                 .foregroundStyle(isActive ? Color.primary : Color.secondary)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
+                                .lineLimit(1)
+                                .padding(.horizontal, 18)
+                                .frame(height: 46)
                                 .background(
                                     ZStack {
                                         if isActive {
-                                            Capsule()
-                                                .fill(.thinMaterial)
-                                                .overlay(Capsule().fill(Color.white.opacity(0.80)))
-                                                .overlay(Capsule().strokeBorder(Color.black.opacity(0.10), lineWidth: 1))
-                                                .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+                                            Capsule(style: .continuous)
+                                                .fill(.ultraThinMaterial)
+                                                .overlay(Capsule(style: .continuous).fill(Color.white.opacity(0.72)))
+                                                .overlay(Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.42), lineWidth: 0.8))
+                                                .overlay(Capsule(style: .continuous).strokeBorder(Color.black.opacity(0.08), lineWidth: 0.7))
+                                                .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
                                                 .matchedGeometryEffect(id: "filterActive", in: filterNS)
                                         } else {
-                                            Capsule()
-                                                .fill(Color.black.opacity(0.05))
-                                                .overlay(Capsule().strokeBorder(Color.black.opacity(0.04), lineWidth: 0.75))
+                                            Capsule(style: .continuous)
+                                                .fill(.ultraThinMaterial)
+                                                .overlay(Capsule(style: .continuous).fill(Color(.systemBackground).opacity(0.44)))
+                                                .overlay(Capsule(style: .continuous).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.7))
                                         }
                                     }
                                 )
@@ -5678,19 +5668,11 @@ struct MinimalEmptyState: View {
         VStack(spacing: 28) {
             Spacer()
 
-            // Glass icon container
-            ZStack {
-                Circle()
-                    .fill(.thinMaterial)
-                    .overlay(Circle().fill(Color.white.opacity(0.60)))
-                    .overlay(Circle().strokeBorder(Color.black.opacity(0.06), lineWidth: 1))
-                    .frame(width: 80, height: 80)
-                    .shadow(color: .black.opacity(0.05), radius: 12, y: 4)
-
-                Image(systemName: hasSearch ? "magnifyingglass" : "note.text")
-                    .font(.systemScaled(32, weight: .light))
-                    .foregroundStyle(.secondary)
-            }
+            Image(systemName: hasSearch ? "magnifyingglass" : "note.text")
+                .font(.systemScaled(34, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 96, height: 96)
+                .amenLiquidGlassCapsuleSurface(isSelected: false)
             .scaleEffect(appeared ? 1.0 : 0.82)
             .opacity(appeared ? 1.0 : 0)
 
@@ -5712,19 +5694,15 @@ struct MinimalEmptyState: View {
 
             if !hasSearch && filterType == .all {
                 Button(action: onCreateNote) {
-                    Text("Create First Note")
+                    Label("Create First Note", systemImage: "plus")
                         .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
-                        .padding(.horizontal, 28)
-                        .padding(.vertical, 14)
-                        .background(
-                            Capsule()
-                                .fill(.thinMaterial)
-                                .overlay(Capsule().fill(Color.white.opacity(0.70)))
-                                .overlay(Capsule().strokeBorder(Color.black.opacity(0.10), lineWidth: 1))
-                        )
-                        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+                        .padding(.horizontal, 26)
+                        .frame(height: 56)
+                        .amenLiquidGlassCapsuleSurface(isSelected: true)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Create first church note")
                 .opacity(appeared ? 1.0 : 0)
             }
 

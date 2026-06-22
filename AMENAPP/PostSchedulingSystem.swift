@@ -276,7 +276,6 @@ private extension View {
 
 private extension Date {
     func shortScheduleLabel() -> String {
-        let cal = Calendar.current
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE, MMM d · h:mm a"
         return formatter.string(from: self)
@@ -864,7 +863,7 @@ struct PublishPillView: View {
                         triggerPulse()
                     }
                 }
-                .onChange(of: mode) { newMode in
+                .onChange(of: mode) { _, newMode in
                     if newMode == .schedule {
                         triggerPulse()
                     }

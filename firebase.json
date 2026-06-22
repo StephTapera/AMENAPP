@@ -8,7 +8,7 @@
   "firestore": {
     "database": "(default)",
     "location": "nam5",
-    "rules": "firestore.rules",
+    "rules": "AMENAPP/firestore.deploy.rules",
     "indexes": "firestore.indexes.json"
   },
   "storage": {
@@ -29,6 +29,8 @@
       "predeploy": [
         "PATH=/usr/local/bin:$PATH npm --prefix \"$RESOURCE_DIR\" run build:context",
         "PATH=/usr/local/bin:$PATH npm --prefix \"$RESOURCE_DIR\" run build:sanctuary",
+        "PATH=/usr/local/bin:$PATH npm --prefix \"$RESOURCE_DIR\" run build:moment",
+        "PATH=/usr/local/bin:$PATH npm --prefix \"$RESOURCE_DIR\" run build:church",
         "cd \"$RESOURCE_DIR/berean\" && npx tsc"
       ],
       "source": "functions"
@@ -74,6 +76,10 @@
     },
     "functions": {
       "port": 5001,
+      "host": "127.0.0.1"
+    },
+    "storage": {
+      "port": 9199,
       "host": "127.0.0.1"
     },
     "ui": {

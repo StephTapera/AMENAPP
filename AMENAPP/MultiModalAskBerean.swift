@@ -462,7 +462,7 @@ struct AskBereanSheet: View {
 
         let userContext = await BereanUserContextProvider.shared.getContextBlock()
         let modeAddition = StudyToneManager.shared.systemPromptAddition(for: query)
-        let systemPrompt = "You are Berean, a faith-aligned AI companion. \(modeAddition)"
+        _ = "You are Berean, a faith-aligned AI companion. \(modeAddition)"
 
         response = (try? await ClaudeService.shared.sendMessageSync("\(userContext)\n\nUser: \(query)", mode: .shepherd)) ?? ""
         isLoading = false

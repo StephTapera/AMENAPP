@@ -177,7 +177,7 @@ exports.autoSuspendOnCriticalPattern = (0, firestore_1.onDocumentCreated)("moder
  * Input:  { uid: string, reason: string }
  * Output: { success: boolean }
  */
-exports.suspendAccount = (0, https_1.onCall)(async (request) => {
+exports.suspendAccount = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -210,7 +210,7 @@ exports.suspendAccount = (0, https_1.onCall)(async (request) => {
  * Input:  { uid: string, reason: string }
  * Output: { success: boolean }
  */
-exports.restoreAccount = (0, https_1.onCall)(async (request) => {
+exports.restoreAccount = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

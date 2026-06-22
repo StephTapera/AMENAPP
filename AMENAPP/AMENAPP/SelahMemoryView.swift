@@ -411,7 +411,7 @@ struct SelahMemoryComposerSheet: View {
             meaningTags: tags
         )
         Task {
-            try? await service.saveMemory(memory)
+            _ = try? await service.saveMemory(memory)
             isSaving = false
             dismiss()
         }

@@ -396,7 +396,7 @@ struct SafeContactFlow: View {
         defer { isSending = false }
 
         do {
-            try await functions.httpsCallable("applyViaInbox").call([
+            _ = try await functions.httpsCallable("applyViaInbox").call([
                 "opportunityId": opportunityId,
                 "applicantId": currentUserId,
                 "introMessage": introMessage.trimmingCharacters(in: .whitespacesAndNewlines)

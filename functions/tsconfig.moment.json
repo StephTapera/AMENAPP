@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "rootDir": "src",
+    "outDir": "lib/moment",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "types": ["node"]
+  },
+  "include": [
+    "src/moment/**/*.ts",
+    "src/berean/momentAdapter/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ]
+}

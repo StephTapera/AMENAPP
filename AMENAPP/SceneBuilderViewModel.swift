@@ -335,7 +335,7 @@ final class SceneBuilderViewModel: ObservableObject {
         """
 
         let raw = try await ClaudeService.shared.sendMessageSync(prompt, mode: .scholar)
-        return parseScenePlan(from: raw ?? "")
+        return parseScenePlan(from: raw)
     }
 
     private func callRefineScenePlan(plan: ScenePlan, prompt: String) async throws -> ScenePlan {
@@ -351,7 +351,7 @@ final class SceneBuilderViewModel: ObservableObject {
         """
 
         let raw = try await ClaudeService.shared.sendMessageSync(refinePrompt, mode: .scholar)
-        return parseScenePlan(from: raw ?? "", preserving: plan)
+        return parseScenePlan(from: raw, preserving: plan)
     }
 
     private func callSafetyCheck() async throws -> CreationSafetySummary {
@@ -373,7 +373,7 @@ final class SceneBuilderViewModel: ObservableObject {
         """
 
         let raw = try await ClaudeService.shared.sendMessageSync(safetyPrompt, mode: .scholar)
-        return parseSafetySummary(from: raw ?? "")
+        return parseSafetySummary(from: raw)
     }
 
     // MARK: - JSON Parsing

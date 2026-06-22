@@ -413,7 +413,7 @@ struct AmenExportView: View {
         Task {
             // Load from the shared ContextStoreService cache (non-Tier-P only).
             if store.facets.isEmpty {
-                try? await store.loadFacets()
+                _ = try? await store.loadFacets()
             }
             let all = store.facets.filter { $0.tier != .p }
             withAnimation(Motion.adaptive(Motion.appearEase)) {

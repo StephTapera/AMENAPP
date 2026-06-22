@@ -257,7 +257,7 @@ function diversify(candidates: ScoredCandidate[], limit: number): ScoredCandidat
 
 // ─── 1. getSuggestedAccountsRail ─────────────────────────────────────
 
-export const getSuggestedAccountsRail = onCall(async (request) => {
+export const getSuggestedAccountsRail = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
         if (!context.auth) {
@@ -522,7 +522,7 @@ export const getSuggestedAccountsRail = onCall(async (request) => {
 
 // ─── 2. logSuggestionFeedback ────────────────────────────────────────
 
-export const logSuggestionFeedback = onCall(async (request) => {
+export const logSuggestionFeedback = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
         if (!context.auth) {

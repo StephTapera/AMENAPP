@@ -312,7 +312,7 @@ final class AmenContentSafetyService: ObservableObject {
                 "error": error.localizedDescription,
                 "clientTimestamp": Date().timeIntervalSince1970
             ]
-            try? await db.collection("criticalSafetyAlerts").addDocument(data: alertRecord)
+            _ = try? await db.collection("criticalSafetyAlerts").addDocument(data: alertRecord)
         }
     }
 

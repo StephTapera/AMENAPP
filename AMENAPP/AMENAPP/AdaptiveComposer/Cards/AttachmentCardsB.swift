@@ -357,14 +357,15 @@ struct AC_LocationCard: View {
         AdaptiveCardContainer(onRemove: onRemove) {
             VStack(alignment: .leading, spacing: 0) {
                 // Map view
-                Map(coordinateRegion: $region, annotationItems: [payload]) { item in
-                    MapPin(
+                Map(initialPosition: .region(region)) {
+                    Marker(
+                        payload.name,
                         coordinate: CLLocationCoordinate2D(
-                            latitude: item.latitude,
-                            longitude: item.longitude
-                        ),
-                        tint: _acbAmenGold
+                            latitude: payload.latitude,
+                            longitude: payload.longitude
+                        )
                     )
+                    .tint(_acbAmenGold)
                 }
                 .frame(height: 140)
                 .clipShape(

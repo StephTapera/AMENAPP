@@ -219,7 +219,7 @@ final class AmenStoreKitManager: ObservableObject {
         for await verification in Transaction.updates {
             do {
                 let transaction = try checkVerified(verification)
-                await MainActor.run {
+                _ = await MainActor.run {
                     purchasedSubscriptions.insert(transaction.productID)
                 }
                 await transaction.finish()

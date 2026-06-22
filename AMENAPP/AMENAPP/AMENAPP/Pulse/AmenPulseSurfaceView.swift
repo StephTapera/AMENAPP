@@ -48,6 +48,11 @@ final class AmenPulseViewModel: ObservableObject {
     @Published private(set) var phase: Phase = .loading
     @Published var chip: PulseChip = .all
 
+    /// The user-steered card cap (lower-only). Loaded from PulsePrefs; defaults to the
+    /// config maximum until prefs resolve. The client honors a LOWERED cap immediately so
+    /// the "show fewer" control has visible effect even before the next server regeneration.
+    @Published private(set) var userMaxCards: Int = PulseConfig.defaultMaxCards
+
     private let service: PulseService
     private var observeTask: Task<Void, Never>?
 
@@ -67,16 +72,25 @@ final class AmenPulseViewModel: ObservableObject {
     var visibleCards: [PulseCard] {
         guard let digest else { return [] }
         if digest.sabbath { return digest.cards }   // single still card; no chips
-        let cap = max(PulseConfig.minUserCards, PulseConfig.defaultMaxCards)
-        let bounded = Array(digest.cards.prefix(cap))
+        let bounded = Array(digest.cards.prefix(userMaxCards))
         return bounded.filter { chip == .all || $0.kind.chip == chip || $0.kind.chip == .all }
     }
 
     var isSabbath: Bool { digest?.sabbath ?? false }
 
+    /// Loads the user-steered card cap from PulsePrefs and clamps it to the allowed
+    /// range. Called on initial load and whenever the prefs sheet is dismissed so a
+    /// lowered cap takes effect immediately. Resilient: any failure keeps the default.
+    func loadPrefsCap() async {
+        guard let prefs = try? await service.loadPrefs() else { return }
+        let raw = prefs.maxCards ?? PulseConfig.defaultMaxCards
+        userMaxCards = min(max(raw, PulseConfig.minUserCards), PulseConfig.defaultMaxCards)
+    }
+
     func load() async {
         if digest != nil, phase == .loaded { return }   // preview-seeded
         phase = .loading
+        await loadPrefsCap()
         do {
             let loaded = try await service.loadToday()
             #if DEBUG
@@ -161,7 +175,9 @@ struct AmenPulseSurfaceView: View {
             expandedOverlay
         }
         .task { await viewModel.load() }
-        .sheet(isPresented: $showPrefs) { PulsePrefsView() }
+        .sheet(isPresented: $showPrefs, onDismiss: { Task { await viewModel.loadPrefsCap() } }) {
+            PulsePrefsView()
+        }
         .fullScreenCover(isPresented: $showArchive) {
             NavigationStack { WhatsNewArchiveView() }
         }
@@ -194,6 +210,7 @@ struct AmenPulseSurfaceView: View {
                     if !viewModel.visibleCards.contains(where: { $0.kind != .terminus }) && viewModel.phase == .empty {
                         emptyState
                     } else {
+                        chipBar
                         pulseStack
                     }
                 }
@@ -209,6 +226,14 @@ struct AmenPulseSurfaceView: View {
             .padding(.horizontal, 20)
             .padding(.top, 16)
             .padding(.bottom, 4)
+    }
+
+    /// Floating glass filter chips. Selection narrows the bounded visible set; the editorial
+    /// stack derives from the filtered cards, so picking a chip reshapes the whole surface.
+    private var chipBar: some View {
+        PulseGlassChipBar(selection: $viewModel.chip)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
     }
 
     // MARK: Redesigned ivory-glass stack
@@ -543,6 +568,52 @@ private extension Binding where Value == String? {
             get: { wrappedValue.map(IdentifiableString.init) },
             set: { wrappedValue = $0?.id }
         )
+    }
+}
+
+// MARK: - Filter chips
+
+/// Floating glass filter chips (All · Spiritual · People · Church · Community). These are
+/// chrome — floating controls over the canvas, not card surfaces — so the no-glass-on-glass
+/// rule holds. Selection drives the bounded, filtered visible set.
+private struct PulseGlassChipBar: View {
+    @Binding var selection: PulseChip
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(PulseChip.allCases) { chip in
+                    chipButton(chip)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func chipButton(_ chip: PulseChip) -> some View {
+        let active = selection == chip
+        return Button {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.8)) {
+                selection = chip
+            }
+        } label: {
+            Text(chip.title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(active ? .white : Color(.label))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
+                .background(
+                    Capsule()
+                        .fill(active ? Color(.label).opacity(0.86) : Color.white.opacity(0.62))
+                        .background(Capsule().fill(.ultraThinMaterial))
+                )
+                .overlay(Capsule().stroke(Color.white.opacity(active ? 0 : 0.7), lineWidth: 0.5))
+                .shadow(color: .black.opacity(active ? 0.18 : 0.06), radius: active ? 10 : 8, y: 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
     }
 }
 

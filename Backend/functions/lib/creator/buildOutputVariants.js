@@ -36,7 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildOutputVariants = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
-exports.buildOutputVariants = (0, https_1.onCall)(async (request) => {
+exports.buildOutputVariants = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

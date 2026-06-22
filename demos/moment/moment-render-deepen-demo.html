@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AMEN Moment Render + Deepen Demo</title>
+    <link rel="stylesheet" href="./moment-render-deepen-demo.css">
+</head>
+<body>
+    <main class="moment-demo" aria-labelledby="demo-title">
+        <section class="demo-shell" data-calmcap="finite-dismissible-static">
+            <header class="demo-header">
+                <p class="eyebrow">Moment</p>
+                <h1 id="demo-title">Stillness after a hard conversation</h1>
+                <p class="header-copy">A single finite Moment surface with the v1 Deepen verb family available and Gather gated for compliance review.</p>
+            </header>
+
+            <article class="moment-card" aria-labelledby="moment-title" data-moment-type="prayer" data-temporal-state="evergreen">
+                <div class="moment-card__topline">
+                    <span class="moment-pill">Prayer</span>
+                    <span class="temporal-state" aria-label="Temporal state: evergreen">Evergreen</span>
+                </div>
+
+                <div class="moment-body">
+                    <h2 id="moment-title">A quiet pause before answering</h2>
+                    <p>
+                        You noticed your breath before replying. This Moment is complete as-is, and can be deepened without opening a live room or public feed.
+                    </p>
+                </div>
+
+                <dl class="moment-facts" aria-label="Moment contract summary">
+                    <div>
+                        <dt>Type</dt>
+                        <dd>Prayer</dd>
+                    </div>
+                    <div>
+                        <dt>Temporal state</dt>
+                        <dd>Evergreen</dd>
+                    </div>
+                    <div>
+                        <dt>Surface</dt>
+                        <dd>Dismissible</dd>
+                    </div>
+                </dl>
+
+                <div class="moment-actions" aria-label="Moment action families">
+                    <button class="primary-action" type="button" data-action-family="Deepen" data-enabled="true" aria-controls="deepen-sheet" aria-expanded="false">
+                        Deepen
+                    </button>
+                    <button class="gated-action" type="button" data-action-family="Gather" data-disabled-reason="complianceGateRequired" disabled aria-disabled="true">
+                        Gather gated
+                    </button>
+                </div>
+            </article>
+
+            <aside class="compliance-panel" aria-labelledby="gather-title">
+                <div>
+                    <p class="eyebrow">Gather</p>
+                    <h2 id="gather-title">Compliance gate required</h2>
+                </div>
+                <p>
+                    Gather is visible for contract coverage only. It is disabled in v1 and does not show live rooms, live counts, presence, or real-time feed activity.
+                </p>
+                <span class="gate-token">complianceGateRequired</span>
+            </aside>
+        </section>
+
+        <section class="deepen-sheet" id="deepen-sheet" aria-labelledby="deepen-title" data-sheet-state="open">
+            <div class="sheet-handle" aria-hidden="true"></div>
+            <div class="sheet-header">
+                <div>
+                    <p class="eyebrow">Deepen</p>
+                    <h2 id="deepen-title">Choose one next step</h2>
+                </div>
+                <button class="icon-button" type="button" aria-label="Dismiss Deepen sheet" data-dismiss-sheet>&times;</button>
+            </div>
+
+            <div class="action-list" role="list" aria-label="Enabled Deepen actions">
+                <button class="action-row is-selected" type="button" role="listitem" data-deepen-action="summarize" data-enabled="true">
+                    <span>
+                        <strong>summarize</strong>
+                        <small>Summarize the Moment without adding live context.</small>
+                    </span>
+                    <span class="state-dot" aria-hidden="true"></span>
+                </button>
+                <button class="action-row" type="button" role="listitem" data-deepen-action="crossReference" data-enabled="true">
+                    <span>
+                        <strong>crossReference</strong>
+                        <small>Connect the Moment to saved AMEN context.</small>
+                    </span>
+                    <span class="state-dot" aria-hidden="true"></span>
+                </button>
+                <button class="action-row" type="button" role="listitem" data-deepen-action="generatePrayer" data-enabled="true">
+                    <span>
+                        <strong>generatePrayer</strong>
+                        <small>Generate a private prayer from this Moment.</small>
+                    </span>
+                    <span class="state-dot" aria-hidden="true"></span>
+                </button>
+                <button class="action-row" type="button" role="listitem" data-deepen-action="generateStudyGuide" data-enabled="true">
+                    <span>
+                        <strong>generateStudyGuide</strong>
+                        <small>Create a study guide for later review.</small>
+                    </span>
+                    <span class="state-dot" aria-hidden="true"></span>
+                </button>
+                <button class="action-row" type="button" role="listitem" data-deepen-action="generateDiscussion" data-enabled="true">
+                    <span>
+                        <strong>generateDiscussion</strong>
+                        <small>Draft discussion prompts without opening a room.</small>
+                    </span>
+                    <span class="state-dot" aria-hidden="true"></span>
+                </button>
+                <button class="action-row" type="button" role="listitem" data-deepen-action="generateDevotional" data-enabled="true">
+                    <span>
+                        <strong>generateDevotional</strong>
+                        <small>Generate a devotional for this Moment.</small>
+                    </span>
+                    <span class="state-dot" aria-hidden="true"></span>
+                </button>
+                <button class="action-row" type="button" role="listitem" data-deepen-action="saveTo" data-enabled="true">
+                    <span>
+                        <strong>saveTo</strong>
+                        <small>Save this Moment to a chosen private destination.</small>
+                    </span>
+                    <span class="state-dot" aria-hidden="true"></span>
+                </button>
+            </div>
+
+            <div class="calmcap-note" data-calmcap-rules="finite dismissible no-urgency no-live-counts no-rewards no-streaks">
+                Static preview only. No urgency copy, live counts, reward pulses, haptics, streaks, or gamified mechanics are present.
+            </div>
+        </section>
+    </main>
+
+    <script src="./moment-render-deepen-demo.js"></script>
+</body>
+</html>

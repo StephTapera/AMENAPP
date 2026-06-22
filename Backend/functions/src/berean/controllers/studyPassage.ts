@@ -31,7 +31,7 @@ export const bereanStudyPassage = onCall(
     timeoutSeconds: 60,
     memory: "512MiB",
     // 5.1 FIX: Reject calls from clients without a valid App Check token.
-    enforceAppCheck: false,
+    enforceAppCheck: true,
   },
   async (request) => {
     if (!request.auth) {

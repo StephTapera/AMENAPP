@@ -1,0 +1,25 @@
+
+=== Deploying to 'amen-5e359'...
+
+i  deploying functions
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build:context
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build:sanctuary
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build:moment
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build:church
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+Running command: cd "$RESOURCE_DIR/berean" && npx tsc
+✔  functions: Finished running predeploy script.
+✔  functions: Finished running predeploy script.
+Running command: PATH=/usr/local/bin:$PATH npm --prefix "$RESOURCE_DIR" run build
+⚠  Warning: Your command contains '=', it may result in the command not running. Please consider removing it.
+✔  functions: Finished running predeploy script.
+i  functions: preparing codebase default for deployment
+i  functions: ensuring required API cloudfunctions.googleapis.com is enabled...
+i  functions: ensuring required API cloudbuild.googleapis.com is enabled...
+i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled...
+
+Error: Cloud Runtime Config is currently experiencing issues, which is preventing your functions from being deployed. Please wait a few minutes and then try to deploy your functions again.
+Run `firebase deploy --except functions` if you want to continue deploying the rest of your project.

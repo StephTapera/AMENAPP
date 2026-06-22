@@ -46,7 +46,6 @@ final class ComposerPlaceholderService {
 
     private func activityBased(userId: String) async -> String? {
         async let echoCheck   = recentEchoOnPost(userId: userId)
-        async let lastPost    = lastPostDate(userId: userId)
         async let joinDate    = userJoinDate(userId: userId)
         async let unanswered  = hasUnansweredPrayer(userId: userId)
         async let recentComment = hasRecentComment(userId: userId)

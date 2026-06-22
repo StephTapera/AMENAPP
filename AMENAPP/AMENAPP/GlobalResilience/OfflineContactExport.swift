@@ -283,6 +283,8 @@ struct OfflineContactExportView: View {
             isAuthorized = false
         case .denied, .restricted:
             isAuthorized = false
+        case .limited:
+            isAuthorized = false
         @unknown default:
             isAuthorized = false
         }
@@ -306,7 +308,7 @@ struct OfflineContactExportView: View {
                 email: contact.email
             )
             withAnimation {
-                exportedIds.insert(contact.id)
+                _ = exportedIds.insert(contact.id)
             }
         } catch {
             errorMessage = error.localizedDescription

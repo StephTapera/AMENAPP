@@ -107,7 +107,7 @@ final class MediaSessionCoordinator: ObservableObject {
             forInterval: interval,
             queue: .main
         ) { [weak self] time in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.handleTimeUpdate(seconds: time.seconds)
             }
         }
@@ -165,7 +165,7 @@ final class MediaSessionCoordinator: ObservableObject {
     private func startSyncTimer() {
         stopSyncTimer()
         syncTimer = Timer.scheduledTimer(withTimeInterval: syncInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.snapshotCurrentPosition()
             }
         }

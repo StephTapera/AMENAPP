@@ -455,7 +455,7 @@ final class CaughtUpService: ObservableObject {
 
     private func startEvaluationTimer() {
         evaluationTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 guard let self else { return }
                 let now = Date()
                 self.evaluateEligibility()

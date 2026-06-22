@@ -266,11 +266,12 @@ struct ChurchNotesShareHelper {
                     postContent += "Scripture: \(note.scriptureReferences.joined(separator: ", "))\n"
                 }
                 postContent += "\n\(note.content)"
-                
+                let postContentCopy = postContent
+
                 // Create post using PostsManager with churchNoteId
                 await MainActor.run {
                     PostsManager.shared.createPost(
-                        content: postContent,
+                        content: postContentCopy,
                         category: .openTable,
                         topicTag: "Church Notes",
                         visibility: .everyone,

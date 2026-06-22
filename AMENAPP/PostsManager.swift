@@ -216,6 +216,10 @@ struct Post: Identifiable, Codable, Equatable {
     var flaggedForReview: Bool = false // Post is under review by moderators
     var removed: Bool = false // Post was removed by automated moderation
 
+    // True Source — backend-written safety/provenance/context/ranking bundle.
+    // nil for legacy posts created before True Source deployment.
+    var trueSource: TrueSourceBundle? = nil
+
     // Poll attachment — nil when the post has no poll
     var poll: PostPoll? = nil
 
@@ -447,6 +451,7 @@ struct Post: Identifiable, Codable, Equatable {
         case actionThreadId, actionThreadType, hasActiveActionThread
         case normalizedTopicKeys, topicScoreMap, primaryTopicKey
         case music
+        case trueSource
     }
     
     init(from decoder: Decoder) throws {
@@ -544,6 +549,10 @@ struct Post: Identifiable, Codable, Equatable {
         topicScoreMap = try container.decodeIfPresent([String: Double].self, forKey: .topicScoreMap)
         primaryTopicKey = try container.decodeIfPresent(String.self, forKey: .primaryTopicKey)
         music = try container.decodeIfPresent(MusicAttachment.self, forKey: .music)
+        // Backend-written True Source bundle (read-only on the client). Decoded so
+        // client-side eligibility/harm forwarding reflects real moderation verdicts;
+        // nil only for genuine pre-True-Source posts (legacy grandfather clause).
+        trueSource = try container.decodeIfPresent(TrueSourceBundle.self, forKey: .trueSource)
         feedContext = nil
     }
 
@@ -621,6 +630,11 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(topicScoreMap, forKey: .topicScoreMap)
         try container.encodeIfPresent(primaryTopicKey, forKey: .primaryTopicKey)
         try container.encodeIfPresent(music, forKey: .music)
+        // NOTE: `trueSource` is intentionally NOT encoded. True Source safety/provenance
+        // metadata is backend-written and read-only on the client (Firestore rules deny
+        // client writes to these fields). Encoding it would break whole-document writes
+        // such as repost via addDocument(from:), or risk client-side spoofing of safety
+        // verdicts. Decode-only by design.
     }
 
     init(

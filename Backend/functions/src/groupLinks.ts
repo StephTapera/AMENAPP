@@ -144,7 +144,7 @@ async function maybeAntiRaidPause(
 
 // ─── 1. createGroupWithLink ──────────────────────────────────────────
 
-export const createGroupWithLink = onCall(async (request) => {
+export const createGroupWithLink = onCall({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Auth required");
     }
@@ -238,7 +238,7 @@ export const createGroupWithLink = onCall(async (request) => {
 
 // ─── 2. fetchGroupLinkPreview ────────────────────────────────────────
 
-export const fetchGroupLinkPreview = onCall(async (request) => {
+export const fetchGroupLinkPreview = onCall({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Auth required");
     }
@@ -289,7 +289,7 @@ export const fetchGroupLinkPreview = onCall(async (request) => {
 
 // ─── 3. evaluateJoinViaLink ──────────────────────────────────────────
 
-export const evaluateJoinViaLink = onCall(async (request) => {
+export const evaluateJoinViaLink = onCall({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Auth required");
     }
@@ -383,7 +383,7 @@ export const evaluateJoinViaLink = onCall(async (request) => {
 
 // ─── 4. joinGroupViaLink ─────────────────────────────────────────────
 
-export const joinGroupViaLink = onCall(async (request) => {
+export const joinGroupViaLink = onCall({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Auth required");
     }
@@ -505,7 +505,7 @@ export const joinGroupViaLink = onCall(async (request) => {
 
 // ─── 5. requestJoinViaLink ───────────────────────────────────────────
 
-export const requestJoinViaLink = onCall(async (request) => {
+export const requestJoinViaLink = onCall({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Auth required");
     }
@@ -585,7 +585,7 @@ export const requestJoinViaLink = onCall(async (request) => {
 
 // ─── 6. adminRespondToJoinRequest ────────────────────────────────────
 
-export const adminRespondToJoinRequest = onCall(async (request) => {
+export const adminRespondToJoinRequest = onCall({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Auth required");
     }
@@ -706,7 +706,7 @@ export const adminRespondToJoinRequest = onCall(async (request) => {
 
 // ─── 7. manageGroupLink ──────────────────────────────────────────────
 
-export const manageGroupLink = onCall(async (request) => {
+export const manageGroupLink = onCall({ enforceAppCheck: true }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Auth required");
     }

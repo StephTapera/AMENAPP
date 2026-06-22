@@ -50,20 +50,16 @@ final class ChurchMembershipService: ObservableObject {
         error = nil
         defer { isLoading = false }
 
-        do {
-            // Firestore query:
-            // let snapshot = try await db.collection("churchMemberships")
-            //     .whereField("userId", isEqualTo: userId)
-            //     .whereField("status", isEqualTo: "active")
-            //     .order(by: "joinedAt", descending: true)
-            //     .getDocuments()
-            // self.userMemberships = try snapshot.documents.map {
-            //     try Firestore.Decoder().decode(ChurchMembership.self, from: $0.data())
-            // }
-            _ = userId // suppress unused-variable warning until Firestore is wired
-        } catch {
-            self.error = error
-        }
+        // Firestore query:
+        // let snapshot = try await db.collection("churchMemberships")
+        //     .whereField("userId", isEqualTo: userId)
+        //     .whereField("status", isEqualTo: "active")
+        //     .order(by: "joinedAt", descending: true)
+        //     .getDocuments()
+        // self.userMemberships = try snapshot.documents.map {
+        //     try Firestore.Decoder().decode(ChurchMembership.self, from: $0.data())
+        // }
+        _ = userId // suppress unused-variable warning until Firestore is wired
     }
 
     // MARK: - Writes

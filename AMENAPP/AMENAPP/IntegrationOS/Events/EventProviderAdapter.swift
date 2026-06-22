@@ -26,7 +26,7 @@ final class EventKitEventsAdapter: ProviderAdapter {
 
     func refresh() async throws {
         let status = EKEventStore.authorizationStatus(for: .event)
-        authorized = status == .fullAccess || status == .authorized
+        authorized = status == .fullAccess
     }
 
     func revoke() async throws { authorized = false }

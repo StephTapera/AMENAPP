@@ -19,9 +19,7 @@ const db = admin.firestore();
 
 // ─── checkBiblicalAlignment ───────────────────────────────────────────────────
 
-export const checkBiblicalAlignment = onCall(
-    { region: "us-central1", timeoutSeconds: 15 },
-    async (request) => {
+export const checkBiblicalAlignment = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 15 }, async (request) => {
         if (!request.auth) throw new HttpsError("unauthenticated", "Auth required.");
         if (!request.app)  throw new HttpsError("failed-precondition", "App Check required.");
 
@@ -82,9 +80,7 @@ export const checkBiblicalAlignment = onCall(
 
 // ─── suggestBiblicalRewrite ───────────────────────────────────────────────────
 
-export const suggestBiblicalRewrite = onCall(
-    { region: "us-central1", timeoutSeconds: 15 },
-    async (request) => {
+export const suggestBiblicalRewrite = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 15 }, async (request) => {
         if (!request.auth) throw new HttpsError("unauthenticated", "Auth required.");
         if (!request.app)  throw new HttpsError("failed-precondition", "App Check required.");
 
@@ -107,9 +103,7 @@ export const suggestBiblicalRewrite = onCall(
 
 // ─── saveAICorrection ─────────────────────────────────────────────────────────
 
-export const saveAICorrection = onCall(
-    { region: "us-central1", timeoutSeconds: 10 },
-    async (request) => {
+export const saveAICorrection = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 10 }, async (request) => {
         if (!request.auth) throw new HttpsError("unauthenticated", "Auth required.");
         if (!request.app)  throw new HttpsError("failed-precondition", "App Check required.");
 
@@ -157,9 +151,7 @@ export const saveAICorrection = onCall(
 
 // ─── getDiscernmentPrompt ─────────────────────────────────────────────────────
 
-export const getDiscernmentPrompt = onCall(
-    { region: "us-central1", timeoutSeconds: 10 },
-    async (request) => {
+export const getDiscernmentPrompt = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 10 }, async (request) => {
         if (!request.auth) throw new HttpsError("unauthenticated", "Auth required.");
         if (!request.app)  throw new HttpsError("failed-precondition", "App Check required.");
 
@@ -173,9 +165,7 @@ export const getDiscernmentPrompt = onCall(
 
 // ─── attachSharedKnowledgeIntegrity ──────────────────────────────────────────
 
-export const attachSharedKnowledgeIntegrity = onCall(
-    { region: "us-central1", timeoutSeconds: 10 },
-    async (request) => {
+export const attachSharedKnowledgeIntegrity = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 10 }, async (request) => {
         if (!request.auth) throw new HttpsError("unauthenticated", "Auth required.");
         if (!request.app)  throw new HttpsError("failed-precondition", "App Check required.");
 
@@ -225,9 +215,7 @@ export const attachSharedKnowledgeIntegrity = onCall(
 
 // ─── voteKnowledgeIntegrity ───────────────────────────────────────────────────
 
-export const voteKnowledgeIntegrity = onCall(
-    { region: "us-central1", timeoutSeconds: 10 },
-    async (request) => {
+export const voteKnowledgeIntegrity = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 10 }, async (request) => {
         if (!request.auth) throw new HttpsError("unauthenticated", "Auth required.");
         if (!request.app)  throw new HttpsError("failed-precondition", "App Check required.");
 
@@ -269,9 +257,7 @@ export const voteKnowledgeIntegrity = onCall(
 
 // ─── getWeeklyAlignmentSummary ────────────────────────────────────────────────
 
-export const getWeeklyAlignmentSummary = onCall(
-    { region: "us-central1", timeoutSeconds: 20 },
-    async (request) => {
+export const getWeeklyAlignmentSummary = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 20 }, async (request) => {
         if (!request.auth) throw new HttpsError("unauthenticated", "Auth required.");
         if (!request.app)  throw new HttpsError("failed-precondition", "App Check required.");
 
@@ -374,9 +360,7 @@ export const getWeeklyAlignmentSummary = onCall(
 
 // ─── updateAlignmentProfile ───────────────────────────────────────────────────
 
-export const updateAlignmentProfile = onCall(
-    { region: "us-central1", timeoutSeconds: 10 },
-    async (request) => {
+export const updateAlignmentProfile = onCall({ enforceAppCheck: true, region: "us-central1", timeoutSeconds: 10 }, async (request) => {
         if (!request.auth) throw new HttpsError("unauthenticated", "Auth required.");
         if (!request.app)  throw new HttpsError("failed-precondition", "App Check required.");
 

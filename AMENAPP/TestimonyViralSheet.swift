@@ -282,7 +282,7 @@ struct TestimonyViralSheet: View {
     
     @ViewBuilder
     private var captionSection: some View {
-        if let r = vm.result {
+        if vm.result != nil {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("CAPTION")

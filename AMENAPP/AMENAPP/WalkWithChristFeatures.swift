@@ -241,10 +241,14 @@ final class SundayApplicationViewModel: ObservableObject {
     @Published var currentPath: SundayApplicationPath?
     @Published var isLoading = false
     @Published var completedStepIndices: Set<Int> = []
+    /// True only once a real, user-specific application path has loaded from Firestore.
+    /// Starts false so the view never renders fabricated content before `loadLatestPath()`.
+    @Published var hasRealPath: Bool = false
 
     func loadLatestPath() async {
         guard let uid = Auth.auth().currentUser?.uid else {
             currentPath = defaultApplicationPath()
+            hasRealPath = false
             return
         }
         isLoading = true
@@ -270,11 +274,14 @@ final class SundayApplicationViewModel: ObservableObject {
                     createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
                 )
                 completedStepIndices = Set(data["completedSteps"] as? [Int] ?? [])
+                hasRealPath = true
             } else {
                 currentPath = defaultApplicationPath()
+                hasRealPath = false
             }
         } catch {
             currentPath = defaultApplicationPath()
+            hasRealPath = false
         }
         isLoading = false
     }

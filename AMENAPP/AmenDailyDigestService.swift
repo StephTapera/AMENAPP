@@ -15,8 +15,8 @@ final class AmenDailyDigestService: ObservableObject {
 
     var digest: AmenDailyDigest? { state.digest }
 
-    init(weatherProvider: AmenDailyDigestWeatherProvider = .shared) {
-        self.weatherProvider = weatherProvider
+    init(weatherProvider: AmenDailyDigestWeatherProvider? = nil) {
+        self.weatherProvider = weatherProvider ?? AmenDailyDigestWeatherProvider.shared
     }
 
     func loadDigest(forceRefresh: Bool = false) async {

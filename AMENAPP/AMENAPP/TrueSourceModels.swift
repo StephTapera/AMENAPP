@@ -372,3 +372,27 @@ extension TrueSourceBundle {
         return bundle
     }
 }
+
+// MARK: - Post + True Source forwarding
+
+extension Post {
+    /// Whether this post may appear in any feed surface.
+    /// Removed or flagged posts are never eligible. Posts carrying a True Source
+    /// bundle defer to the bundle's eligibility; legacy posts without a bundle
+    /// remain eligible for backwards compatibility.
+    var isEligibleForFeedDisplay: Bool {
+        if removed || flaggedForReview { return false }
+        if let bundle = trueSource { return bundle.isEligibleForFeedDisplay }
+        return true
+    }
+
+    /// Aggregate harm score from the True Source safety bundle (0 when absent).
+    var aggregateHarmScore: Double {
+        trueSource?.safety.aggregateHarmScore ?? 0
+    }
+
+    /// Whether the True Source bundle marks this post for reduced reach.
+    var hasReducedReach: Bool {
+        trueSource?.safety.hasReducedReach ?? false
+    }
+}

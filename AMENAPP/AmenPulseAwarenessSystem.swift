@@ -334,11 +334,12 @@ struct AmenPulseBannerView: View {
 extension View {
     /// Attaches a Pulse suggestion banner to the bottom of any view.
     /// Banner appears above the keyboard / bottom bar.
+    @MainActor
     func amenPulseOverlay(
-        engine: AmenPulseAwarenessEngine = .shared,
+        engine: AmenPulseAwarenessEngine? = nil,
         onAction: ((PulseSuggestion) -> Void)? = nil
     ) -> some View {
-        modifier(AmenPulseOverlayModifier(engine: engine, onAction: onAction))
+        modifier(AmenPulseOverlayModifier(engine: engine ?? AmenPulseAwarenessEngine.shared, onAction: onAction))
     }
 }
 

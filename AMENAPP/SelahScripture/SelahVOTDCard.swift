@@ -23,7 +23,7 @@ struct SelahVOTDCard: View {
     let verseRef: String
     /// Full verse text displayed on the card.
     let verseText: String
-    /// Optional remote hero photo. When nil a neutral gray gradient fills the hero.
+    /// Optional remote hero photo. When nil a scripture-themed fallback fills the hero.
     let heroImageURL: URL?
     /// Called when the user taps "Read Chapter". Receives the verseRef string.
     let onReadChapter: (String) -> Void
@@ -109,24 +109,51 @@ struct SelahVOTDCard: View {
                         .resizable()
                         .scaledToFill()
                 case .failure:
-                    neutralGradientPlaceholder
+                    scriptureFallbackHero
                 case .empty:
-                    neutralGradientPlaceholder
+                    scriptureFallbackHero
                 @unknown default:
-                    neutralGradientPlaceholder
+                    scriptureFallbackHero
                 }
             }
         } else {
-            neutralGradientPlaceholder
+            scriptureFallbackHero
         }
     }
 
-    private var neutralGradientPlaceholder: some View {
-        LinearGradient(
-            colors: [Color(.systemGray5), Color(.systemGray4)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+    private var scriptureFallbackHero: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.94, green: 0.97, blue: 1.00),
+                    Color(red: 0.76, green: 0.84, blue: 0.92),
+                    Color(red: 0.42, green: 0.48, blue: 0.56)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            RadialGradient(
+                colors: [Color.white.opacity(0.72), Color.clear],
+                center: .topTrailing,
+                startRadius: 8,
+                endRadius: 180
+            )
+
+            VStack(spacing: 10) {
+                Image(systemName: "book.pages.fill")
+                    .font(.system(size: 42, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.82))
+                    .shadow(color: .black.opacity(0.16), radius: 10, y: 4)
+
+                Text("Verse of the Day")
+                    .font(.caption.weight(.semibold))
+                    .textCase(.uppercase)
+                    .tracking(1.2)
+                    .foregroundStyle(.white.opacity(0.74))
+            }
+            .offset(y: -18)
+        }
     }
 
     // MARK: - Scrim Overlays

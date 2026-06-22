@@ -234,8 +234,13 @@ struct MentorshipMemoryNode: Codable, Identifiable {
     let signalKind: MentorSignalKind
     let data: [String: String]
     let createdAt: TimeInterval
-    // Immutable invariant — mentorship memory is always sensitive
-    let sensitivity: String = "SENSITIVE"
+    // Immutable invariant — mentorship memory is always sensitive.
+    // Excluded from CodingKeys: it is a fixed constant, never decoded from the wire.
+    var sensitivity: String = "SENSITIVE"
+
+    private enum CodingKeys: String, CodingKey {
+        case id, uid, mentorshipId, signalKind, data, createdAt
+    }
 
     init(uid: String, mentorshipId: String, signalKind: MentorSignalKind, data: [String: String]) {
         self.id = UUID().uuidString

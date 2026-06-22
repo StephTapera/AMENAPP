@@ -435,13 +435,6 @@ final class AmenSyncViewModel: ObservableObject {
         }
 
         // Update project
-        let summary = SyncPublishSummary(
-            totalPlatforms: selectedVariants.count,
-            successCount: successCount,
-            failedCount: selectedVariants.count - successCount,
-            platformResults: results
-        )
-
         do {
             try await db.collection("amenSyncProjects").document(projectId).updateData([
                 "status": "published",

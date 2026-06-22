@@ -92,7 +92,9 @@ class PostCardServices: ObservableObject {
 // MARK: - Environment Key
 
 struct PostCardServicesKey: EnvironmentKey {
-    static let defaultValue = PostCardServices.shared
+    static var defaultValue: PostCardServices {
+        MainActor.assumeIsolated { PostCardServices.shared }
+    }
 }
 
 extension EnvironmentValues {

@@ -101,9 +101,13 @@ final class ChurchJourneyStore: ObservableObject {
             .order(by: "serviceStartAt", descending: true)
             .limit(to: 10)
             .getDocuments { [weak self] snapshot, _ in
-                self?.recentJourneys = snapshot?.documents.compactMap {
+                guard let self else { return }
+                let journeys = snapshot?.documents.compactMap {
                     try? $0.data(as: ChurchJourney.self)
                 } ?? []
+                Task { @MainActor in
+                    self.recentJourneys = journeys
+                }
             }
     }
 
@@ -132,16 +136,19 @@ final class ChurchJourneyStore: ObservableObject {
         isLoadingJourney = true
         db.collection("churchJourneys").document(id).getDocument { [weak self] doc, _ in
             guard let self else { return }
-            if let journey = try? doc?.data(as: ChurchJourney.self),
-               journey.userId == uid,
-               journey.status.isActive {
-                self.activeJourney = journey
-                UserDefaults.standard.set(id, forKey: self.persistenceKey)
-                if let sessionId = journey.noteSessionId {
-                    self.loadNoteSession(id: sessionId)
+            let journey = try? doc?.data(as: ChurchJourney.self)
+            Task { @MainActor in
+                if let journey,
+                   journey.userId == uid,
+                   journey.status.isActive {
+                    self.activeJourney = journey
+                    UserDefaults.standard.set(id, forKey: self.persistenceKey)
+                    if let sessionId = journey.noteSessionId {
+                        self.loadNoteSession(id: sessionId)
+                    }
                 }
+                self.isLoadingJourney = false
             }
-            self.isLoadingJourney = false
         }
     }
 
@@ -149,14 +156,21 @@ final class ChurchJourneyStore: ObservableObject {
         isLoadingSession = true
         db.collection("churchNoteSessions").document(id).getDocument { [weak self] doc, _ in
             guard let self else { return }
-            self.activeNoteSession = try? doc?.data(as: ChurchNoteSession.self)
-            self.isLoadingSession = false
+            let session = try? doc?.data(as: ChurchNoteSession.self)
+            Task { @MainActor in
+                self.activeNoteSession = session
+                self.isLoadingSession = false
+            }
         }
     }
 
     func loadReflection(id: String) {
         db.collection("churchReflections").document(id).getDocument { [weak self] doc, _ in
-            self?.activeReflection = try? doc?.data(as: ChurchReflection.self)
+            guard let self else { return }
+            let reflection = try? doc?.data(as: ChurchReflection.self)
+            Task { @MainActor in
+                self.activeReflection = reflection
+            }
         }
     }
 

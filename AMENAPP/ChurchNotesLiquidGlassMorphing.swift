@@ -537,7 +537,7 @@ struct WaveformGlassCapsule: View {
             }
         }
         .onAppear { if isActive { withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: false)) { phase = 1 } } }
-        .onChange(of: isActive) { active in
+        .onChange(of: isActive) { _, active in
             if active {
                 withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: false)) { phase = 1 }
             } else {

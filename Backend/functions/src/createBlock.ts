@@ -33,7 +33,7 @@ import * as admin from "firebase-admin";
 
 const db = admin.firestore();
 
-export const createBlock = onCall(async (request) => {
+export const createBlock = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -100,7 +100,7 @@ export const createBlock = onCall(async (request) => {
 //
 // Removes block from both stores atomically. Mirror of createBlock.
 
-export const createUnblock = onCall(async (request) => {
+export const createUnblock = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

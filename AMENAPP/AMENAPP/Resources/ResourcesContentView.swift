@@ -138,11 +138,11 @@ struct ResourcesContentView: View {
     private func railHeader(title: String, icon: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.systemScaled(14, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             Text(title)
-                .font(AMENFont.bold(18))
+                .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(.primary)
         }
         .padding(.horizontal, 20)
@@ -163,27 +163,32 @@ private struct ResourceRailCardView: View {
                     .frame(width: 44, height: 44)
 
                 Image(systemName: card.icon)
-                    .font(.systemScaled(18, weight: .medium))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(card.accentColor)
             }
 
             // Title
             Text(card.title)
-                .font(AMENFont.semiBold(14))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
 
             // Subtitle
             Text(card.subtitle)
-                .font(AMENFont.regular(11))
+                .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
         }
         .padding(14)
         .frame(width: 148, alignment: .leading)
-        .amenGlassCard(cornerRadius: 18, shadow: true)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
     }
 }
 

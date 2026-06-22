@@ -162,7 +162,7 @@ async function getServerSafetyFlags() {
  * This is useful immediately after updating flags via the console.
  * Only callable by admin-level callers (Firebase Admin SDK or custom claims check).
  */
-exports.invalidateServerFlagCache = (0, https_1.onCall)(async (request) => {
+exports.invalidateServerFlagCache = (0, https_1.onCall)({ enforceAppCheck: true }, async (request) => {
     const _data = request.data;
     const data = _data;
     const context = { auth: request.auth, app: request.app };

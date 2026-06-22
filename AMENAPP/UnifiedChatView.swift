@@ -892,6 +892,9 @@ struct UnifiedChatView: View {
             AmenContextMenuBubble(presenter: AmenMessageContextMenuPresenter.shared)
         }
         .navigationBarHidden(true)
+        // Advisory "blocked by several people" caution (T&S item 21 follow-on).
+        // No-op for group chats (otherUserId == nil) and when the flag is OFF.
+        .inboundBlockWarning(for: otherUserId)
         .withToast()
         .successChips(successChips)
         .modifier(PrimaryChatSheetsModifier(
