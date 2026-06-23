@@ -1120,6 +1120,38 @@ final class AMENFeatureFlags: ObservableObject {
     /// (BereanPipelineClient → `bereanPipeline`) at the depth-dial depth; no placeholder text.
     @Published private(set) var askBereanWhyEnabled: Bool = true
 
+    // MARK: - System 45: Borrow & Smarten (translation of IG/Claude primitives)
+    // All default OFF, fail-closed. Wave 0 contracts only — NOT wired into write/rank paths yet.
+    // TS source of truth + Swift mirrors per audit/BORROW_AND_SMARTEN_SPEC.md.
+    // CONSTITUTION LOCK: no public trust score; no vanity metric; no pay-for-reach; scanning safety-only;
+    // child-safety hash is UNCONDITIONAL (never gated by any flag here); Companion Boundary enforced.
+    /// C — GUARDIAN PrePublish: gates the deterministic pre-commit hook chain ENFORCEMENT (hooks 1–3).
+    /// The childSafetyHash hook (position 0) is NEVER gated by this flag — it is always-on + fail-closed.
+    @Published private(set) var guardianPrePublishEnabled: Bool = false
+    /// D — Provenance: gates post↔account label resolution (post-level precedence). Base labels stay on provenanceLabelsEnabled.
+    @Published private(set) var postAccountProvenanceResolutionEnabled: Bool = false
+    /// D — Authenticity-first capture: gates inAppCaptureBonus/C2PA provenance wiring. Location-strip for minors is always-on.
+    @Published private(set) var authenticityFirstCaptureEnabled: Bool = false
+    /// A — HeyFeed v2 steering: gates user-owned steering delta + NL steering UI. SafetyFloor is NOT gated (always-on).
+    @Published private(set) var heyFeedSteeringEnabled: Bool = false
+    /// B — Berean Tag-an-Agent Mesh: gates @-tag persona fanout. Personas reuse existing BereanModes/pipeline/grader/gate.
+    @Published private(set) var bereanAgentMesh: Bool = false
+    /// E — COMPASS steering / anti-farming / activity discovery (internal integrity only; no displayed score).
+    @Published private(set) var compassSteeringEnabled: Bool = false
+    @Published private(set) var compassAntiFarmingEnabled: Bool = false
+    @Published private(set) var compassActivityDiscoveryEnabled: Bool = false
+    /// F — ARISE/OUTPOUR Creator Co-Pilot: gates inert-until-confirmed suggestions. Nothing auto-publishes.
+    @Published private(set) var testimonyCopilotEnabled: Bool = false
+    /// G — Agentic primitives (contracts-only Wave 0). Grades/scores internal-only; auto-mode CSAM/grooming always human-gated.
+    @Published private(set) var bereanAmbientTeammateEnabled: Bool = false
+    @Published private(set) var bereanMentionInvokeEnabled: Bool = false
+    @Published private(set) var bereanSubagentMeshEnabled: Bool = false
+    @Published private(set) var bereanOutcomeGraderEnabled: Bool = false
+    @Published private(set) var bereanPlanModeEnabled: Bool = false
+    @Published private(set) var autoModeRiskClassifierEnabled: Bool = false
+    @Published private(set) var bereanSkillRegistryEnabled: Bool = false
+    @Published private(set) var userCreatedAgentsEnabled: Bool = false
+
     // MARK: - System 44: Creator Spotlight (public page + Studio)
     // All default OFF, fail-closed. Extends Creator Profiles — no parallel profile model.
     // Wave 0 contracts: AMENAPP/Creator/CreatorSpotlightContracts.swift
@@ -1218,6 +1250,24 @@ final class AMENFeatureFlags: ObservableObject {
 
     private func buildDefaults() -> [String: NSObject] {
         [
+            // Borrow & Smarten (System 45) — all OFF, fail-closed. Child-safety hash is unconditional (no key).
+            "guardian_pre_publish_enabled": false as NSObject,
+            "post_account_provenance_resolution_enabled": false as NSObject,
+            "authenticity_first_capture_enabled": false as NSObject,
+            "hey_feed_steering_enabled": false as NSObject,
+            "berean_agent_mesh_enabled": false as NSObject,
+            "compass_steering_enabled": false as NSObject,
+            "compass_anti_farming_enabled": false as NSObject,
+            "compass_activity_discovery_enabled": false as NSObject,
+            "testimony_copilot_enabled": false as NSObject,
+            "berean_ambient_teammate_enabled": false as NSObject,
+            "berean_mention_invoke_enabled": false as NSObject,
+            "berean_subagent_mesh_enabled": false as NSObject,
+            "berean_outcome_grader_enabled": false as NSObject,
+            "berean_plan_mode_enabled": false as NSObject,
+            "auto_mode_risk_classifier_enabled": false as NSObject,
+            "berean_skill_registry_enabled": false as NSObject,
+            "user_created_agents_enabled": false as NSObject,
             // Trust, Transparency & Human-Flourishing OS — all OFF (Wave 0, §4b)
             "trust_ai_receipt_enabled": false as NSObject,
             "trust_uncertainty_mode_enabled": false as NSObject,
@@ -2012,6 +2062,25 @@ final class AMENFeatureFlags: ObservableObject {
     }
 
     private func applyRemoteConfig(_ config: RemoteConfig) {
+        // Borrow & Smarten (System 45) — all OFF, fail-closed. Child-safety hash reads no flag.
+        guardianPrePublishEnabled = config["guardian_pre_publish_enabled"].boolValue
+        postAccountProvenanceResolutionEnabled = config["post_account_provenance_resolution_enabled"].boolValue
+        authenticityFirstCaptureEnabled = config["authenticity_first_capture_enabled"].boolValue
+        heyFeedSteeringEnabled = config["hey_feed_steering_enabled"].boolValue
+        bereanAgentMesh = config["berean_agent_mesh_enabled"].boolValue
+        compassSteeringEnabled = config["compass_steering_enabled"].boolValue
+        compassAntiFarmingEnabled = config["compass_anti_farming_enabled"].boolValue
+        compassActivityDiscoveryEnabled = config["compass_activity_discovery_enabled"].boolValue
+        testimonyCopilotEnabled = config["testimony_copilot_enabled"].boolValue
+        bereanAmbientTeammateEnabled = config["berean_ambient_teammate_enabled"].boolValue
+        bereanMentionInvokeEnabled = config["berean_mention_invoke_enabled"].boolValue
+        bereanSubagentMeshEnabled = config["berean_subagent_mesh_enabled"].boolValue
+        bereanOutcomeGraderEnabled = config["berean_outcome_grader_enabled"].boolValue
+        bereanPlanModeEnabled = config["berean_plan_mode_enabled"].boolValue
+        autoModeRiskClassifierEnabled = config["auto_mode_risk_classifier_enabled"].boolValue
+        bereanSkillRegistryEnabled = config["berean_skill_registry_enabled"].boolValue
+        userCreatedAgentsEnabled = config["user_created_agents_enabled"].boolValue
+
         // Trust, Transparency & Human-Flourishing OS (Wave 0, §4b)
         aiReceiptEnabled = config["trust_ai_receipt_enabled"].boolValue
         uncertaintyModeEnabled = config["trust_uncertainty_mode_enabled"].boolValue
