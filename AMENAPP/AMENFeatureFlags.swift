@@ -2974,3 +2974,63 @@ extension AMENFeatureFlags {
     nonisolated static var ctx_volunteer_needs_posting_enabled: Bool { false }
     nonisolated static var ctx_group_formation_analytics_enabled: Bool { false }
 }
+
+// MARK: - AMENFeatureFlagGovernance (Wave 5: invariant 6)
+//
+// Fail-closed sign-off gate for safety-critical flags. Mirrors the canonical
+// registry in Backend/functions/src/governance/flagRegistry.ts. A safety-critical
+// flag is forced OFF unless a complete sign-off is recorded here AND Remote Config
+// enables it — both are required; neither alone turns the capability on.
+//
+// To enable a safety-critical flag, a human replaces `nil` with a complete
+// AMENFlagSignOff in a reviewed commit. CSAM-class gates additionally require a
+// non-engineer reviewer.
+
+struct AMENFlagSignOff {
+    let approver: String
+    let approvedAtISO: String
+    let basis: String
+    let nonEngineerReviewer: Bool
+}
+
+enum AMENFeatureFlagGovernance {
+    /// Safety-critical flag keys → recorded sign-off (nil ⇒ cannot be enabled).
+    static let safetyCriticalSignOffs: [String: AMENFlagSignOff?] = [
+        "csam_hash_scan_enabled": nil,
+        "connect_live_rooms_enabled": nil,
+        "connect_family_dashboard_enabled": nil,
+        "connect_kids_facial_verification": nil,
+        "berean_crisis_followup_sync_enabled": nil,
+        "moderation_auto_enforcement_enabled": nil,
+    ]
+
+    /// CSAM-class gates additionally require a non-engineer reviewer in the sign-off.
+    static let csamClassFlags: Set<String> = [
+        "csam_hash_scan_enabled",
+        "connect_kids_facial_verification",
+    ]
+
+    static func isSafetyCritical(_ key: String) -> Bool {
+        safetyCriticalSignOffs.keys.contains(key)
+    }
+
+    /// Fail-closed: true only when a complete sign-off exists (and, for CSAM-class
+    /// flags, a non-engineer reviewer signed off).
+    static func canEnable(_ key: String) -> Bool {
+        guard isSafetyCritical(key) else { return true }
+        guard let signOff = safetyCriticalSignOffs[key] ?? nil else { return false }
+        if signOff.approver.isEmpty || signOff.approvedAtISO.isEmpty || signOff.basis.isEmpty {
+            return false
+        }
+        if csamClassFlags.contains(key) && !signOff.nonEngineerReviewer {
+            return false
+        }
+        return true
+    }
+
+    /// Effective enabled state: a safety-critical flag is forced OFF unless it can
+    /// be enabled, regardless of the Remote Config value.
+    static func effectiveEnabled(_ key: String, remoteConfigValue: Bool) -> Bool {
+        canEnable(key) && remoteConfigValue
+    }
+}

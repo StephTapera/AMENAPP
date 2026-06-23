@@ -47,6 +47,31 @@ const DENYLISTED_KEYS: ReadonlySet<string> = new Set([
   "phonenumber", "phonenumbers", "address", "mailingaddress",
 ]);
 
+// ─── Governance Wave 4 — Invariant 4 red lines (defense-in-depth) ───────────────
+//
+// crisis_data_export + spiritual_surveillance + spiritual_scoring are RED LINES.
+// Crisis-path data and any spiritual-performance metric must never leave the
+// account in a portable file. Keys are precise (scoring/surveillance field names,
+// not topic words like "prayer") to avoid false positives on legitimate facets.
+
+/** Crisis-path data is sacred — never exportable (RED LINE: crisis_data_export). */
+const CRISIS_DATA_KEYS: ReadonlySet<string> = new Set([
+  "crisissessionevents", "crisissessionevent", "crisisfollowups", "crisisfollowup",
+  "crisisalertlogs", "crisisalertlog", "safetyplan", "crisissafetyplan",
+  "selfharmflag", "selfharmrisk", "suicidalrisk", "suicideideation",
+  "crisisrisk", "crisisscore", "crisisstate", "crisistriage", "trustedcontacts",
+]);
+
+/** Spiritual-performance metrics are never computed/rendered/exported
+ *  (RED LINES: spiritual_surveillance, spiritual_scoring). */
+const SPIRITUAL_SURVEILLANCE_KEYS: ReadonlySet<string> = new Set([
+  "prayerfrequency", "prayerstreak", "prayercount", "givingamount", "givingtotal",
+  "titheamount", "attendancestreak", "attendancerate", "attendancecount",
+  "pietyscore", "faithfulnessscore", "faithfulnessrank", "doctrinalsoundness",
+  "doctrinalsoundnessscore", "spiritualgrowthscore", "sanctificationscore",
+  "holinessscore", "devotionscore", "spiritualscore", "spiritualrank",
+]);
+
 // ─── Denylisted value patterns ──────────────────────────────────────────────────
 
 const EMAIL_RE = /[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i;
@@ -129,6 +154,14 @@ function walk(node: unknown, path: string, out: string[], seen: WeakSet<object>)
       if (DENYLISTED_KEYS.has(normalized)) {
         out.push(`${path}.${key}: denylisted key "${key}" (content/contacts are never exportable)`);
         // Don't descend into a denylisted subtree — the key itself is the violation.
+        continue;
+      }
+      if (CRISIS_DATA_KEYS.has(normalized)) {
+        out.push(`${path}.${key}: crisis-path data "${key}" (RED LINE crisis_data_export — never leaves the account)`);
+        continue;
+      }
+      if (SPIRITUAL_SURVEILLANCE_KEYS.has(normalized)) {
+        out.push(`${path}.${key}: spiritual-performance metric "${key}" (RED LINE spiritual_surveillance/scoring — never computed or exported)`);
         continue;
       }
       walk(value, `${path}.${key}`, out, seen);
