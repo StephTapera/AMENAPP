@@ -1,6 +1,7 @@
 import { genkit, z } from 'genkit';
 import { googleAI, gemini20FlashExp } from '@genkit-ai/googleai';
 import express from 'express';
+import { GOVERNED_SYSTEM_PROMPT, governed } from '../governed-prompt';
 
 // Initialize Genkit with Google AI
 const ai = genkit({
@@ -12,9 +13,10 @@ const ai = genkit({
   model: gemini20FlashExp,
 });
 
-const SYSTEM_PROMPT = `You are a Biblical AI assistant for the AMEN app. 
-Help users understand Scripture with accuracy, compassion, and wisdom.
-Always cite Scripture references and be encouraging.`;
+// Governance (G-3): the prior hard-coded three-line prompt was ungoverned.
+// Every theological flow below now routes its instruction through `governed()`
+// so it emits under the canonical clauses mirrored in ../governed-prompt.ts.
+const SYSTEM_PROMPT = GOVERNED_SYSTEM_PROMPT;
 
 // ============================================================================
 // FLOW 1: Bible Chat
@@ -71,7 +73,7 @@ export const generateDevotional = ai.defineFlow(
       ? `Create a daily devotional on "${topic}". Include: title, scripture reference with full text, 2-3 paragraphs of reflection, and a closing prayer. Format as JSON.`
       : `Create an inspiring daily devotional. Include: title, scripture reference with full text, 2-3 paragraphs of reflection, and a closing prayer. Format as JSON.`;
 
-    const result = await ai.generate({ prompt });
+    const result = await ai.generate({ prompt: governed(prompt) });
     const text = result.text;
     
     try {
@@ -113,7 +115,7 @@ export const generateStudyPlan = ai.defineFlow(
     const prompt = `Create a ${duration}-day Bible study plan on "${topic}". 
     For each day provide: title, scripture readings, key themes, and reflection questions.`;
 
-    const result = await ai.generate({ prompt });
+    const result = await ai.generate({ prompt: governed(prompt) });
 
     return {
       id: `plan_${Date.now()}`,
@@ -141,7 +143,7 @@ export const analyzeScripture = ai.defineFlow(
     const prompt = `Provide a ${analysisType} analysis of ${reference}. 
     Include historical context, cultural background, and theological significance.`;
 
-    const result = await ai.generate({ prompt });
+    const result = await ai.generate({ prompt: governed(prompt) });
     return { analysis: result.text };
   }
 );
@@ -164,7 +166,7 @@ export const generateMemoryAid = ai.defineFlow(
     const prompt = `Help memorize: "${verse}" (${reference}). 
     Provide: mnemonic device, word associations, visualization, chunking, and repetition pattern.`;
 
-    const result = await ai.generate({ prompt });
+    const result = await ai.generate({ prompt: governed(prompt) });
     return { techniques: result.text };
   }
 );
@@ -191,7 +193,7 @@ export const generateInsights = ai.defineFlow(
     const prompt = `Provide 5 biblical insights${topic ? ` about "${topic}"` : ''}. 
     For each: title, verse reference, 2-3 sentence explanation, SF Symbol icon name. Format as JSON array.`;
 
-    const result = await ai.generate({ prompt });
+    const result = await ai.generate({ prompt: governed(prompt) });
     
     try {
       const json = JSON.parse(result.text.match(/\[[\s\S]*\]/)?.[0] || '[]');
@@ -226,7 +228,7 @@ export const generateFunBibleFact = ai.defineFlow(
     const prompt = `Generate a fascinating Bible fact${category ? ` about ${category}` : ''}. 
     Make it historically accurate, interesting, and 2-3 sentences. Include biblical reference.`;
 
-    const result = await ai.generate({ prompt });
+    const result = await ai.generate({ prompt: governed(prompt) });
     return { fact: result.text };
   }
 );
@@ -249,7 +251,7 @@ export const generateSearchSuggestions = ai.defineFlow(
   async ({ query }) => {
     const prompt = `For search query "${query}": provide 5 search suggestions and 5 related biblical topics. Format as JSON.`;
 
-    const result = await ai.generate({ prompt });
+    const result = await ai.generate({ prompt: governed(prompt) });
     
     try {
       const json = JSON.parse(result.text.match(/\{[\s\S]*\}/)?.[0] || '{}');
@@ -286,7 +288,7 @@ export const enhanceBiblicalSearch = ai.defineFlow(
   async ({ query, type }) => {
     const prompt = `For ${type} "${query}": provide summary, key verses, related people, and fun facts. Format as JSON.`;
 
-    const result = await ai.generate({ prompt });
+    const result = await ai.generate({ prompt: governed(prompt) });
     
     try {
       const json = JSON.parse(result.text.match(/\{[\s\S]*\}/)?.[0] || '{}');
@@ -319,7 +321,7 @@ export const suggestSearchFilters = ai.defineFlow(
   async ({ query }) => {
     const prompt = `For search "${query}": suggest helpful filters (Testament, Book, Theme, etc.) and explain why. Format as JSON.`;
 
-    const result = await ai.generate({ prompt });
+    const result = await ai.generate({ prompt: governed(prompt) });
     
     try {
       const json = JSON.parse(result.text.match(/\{[\s\S]*\}/)?.[0] || '{}');
