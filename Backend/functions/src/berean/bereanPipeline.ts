@@ -27,6 +27,8 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import * as crypto from "crypto";
 import { enforceRateLimit, RATE_LIMITS } from "../rateLimit";
+import { guardBereanEmission, OUTWARD_HANDOFF_TEXT } from "../governance/bereanGuardrail";
+import { DEFAULT_CONSTITUTION } from "./constitutionalConfig";
 
 // ─── Secrets ──────────────────────────────────────────────────────────────────
 
@@ -1007,6 +1009,24 @@ async function stageFinalResponse(
   const db = admin.firestore();
   const latencyMs = Date.now() - state.startMs;
 
+  // ── Governance guardrail (Wave 2: invariants 2, 3, 7) ──────────────────────
+  // Every Berean mode routes its candidate through the Companion Boundary +
+  // conformance verdict before emission. Fail-closed: a parasocial/idolatry
+  // violation forces an OUTWARD handoff (never "keep talking to me").
+  const guardrail = guardBereanEmission({
+    text: finalText,
+    citations: [], // verse-level grounding is enforced upstream (scripture review)
+    reviewPassed: state.reviewVerdict?.passed ?? false,
+    degraded: state.reviewVerdict?.degraded ?? true,
+    constitutionVersion: DEFAULT_CONSTITUTION.version,
+    prohibitedPhrases: DEFAULT_CONSTITUTION.companionBoundary?.prohibitedPhrases,
+    reviewFlags: state.reviewVerdict?.flags ?? [],
+  });
+  let answerText = finalText;
+  if (guardrail.mustHandoffOutward && !answerText.includes(OUTWARD_HANDOFF_TEXT)) {
+    answerText = `${answerText}\n\n${OUTWARD_HANDOFF_TEXT}`;
+  }
+
   // Build assumptions list.
   const assumptions: string[] = [];
   if (!state.evidenceChunks.some((c) => c.sourceType === "scripture")) {
@@ -1060,6 +1080,11 @@ async function stageFinalResponse(
         queryLength: state.query.query.length,
         hasGuardianHook: state.hasGuardianHook,
         evidenceChunkCount: state.evidenceChunks.length,
+        // Governance verdicts (invariants 2, 3, 7) — recorded for audit.
+        governanceVerdicts: guardrail.verdicts,
+        companionBoundaryViolations: guardrail.companion.violations,
+        outwardHandoffApplied: guardrail.mustHandoffOutward,
+        constitutionVersion: DEFAULT_CONSTITUTION.version,
         updatedAt: FieldValue.serverTimestamp(),
       });
   } catch (err) {
@@ -1072,7 +1097,7 @@ async function stageFinalResponse(
   }
 
   return {
-    answer: finalText,
+    answer: answerText,
     evidence: state.evidenceChunks,
     assumptions,
     unknowns,
