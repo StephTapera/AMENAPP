@@ -1,5 +1,6 @@
 import { genkit, z } from 'genkit';
 import { googleAI, gemini20FlashExp } from '@genkit-ai/googleai';
+import { GOVERNED_SYSTEM_PROMPT } from './governed-prompt';
 
 const ai = genkit({
   plugins: [
@@ -10,9 +11,10 @@ const ai = genkit({
   model: gemini20FlashExp,
 });
 
-const SYSTEM_PROMPT = `You are a Biblical AI assistant for the AMEN app. 
-Help users understand Scripture with accuracy, compassion, and wisdom.
-Always cite Scripture references and be encouraging.`;
+// Governance (G-3): the prior hard-coded three-line prompt was ungoverned.
+// Berean now emits under the canonical clauses (grounding / Companion Boundary /
+// epistemic honesty) mirrored in ./governed-prompt.ts.
+const SYSTEM_PROMPT = GOVERNED_SYSTEM_PROMPT;
 
 export const bibleChat = ai.defineFlow(
   {
