@@ -13,7 +13,7 @@ All new files are pure additions — `git diff --stat HEAD` on every shared file
 
 | Feature | New files | Flag (OFF) | Verifier |
 |---|---|---|---|
-| C GUARDIAN PrePublish | `guardianPrePublish.ts`(+test), `GuardianPrePublishContracts.swift`, `PrePublishHooks.swift` | `guardian_pre_publish_enabled` | PASS_WITH_NOTES |
+| C GUARDIAN PrePublish | `guardianPrePublish.ts`(+test), `GuardianPrePublishContracts.swift`, `PrePublishHooks.swift`, `GuardianPrePublishGate.swift` (seam), `audit/CWAVE5_WIRING.md` (call-site insertions) | `guardian_pre_publish_enabled` | PASS_WITH_NOTES |
 | D Provenance | `postProvenance.ts`(+test), `PostProvenanceReceiptContracts.swift` | `post_account_provenance_resolution_enabled` | PASS_WITH_NOTES |
 | A HeyFeed v2 | `heyFeedSteering.ts`(+test), `HeyFeedSteeringContracts/SafetyFloorEngine/SteeringComposer.swift`, `HeyFeedSteeringContractTests.swift` | `hey_feed_steering_enabled` | PASS_WITH_NOTES |
 | B Berean Mesh | `agentMeshContracts.ts`, `evalSuites/companionBoundary.ts`, `AgentMesh/{BereanAgentMeshContracts,AgentMeshRouter,CompanionBoundaryEnforcer}.swift` | `berean_agent_mesh_enabled` | FAIL→see §6 (flag-not-wired only; now wired) |
@@ -55,11 +55,19 @@ On a **quiet tree** (no other agents building) that has COMPASS + TestimonyKit:
 
 These touch peer-held shared-hot files and were intentionally **not** applied. Apply with temp-index + path-scoped patch discipline (diff-stat tripwire "N insertions, 0 deletions"); never `git add -A`.
 
-- **C Wave 5 (load-bearing):** inject `HookChain.run(...)` immediately before the Firestore commit at: `CommentModerationService.moderate()` (pre Stage-1), `MessageSafetyGateway.evaluate()` / `MediaSafetyGateway` pre-upload, the post-composer commit, and `PrayerRoomModerationEngine.persistApprovedPrayerCaption()`. On `!mayCommit`: block write + write `PrePublishEscalationRecord` to `/moderationQueue`. **PP-I1 is only enforced once this lands.**
+- **C Wave 5 (load-bearing):** the run+escalate seam now exists on-branch as
+  `AMENAPP/AIIntelligence/GuardianPrePublishGate.swift` (`GuardianPrePublishGate.shared.gate(...)`
+  runs `HookChain.standard()` and writes `PrePublishEscalationRecord` to `/moderationQueue` on
+  `!mayCommit`). **Five ready-to-apply call-site insertions are in `audit/CWAVE5_WIRING.md`**, anchored
+  to `feature/liquid-glass-hero`: `CommentModerationService.moderate()` (top, pre flag-guard),
+  `MessageSafetyGateway.evaluate()` (step 0, guard surface), `MediaSafetyGateway.evaluate()` (raw bytes
+  → hook 0), the `CreatePostView` post-composer commit, and
+  `PrayerRoomModerationEngine.persistApprovedPrayerCaption()`. Apply with temp-index + path-scoped
+  patch (these five files are peer-hot). **PP-I1 is only enforced once these five land.**
 - **A Wave 1/2:** call `SafetyFloorEngine.gate()` as a pre-rank filter inside `HeyFeedAlgorithm` (runs even when `hey_feed_steering_enabled` is OFF — floor is always-on), then add the `userSteering` delta via `SteeringComposer.compose()`. Wire a real `childSafety`/`csam` signal source into `SafetyFloorTable.category(for:)` before Wave-1 enforcement (v1 `SafetyRiskReason` lacks those cases).
 - **B Wave 2:** in `BereanConstitutionalPipeline`, fan each persona invocation through the existing `callConstitutionalPipeline` (additive; no signature change).
 - **E:** set `integrityPenalty`/`originality` on `COMPASSCandidate` from `AntiFarmScorer`; gate amplification only.
-- **F:** export `generateTestimonyCopilotSuggestions` from `Backend/functions/src/index.ts`; the orchestrator stages 1-4 are **TODO stubs** — implement real transcription/OCR/extraction/caption-gen before flip (currently advances state only).
+- **F:** export `generateTestimonyCopilotSuggestions` from `Backend/functions/src/index.ts`. The orchestrator stages 1-4 are **deliberately left as stubs** (currently advances state only). They are **NOT a safe agent gap-close**: stage-3 extraction and stage-4 caption/discussion-question generation are model fan-out, which §6 blocks on **Anthropic credential rotation**. Implement them only on the human path, after rotation, reusing the existing `transcribeMedia` / `generateSubtitleTrack` CF outputs by reference (read their Firestore outputs; do not re-implement speech-to-text or subtitling). Until then the job correctly parks at `creatorReview` and **nothing auto-publishes** (CP-I1).
 
 ---
 
