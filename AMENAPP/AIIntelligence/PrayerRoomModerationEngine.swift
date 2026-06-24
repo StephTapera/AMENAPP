@@ -85,6 +85,21 @@ final class PrayerRoomModerationEngine {
         targetLanguage: BereanSupportedLanguage? = nil,
         isFinal: Bool = true
     ) async throws {
+        // ── C-Wave-5: GUARDIAN pre-publish gate (PP-I1). Caption text is screened before
+        //    it is persisted. A non-committable verdict throws (escalation already queued).
+        let guardianVerdict = await GuardianPrePublishGate.shared.gate(
+            surface: .note,
+            contentRef: sessionId,
+            text: text
+        )
+        guard guardianVerdict.mayCommit else {
+            throw NSError(
+                domain: "GuardianPrePublish",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Caption held by safety review"]
+            )
+        }
+
         let requiresCheck = ScriptureReferenceValidator.requiresVerification(text)
 
         // Determine initial scripture verification status and extract references.

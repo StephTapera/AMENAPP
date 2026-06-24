@@ -4789,6 +4789,24 @@ struct CreatePostView: View {
                 postData["moderationStatus"] = "pending"
                 postData["clientSafetyVersion"] = 1
 
+                // ── C-Wave-5: GUARDIAN pre-publish gate (PP-I1). Text + scripture-claim +
+                //    provenance label. Post image bytes are screened on upload / by the
+                //    server onCreate trigger, so this seam gates text (hasMedia: false).
+                let guardianVerdict = await GuardianPrePublishGate.shared.gate(
+                    surface: .post,
+                    contentRef: postId.uuidString,
+                    text: content,
+                    hasMedia: false
+                )
+                if !guardianVerdict.mayCommit {
+                    await MainActor.run {
+                        isPublishing = false
+                        inFlightPostId = nil
+                        notifyPostingFailed()
+                    }
+                    return
+                }
+
                 // P0-4 FIX: Check if post already exists (idempotency)
                 dlog("   🔍 Checking for existing post (idempotency)...")
                 let existingPost = try? await FirebaseManager.shared.firestore

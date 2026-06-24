@@ -172,6 +172,23 @@ final class MessageSafetyGateway {
         minorPolicy: MinorSafetyPolicy? = nil
     ) async -> GatewayDecision {
 
+        // ── C-Wave-5: GUARDIAN pre-publish gate (PP-I1). DM is a guard surface, so the
+        //    chain fails closed on provider uncertainty. A non-committable verdict blocks
+        //    the message before it is written. (GatewayDecision has no hold tier, so a
+        //    hold is treated as a block here — the guard-surface-correct choice.)
+        let guardianVerdict = await GuardianPrePublishGate.shared.gate(
+            surface: .dm,
+            contentRef: messageId,
+            text: text
+        )
+        if !guardianVerdict.mayCommit {
+            return .blockAndStrike(
+                signals: [],
+                riskScore: 1.0,
+                strikeReason: "Message held by safety review"
+            )
+        }
+
         // 0. Minor safety hard blocks — enforced before classifier runs
         if let policy = minorPolicy, !policy.canSendDM {
             return .blockAndStrike(

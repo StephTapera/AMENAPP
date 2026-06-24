@@ -1,8 +1,14 @@
-# C-Wave-5 — GUARDIAN PrePublish wiring (HUMAN-APPLY, load-bearing)
+# C-Wave-5 — GUARDIAN PrePublish wiring (load-bearing)
+
+> **STATUS (2026-06-24):** all five insertions below are now **APPLIED on `feature/borrow-smarten-allwaves`**
+> (the call-site files exist on this branch's `main`-based substrate). What remains is HUMAN-ONLY:
+> (1) build-verify on a quiet tree; (2) when rebasing onto the COMPASS+TestimonyKit integration tree,
+> re-anchor these five hunks if the call-site files diverged (peer churn). This doc doubles as the
+> conflict-resolution reference for that rebase. Nothing is deployed; flags stay OFF.
 
 **Feature C · invariant PP-I1.** Until these five insertions land, the GUARDIAN hook chain
 is built but unreached, so PP-I1 ("every write path routes through the chain before commit")
-is *not* enforced. This guide is the ready-to-apply form of `DEPLOY_RUNBOOK.md §3 → C Wave 5`.
+is *not* enforced. This guide is the applied + ready-to-re-apply form of `DEPLOY_RUNBOOK.md §3 → C Wave 5`.
 
 ## What's already on the branch (no call-site edits)
 - `AMENAPP/AIIntelligence/GuardianPrePublishContracts.swift` — `HookChain`, surfaces, verdicts, escalation.

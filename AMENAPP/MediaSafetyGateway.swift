@@ -120,6 +120,28 @@ final class MediaSafetyGateway: MediaSafetyEvaluating {
             return throttleDecision
         }
 
+        // ── C-Wave-5: GUARDIAN pre-publish gate (PP-I1). Hook 0 hashes the raw bytes;
+        //    a hash match fails closed and routes to /moderationQueue type 'csam'.
+        if let bytes = image.jpegData(compressionQuality: 0.9) {
+            let guardianVerdict = await GuardianPrePublishGate.shared.gate(
+                surface: .mediaCaption,
+                contentRef: conversationId,
+                imageData: bytes,
+                hasMedia: true
+            )
+            if !guardianVerdict.mayCommit {
+                let isCSAM = guardianVerdict.verdicts.contains {
+                    $0.hook == .childSafetyHash && $0.reason == .hashMatch
+                }
+                return isCSAM
+                    ? .freeze(reason: "Media blocked by safety review")
+                    : .reject(reason: "Media blocked by safety review")
+            }
+        } else {
+            // No decodable bytes for a media-bearing send => cannot hash => fail closed.
+            return .reject(reason: "Media could not be verified")
+        }
+
         // 4. On-device pre-screen (fast, no network)
         let onDeviceResult = onDevicePreScreen(image: image)
         switch onDeviceResult {

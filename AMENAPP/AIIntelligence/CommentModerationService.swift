@@ -131,6 +131,28 @@ final class CommentModerationService: ObservableObject {
     func moderate(commentId: String, body: String) async -> CommentModerationResult {
         let now = Date().timeIntervalSince1970
 
+        // ── C-Wave-5: GUARDIAN pre-publish gate (PP-I1). Runs regardless of the comment
+        //    pipeline flag; hook 0 (child-safety) always enforces, hooks 1–3 obey the
+        //    guardian flag. A non-committable verdict blocks the comment write.
+        let guardianVerdict = await GuardianPrePublishGate.shared.gate(
+            surface: .comment,
+            contentRef: commentId,
+            text: body
+        )
+        if !guardianVerdict.mayCommit {
+            return CommentModerationResult(
+                id: UUID().uuidString,
+                targetId: commentId,
+                targetType: "comment",
+                status: .blocked,
+                category: .childSafety,
+                confidence: 1.0,
+                source: .onDevice,
+                reviewedAt: now,
+                reviewedBy: nil
+            )
+        }
+
         // Feature flag guard — when OFF, preserve existing behavior
         guard AMENFeatureFlags.shared.commentModerationPipelineEnabled else {
             return CommentModerationResult(
