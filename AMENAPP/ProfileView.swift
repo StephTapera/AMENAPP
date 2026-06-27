@@ -3203,6 +3203,35 @@ struct ProfileReplyCard: View {
 
 
 
+// MARK: - Edit Profile — Liquid Glass field surface
+
+/// iOS 27 Liquid Glass surface for Edit Profile form fields. Uses the same
+/// `.regularMaterial` + hairline gradient-stroke vocabulary as
+/// `ProfilePhotoEditView`, so every field reads as one cohesive glass system.
+/// File-private to avoid colliding with the global `glassEffect` shim.
+private extension View {
+    func amenEditFieldSurface(error: Bool = false, cornerRadius: CGFloat = 14) -> some View {
+        self
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        error
+                            ? AnyShapeStyle(Color.red.opacity(0.55))
+                            : AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.5), Color.white.opacity(0.08)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            ),
+                        lineWidth: error ? 1.5 : 1
+                    )
+            )
+            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+    }
+}
+
 // MARK: - Edit Profile View
 
 struct EditProfileView: View {
@@ -3474,11 +3503,8 @@ struct EditProfileView: View {
             
             TextField("Your name", text: $name)
                 .font(AMENFont.regular(15))
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(nameError != nil ? Color.red : Color.black.opacity(0.1), lineWidth: nameError != nil ? 2 : 1)
-                )
+                .padding(14)
+                .amenEditFieldSurface(error: nameError != nil)
                 .onChange(of: name) { oldValue, newValue in
                     hasChanges = true
                     validateName(newValue)
@@ -3515,18 +3541,18 @@ struct EditProfileView: View {
                 Text(username)
                     .font(AMENFont.regular(15))
                     .foregroundStyle(.secondary)
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "lock.fill")
+                    .font(.systemScaled(11))
+                    .foregroundStyle(.tertiary)
             }
-            .padding(12)
+            .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.black.opacity(0.03))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
-            )
-            
+            .amenEditFieldSurface()
+            .opacity(0.9)
+
             Text("To change your username, go to Account Settings")
                 .font(AMENFont.regular(12))
                 .foregroundStyle(.secondary)
@@ -3580,11 +3606,8 @@ struct EditProfileView: View {
                             validateBio(newValue)
                         }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(bioError != nil ? Color.red : Color.black.opacity(0.1), lineWidth: bioError != nil ? 2 : 1)
-                )
-                
+                .amenEditFieldSurface(error: bioError != nil)
+
                 // Error message
                 if let error = bioError {
                     HStack(spacing: 4) {
@@ -3661,12 +3684,9 @@ struct EditProfileView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(bioURLError != nil ? Color.red : Color.black.opacity(0.1), lineWidth: bioURLError != nil ? 2 : 1)
-            )
-            
+            .padding(.vertical, 14)
+            .amenEditFieldSurface(error: bioURLError != nil)
+
             // Smart URL helper text or error
             if let error = bioURLError {
                 HStack(spacing: 4) {
@@ -3796,9 +3816,12 @@ struct EditProfileView: View {
                                 }
                             }
                             .foregroundStyle(.primary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Capsule().fill(Color(.systemGray6)))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(.regularMaterial, in: Capsule())
+                            .overlay(
+                                Capsule().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.75)
+                            )
                         }
                     }
                 }
@@ -3862,10 +3885,7 @@ struct EditProfileView: View {
                             Spacer()
                         }
                         .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                        )
+                        .amenEditFieldSurface()
                     }
                 }
             }
@@ -3879,9 +3899,11 @@ struct EditProfileView: View {
                     }
                 }
         }
-        .sheet(isPresented: $showImagePicker) {
-            ProfileImagePicker(profileData: $profileData)
-        }
+        // NOTE: The avatar photo flow is presented by the single
+        // `.sheet(isPresented: $showImagePicker)` on the NavigationStack content,
+        // which shows the rich Liquid Glass `ProfilePhotoEditView`. A second
+        // `.sheet` bound to the same state used to live here and shadowed it with
+        // the legacy bare `ProfileImagePicker` — removed so the glass picker wins.
     }
     
     // MARK: - Avatar Section
@@ -3928,14 +3950,42 @@ struct EditProfileView: View {
     }
     
     private var avatarCircle: some View {
-        Circle()
-            .fill(Color.black)
-            .frame(width: 100, height: 100)
-            .overlay(
-                Text(profileData.initials)
+        let initials = profileData.initials.trimmingCharacters(in: .whitespaces)
+        return ZStack {
+            if initials.isEmpty {
+                // Glass placeholder — no more solid-black blob when the name is empty.
+                Circle()
+                    .fill(.regularMaterial)
+                Image(systemName: "person.fill")
+                    .font(.systemScaled(40))
+                    .foregroundStyle(.secondary)
+            } else {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(white: 0.18), Color.black],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                Text(initials)
                     .font(AMENFont.bold(32))
                     .foregroundStyle(.white)
-            )
+            }
+        }
+        .frame(width: 100, height: 100)
+        .overlay(
+            Circle()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.5
+                )
+        )
+        .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
     }
     
     private var cameraButton: some View {
@@ -4383,10 +4433,11 @@ struct InterestChip: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(Color.black.opacity(0.08))
+        .background(.regularMaterial, in: Capsule())
+        .overlay(
+            Capsule().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.75)
         )
+        .shadow(color: .black.opacity(0.04), radius: 4, y: 1)
     }
 }
 
