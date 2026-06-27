@@ -17,6 +17,9 @@ struct AmenSpacePaywallView: View {
     let onDismiss: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @StateObject private var storeKit = AmenStoreKitService.shared
+    @State private var isRestoring = false
+    @State private var restoreMessage: String?
 
     private var sortedTiers: [AmenSpaceSubscriptionTier] {
         tiers.filter { $0.isActive }.sorted { $0.order < $1.order }
@@ -36,6 +39,8 @@ struct AmenSpacePaywallView: View {
                                 onSelect: { onSelectTier(tier) }
                             )
                         }
+
+                        restoreSection
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 32)
@@ -46,6 +51,65 @@ struct AmenSpacePaywallView: View {
         .presentationDetents([.large])
         .onAppear {
             Analytics.logEvent("space_paywall_viewed", parameters: nil)
+        }
+        .task {
+            await storeKit.loadProducts(for: sortedTiers)
+        }
+    }
+
+    // MARK: - Restore
+
+    private var restoreSection: some View {
+        VStack(spacing: 8) {
+            Button(action: restorePurchases) {
+                HStack(spacing: 8) {
+                    if isRestoring {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "D9A441")))
+                    }
+                    Text(isRestoring ? "Restoring…" : "Restore Purchases")
+                        .font(.systemScaled(14, weight: .semibold))
+                }
+                .foregroundStyle(Color(hex: "D9A441"))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.white.opacity(0.06))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isRestoring || storeKit.isLoading)
+            .accessibilityLabel(isRestoring ? "Restoring purchases" : "Restore previous purchases")
+
+            if let restoreMessage {
+                Text(restoreMessage)
+                    .font(.systemScaled(12))
+                    .foregroundStyle(Color.white.opacity(0.55))
+                    .multilineTextAlignment(.center)
+                    .accessibilityLabel(restoreMessage)
+            }
+        }
+    }
+
+    private func restorePurchases() {
+        guard !isRestoring else { return }
+        isRestoring = true
+        restoreMessage = nil
+        Task {
+            await storeKit.restorePurchases()
+            isRestoring = false
+            if let purchaseError = storeKit.purchaseError {
+                restoreMessage = purchaseError
+            } else if storeKit.purchasedProductIds.isEmpty {
+                restoreMessage = "No active purchases were found for this Apple ID."
+            } else {
+                restoreMessage = "Purchases restored. Your membership access will refresh automatically."
+            }
         }
     }
 

@@ -173,6 +173,20 @@ final class AmenPlatformStoreKitService: ObservableObject {
         }
     }
 
+    // MARK: - Restore Purchases
+
+    /// Re-syncs App Store transactions and refreshes the server-backed account entitlement cache.
+    func restorePurchases() async throws {
+        do {
+            try await AppStore.sync()
+            await AmenAccountEntitlementService.shared.forceRefresh()
+            purchaseState = .idle
+        } catch {
+            purchaseState = .failed(error)
+            throw error
+        }
+    }
+
     // MARK: - StoreKit Verification Helper
 
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {

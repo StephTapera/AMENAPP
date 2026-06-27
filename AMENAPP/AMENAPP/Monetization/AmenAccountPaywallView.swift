@@ -24,7 +24,9 @@ struct AmenAccountPaywallView: View {
 
     @StateObject private var storeKit = AmenPlatformStoreKitService.shared
     @State private var isPurchasing = false
+    @State private var isRestoring = false
     @State private var purchaseError: String? = nil
+    @State private var restoreMessage: String? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -234,12 +236,37 @@ struct AmenAccountPaywallView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .disabled(isPurchasing)
+                .disabled(isPurchasing || isRestoring)
                 .accessibilityLabel(
                     isPurchasing
-                        ? "Processing purchase…"
+                        ? "Processing purchase"
                         : "Upgrade to \(requiredTier.displayName), \(requiredTier.monthlyPrice)"
                 )
+
+                Button(action: onRestorePurchases) {
+                    HStack(spacing: 8) {
+                        if isRestoring {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "D9A441")))
+                        }
+                        Text(isRestoring ? "Restoring…" : "Restore Purchases")
+                            .font(.systemScaled(14, weight: .semibold))
+                    }
+                    .foregroundStyle(Color(hex: "D9A441"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.white.opacity(0.04))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(Color(hex: "D9A441").opacity(0.35), lineWidth: 1)
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isPurchasing || isRestoring)
+                .accessibilityLabel(isRestoring ? "Restoring purchases" : "Restore previous purchases")
             }
 
             if let purchaseError {
@@ -249,6 +276,15 @@ struct AmenAccountPaywallView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 8)
                     .accessibilityLabel("Purchase error: \(purchaseError)")
+            }
+
+            if let restoreMessage {
+                Text(restoreMessage)
+                    .font(.systemScaled(13))
+                    .foregroundStyle(Color.white.opacity(0.65))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+                    .accessibilityLabel(restoreMessage)
             }
 
             // C-7: Apple App Store required auto-renewal disclosure (Guideline 3.1.2).
@@ -282,6 +318,7 @@ struct AmenAccountPaywallView: View {
         guard !isPurchasing else { return }
         isPurchasing = true
         purchaseError = nil
+        restoreMessage = nil
         Task {
             do {
                 try await storeKit.purchase(requiredTier)
@@ -289,6 +326,23 @@ struct AmenAccountPaywallView: View {
                 onDismiss()
             } catch {
                 isPurchasing = false
+                purchaseError = error.localizedDescription
+            }
+        }
+    }
+
+    private func onRestorePurchases() {
+        guard !isRestoring else { return }
+        isRestoring = true
+        purchaseError = nil
+        restoreMessage = nil
+        Task {
+            do {
+                try await storeKit.restorePurchases()
+                isRestoring = false
+                restoreMessage = "Purchases restored. If access does not update immediately, reopen AMEN."
+            } catch {
+                isRestoring = false
                 purchaseError = error.localizedDescription
             }
         }

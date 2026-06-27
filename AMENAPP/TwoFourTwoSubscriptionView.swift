@@ -27,7 +27,9 @@ struct TwoFourTwoSubscriptionView: View {
     // StoreKit state
     @State private var products: [Product] = []
     @State private var isPurchasing: AMENSubscriptionTier? = nil
+    @State private var isRestoring = false
     @State private var purchaseError: String?
+    @State private var restoreMessage: String?
     @State private var showPurchaseError = false
 
     private let tiers: [(AMENSubscriptionTier, String, [String])] = [
@@ -82,7 +84,11 @@ struct TwoFourTwoSubscriptionView: View {
                                 .animation(.spring(response: 0.5, dampingFraction: 0.75).delay(Double(index) * 0.08 + 0.15), value: appeared)
                             }
                         }
-                        .padding(.horizontal, 20).padding(.bottom, 40)
+                        .padding(.horizontal, 20).padding(.bottom, 16)
+
+                        restoreSection
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 40)
                     }
                 }
             }
@@ -106,6 +112,43 @@ struct TwoFourTwoSubscriptionView: View {
         return products.first(where: { $0.id == productID })?.displayPrice
     }
 
+    private var restoreSection: some View {
+        VStack(spacing: 8) {
+            Button(action: restorePurchases) {
+                HStack(spacing: 8) {
+                    if isRestoring {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: Color(red: 0.91, green: 0.69, blue: 0.26)))
+                    }
+                    Text(isRestoring ? "Restoring…" : "Restore Purchases")
+                        .font(.systemScaled(14, weight: .semibold, design: .rounded))
+                }
+                .foregroundColor(Color(red: 0.91, green: 0.69, blue: 0.26))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.white.opacity(0.06))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isRestoring || isPurchasing != nil)
+            .accessibilityLabel(isRestoring ? "Restoring purchases" : "Restore previous purchases")
+
+            if let restoreMessage {
+                Text(restoreMessage)
+                    .font(.systemScaled(12, design: .rounded))
+                    .foregroundColor(.white.opacity(0.55))
+                    .multilineTextAlignment(.center)
+                    .accessibilityLabel(restoreMessage)
+            }
+        }
+    }
+
     // MARK: - Actions
 
     private func handleSelect(tier: AMENSubscriptionTier) {
@@ -124,9 +167,8 @@ struct TwoFourTwoSubscriptionView: View {
                 return
             }
             guard let product = products.first(where: { $0.id == productID }) else {
-                // Products not yet loaded — set tier optimistically and load in background.
-                currentTier = tier
-                dismiss()
+                purchaseError = "Purchases are still loading. Please try again in a moment."
+                showPurchaseError = true
                 return
             }
             purchase(product, for: tier)
@@ -168,6 +210,43 @@ struct TwoFourTwoSubscriptionView: View {
                 await MainActor.run {
                     isPurchasing = nil
                     purchaseError = error.localizedDescription
+                    showPurchaseError = true
+                }
+            }
+        }
+    }
+
+    private func restorePurchases() {
+        guard !isRestoring else { return }
+        isRestoring = true
+        purchaseError = nil
+        restoreMessage = nil
+        Task {
+            do {
+                try await AppStore.sync()
+                var restoredTier: AMENSubscriptionTier?
+                for await result in Transaction.currentEntitlements {
+                    guard case .verified(let transaction) = result,
+                          transaction.revocationDate == nil,
+                          let tier = AMENSubscriptionTier.allCases.first(where: { $0.storeKitProductID == transaction.productID }) else {
+                        continue
+                    }
+                    restoredTier = tier
+                    break
+                }
+                await MainActor.run {
+                    isRestoring = false
+                    if let restoredTier {
+                        currentTier = restoredTier
+                        restoreMessage = "Restored \(restoredTier.displayName)."
+                    } else {
+                        restoreMessage = "No active purchases were found for this Apple ID."
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isRestoring = false
+                    purchaseError = "Could not restore purchases. \(error.localizedDescription)"
                     showPurchaseError = true
                 }
             }
