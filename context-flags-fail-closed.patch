@@ -1,0 +1,67 @@
+From 3fef620c7559587aec0b16e6920ef5f108d1dc1c Mon Sep 17 00:00:00 2001
+From: steph tapera <stephtapera@icloud.com>
+Date: Sat, 27 Jun 2026 03:59:46 -0500
+Subject: [PATCH] =?UTF-8?q?governance:=20enforce=20Context=20System=20lock?=
+ =?UTF-8?q?=20=E2=80=94=20fail-close=20untrusted-LLM=20flags?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+CONTEXT_SYSTEM_RELEASE_GATE.md (lock of record, finalized f0f344d2) requires
+context_universal_import_enabled and context_berean_interview_enabled to stay OFF
+until the on-device App-Check-valid live bait test passes. Commit b1eced4f
+("Enable Ambient OS and mark live", 01:51) swept both ON as blast radius — a
+fail-OPEN on the two untrusted-LLM-input paths (BereanMigrationService /
+ContextExtractionService guards + 4 UI entry points).
+
+Set both false in the stored-property defaults and the buildDefaults fallback so
+first-launch/offline/fetch-failure is fail-closed. Safe-surface flags
+(system/manual/matching/export/qr) left ON per the lock. No flag flipped ON; not a
+certification. Records the BLOCKED proof chain in CONTEXT_SYSTEM_CERTIFICATION_PROOF.md.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ AMENAPP/AMENFeatureFlags.swift | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/AMENAPP/AMENFeatureFlags.swift b/AMENAPP/AMENFeatureFlags.swift
+index ef6c6490..47387196 100644
+--- a/AMENAPP/AMENFeatureFlags.swift
++++ b/AMENAPP/AMENFeatureFlags.swift
+@@ -420,9 +420,13 @@ final class AMENFeatureFlags: ObservableObject {
+     /// Wave 1: manual facet entry + Identity Blueprint + Faith Journey Builder.
+     @Published private(set) var contextManualEntryEnabled: Bool = true
+     /// Wave 2: Berean Migration Interview (adaptive conversational onboarding).
+-    @Published private(set) var contextBereanInterviewEnabled: Bool = true
++    /// LOCKED OFF by CONTEXT_SYSTEM_RELEASE_GATE.md — untrusted-LLM-input path; stays OFF
++    /// until the on-device App-Check-valid live bait test passes (fail-closed default).
++    @Published private(set) var contextBereanInterviewEnabled: Bool = false
+     /// Wave 3: Universal Extractor (paste/upload) + Approval UI.
+-    @Published private(set) var contextUniversalImportEnabled: Bool = true
++    /// LOCKED OFF by CONTEXT_SYSTEM_RELEASE_GATE.md — untrusted-LLM-input path; stays OFF
++    /// until the on-device App-Check-valid live bait test passes (fail-closed default).
++    @Published private(set) var contextUniversalImportEnabled: Bool = false
+     /// Wave 4: feed initialization + Community DNA matching + introduction generation.
+     @Published private(set) var contextMatchingEnabled: Bool = true
+     /// Wave 5: .amen export + Personal Operating Manual + Life Capsule projections.
+@@ -1676,11 +1680,14 @@ final class AMENFeatureFlags: ObservableObject {
+             "spiritualOS_context_engine_enabled": true,
+             "spiritualOS_community_os_enabled": true,
+ 
+-            // Universal Migration & Context System — all default ON
++            // Universal Migration & Context System — safe surfaces default ON.
++            // The two untrusted-LLM-input paths are LOCKED OFF by CONTEXT_SYSTEM_RELEASE_GATE.md
++            // (fail-closed fallback): they stay OFF until the on-device App-Check-valid live
++            // bait test passes. Do not flip without the three certification proof artifacts.
+             "context_system_enabled": true,
+             "context_manual_entry_enabled": true,
+-            "context_berean_interview_enabled": true,
+-            "context_universal_import_enabled": true,
++            "context_berean_interview_enabled": false,
++            "context_universal_import_enabled": false,
+             "context_matching_enabled": true,
+             "context_export_enabled": true,
+             "context_qr_enabled": true,
+-- 
+2.54.0 (Apple Git-156)
+
