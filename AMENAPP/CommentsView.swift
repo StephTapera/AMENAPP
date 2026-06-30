@@ -1381,8 +1381,11 @@ struct CommentsView: View {
 
     var body: some View {
         mainStack
+            // Safe Interactive Comments lane activation. No-op while the lane flag
+            // is OFF (default), so this is a guaranteed zero behavioral diff.
+            .onAppear { AMENSafeInteractiveComments.activateIfEnabled() }
     }
-    
+
     // MARK: - Load Current User Data
     
     private func loadCurrentUserData() {
